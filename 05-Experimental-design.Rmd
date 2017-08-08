@@ -1,0 +1,54 @@
+# Experimental design
+
+So far, we've created code that will give us results for a single combination of parameter values. In practice, simulation studies typically examine a range of different values, including varying the level of the true parameter values and perhaps also varying sample sizes. Let's now look at the remaining piece of the simulation puzzle: the study's experimental design. 
+
+Simulation studies often take the form of __full factorial__ designed experiments. In full factorials, each factor is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of factors and levels. 
+
+For the Cronbach alpha simulation, we might want to vary 
+
+* the true value of alpha, with values ranging from 0.1 to 0.9;
+* the degrees of freedom of the multivariate t distribution, with values of 5, 10, 20, or 100;
+* the sample size, with values of 50 or 100; and
+* the number of items, with values of 4 or 8.
+
+Here is code that implements this design, using 500 replications per condition:
+```{r}
+set.seed(20170405)
+
+# now express the simulation parameters as vectors/lists
+
+design_factors <- list(
+  n = c(50, 100),
+  p = c(4, 8),
+  alpha = seq(0.1, 0.9, 0.1),
+  df = c(5, 10, 20, 100)
+)
+
+params <- expand.grid(design_factors)
+params$iterations <- 50
+params$seed <- round(runif(1) * 2^30) + 1:nrow(params)
+```
+
+This gives us a $`r paste(lengths(design_factors), collapse = "\\times")`$ factorial design:
+```{r}
+lengths(design_factors)
+```
+With a total of `r nrow(params)` cells.
+```{r}
+nrow(params)
+```
+
+The `params` data frame is a representation of the full experimental design:
+```{r}
+head(params)
+```
+
+## Choosing parameter combinations
+
+We've now seen how to create a set of experimental conditions, but how do we go about choosing parameter values to examine? Choosing parameters is a central part of good simulation design because the primary limitation of simulation studies is always their _generalizability_. On the one hand, it's difficult to extrapolate findings from a simulation study beyond the set of simulation conditions that were examined. On the other hand, it's often difficult or impossible to examine the full space of all possible parameter values, except for very simple problems. Even in the Cronbach alpha simulation, we've got four factors, and the last three could each take an infinite number of different levels, in theory. How can we come up with a defensible set of levels to examine?
+
+The choice of simulation conditions needs to be made in the context of the problem or model that you're studying, so it's a bit difficult to offer valid, decontextualized advice. I'll offer a couple of observations all the same:
+
+1. For research simulations, it often is important to be able to relate your findings to previous research. This suggests that you should select parameter levels to make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (actually, there's a lot of really crummy ones out there!), and so this shouldn't be your sole guide or justification.
+2. Generally, I think it is better to err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation.
+3. I also think it is important to explore breakdown points (e.g., what sample size is too small for a method to work?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.

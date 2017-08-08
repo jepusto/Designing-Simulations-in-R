@@ -1,0 +1,483 @@
+# Putting the pieces together
+
+Earlier, I suggested that we can think of simulation studies as having five main components:
+
+```{r, message = FALSE, echo = FALSE, fig.width = 8, fig.height = 4}
+library(dplyr)
+library(diagram)
+par(mar = c(0.1, 0.1, 0.1, 0.1))
+openplotmat()
+elpos <- coordinates(c(2,1,2))
+fromto <- matrix(ncol = 2, byrow = TRUE,
+                 data = c(4, 1, 1, 2, 2, 3, 3, 5))
+nr <- nrow(fromto)
+arrpos <- matrix(ncol = 2, nrow = nr)
+for (i in 1:nr) {
+ arrpos[i, ] <- straightarrow(from = elpos[fromto[i, 1], ],
+                               to = elpos[fromto[i, 2], ],
+                               lwd = 2, arr.pos = 0.6, arr.length = 0.5) 
+}
+ 
+box_dat <- data_frame(lab = c("Data-generating model",
+                              "Estimation methods",
+                              "Performance summaries",
+                              "Experimental design",
+                              "Results"),
+                      col = c("lightblue","lightgreen","yellow","orange","red"))
+
+for (i in 1:nrow(box_dat)) {
+  textrect(elpos[i,], 0.15, 0.1, lab = box_dat$lab[i],
+           box.col = box_dat$col[i], shadow.size = 0, cex = 1.3)
+}
+
+```
+
+I also proposed that the code we write to implement simulations should follow the same structure, with different functions corresponding to each component. So far, we've looked at the middle three components:
+
+* data-generating model
+* estimation methods
+* performance criteria
+
+In these notes, we'll start to fill out the remainder, by looking at the overall organization of code for a simulation study. We'll use as a running example the simulation of Cronbach's $\alpha$ coefficient, which we saw in Class 17. 
+
+## Organizing the script for a simulation study
+
+In my methodological work, I try to always follow the same workflow when writing simulations. I make no claim that this is the only or best way to do things---only that it works for me. You see my template by doing the following:
+
+1. Run the following code to install my personal package of helper functions:
+    ```{r, eval = FALSE}
+    library(devtools)
+    install_github("jepusto/Pusto")
+    ```
+2. Load the `Pusto` library and run the `Simulation_Skeleton()` function as follows:
+    ```{r, eval = FALSE}
+    library(Pusto)
+    Simulation_Skeleton("Cronbach Alpha simulation")
+    ```
+
+This function will open up a new R script for you, called `"Cronbach Alpha simulation.R"`, which contains a template for a simulation study, with sections corresponding to each component. 
+
+## data-generating model
+
+The first two sections are about the data-generating model:
+
+```{r, eval = FALSE}
+rm(list = ls())
+
+#------------------------------------------------------
+# Set development values for simulation parameters
+#------------------------------------------------------
+
+# What are your model parameters?
+# What are your design parameters?
+
+#------------------------------------------------------
+# Data Generating Model
+#------------------------------------------------------
+
+dgm <- function(model_params) {
+
+  return(dat)
+}
+
+# Test the data-generating model - How can you verify that it is correct?
+```
+
+Here, we need to create and test a function that takes model parameters (and sample sizes and such) as inputs, and produces a simulated dataset. For the Cronbach alpha simulation, the function looks like this:
+
+```{r}
+library(mvtnorm)
+rm(list = ls())
+
+#------------------------------------------------------
+# Set development values for simulation parameters
+#------------------------------------------------------
+
+# model parameters
+alpha <- 0.73 # true alpha
+df <- 12 # degrees of freedom
+
+# design parameters
+n <- 50 # sample size
+p <- 6 # number of items
+
+#------------------------------------------------------
+# Data Generating Model
+#------------------------------------------------------
+
+r_mvt_items <- function(n, p, alpha, df) {
+  icc <- alpha / (p - alpha * (p - 1))
+  V_mat <- icc + diag(1 - icc, nrow = p)
+  X <- rmvt(n = n, sigma = V_mat, df = df)
+  colnames(X) <- LETTERS[1:p]
+  X
+}
+
+# Test the data-generating model
+
+big_sample <- r_mvt_items(n = 100000, p = 4, alpha = 0.73, df = 5)
+round(cor(big_sample), 3) # looks good
+qqplot(qt(ppoints(200), df = 5), big_sample[,2], ylim = c(-4,4))
+
+```
+
+## estimation procedures
+
+The next section of the template looks like this:
+
+```{r, eval = FALSE}
+#------------------------------------------------------
+# Model-fitting/estimation/testing functions
+#------------------------------------------------------
+
+
+estimate <- function(dat, design_params) {
+
+  return(result)
+}
+
+# Test the estimation function
+
+```
+
+Here, we need to create a function that takes simulated data as input (and possibly also design parameters, like sample size), and produces a set of estimates (or confidence intervals, or p-values, etc.). As usual, we should also test that the function is correct. 
+
+Here's what this code looks like for the Cronbach alpha simulation:
+
+```{r}
+#------------------------------------------------------
+# Model-fitting/estimation/testing functions
+#------------------------------------------------------
+
+estimate_alpha <- function(dat, coverage = .95) {
+  V <- cov(dat)
+  p <- ncol(dat)
+  n <- nrow(dat)
+  A <- p / (p - 1) * (1 - sum(diag(V)) / sum(V))
+  Var_A <- 2 * p * (1 - A)^2 / ((p - 1) * n)
+  
+  B <- log(1 - A) / 2
+  SE_B <- sqrt(p / (2 * n * (p - 1)))
+  z <- qnorm((1 - coverage) / 2)
+  CI_B <- B + c(-1, 1) * SE_B * z
+  CI_A <- 1 - exp(2 * CI_B)
+  
+  data.frame(A = A, Var_A = Var_A, CI_L = CI_A[1], CI_U = CI_A[2])
+}
+
+# Test the estimation function
+small_sample <- r_mvt_items(n = 50, p = 6, alpha = 0.73, df = 5)
+estimate_alpha(small_sample)
+```
+
+The function takes a simulated dataset as input and spits out a point estimate of alpha, an estimate of the variance of alpha, and a confidence interval for alpha (at the 95% coverage level, by default).
+
+We've already seen how to use the `replicate` function to generate a whole bunch of simulated estimates:
+```{r}
+alpha_sims <- 
+  replicate(n = 10, {
+    dat <- r_mvt_items(n = 50, p = 6, alpha = 0.73, df = 5)
+    estimate_alpha(dat)
+  }, simplify = FALSE) %>%
+  bind_rows()
+
+alpha_sims
+```
+
+## Performance calculations
+
+The next section of the template deals with performance calculations:
+
+```{r, eval = FALSE}
+#------------------------------------------------------
+# Calculate performance measures
+# (For some simulations, it may make more sense
+# to do this as part of the simulation driver.)
+#------------------------------------------------------
+
+performance <- function(results, model_params) {
+
+  return(performance_measures)
+}
+
+# Check performance calculations
+
+```
+
+The `performance()` function takes as input a bunch of simulated data (which we might call `results`) and the true values of the model parameters (`model_params`) and returns as output a set of summary performance measures. As noted in the comments above, for simple simulations it might not be necessary to write a separate function to do these calculations. For more complex simulations, though, it can be helpful to break these calculations out in a function.
+
+For the Cronbach alpha simulation, we might want to calculate the following performance measures:
+
+* bias and root mean-squared error (RMSE) of the alpha point estimate
+* relative bias of the variance estimator
+* coverage of the confidence interval
+
+Here is a function that calculates these measures (along with Monte Carlo standard errors), given a data frame containing model results. It uses the jackknife technique to get Monte Carlo standard errors for the RMSE and relative bias. 
+
+```{r}
+#------------------------------------------------------
+# Calculate performance measures
+#------------------------------------------------------
+
+alpha_performance <- function(alpha_sims, alpha, coverage_level = .95) {
+  
+  # setup
+  K <- nrow(alpha_sims)
+  A_err <- alpha_sims$A - alpha
+  var_A <- var(alpha_sims$A)
+  
+  # bias
+  A_bias <- mean(A_err)
+  A_bias_MCSE <- sqrt(var_A / K)
+  
+  # RMSE
+  A_RMSE <- sqrt(mean((A_err)^2))
+  RMSE_j <- sqrt((A_RMSE^2 * K - A_err^2) / (K - 1))
+  A_RMSE_MCSE <- sd(RMSE_j)
+  
+  # relative bias of variance estimator
+  V_bar <- mean(alpha_sims$Var_A)
+  V_j <- (V_bar * K - alpha_sims$Var_A) / (K - 1)
+  Ssq_j <- ((K - 1) * var_A - A_err^2 * K / (K - 1)) / (K - 2)
+  RB_j <- V_j / Ssq_j
+  V_relbias <- V_bar / var_A
+  V_relbias_MCSE <- sd(RB_j)
+  
+  # coverage
+  coverage <- mean(alpha_sims$CI_L < alpha & alpha < alpha_sims$CI_U)
+  coverage_MCSE <- sqrt(coverage_level * (1 - coverage_level) / K)
+  
+  data.frame(
+    criterion = c("alpha bias","alpha RMSE", "V relative bias", "coverage"),
+    est = c(A_bias, A_RMSE, V_relbias, coverage),
+    MCSE = c(A_bias_MCSE, A_RMSE_MCSE, V_relbias_MCSE, coverage_MCSE)
+  )
+}
+
+# Check performance calculations
+alpha_performance(alpha_sims, alpha = 0.73)
+```
+
+## Simulation driver
+
+We now have all the components we need to get simulation results, given a set of parameter values. In the next section of the template, we put all these pieces together in a function---which we might call the _simulation driver_---that takes as input 1) parameter values, 2) the desired number of replications, and 3) optionally, a seed value. The function produces as output a single set of performance estimates. Generically, the function looks like this:
+
+```{r, eval = FALSE}
+#-----------------------------------------------------------
+# Simulation Driver - should return a data.frame or tibble
+#-----------------------------------------------------------
+
+runSim <- function(iterations, model_params, design_params, seed = NULL) {
+  if (!is.null(seed)) set.seed(seed)
+
+  results <- replicate(iterations, {
+                dat <- dgm(model_params)
+                estimate(dat, design_params)
+              })
+
+  performance(results, model_params)
+}
+
+# demonstrate the simulation driver
+
+```
+
+The `runSim` function should require very little modification for a new simulation. Essentially, all we need to change is the names of the functions that are called, so that they line up with the functions we have designed for our simulation. Here's what this looks like for the Cronbach alpha simulation:
+
+```{r}
+#-----------------------------------------------------------
+# Simulation Driver - should return a data.frame or tibble
+#-----------------------------------------------------------
+
+run_alpha_sim <- function(iterations, n, p, alpha, df, coverage = 0.95, seed = NULL) {
+  
+  if (!is.null(seed)) set.seed(seed)
+
+  results <- 
+    replicate(n = iterations, {
+      dat <- r_mvt_items(n = n, p = p, alpha = alpha, df = df)
+      estimate_alpha(dat, coverage = coverage)
+    }, simplify = FALSE) %>%
+    bind_rows()
+  
+  alpha_performance(results, alpha = alpha, coverage = coverage)
+}
+
+# demonstrate the simulation driver
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5)
+```
+
+Because this function involves generating random numbers, re-running it with the exact same input parameters will still produce different results:
+```{r}
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5)
+```
+
+Of course, using a larger number of iterations will give us more precise estimates of the performance criteria. If we want to get the _exact_ same results, we can feed the function a seed value:
+
+```{r}
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5, seed = 6)
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5, seed = 6)
+```
+
+This is useful because it ensure the full reproducibility of the results. In practice, it is a good idea to always set seed values for your simulations, so that you (or someone else!) can exactly reproduce the results.
+
+## Experimental design
+
+The next section of the template looks like this:
+
+```{r, eval = FALSE}
+set.seed(20150316) # change this seed value!
+
+# now express the simulation parameters as vectors/lists
+
+design_factors <- list(factor1 = , factor2 = , ...) # combine into a design set
+params <- expand.grid(design_factors)
+params$iterations <- 5
+params$seed <- round(runif(1) * 2^30) + 1:nrow(params)
+
+# All look right?
+lengths(design_factors)
+nrow(params)
+head(params)
+```
+
+For the Cronbach alpha simulation, we might want to vary 
+
+* the true value of alpha, with values ranging from 0.1 to 0.9;
+* the degrees of freedom of the multivariate t distribution, with values of 5, 10, 20, or 100;
+* the sample size, with values of 50 or 100; and
+* the number of items, with values of 4 or 8.
+
+Here is code that implements this design, using 500 replications per condition:
+
+```{r}
+set.seed(20170405)
+
+# now express the simulation parameters as vectors/lists
+
+design_factors <- list(
+  n = c(50, 100),
+  p = c(4, 8),
+  alpha = seq(0.1, 0.9, 0.1),
+  df = c(5, 10, 20, 100)
+)
+
+params <- expand.grid(design_factors)
+params$iterations <- 50
+params$seed <- round(runif(1) * 2^30) + 1:nrow(params)
+```
+
+This gives us a $`r paste(lengths(design_factors), collapse = "\\times")`$ factorial design:
+```{r}
+lengths(design_factors)
+```
+With a total of `r nrow(params)` cells.
+```{r}
+nrow(params)
+```
+
+The `params` data frame is a representation of the full experimental design:
+```{r}
+head(params)
+```
+
+## Putting it all together
+
+In the previous sections, we've created code that will generate a set of performance estimates, given a set of parameter values. We've also created a dataset that represents every combination of parameter values that we want to examine. How do we put the pieces together?
+
+If we only had a couple of parameter combinations, it would be easy enough to just call our `run_alpha_sim` function a couple of times:
+```{r}
+run_alpha_sim(iterations = 100, n = 50, p = 4, alpha = 0.7, df = 5)
+run_alpha_sim(iterations = 100, n = 100, p = 4, alpha = 0.7, df = 5)
+run_alpha_sim(iterations = 100, n = 50, p = 8, alpha = 0.7, df = 5)
+run_alpha_sim(iterations = 100, n = 100, p = 8, alpha = 0.7, df = 5)
+```
+
+But the simulation that we've designed has `r nrow(params)` cells---too many to do this "by hand." The next two sections of the simulation template demonstrate two different approaches to doing the calculations for _every_ combination of parameter values. You'll only need to use one of these approaches, so pick whichever you find easier.
+
+### `mdply` workflow
+
+The first approach uses the `mdply` function from the `plyr` package:
+
+```{r, eval = FALSE}
+#--------------------------------------------------------
+# run simulations in serial - mdply workflow
+#--------------------------------------------------------
+
+system.time(results <- plyr::mdply(params, .fun = runSim))
+
+```
+
+The main function here is `mdply`. I call it by specifying the package name first, followed by two colons, followed by the function name (this avoids the need to load the `plyr` package, which has a lot of conflicts with other packages such as `dplyr` and `tidyr`). The results are stored in an object called `results`. And the whole line is wrapped in a call to the `system.time` function, so that we'll know how long the full set of calculations takes.
+
+Here's the syntax for the Cronbach alpha simulation:
+```{r}
+#--------------------------------------------------------
+# run simulations in serial - mdply workflow
+#--------------------------------------------------------
+
+system.time(results_mdply <- plyr::mdply(params, .fun = run_alpha_sim))
+```
+The output is then as follows:
+```{r}
+head(results_mdply, n = 12)
+```
+What's going on here? The `mdply` function takes two main arguments: a data frame and a _function_. The specified function is then evaluated _for each row of the data frame_. The arguments to the function are matched to the variable names in the dataset, so the `params$alpha` is matched to the `alpha` argument of `run_alpha_sim`, `params$df` is matched to the `df` argument of `run_alpha_sim`, etc. Thus, __it is crucial that the variable names in the `params` dataset exactly match the argument names of the simulation driver__. 
+
+Additional arguments can also be specified after the function name; these will be used for every row of the dataset. For example:
+```{r, eval = FALSE}
+plyr::mdply(params, .fun = run_alpha_sim, coverage = 0.90)
+```
+Would calculate the coverage of 90% confidence intervals instead of the default 95% CIs. 
+
+### `purrrlyr` workflow
+
+An alternative to `mdply` is to use the `invoke_rows` function from the `purrrlyr` package. The functions work almost identically, with a few little differences. One difference is that the `purrrlyr` package is designed to work well with `tidyr`, `dplyr` and the other tidyverse packages. We'll see another difference below.
+
+The simulation template includes the following code to execute the simulations using `invoke_rows`:
+
+```{r, eval = FALSE}
+#--------------------------------------------------------
+# run simulations in serial - purrrlyr workflow
+#--------------------------------------------------------
+library(purrrlyr)
+
+system.time(
+  results <- 
+    params %>% 
+    invoke_rows(.f = runSim, .to = "res")
+)
+```
+
+The `invoke_rows` function takes two main arguments, just like `mdply`: the dataset and the function to evaluate. The function is called for each row of the dataset, again by matching the function arguments to the variable names. The result is stored in a new variable, with name specified by `.to`. 
+
+Here's the syntax for the Cronbach alpha simulation:
+```{r}
+#--------------------------------------------------------
+# run simulations in serial - purrrlyr workflow
+#--------------------------------------------------------
+library(purrrlyr)
+
+system.time(
+  results_purrr <- 
+    params %>%
+    invoke_rows(.f = run_alpha_sim, .to = "res")
+)
+```
+
+The result looks a bit different than the result of using `mdply`:
+```{r}
+head(results_purrr, n = 12)
+```
+
+The output has the same number of rows as params (compare to `results_mdply`, which has `r nrow(results_mdply)`). The performance estimates are all in a single variable, called `res` in this case, and each observation is actually _its own little dataset_, or what is called a __nested data frame__. Nested data frames are nifty but odd little data structures, which are beyond the scope of this course. For now, we can turn the results into something easier to work with by using the `unnest` function from `tidyr`:
+```{r}
+library(tidyr)
+results_purrr %>%
+  unnest() %>%
+  head(n = 12)
+```
+
+### parallel processing
+
+The final two sections of the simulation template demonstrate how to execute the simulations in parallel, across multiple cores of a computer or computing cluster. We'll look at the details here in a later class.
