@@ -1,0 +1,215 @@
+
+# An initial simulation
+
+We begin with the concrete before we get abstract, with an initial simulation study that looks at the $t$-test under violations
+of the normality assumption.
+The goal here is to make the idea of Monte Carlo simulation concrete, and to illustrate the idea of replication
+and aggregation of results.
+In a sense, this chapter is the entire book.
+That being said, we hope to provide some deeper thinking on all the component parts in everything that follows.
+
+
+```{r  include = FALSE}
+set.seed( 1019 )
+```
+
+
+```{r  setup, include=FALSE}
+library( tidyverse )
+```
+
+This simulation (and much of this book) relies on the `tidyverse` package, which needs to be loaded.
+We also shut up tidyverse's weird summarize warnings while we are at it.
+These lines of code are pretty much the header of any script we use.
+
+```{r}
+library( tidyverse )
+options(list(dplyr.summarise.inform = FALSE))
+```
+
+We use methods from the "tidyverse" for cleaner code and some nice shortcuts.
+See the online, free and excellent (https://r4ds.had.co.nz/)[R for Data Science textbook] for more on the tidyverse.
+
+
+We will start with a simulation study to examine the coverage of the lowly
+one-sample $t$-test. *Coverage* is the chance of a confidence interval
+capturing the true parameter value.
+
+Let's first look at the $t$-test on some fake data:
+
+```{r}
+# make fake data
+dat = rnorm( 10, mean=3, sd=1 )
+
+# conduct the test
+tt = t.test( dat )
+tt
+
+# examine the results
+tt$conf.int
+```
+
+For us, we have a true mean of 3.  Did we capture it?  To find out, we use `findInterval()`
+```{r}
+findInterval( 3, tt$conf.int )
+```
+
+`findInterval()` checks to see where the first number lies relative to the
+range given in the second argument.  E.g.,
+
+```{r}
+findInterval( 1, c(20, 30) )
+findInterval( 25, c(20, 30) )
+findInterval( 40, c(20, 30) )
+```
+
+So, for us, `findInterval == 1` means we got it!  Packaging the above gives
+us the following code:
+
+```{r}
+# make fake data
+dat = rnorm( 10, mean=3, sd=1 )
+
+# conduct the test
+tt = t.test( dat )
+
+# evaluate the results
+findInterval( 3, tt$conf.int ) == 1
+```
+
+## Simulation for a single scenario
+
+The above shows the canonical form of a single simulation trial: make the
+data, analyze the data, decide how well we did.
+Before writing a simulation, it is wise to understand the thing we plan on simulating.
+Mucking around with code like this gets us ready.
+
+Now let's look at coverage by doing the above many, many times and seeing how
+often we capture the true parameter:
+
+```{r  tsim, cache=TRUE}
+rps = replicate( 1000, {
+  dat = rnorm( 10 )
+  tt = t.test( dat )
+  findInterval( 0, tt$conf.int )
+})
+table( rps )
+mean( rps == 1 )
+```
+
+The `replicate()` function is one of many ways we can do things over and over in R.
+We got about 95% coverage, which is good news.  We can also assess
+*simulation uncertainty* by recognizing that our simulation results are an
+i.i.d. sample of the infinite possible simulation runs. We analyze this
+sample to see a range for our true coverage.
+
+```{r}
+hits = as.numeric( rps == 1 )
+prop.test( sum(hits), length(hits), p = 0.95 )
+```
+
+
+We have no evidence that our coverage is not what it should be: 95%.
+
+Things working out should hardly be surprising. The $t$-test is designed for
+normal data and we generated normal data. In other words, our test is
+following theory when we meet our assumptions. Now let's look at an
+exponential distribution to see what happens when we don't have normally
+distributed data. We are simulating to see what happens when we voilate
+our assumptions behind the $t$-test. Here, the true mean is 1 (the mean of a
+standard exponential is 1).
+
+```{r  simexp, cache=TRUE}
+rps = replicate( 1000, {
+  dat = rexp( 10 )
+  tt = t.test( dat )
+  findInterval( 1, tt$conf.int )
+})
+table( rps )
+```
+
+Our interval is often entirely too low and very rarely does our interval miss
+because it is entirely too high.  Furthermore, our average coverage is not
+95% as it should be:
+
+```{r}
+mean( rps == 1 )
+```
+
+Again, to take simulation uncertainty into account we do a proportion test.
+Here we have a confidence interval of our true coverage under our model
+misspecification:
+
+```{r}
+hits = as.numeric( rps == 1 )
+prop.test( sum(hits), length(hits) )
+```
+
+Our coverage is *too low*.  Our $t$-test based confidence interval is missing
+the true value (1) more than it should.
+
+
+
+## Simulating across different scenarios
+
+The above gives us an answer for a single, specific circumstance.  We next
+want to examine how the coverage changes as the sample size varies.  So let's
+do a one-factor experiment, with the factor being sample size.  I.e., we will
+conduct the above simulation for a variety of sample sizes and see how
+coverage changes.
+
+We first make a function, wrapping up our *specific, single-scenario*
+simulation into a bundle so we can call it under a variety of different
+scenarios.
+
+```{r}
+run.experiment = function( n ) {
+  rps = replicate( 10000, {
+    dat = rexp( n )
+    tt = t.test( dat )
+    findInterval( 1, tt$conf.int )
+  })
+
+  mean( rps == 1 )
+}
+```
+
+Now we run `run.experiment` for different $n$.  We do this with `map_dbl()`,
+which takes a list and calls a function for each value in the list (See R for
+DS, Chapter 21.5).
+
+```{r  runtexp, cache=TRUE}
+ns = c( 5, 10, 20, 40, 80, 160, 320, 740 )
+cover = map_dbl( ns, run.experiment )
+```
+
+We next take our results, make a data.frame out of them, and plot:
+
+```{r ttest_result_figure, fig.width=5, fig.height=4}
+res = data.frame( n = ns, coverage=cover )
+ggplot( res, aes( x=n, y=100*coverage ) ) +
+  geom_line() + geom_point( size=4 ) +
+  geom_hline( yintercept=95, col="red" ) +
+  scale_x_log10( breaks=ns ) +
+  labs( title="Coverage rates for t-test on exponential data",
+        x = "n (sample size)", y = "coverage (%)" )
+```
+
+
+Note the plot is on a log scale for the $x$-axis.
+
+So far we have done a  very simple simulation to assess how well a statistical method works in a given circumstance.
+We have run a single factor experiment, systematically varying the sample size to examine how the behavior of our estimator changes.
+In this case, we find that coverage is poor for small sample sizes, and still a bit low for higher sample sizes is well.
+
+More broadly, the overall simulation framework, for a given scenario, is to repeatedly do the following:
+
+* Generate data according to some decided upon data generation process (DGP).
+  This is our model.
+* Analyze data according to some other process (and possibly some other assumed model).
+* Assess whether the analysis "worked" by some measure of working (such as coverage).
+
+Frequently we would analyze our data with different methods, and compare performances across the methods.
+We might do this, for example, if we were trying to see how our new, nifty method we just invented compares to business as usual.
+We would also want to vary multiple aspects of our simulation (which we call factors), such as exploring coverage across a range of sample sizes (as we did) and also different disributions for the data (e.g., normal, exponential, t, and so forth).
+In the next chapter we provide a framework for simulation studies, building on the core arc of this example.

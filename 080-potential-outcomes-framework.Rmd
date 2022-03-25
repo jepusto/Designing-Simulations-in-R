@@ -1,0 +1,57 @@
+
+# Simulation under the Potential Outcomes Framework
+
+We mainly plan on using existing datasets to generate plausible scenarios.
+In particular, we will take an existing randomized experiment and impute all the missing potential outcomes under some specific scheme.
+This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then known.
+We will then synthetically, and repeatedly, randomize and ``observe'' outcomes to be analyzed with the methods we are testing.
+
+The key feature is the imputation step.
+The baseline method we will use is to generate a matched-pairs dataset by, for each unit, finding a close match given all the demographic and other covariate information of the sample.  We then use the matched unit as the imputed potential outcome.  
+By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population.
+This can preserve the complex relationships in the data that are not model dependent.
+In particular, if outcomes tend to be coarsely defined (e.g., on an integer scale) or have specific clumps (such as zero-inflation or rounding), this structure will be preserved.
+
+One concern with this approach is the noise in the matching will in general dilute the structure of the treatment effect.  
+This is akin to measurement error diluting found relationships in linear models.
+We can then sharpen these relationships towards a given model by first imputing missing outcomes using a specified model, and then matching on all units including the imputed potential outcome.
+This is not a data analysis strategy, but instead a method of generating synthetic data that both has  a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.
+
+Our second approach that allows for varying the level of a systematic effect is to specify the treatment effect model and impute treatment outcomes for all control units.  
+Then the complex structure between covariates and $Y(0)$ would be perfectly preserved.
+Unfortunately, this would give 0 idiosyncratic variation. 
+%If a constant is included in the model, we know the mean over all idiosyncratic variation terms should be 0.
+%To add in idiosyncratic variation we would then need to generate a distribution of elements and add these to the imputed outcomes just as an error term in a regression model.  
+To introduce some we can then use specified parametric distributions. 
+By changing these distributions we can manipulate parameters such as $R_\tau^2$.
+
+Regardless, once a fully observed sample has been obtained we can investigate several aspects of our estimators.
+
+
+
+## Data generation processes for potential outcomes
+
+Generally, it is clear and transparent to first generate the complete set of potential outcomes, then generate the assignment based on some assignment mechanism, and then generate the observed outcomes as a function of assignment and original potential outcomes.
+
+For example, we might say that our data generation process is as follows: First generate each unit $i = 1, \ldots, n$, as
+\begin{align*}
+X_i &\sim exp( 1 ) \\
+Y_i(0) &= \beta_0 + \beta_1 \sqrt{ X_i } + \epsilon_i \mbox{ with } \epsilon_i \sim N( 0, \sigma^2 ) \\
+Y_i(1) &= Y_i(0) + \tau_i \mbox{ with } \tau_i \sim N( \tau, \sigma^2_\tau ) 
+\end{align*}
+with $exp(1)$ being the standard exponential distribution.
+
+In the above, we first, for each unit, are generating our two potential outcomes.  
+I.e., we are generating what the outcome would be for each unit if it were treated and if it were not treated.
+
+We would then generate the observed outcomes by randomizing our (synthetic, randomly generated) $n$ units 
+
+and $Bern( 0.2 )$ being a Bernoulli coin flip with a 0.2 chance of 1 and a 0.8 chance of 0.
+\begin{align*}
+Z_i &= Bern( 0.2 ) \\
+Y_i &= Z_i Y_i(1) + (1-Z_i) Y_i(0) 
+\end{align*}
+
+One advantage of generating all the potential outcomes is we can then calculate the finite-sample estimands such as the true average treatment effect for the generated sample: we just take the average of $Y_i(1) - Y_i(0)$.
+
+

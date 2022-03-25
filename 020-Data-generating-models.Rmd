@@ -1,0 +1,155 @@
+```{r echo = FALSE, messages = FALSE, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE, 
+                      fig.width = 5,
+                      fig.height = 3,
+                      out.width = "75%", 
+                      fig.align = "center")
+options(list(dplyr.summarise.inform = FALSE))
+theme_set( theme_classic() )
+
+```
+
+
+# Data-generating models
+
+The data generating model, or data generating process (DGP), is the recipe we use to create fake data that we will use for analysis.
+When we generate from a model we know what the "right answer" is.
+We can then compare our estimates to this right answer, to assess whether our estimation procedures worked.
+
+The easiest way to describe a DGP is usually via a sequence of equations and random variables.  We then convert these equations to code by following the steps laid out.
+
+For example, for the Welch data earlier we might have, for observation $i$ in group $g$:
+
+$$ X_{ig} = \mu_g + \epsilon_{ig} \mbox{ with } \epsilon_{ig} \sim N( 0, \sigma^2_g ) $$
+These math equations would also come along with specified parameter values (the $\mu_g$, etc), and sample size requirements.
+
+In terms of code, a function that implements a data-generating model should have the following form:
+```{r}
+generate_data <- function(parameters) {
+
+  # generate pseudo-random numbers and use those to
+  # make some data
+  
+  return(sim_data)
+}
+```
+
+The function takes a set of parameter values as input, simulates random numbers and does calculations, and produces as output a set of simulated data.
+Again, there will in general be multiple parameters, and these will include not only the model parameters (e.g. the coefficients of a regression), but also sample sizes and other study design parameters.
+The output will typically be a dataframe, mimicking what data one would see in the "real world," possibly augmented by some other latent values that we can use later on to assess whether the estimation procedures we are checking are close to the truth.
+
+For example, from our Welch case study, we have the following method that generates grouped data with a single outcome.
+
+```{r}
+generate_data <- function(mu, sigma_sq, sample_size) {
+
+  N <- sum(sample_size) 
+  g <- length(sample_size) 
+  
+  group <- rep(1:g, times = sample_size) 
+  mu_long <- rep(mu, times = sample_size)
+  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
+  
+  x <- rnorm(N, mean = mu_long, sd = sigma_long)
+  sim_data <- tibble(group = group, x = x)
+    
+  return(sim_data)
+}
+
+mu <- c(1, 2, 5, 6)
+sigma_sq <- c(3, 2, 5, 1)
+sample_size <- c(3, 6, 2, 4)
+
+sim_dat <- generate_data(mu = mu, 
+                         sigma_sq = sigma_sq, 
+                         sample_size = sample_size)
+sim_dat
+```
+
+## Computational efficiency versus simplicity
+
+An alternative approach to the above would be to write a function that generates _multiple_ sets of simulated data all at once. For example, we could specify that we want `R` replications of the study and have the function spit out a matrix with `R` columns, one for each simulated dataset:
+
+```{r}
+generate_data_matrix <- function(mu, sigma_sq, sample_size, R) {
+
+  N <- sum(sample_size) 
+  g <- length(sample_size) 
+  
+  group <- rep(1:g, times = sample_size) 
+  mu_long <- rep(mu, times = sample_size)
+  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
+
+  x_mat <- matrix(rnorm(N * R, mean = mu_long, sd = sigma_long),
+                  nrow = N, ncol = R)
+  sim_data <- list(group = group, x_mat = x_mat)
+    
+  return(sim_data)
+}
+
+generate_data_matrix(mu = mu, sigma_sq = sigma_sq,
+                     sample_size = sample_size, R = 4)
+```
+
+This approach is a bit more computationally efficient because the setup calculations (getting `N`, `g`, `group`, `mu_full`, and `sigma_full`) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to `rnorm()`. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
+Furthermore, if the number of replicates `R` is large and each replication produces a large dataset, this "all-at-once" approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
+On balance, we recommend following the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise). 
+
+Beyond a few obvious coding tricks we will discuss, one should optimize code only after you discover you need to.
+Optimizing as you go usually means you will spend a lot of time wrestling with code far more complicated than it needs to be.
+For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code won't help overall simulation runtimes much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
+Keep things simple; your time is more important than the computer's time.
+
+
+## Checking the data-generating function
+
+An important part of programing in R---particularly writing functions---is finding ways to test and check the correctness of your code. Thus, after writing a data-generating function, we need to consider how to test whether the output it produces is correct. How best to do this will depend on the data-generating model being implemented. 
+
+For the heteroskedastic ANOVA problem, one basic thing we could do is check that the simulated data from each group follows a normal distribution. By generating very large samples from each group, we can effectively check characteristics of the population distribution.
+In the following code, we simulate very large samples from each of the four groups, and check that the means and variances agree with the input parameters:
+
+```{r, fig.width = 4, fig.height = 4, fig.show = "hold"}
+check_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
+                            sample_size = rep(10000, 4))
+
+chk <- check_data %>% group_by( group ) %>%
+  summarise( n = n(),
+             mean = mean( x ),
+             var = var( x ) ) %>%
+  mutate( mu = mu,
+          sigma2 = sigma_sq ) %>%
+  relocate( group, n, mean, mu, var, sigma2 )
+chk
+```
+
+We can also make some diagnostic plots to assess whether we have normal data (using QQ plots, where we expect a straight line if the data are normal):
+```{r}
+ggplot( check_data, aes( sample=x ) ) +
+  facet_wrap( ~ group ) +
+  stat_qq()
+```
+
+
+
+
+
+## Exercises
+
+### Shifted-and-scaled t distribution
+
+The shifted-and-scaled $t$-distribution has parameters $\mu$ (mean), $\sigma$ (scale), and $\nu$ (degrees of freedom).
+If $T$ follows a student's $t$-distribution with $\nu$ degrees of freedom, then $S = \mu + \sigma T$ follows a shifted-and-scaled $t$-distribution.
+The following function will generate random draws from this distribution (the scaling of $(\nu-2)/\nu$ is to account for a non-scaled $t$-distribution having a variance of $\nu/(\nu-2)$).
+
+```{r}
+r_tss <- function(n, mean, sd, df) {
+  mean + sd * sqrt( (df-2)/df ) * rt(n = n, df = df)
+}
+
+r_tss(n = 8, mean = 3, sd = 2, df = 5)
+```
+
+Modify that `simulate_data` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
+Re-run the Type-I error rate calculations from [the prior exercises](#exAnovaExercises) with a $t$-distribution with 5 degrees of freedom.
+Do the results change substantially?

@@ -1,6 +1,6 @@
 # Putting the pieces together
 
-Earlier, I suggested that we can think of simulation studies as having five main components:
+We can think of of simulation studies as having five main components:
 
 ```{r, message = FALSE, echo = FALSE, fig.width = 8, fig.height = 4}
 library(dplyr)
@@ -32,13 +32,14 @@ for (i in 1:nrow(box_dat)) {
 
 ```
 
-I also proposed that the code we write to implement simulations should follow the same structure, with different functions corresponding to each component. So far, we've looked at the middle three components:
+The code we write to implement simulations should follow this same structure, with different functions corresponding to each component. So far, we've looked at the middle three components:
 
 * data-generating model
 * estimation methods
 * performance criteria
 
-In these notes, we'll start to fill out the remainder, by looking at the overall organization of code for a simulation study. We'll use as a running example the simulation of Cronbach's $\alpha$ coefficient, which we saw in Class 17. 
+We next start to fill out the remainder, looking at the overall organization of code for a simulation study.
+We'll use as a running example the simulation of Cronbach's $\alpha$ coefficient in 
 
 ## Organizing the script for a simulation study
 
@@ -430,54 +431,3 @@ plyr::mdply(params, .fun = run_alpha_sim, coverage = 0.90)
 ```
 Would calculate the coverage of 90% confidence intervals instead of the default 95% CIs. 
 
-### `purrrlyr` workflow
-
-An alternative to `mdply` is to use the `invoke_rows` function from the `purrrlyr` package. The functions work almost identically, with a few little differences. One difference is that the `purrrlyr` package is designed to work well with `tidyr`, `dplyr` and the other tidyverse packages. We'll see another difference below.
-
-The simulation template includes the following code to execute the simulations using `invoke_rows`:
-
-```{r, eval = FALSE}
-#--------------------------------------------------------
-# run simulations in serial - purrrlyr workflow
-#--------------------------------------------------------
-library(purrrlyr)
-
-system.time(
-  results <- 
-    params %>% 
-    invoke_rows(.f = runSim, .to = "res")
-)
-```
-
-The `invoke_rows` function takes two main arguments, just like `mdply`: the dataset and the function to evaluate. The function is called for each row of the dataset, again by matching the function arguments to the variable names. The result is stored in a new variable, with name specified by `.to`. 
-
-Here's the syntax for the Cronbach alpha simulation:
-```{r}
-#--------------------------------------------------------
-# run simulations in serial - purrrlyr workflow
-#--------------------------------------------------------
-library(purrrlyr)
-
-system.time(
-  results_purrr <- 
-    params %>%
-    invoke_rows(.f = run_alpha_sim, .to = "res")
-)
-```
-
-The result looks a bit different than the result of using `mdply`:
-```{r}
-head(results_purrr, n = 12)
-```
-
-The output has the same number of rows as params (compare to `results_mdply`, which has `r nrow(results_mdply)`). The performance estimates are all in a single variable, called `res` in this case, and each observation is actually _its own little dataset_, or what is called a __nested data frame__. Nested data frames are nifty but odd little data structures, which are beyond the scope of this course. For now, we can turn the results into something easier to work with by using the `unnest` function from `tidyr`:
-```{r}
-library(tidyr)
-results_purrr %>%
-  unnest() %>%
-  head(n = 12)
-```
-
-### parallel processing
-
-The final two sections of the simulation template demonstrate how to execute the simulations in parallel, across multiple cores of a computer or computing cluster. We'll look at the details here in a later class.

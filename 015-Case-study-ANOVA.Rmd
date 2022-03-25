@@ -1,0 +1,316 @@
+
+# Case Study: Heteroskedastic ANOVA {#case_ANOVA}
+
+
+```{r include = FALSE}
+library(tidyverse)
+```
+
+
+To illustrate the process of programming a simulation, let's look at the simulations from Brown and Forsythe (1974).
+We use this case study as a reoccuring example in the following chapters.
+
+
+Brown and Forsythe wanted to study methods for testing hypotheses in the following model: Consider a population consisting of $g$ separate groups, with population means $\mu_1,...,\mu_g$ and population variances $\sigma_1^2,...,\sigma_g^2$ for some characteristic $X$. We obtain samples of size $n_1,...,n_g$ from each of the groups, and take measurements of the characteristic for each unit in each group. Let $x_{ij}$ denote the measurement from unit $j$ in group $i$, for $i = 1,...,g$ and $j = 1,...,n_i$. Our goal is to use the sample data to test the hypothesis that the population means are all equal, i.e.,
+$$
+H_0: \mu_1 = \mu_2 = \cdots = \mu_g.
+$$
+Note that if the population variances were all equal (i.e., $\sigma_1^2 = \sigma_2^2 = \cdots = \sigma_g^2$), we could use a conventional one-way analysis of variance (ANOVA) to test.
+However, one-way ANOVA might not work well if the variances are not equal.
+The question is then what are best practices for testing, when one is in this heteroskedastic case.
+
+To tackle this question, Brown and Forsythe evaluated two different hypothesis testing procedures, developed by James (1951) and Welch (1951), that had been proposed for testing this hypothesis without assuming equality of variances, along with the conventional one-way ANOVA F-test as a benchmark.
+They also proposed and evaluated a new procedure of their own devising.
+(This latter pieces makes this paper one of a canonical format for statistical methodology papers: find some problem that current procedures do not perfectly solve, invent something to do a better job, and then do simulation and/or math to build a case that the new procedure is better.)
+Overall, the simulation involves comparing the performance of these different hypothesis testing procedures (the methods) under a range of conditions (different data generating processes).
+
+For hypothesis testing, there are two main performance metrics of interest: type-I error rate and power.
+The type-I error rate is, when the null hypothesis is true, how often a test falsely rejects the null.
+It is a measure of how _valid_ a method is.
+Power is how often a test correctly rejects the null when it is indeed false.
+It is a measure of how _powerful_ or sensitive a method is.
+They explored error rates and power for nominal $\alpha$-levels of 1%, 5%, and 10%.
+Table 1 of their paper reports the simulation results for type-I error (labeled as "size"); ideally, a test should have true type-I error very close to the nominal $\alpha$.
+Table 2 reports results on power; it is desirable to have higher power to reject null hypotheses that are false, so higher rates are better here.
+
+To replicate this simulation we are going to first write code to do a specific scenario with a specific set of core parameters (e.g., sample sizes, number of groups, and so forth), and then scale up to do a range of scenarios where we vary these parameters.
+
+
+## The data-generating model
+
+In the heteroskedastic one-way ANOVA simulation, there are three sets of parameter values: population means, population variances, and sample sizes.
+Rather than attempting to write a general data-generating function immediately, it is often easier to write code for a specific case first and then use that code as a launch point for the rest.
+For example, say that we have four groups with means of 1, 2, 5, 6; variances of 3, 2, 5, 1; and sample sizes of 3, 6, 2, and 4:
+
+```{r}
+mu <- c(1, 2, 5, 6)
+sigma_sq <- c(3, 2, 5, 1)
+sample_size <- c(3, 6, 2, 4)
+```
+
+Following Brown and Forsythe, we'll assume that the measurements are normally distributed within each sub-group of the population. The following code generates a vector of group id's and a vector of simulated measurements:
+
+```{r}
+N <- sum(sample_size) # total sample size
+g <- length(sample_size) # number of groups
+
+# group id
+group <- rep(1:g, times = sample_size)
+
+# mean for each unit of the sample
+mu_long <- rep(mu, times = sample_size) 
+
+# sd for each unit of the sample
+sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
+
+# See what we have?
+tibble( group=group, mu=mu_long, sigma=sigma_long)
+
+# Now make our data
+x <- rnorm(N, mean = mu_long, sd = sigma_long)
+tibble(group = group, x = x)
+```
+
+We have made a small dataset of group membership and outcome.
+We note that there are many different and legitimate ways of doing this in R.
+E.g., we could generate each group separately, and then stack our groups instead of using `rep` to do it all at once.
+In general, we advocate the adage that if you can do it at all, then you should feel good about yourself.
+I.e., don't worry about writing code the "best" way when you are initially putting a simulation together.
+
+To continue, as we are going to generate data over and over, we wrap this code in a function.
+We also make our means, variances and sample sizes be parameters of our function so we can make datasets of different sizes and shapes, like so:
+
+```{r generate_data_block}
+generate_data <- function(mu, sigma_sq, sample_size) {
+
+  N <- sum(sample_size)
+  g <- length(sample_size)
+
+  group <- rep(1:g, times = sample_size)
+  mu_long <- rep(mu, times = sample_size)
+  sigma_long <- rep(sqrt(sigma_sq), times = sample_size)
+
+  x <- rnorm(N, mean = mu_long, sd = sigma_long)
+  sim_data <- tibble(group = group, x = x)
+
+  return(sim_data)
+}
+
+sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq, 
+                          sample_size = sample_size)
+sim_data
+```
+
+The above code is just the code we built previously, all bundled up.
+Our workflow is to scrabble around to get it to work once, the way we want, and then bundle up our final work into a function for later reuse.
+
+
+Each time we run the function we get a new set of simulated data:
+
+```{r}
+generate_data(mu = mu, sigma_sq = sigma_sq, sample_size = sample_size)
+```
+
+## The estimation procedures
+
+Brown and Forsythe considered four different hypothesis testing procedures for heteroskedastic ANOVA. For starters, let's look at the simplest one, which is just to use a conventional one-way ANOVA (while mistakenly assuming homoskedasticity). R's `oneway.test` function will actually calculate this test automatically:
+
+```{r}
+sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
+                          sample_size = sample_size)
+oneway.test(x ~ factor(group), data = sim_data, var.equal = TRUE)
+```
+
+The main result we need here is the p-value, which will let us assess the test's Type-I error and power for a given nominal $\alpha$-level. The following function takes simulated data as input and returns as output the p-value from a one-way ANOVA:
+
+```{r}
+ANOVA_F_aov <- function(sim_data) {
+  oneway_anova <- oneway.test(x ~ factor(group), data = sim_data,
+                              var.equal = TRUE)
+  return(oneway_anova$p.value)
+}
+
+ANOVA_F_aov(sim_data)
+```
+
+An alternative approach would be to "hand roll" the ANOVA F statistic and test directly.
+Doing so by hand can set you up to implement modified versions of these tests later on.
+Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.
+
+Following the formulas on p. 129 of Brown and Forsythe (1974) we have:
+
+```{r}
+ANOVA_F <- function(sim_data) {
+
+  x_bar <- with(sim_data, tapply(x, group, mean))
+  s_sq <- with(sim_data, tapply(x, group, var))
+  n <- table(sim_data$group)
+  g <- length(x_bar)
+
+  df1 <- g - 1
+  df2 <- sum(n) - g
+
+  msbtw <- sum(n * (x_bar - mean(sim_data$x))^2) / df1
+  mswn <- sum((n - 1) * s_sq) / df2
+  fstat <- msbtw / mswn
+  pval <- pf(fstat, df1, df2, lower.tail = FALSE)
+
+  return(pval)
+}
+
+ANOVA_F(sim_data)
+```
+
+To see the difference between our version and R's version, we can use an R package called `microbenchmark` to test how long the computations take for each version of the function.
+The `microbenchmark` function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:
+
+```{r}
+library(microbenchmark)
+timings <- microbenchmark(Rfunction = ANOVA_F_aov(sim_data),
+                          direct    = ANOVA_F(sim_data))
+timings
+```
+
+The direct function is `r with(summary(timings), round(mean[1] / mean[2], 1))` times faster than the built-in R function.
+
+This result is not unusual.
+Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
+Here we can skip them by doing the calculations directly.
+In general, however, this is a trade-off: writing something yourself gives you a lot of chance to do something wrong, throwing off all your simulations.  It might be faster, but you may pay dearly for it in terms of extra hours coding and debugging.
+Optimize only if you need to!
+
+
+Now let's consider the Welch test, another one of the tests considered by Brown and Forsythe.
+Here is a function that calculates the Welch test, again following the notation and formulas from the paper:
+
+```{r}
+
+Welch_F <- function(sim_data) {
+
+  x_bar <- with(sim_data, tapply(x, group, mean))
+  s_sq <- with(sim_data, tapply(x, group, var))
+  n <- table(sim_data$group)
+  g <- length(x_bar)
+
+  w <- n / s_sq
+  u <- sum(w)
+  x_tilde <- sum(w * x_bar) / u
+  msbtw <- sum(w * (x_bar - x_tilde)^2) / (g - 1)
+
+  G <- sum((1 - w / u)^2 / (n - 1))
+  denom <- 1 +  G * 2 * (g - 2) / (g^2 - 1)
+  W <- msbtw / denom
+  f <- (g^2 - 1) / (3 * G)
+
+  pval <- pf(W, df1 = g - 1, df2 = f, lower.tail = FALSE)
+
+  return(pval)
+}
+
+Welch_F(sim_data)
+```
+
+
+
+## Replication
+
+We now have functions that implement steps 2 and 3 of the simulation.
+Given some parameters, `generate_data` produces a simulated dataset and `ANOVA_F` and `Welch_F` use the simulated data to calculate $p$-values two different ways.
+We now want to know which way is better, and how.
+To answer this question, we next need to repeat this chain of calculations a bunch of times.
+
+We first make a function that puts our chain together in a single method.
+This method is also responsible for putting the results together in a tidy structure that is easy to use.
+
+```{r}
+one_run = function( mu, sigma_sq, sample_size ) {
+  sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq, sample_size = sample_size)
+  anova_p <- ANOVA_F(sim_data)
+  Welch_p <- Welch_F(sim_data)
+  tibble(ANOVA = anova_p, Welch = Welch_p)
+}
+
+one_run( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size )
+```
+A single simulation run should do steps 2 and 3, ending with a nice dataframe or tibble that has our results for that single run.
+
+We next do this over and over.
+There are several ways to do this.
+We have seen `rerun()` before.
+Another, more classic, way is to use an R function called `replicate`; `rerun()` and `replicate()` are near equivilents.
+`replicate()` does what its name suggests---it replicates the result of an expression a specified number of times. The first argument is the number of times to replicate and the next argument is an expression (a short piece of code to run). A further argument, `simplify` allows you to control how the results are structured. Setting `simplify = FALSE` returns the output as a list. The following code produces four replications of our simulation:
+
+```{r}
+sim_data <- replicate(n = 4,
+                      one_run(mu = mu, sigma_sq = sigma_sq,
+                              sample_size = sample_size),
+                      simplify = FALSE)
+str(sim_data)
+```
+
+The `bind_rows` function from the `dplyr` package will stack all of the data frames in our list into a single data frame, for easier manipulation:
+
+```{r}
+library(dplyr)
+bind_rows(sim_data)
+```
+
+Voila! Simulated $p$-values!
+
+## Calculating rejection rates
+
+We've got all the pieces in place now to reproduce the results from Brown and Forsythe (1974). Let's focus on calculating the actual type-I error rate of these tests---that is, the proportion of the time that they reject the null hypothesis of equal means when that null is actually true---for an $\alpha$-level of .05. We therefore need to simulate data according to process where the population means are indeed all equal. Arbitrarily, let's look at $g = 4$ groups and set all of the means equal to zero:
+
+```{r}
+mu <- rep(0, 4)
+```
+
+In the fifth row of Table 1, Brown and Forsythe examine performance for the following parameter values for sample size and population variance:
+
+```{r}
+sample_size <- c(4, 8, 10, 12)
+sigma_sq <- c(3, 2, 2, 1)^2
+```
+
+With these parameter values, we can use our `replicate` code to simulate 10,000 $p$-values:
+
+```{r welch_sim_1, cache=TRUE}
+p_vals <- replicate(n = 10000, 
+  sim_data <- one_run(mu = mu, sigma_sq = sigma_sq, sample_size = sample_size), 
+  simplify = FALSE)
+
+p_vals <- bind_rows(p_vals)
+p_vals
+```
+
+Now how to calculate the rejection rates? The rule is that the null is rejected if the p-value is less than $\alpha$. To get the rejection rate, calculate the proportion of replications where the null is rejected. This is equivalent to taking the mean of the logical conditions:
+
+```{r}
+mean(p_vals$ANOVA < 0.05)
+```
+
+We get a rejection rate that is much larger than $\alpha = .05$, which indicates that the ANOVA F-test does not adequately control Type-I error under this set of conditions.
+
+```{r}
+mean(p_vals$Welch < 0.05)
+```
+
+The Welch test does much better, although it is still a little bit in excess of 0.05.
+
+Note that these two numbers are quite close (though not quite identical) to the corresponding entries in Table 1 of Brown and Forsythe (1974). The difference is due to the fact that both Table 1 and are results are actually _estimated_ rejection rates, because we haven't actually simulated an infinite number of replications. The estimation error arising from using a finite number of replications is called _simulation error_ (or _Monte Carlo error_).
+Later on, we'll look more at how to estimate and control the simulation error in our studies.
+
+
+## Exercises {#exAnovaExercises}
+
+The following exercises involve exploring and tweaking the simulation code we've developed to replicate the results of Brown and Forsythe (1974) that we provide in the above.
+
+1. Table 1 from Brown and Forsythe reported rejection rates for $\alpha = .01$ and $\alpha = .10$ in addition to $\alpha = .05$. Calculate the rejection rates of the ANOVA F and Welch tests for all three $\alpha$-levels.
+
+2. Try simulating the Type-I error rates for the parameter values in the first two rows of Table 1 of the original paper. Use 10,000 replications. How do your results compare to the results reported in the Table?
+
+3. Try simulating the **power levels** for a couple of sets of parameter values from Table 2. Use 10,000 replications. How do your results compare to the results reported in the Table?
+
+4. One might instead of having `one_run` return a single row with the columns for the $p$-values, have multiple rows with each row being a test (so one row for ANOVA and one for Welch).  Modify `one_run()` to do this, and then use `group_by()` plus `summarise()` to calculate rejection rates in one go.  This might be nicer if we had more than two methods, or if each method returned not just a $p$-value but other quantaties of interest.
+
+

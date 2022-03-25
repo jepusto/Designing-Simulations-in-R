@@ -1,6 +1,14 @@
 # Design, analysis, and presentation of simulation results
 
+```{r, include=FALSE}
+library( tidyverse )
+```
+
+You have all the pieces for writing simulations, but this still leaves open of what simulation should you run, and how do you present the results once you are finished.
+
 ## Designing the simulation experiment 
+
+Recall the following design principles and acknowledgements:
 
 - The primary limitation of simulation studies is __generalizability__.
 - Choose conditions that allow you to relate findings to previous work.
@@ -11,14 +19,27 @@
 
 ## Choosing parameter levels 
 
-Four possible strategies: 
+You generally want to vary parameters that you believe matter, or that you think other people will believe matter.
+The first is so you can learn.
+The second is to build your case.
+
+Once you have identified your parameters you then have to decide on the levels of the parameter you will include in the simulation.
+There are three strategies you might take:
 
 1. Vary a parameter over its entire range (or nearly so).
 2. Choose parameter levels to represent realistic practical range.
     - Empirical justification based on systematic reviews of applications
     - Or at least informal impressions of what's realistic in practice
-3. Vary nuisance parameters (at least a little) to test sensitivity of results.
-4. Choose parameters to emulate one important application.
+3. Choose parameters to emulate one important application.
+
+In the above (1) is the most general---but also the most computationally intensive.
+(2) will focus attention, ideally, on what is of practical relevance to a practitioner.
+(3) is usually coupled with a subsequent applied data analysis, and in this case the simulation is often used to enrich that analysis.
+For example, if the simulation shows the methods work for data with the given form of the target application, people may be more willing to believe the application's findings.
+
+Regardless of how you select your primary parameters, you should also vary nuisance parameters (at least a little) to test sensitivity of results.
+While simulations will (generally) never be fully generalizable, you can certainly make them so they avoid the obvious things a critic might identify as an easy dismissal of your findings.
+
 
 ## Presentation
 
@@ -43,7 +64,7 @@ Three approaches to analysis and presentation:
     - relative performance of alternative estimators
     - performance under different conditions for the data-generating model
 
-- Exact values for bias/RMSE/type-I error are not usually of interest.
+- Exact values for bias/RMSE/type-I error are not usually of interest. And in fact, we rarely have them due to Monte Carlo simulation error.
 
 - It is often more useful and insightful to present results in graphs (Gelman, Pasarica, & Dodhia, 2002).
 
@@ -56,13 +77,18 @@ This often requires creating a _BUNCH_ of graphs to look at different aspects of
 Helpful tools/concepts:
 
 - Boxplots are often useful for depicting range and central tendency across many combinations of parameter values. 
-- Color, shape, line type to encode different factors
-- Small multiples (faceting) to encode further factors (e.g., varying sample size)
+- Use color, shape, and line type to encode different factors
+- Small multiples (faceting) can then encode further factors (e.g., varying sample size)
 
-### Example 1 
+### Example 1: Biserial correlation estimation
 
-- Bias of biserial correlation estimate from an extreme groups design
-- $96 \times 2 \times 5 \times 5$ factorial design (true correlation, cut-off type, cut-off percentile, sample size)
+Our first example shows the bias of a biserial correlation estimate from an extreme groups design.
+This simulation was a $96 \times 2 \times 5 \times 5$ factorial design (true correlation for a range of values, cut-off type, cut-off percentile, and sample size).
+The correlation, with 96 levels, forms the $x$-axis, giving us nice performance curves.
+We use line type for the sample size, allowing us to easily see how bias collapses as sample size increases.
+Finally, the facet grid gives our final factors of cut-off type and cut-off percentile.
+All our factors, and near 5000 explored simulation scenarios, are visible in a single plot.
+
 
 ```{r, echo=FALSE, warning=FALSE, fig.width = 10, fig.height = 4}
 load("data/d2r results.rData")
@@ -70,10 +96,12 @@ allResults$n <- ordered(allResults$n)
 allResults$p.inv <- allResults$p1
 allResults$p1 <- ordered(allResults$p1, 
                 labels = paste("p1 = 1/",unique(allResults$p1), sep=""))
-allResults$fixed <- ordered(allResults$fixed, levels=c("TRUE","FALSE"), 
+allResults$fixed <- factor(allResults$fixed, levels=c("TRUE","FALSE"), 
                 labels = c("Fixed percentiles","Sample percentiles"))
 
-r_F <- droplevels(subset(allResults, stat=="r.i" & design=="Extreme Group"))
+r_F <- allResults %>%
+  filter(stat=="r.i" & design=="Extreme Group") %>%
+  droplevels()
 levels(r_F$fixed) <- c("Pop. cutoff","Sample cutoff")
 r_F$bias <- r_F$mean - r_F$rho
 r_F$bias.sm <- r_F$mean.sm - r_F$rho
@@ -90,7 +118,11 @@ ggplot(r_F, aes(rho, bias, linetype = n)) +
 
 Source: Pustejovsky, J. E. (2014). Converting from d to r to z when the design uses extreme groups, dichotomization, or experimental control. Psychological Methods, 19(1), 92-112.
 
-### Example 2 
+Note that in our figure, we have smoothed the lines with respect to `rho` using `geom_smooth()`.
+This is a nice tool for taking some of the simulation jitter out of an analysis to show overall trends more directly.
+
+
+### Example 2: Variance estimation and Meta-regression
 
 - Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression
 - Comparison of 5 different small-sample corrections
@@ -215,18 +247,35 @@ qplot(phi, zeta, fill = pcoverage_cut_smooth,
 
 ## Modeling
 
-Simulations are designed experiments, often with a full factorial structure
+Simulations are designed experiments, often with a full factorial structure.
+We can therefore leverage classic means for analyzing such full factorial experiment.
+In particular, we in effect model how a performance measure varies as a function of the different experimental factors.
+We can use regression or other modeling to do this.
 
-Helpful tools:
+First, in the language of a full factor experiment, we might be interested in the "main effects" or "interaction effects."
+A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts our peformance measure.
+When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that for a host of simulation contexts, grouped by levels of our main effect, we see a trend.
+
+For example, consider the Bias of biserial correlation estimate from an extreme groups design example from above.
+Visually, we see that most factors appear to matter for bias, but we might want to get a sense of how much.
+In particular, does the the population vs sample cutoff option matter, on average, for bias?
+
+```{r, warning=FALSE}
+options(scipen = 5)
+mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
+summary(mod, digits=2)
+```
+
+The above printout gives main effects for each factor, averaged across other factors.
+It is automatically generating linear, quadradic, cubic and fourth order contrasts for the ordered factors of p1 and n.
+We see that, across other contexts, the sample cutoff is around 0.004 lower than population.
+
+We next discuss two additional tools:
 
 >- ANOVA can be useful for understanding major sources of variation in simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
 >- Smoothing (e.g., local linear regression) over continuous factors 
 
 
-### Example 1
-
-- Bias of biserial correlation estimate from an extreme groups design
-- $96 \times 2 \times 5 \times 5$ factorial design (true correlation, cut-off type, cut-off percentile, sample size)
 
 ```{r, warning=FALSE}
 anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
@@ -235,8 +284,11 @@ summary(anova_table)
 
 ```{r, warning=FALSE}
 library(lsr)
-# etaSquared(anova_table)
+etaSquared(anova_table)
 ```
+
+\cmntM{Perhaps we need an example where some things don't matter?  We need to discuss what one learns from this table.}
+
 
 ## Presentation
 
