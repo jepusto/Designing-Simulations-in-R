@@ -1,4 +1,20 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 # Parallel Processing
+
+
+```{r, include=FALSE}
+# Make this Rmd file stand-alone by loading some stuff.
+
+library( tidyverse )
+library(future)
+library(furrr)
+
+```
+
 
 Especially if you take our advice of "when in doubt, go more general" and if you calculate monte carlo standard errors, you will quickly come up against the limits of your computer.
 Simultions can be incredibly computationally intensive, and there are a few means for dealing with that.
@@ -29,53 +45,72 @@ Even without multi factor experiments, due to the cycle of "generate data, then 
 ## Parallel on your computer
 
 
-### `purrrlyr` workflow
+Most modern computers have multiple cores, so you can run a parallel simulation right in the privacy of your own home!
 
-An alternative to `mdply` is to use the `invoke_rows` function from the `purrrlyr` package. The functions work almost identically, with a few little differences. One difference is that the `purrrlyr` package is designed to work well with `tidyr`, `dplyr` and the other tidyverse packages. We'll see another difference below.
+To assess how many cores you have on your computer, you can use the `detectCores()` method in the `parallel` package:
 
-The simulation template includes the following code to execute the simulations using `invoke_rows`:
+```{r}
+parallel::detectCores()
+```
+
+Normally, unless you tell it to do otherwise, __*R only uses one core*__.
+This is obviously a bit lazy on R's part.
+But it is easy to take advantage of multiple cores using the `future` and `furrr` packages.
+
+```{r, eval = TRUE}
+library(future)
+library(furrr)
+```
+
+In particular, the `furrr` package replicates our `map` functions, but in parallel.
+We first tell our R session what kind of parallel processing we want using the `future` package.
+In general, using `plan(multisession)` is the cleanest: it will start one entire R session per core, and have each session do work for you.
+The alternative, `multicore` does not seem to work well with Windows machines, nor with RStudio in general.
+
+The call is simple:
 
 ```{r, eval = FALSE}
-#--------------------------------------------------------
-# run simulations in serial - purrrlyr workflow
-#--------------------------------------------------------
-library(purrrlyr)
-
-system.time(
-  results <- 
-    params %>% 
-    invoke_rows(.f = runSim, .to = "res")
-)
+plan(multisession, workers = parallel::detectCores() - 1 )
 ```
 
-The `invoke_rows` function takes two main arguments, just like `mdply`: the dataset and the function to evaluate. The function is called for each row of the dataset, again by matching the function arguments to the variable names. The result is stored in a new variable, with name specified by `.to`. 
+The `workers` parameter specifies how many of your cores you want to use.
+Using all but one will let your computer still operate mostly normally for checking email and so forth.
+You are carving out a bit of space for your own adventures.
 
-Here's the syntax for the Cronbach alpha simulation:
-```{r}
-#--------------------------------------------------------
-# run simulations in serial - purrrlyr workflow
-#--------------------------------------------------------
-library(purrrlyr)
+Once you set up your plan, you use `future_pmap()`; it works just like `pmap()` but evaluates across all available workers specified in the plan call.
+Here we are running a parallel version of the multifactor experiment discussed in Chapter \@ref(exp_design) (see chapter \@ref(case_Cronback) for the simulation itself).
 
-system.time(
-  results_purrr <- 
-    params %>%
-    invoke_rows(.f = run_alpha_sim, .to = "res")
-)
+```{r, include=FALSE}
+source( "case_study_code/cronbach_alpha_simulation.R")
 ```
 
-The result looks a bit different than the result of using `mdply`:
-```{r}
-head(results_purrr, n = 12)
+```{r, eval = TRUE, cache = TRUE}
+tictoc::tic()
+params$res = future_pmap(params,
+                         .f = run_alpha_sim,
+                         .options = furrr_options(seed = NULL))
+tictoc::tic()
 ```
 
-The output has the same number of rows as params (compare to `results_mdply`, which has `r nrow(results_mdply)`). The performance estimates are all in a single variable, called `res` in this case, and each observation is actually _its own little dataset_, or what is called a __nested data frame__. Nested data frames are nifty but odd little data structures, which are beyond the scope of this course. For now, we can turn the results into something easier to work with by using the `unnest` function from `tidyr`:
-```{r}
-library(tidyr)
-results_purrr %>%
-  unnest() %>%
-  head(n = 12)
+Note the `.options = furrr_options(seed = NULL)` part of the argument.
+This is to silence some warnings.
+Given how tasks are handed out, R will get upset if you don't do some handholding regarding how it should set seeds for pseudoranom number generation.
+In particular, if you don't set the seed, the multiple sessions could end up having the same starting seed and thus run the exact same simulations (in principle).
+We have seen before how to set specific seed for each simulation scenario, but `furrr` doesn't know we have done this.
+This is why the extra argument about seeds: it is being explicit that we are handling seed setting on our own.
+
+
+We can compare the running time to running in serial (i.e. using only one worker):
+
+```{r, eval = TRUE, cache = TRUE}
+tictoc::tic()
+params$res2 = dplyr::select(params, n:seed) %>%
+  pmap(.f = run_alpha_sim)
+tictoc::tic()
 ```
+
+(The `select` command is to drop the `res` column from the parallel run; it would otherwise be passed as as parameter to `run_alpha_sim` which would in turn cause an error due to the unrecognized parameter.)
+
 
 
 
@@ -327,52 +362,22 @@ Now even if you have a series of seeds within the simulation script (as we have 
 
 
 
-### Combining all your simulation results
-
-Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects:
-
-```{r, eval=FALSE}
-# Load a collection of files and put them all together into a single, very large
-# dataframe
-load.all.sims = function( filehead="results/" ) {
-  
-  files = list.files( filehead, full.names=TRUE)
-  
-  res = map_df( files, function( fname ) {
-    cat( "Reading results from ", fname, "\n" )
-    rs = readRDS( file = fname )
-    rs$filename = fname
-    rs
-  })
-  res
-}
-```
-
-You would use as so:
-```{r, eval=FALSE}
-results = load.all.sims( filehead="raw_results/" )
-```
-
-
-
-
 ### Resources for Harvard's Odyssey
 
-The above are for Harvard' computing environment, primarily.
-For that environment in particular, see resources such as:
+The above guidiance is tailored for Harvard' computing environment, primarily.
+For that environment in particular, there are many additional resources such as:
 
 * Odyssey Guide: https://rc.fas.harvard.edu/resources/odyssey-quickstart-guide/
 * R on Odyssey: https://rc.fas.harvard.edu/resources/documentation/software/r/
 
 For installing R packages so they are seen by the scripts run by sbatch, see (https://www.rc.fas.harvard.edu/resources/documentation/software-on-odyssey/r/)
 
-
-Other clusters should have similar documents giving needed guidance.
+Other clusters should have similar documents giving needed guidance for their specific contexts.
 
 
 ### Acknowledgements
 
-Some parts of the above are based on some tutorials built by Kristen Hunter and Zach Branson, past doctoral students of Harvard's statistics department.
+Some of the above material is based on tutorials built by Kristen Hunter and Zach Branson, past doctoral students of Harvard's statistics department.
 
 
 

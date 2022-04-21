@@ -1,0 +1,195 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Ensuring reproducibility
+
+```{r echo = FALSE, messages = FALSE, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE, 
+                      fig.width = 5,
+                      fig.height = 3,
+                      out.width = "75%", 
+                      fig.align = "center")
+options(list(dplyr.summarise.inform = FALSE))
+theme_set( theme_classic() )
+
+
+## Code taken from 42 Rmd file to make this a stand-alone file.
+
+library(mvtnorm)
+
+
+r_mvt_items <- function(n, p, alpha, df) {
+  icc <- alpha / (p - alpha * (p - 1))
+  V_mat <- icc + diag(1 - icc, nrow = p)
+  X <- rmvt(n = n, sigma = V_mat, df = df)
+  colnames(X) <- LETTERS[1:p]
+  X
+}
+
+estimate_alpha <- function(dat, coverage = .95) {
+  V <- cov(dat)
+  p <- ncol(dat)
+  n <- nrow(dat)
+  A <- p / (p - 1) * (1 - sum(diag(V)) / sum(V))
+  Var_A <- 2 * p * (1 - A)^2 / ((p - 1) * n)
+  
+  B <- log(1 - A) / 2
+  SE_B <- sqrt(p / (2 * n * (p - 1)))
+  z <- qnorm((1 - coverage) / 2)
+  CI_B <- B + c(-1, 1) * SE_B * z
+  CI_A <- 1 - exp(2 * CI_B)
+  
+  data.frame(A = A, Var_A = Var_A, CI_L = CI_A[1], CI_U = CI_A[2])
+}
+
+alpha_performance <- function(alpha_sims, alpha, coverage_level = .95) {
+  
+  # setup
+  K <- nrow(alpha_sims)
+  A_err <- alpha_sims$A - alpha
+  var_A <- var(alpha_sims$A)
+  
+  # bias
+  A_bias <- mean(A_err)
+  A_bias_MCSE <- sqrt(var_A / K)
+  
+  # RMSE
+  A_RMSE <- sqrt(mean((A_err)^2))
+  RMSE_j <- sqrt((A_RMSE^2 * K - A_err^2) / (K - 1))
+  A_RMSE_MCSE <- sd(RMSE_j)
+  
+  # relative bias of variance estimator
+  V_bar <- mean(alpha_sims$Var_A)
+  V_j <- (V_bar * K - alpha_sims$Var_A) / (K - 1)
+  Ssq_j <- ((K - 1) * var_A - A_err^2 * K / (K - 1)) / (K - 2)
+  RB_j <- V_j / Ssq_j
+  V_relbias <- V_bar / var_A
+  V_relbias_MCSE <- sd(RB_j)
+  
+  # coverage
+  coverage <- mean(alpha_sims$CI_L < alpha & alpha < alpha_sims$CI_U)
+  coverage_MCSE <- sqrt(coverage_level * (1 - coverage_level) / K)
+  
+  data.frame(
+    criterion = c("alpha bias","alpha RMSE", "V relative bias", "coverage"),
+    est = c(A_bias, A_RMSE, V_relbias, coverage),
+    MCSE = c(A_bias_MCSE, A_RMSE_MCSE, V_relbias_MCSE, coverage_MCSE)
+  )
+}
+
+run_alpha_sim <- function(iterations, n, p, alpha, df, coverage = 0.95, seed = NULL) {
+  
+  if (!is.null(seed)) set.seed(seed)
+
+  results <- 
+    replicate(n = iterations, {
+      dat <- r_mvt_items(n = n, p = p, alpha = alpha, df = df)
+      estimate_alpha(dat, coverage = coverage)
+    }, simplify = FALSE) %>%
+    bind_rows()
+  
+  alpha_performance(results, alpha = alpha, coverage = coverage)
+}
+
+
+```
+
+
+
+In the prior section we built a simulation driver.
+Because this function involves generating random numbers, re-running it with the exact same input parameters will still produce different results:
+```{r}
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5)
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5)
+```
+
+Of course, using a larger number of iterations will give us more precise estimates of the performance criteria. If we want to get the _exact_ same results, however, we have to control the random process.
+
+This is more possible than it sounds: Monte Carlo simulations are random, but computers are not.
+When we generate "random numbers" they actually come from a chain of mathematical equations that, given a number, will generate the next number in a deterministic sequence.
+Given that number, it will generate the next, and so on.
+The numbers we get back are a part of this chain of (very large) numbers that, ideally, cycles through an extremely long list of numbers in a haphazard and random looking fashion.
+
+This is what the `seed` argument that we have glossed over before is all about.
+If we set the same seed, we get the same results:
+
+```{r}
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5, seed = 6)
+run_alpha_sim(iterations = 10, n = 50, p = 6, alpha = 0.73, df = 5, seed = 6)
+```
+
+This is useful because it ensure the full reproducibility of the results. In practice, it is a good idea to always set seed values for your simulations, so that you (or someone else!) can exactly reproduce the results.
+Let's look more at how this works.
+
+
+## Seeds and pseudo-random number generators
+
+In R, we can start a sequence of __deterministic__ but __random-seeming__  numbers by setting a "seed".
+This means all the random numbers that come after it will be the same.
+
+Compare this:
+
+```{r}
+rchisq(3, df = 5)
+rchisq(3, df = 5)
+```
+
+To this:
+
+```{r}
+set.seed(20210527)
+rchisq(3, df = 5)
+
+set.seed(20210527)
+rchisq(3, df = 5)
+```
+
+By setting the seed the second time we reset our sequence of random numbers.
+Similarly, to ensure reproducibility in our simulation, we add an option to set the seed value of the random number generator.
+
+This seed is low-level, meaning if we are generating numbers via `rnorm` or `rexp` or `rchisq`, it doesn't matter.
+Each time we ask for a random number from the low-level pseudo-random number generator, it gives us the next number back.
+These other functions than just transform the number to be of the correct distribution.
+
+
+## Including seed in our simulation driver
+
+The easy way to ensure reproducability is to pass a seed as a parameter.
+If we leave it NULL, we ignore it and just continue generating random numbers from wherever we are in the system.
+If we specify a seed, however, we set it at the beginning of the scenario, and then all the numbers that follow will be in sequence.
+Our code will typically look like this:
+
+```{r}
+run_alpha_sim <- function(iterations, n, p, alpha, df, coverage = 0.95, seed = NULL) {
+  
+  if (!is.null(seed)) set.seed(seed)
+
+  results <- 
+    replicate(n = iterations, {
+      dat <- r_mvt_items(n = n, p = p, alpha = alpha, df = df)
+      estimate_alpha(dat, coverage = coverage)
+    }, simplify = FALSE) %>%
+    bind_rows()
+  
+  alpha_performance(results, alpha = alpha, coverage = coverage)
+}
+```
+
+Using our seed, we get identical results, as we saw in the intro, above.
+
+
+## Reasons for setting the seed
+
+Reproducibility allows us to easily check if we are running the same code that generate the results in some report.
+It also helps with debugging.
+For example, say we had an error that showed up one in a thousand, causing our simulation to crash sometimes.
+
+If we set a seed, and see that it crashes, we can then go try and catch the error and repair our code, and then rerun the simulation.
+If it runs clean, we know we got the error.
+If we had not set the seed, we would not know if we were just getting lucky, and avoiding the error.
+
+

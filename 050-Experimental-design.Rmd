@@ -1,22 +1,36 @@
-# Designing the multifactor simulation experiment
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r, include=FALSE}
+library( tidyverse )
+library( purrr )
+options(list(dplyr.summarise.inform = FALSE))
+theme_set( theme_classic() )
+
+```
+
+
+# Designing the multifactor simulation experiment {#exp_design}
 
 So far, we've created code that will give us results for a single combination of parameter values. In practice, simulation studies typically examine a range of different values, including varying the level of the true parameter values and perhaps also varying sample sizes. Let's now look at the remaining piece of the simulation puzzle: the study's experimental design. 
 
-Simulation studies often take the form of __full factorial__ designed experiments. In full factorials, each factor is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of factors and levels. 
+Simulation studies often take the form of __full factorial__ designed experiments. In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of factors and levels. 
 
-For the Cronbach alpha simulation, we might want to vary 
+For example, for the Cronbach alpha simulation, we might want to vary:
 
 * the true value of alpha, with values ranging from 0.1 to 0.9;
-* the degrees of freedom of the multivariate t distribution, with values of 5, 10, 20, or 100;
+* the degrees of freedom of the multivariate $t$ distribution, with values of 5, 10, 20, or 100;
 * the sample size, with values of 50 or 100; and
 * the number of items, with values of 4 or 8.
 
 Here is code that implements this design, using 500 replications per condition:
 ```{r}
-set.seed(20170405)
-
-# now express the simulation parameters as vectors/lists
-
+# first express the simulation parameters as a list of factors, each
+# factor having a list of values to explore.
 design_factors <- list(
   n = c(50, 100),
   p = c(4, 8),
@@ -24,37 +38,262 @@ design_factors <- list(
   df = c(5, 10, 20, 100)
 )
 
-params <- expand.grid(design_factors)
-params$iterations <- 50
-params$seed <- round(runif(1) * 2^30) + 1:nrow(params)
+params <- cross_df(design_factors)
+params$iterations <- 500
+params$seed <- 20170405 + 1:nrow(params)
 ```
 
 This gives us a $`r paste(lengths(design_factors), collapse = "\\times")`$ factorial design:
 ```{r}
 lengths(design_factors)
 ```
-With a total of `r nrow(params)` cells.
-```{r}
-nrow(params)
-```
 
 The `params` data frame is a representation of the full experimental design:
 ```{r}
-head(params)
+params
 ```
+
+We see we have a total of `r nrow(params)` cells, each cell corresponding to a simulation scenario to explore.
+
+
 
 ## Choosing parameter combinations
 
-We've now seen how to create a set of experimental conditions, but how do we go about choosing parameter values to examine? Choosing parameters is a central part of good simulation design because the primary limitation of simulation studies is always their _generalizability_. On the one hand, it's difficult to extrapolate findings from a simulation study beyond the set of simulation conditions that were examined. On the other hand, it's often difficult or impossible to examine the full space of all possible parameter values, except for very simple problems. Even in the Cronbach alpha simulation, we've got four factors, and the last three could each take an infinite number of different levels, in theory. How can we come up with a defensible set of levels to examine?
+We've seen how to create a set of experimental conditions, but how do we go about choosing parameter values to examine? Choosing parameters is a central part of good simulation design because the primary limitation of simulation studies is always their _generalizability_. On the one hand, it's difficult to extrapolate findings from a simulation study beyond the set of simulation conditions that were examined. On the other hand, it's often difficult or impossible to examine the full space of all possible parameter values, except for very simple problems. Even in the Cronbach alpha simulation, we've got four factors, and the last three could each take an infinite number of different levels, in theory. How can we come up with a defensible set of levels to examine?
 
-The choice of simulation conditions needs to be made in the context of the problem or model that you're studying, so it's a bit difficult to offer valid, decontextualized advice. I'll offer a couple of observations all the same:
+The choice of simulation conditions needs to be made in the context of the problem or model that you're studying, so it's a bit difficult to offer valid, decontextualized advice.
+We can provide a couple of observations all the same:
 
-1. For research simulations, it often is important to be able to relate your findings to previous research. This suggests that you should select parameter levels to make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (actually, there's a lot of really crummy ones out there!), and so this shouldn't be your sole guide or justification.
+1. For research simulations, it often is important to be able to relate your findings to previous research. This suggests that you should select parameter levels to make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (actually, there's a lot of really crummy ones out there!), and so this should not be your sole guide or justification.
 
 2. Generally, it is better to err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation.
 
 3. It is also important to explore breakdown points (e.g., what sample size is too small for a method to work?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.
 
 
+An important point regarding (2) is that you can be more comprehensive and then have fewer replications per scenario.
+For example, say you were planning on doing 1000 simulations per scenario, but then you realize there is some new factor that you don't think matters, but that you believe other researchers will worry about.
+You could add in that factor, say with four levels, and then do 250 simulations per scenario.
+The total work remains the same.
 
+When analyzing the final simulation you can then first verify you do not see trends along this new factor, and then marganalize out the factor in your summaries of results.
+Marganalizing out a factor (i.e., averaging your performance metrics across the additional factor) is a powerful technique to make a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario.
+
+
+
+
+## Using pmap to run multifactor simulations
+
+To run simulations across all of our factor combinations, we are going to use a very useful method in the `purrr` package called `pmap()`.
+`pmap()` marches down a set of lists, running a function on each $p$-tuple of elements, passing them as parameters.
+It returns a list of the results of this sequence of function calls.
+
+```{r}
+my_function <- function( a, b, theta, scale ) {
+    scale * (a + theta*(b-a))
+}
+
+args = list( a = 1:3, 
+             b = 5:7, 
+             theta = c(0.2, 0.3, 0.7) )
+purrr::pmap_dbl(  args, my_function, scale = 10 )
+```
+
+One important note is the variable names for the lists being iterated over must correspond exactly to function arguments of the called function.  Extra parameters can be passed after the function name; these will be held constant, and passed to each function call.
+
+As we see above, `pmap()` has variants such as `_dbl` or `_df` just like the `map()` and `map2()` methods.
+These variants will automatically stack or convert the list of things returned into a tidier collection (for `_dbl` it will convert to a vector of numbers, for `_df` it will stack to make a large dataframe, assuming each thing returned is a little dataframe).
+
+Ok, but this doesn't quite look like what we want: our factors are stored as a dataframe, not three lists.
+This is where R gets interesting: data frames are lists of vectors.
+Witness:
+
+```{r}
+args[[2]]
+
+a_df = as.data.frame(args)
+a_df
+a_df[[2]]
+
+purrr::pmap_dbl( a_df, my_function, scale = 10)
+```
+
+Note how we can pass `a_df` to `pmap`, and have it do exactly what it did with the lists.
+This is because the way R stores a dataframe is as a list of vectors or lists (with each of the vectors or lists having the exact same length).  This works beautifully with `pmap()`.
+
+All of this means `pmap()` can run a specified function on each row of a dataset.
+Continuing the Cronback Alpha simulation from above, we would have the following:
+
+
+```{r run-cronbach-sims, eval = TRUE, cache = TRUE, include=FALSE}
+library(future)
+library(furrr)
+source( "cronbach_alpha_simulation.R" )
+plan(multisession)
+sim_results <- 
+  params %>%
+  mutate(res = future_pmap(., .f = run_alpha_sim,
+                            .options = furrr_options(seed = NULL) ) )
+```
+
+
+This allows us to call our `run_alpha_sim()` method for each row of our list of scenarios we want to explore.
+When we do, we can also store the results __as a new variable in the same dataset__:
+```{r, eval = FALSE}
+sim_results <- params
+sim_results$res <- pmap(params, .f = run_alpha_sim)
+```
+
+When we do this, we will be creating a __list-column__, where each observation is a little dataset:
+
+```{r}
+sim_results
+```
+
+Each element in our list column is the little summary of our simulation results for that scenario.
+Here is the third scenario, for example:
+
+```{r}
+sim_results$res[[3]]
+```
+
+We finally use `unnest()` to expand the `res` variable, replicating the values of the main variables once for each row in the nested dataset:
+
+```{r}
+library(tidyr)
+sim_results <- unnest(sim_results, cols = res)
+sim_results
+```
+
+We can put all of this together in a a tidy workflow as follows:
+
+```{r, eval = FALSE}
+sim_results <- 
+  params %>%
+  mutate(res = pmap(., .f = run_sim)) %>%
+  unnest(cols = res)
+```
+
+If we wanted to use parallel processing (more on this later) we can also simply use the `simhelpers` package (the following code is auto-generated by the `create_skeleton()` method as well):
+
+```{r, eval=FALSE}
+plan(multisession) # choose an appropriate plan from the future package
+evaluate_by_row(params, run_alpha_sim)
+```
+
+
+
+## Keeping things organized and the source command
+
+Once you have your multifactor simulation, if it is a particularly complex one, you will have three general collections of code:
+
+ * Code for generating data
+ * Code for analyzing data
+ * Code for running a single simulation scenario
+
+If each of these pieces is large and complex, you might consider putting them in three different `.R` files.
+Then, in your primary simulation, you would source these files.
+E.g.,
+
+```{r, eval=FALSE}
+source( "pack_data_generators.R" )
+source( "pack_estimators.R" )
+source( "pack_simulation_support.R" )
+```
+
+You might also just have the `pack_simulation_support.R` source the other two files, and then source the single simulation support file.
+
+One reason for doing this is you can then have testing code in each of your files, testing each of your components.
+When you are not focused on that component, you don't have to look at that testing code.
+
+Another is you can have a variety of data generators, forming a library of options.
+You can then create different simulations that use different pieces, in a larger project.
+
+For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
+Our file then had several methods:
+
+```
+> ls()
+[1] "describe_sim_data"  "make_dat"           "make.dat.1side"     "make.dat.1side.old" "make.dat.orig"     
+[6] "make.dat.simple"    "make.dat.tuned"     "rand.exp"           "summarize_sim_data"
+```
+
+The describe and summarize methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
+We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
+
+Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that file and use those estimators on our actual data.
+This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
+Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
+
+Modular programming is key.
+
+
+
+## Analyzing results from a multifactor experiment
+
+We can group by our simulation factors and calculate all our performance metrics at once.
+For example, here is the code for calculating performance measures across our simulation for cluster randomized experiments:
+
+```{r}
+res <- readRDS( file = "results/simulation_CRT.rds" )
+
+sres <- 
+  res %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarise( 
+    bias = mean(ATE_hat - ATE),
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE )^2 ) ),
+    ESE_hat = sqrt( mean( SE_hat^2 ) ),
+    SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+    power = mean( p_value <= 0.05 ),
+    R = n(),
+    .groups = "drop"
+  )
+sres
+```
+
+But then what?
+We have `r nrow(res) / 3` different scenarios across our factors (with three rows per scenario, one for each method).
+How can we visualize and understand trends across this complex domain.
+
+There several techniques for summarizing across the data that one might use.
+
+### Bundling
+As a first step, we might bundle the simulations by the primary factors of interest.
+We would then plot these bundles as box plots to see central tendency along with variation.
+With bundling, we would need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable than the truth.
+
+
+### Aggregation
+With aggregation, we average over some of the factors, collapsing our simulation results down to fewer moving parts.
+This is better than having not had those factors in the first place!
+Averaging over a factor is a more general answer than having not varied the factor at all.
+
+For example, if we average across ICC and site variation, and see how the methods change performance as a function of $J$, we would know that this is a general trend across a range of scenarios defined by different ICC and site variation levels.
+Our conclusions would then be more general than if we picked a single ICC and amount of site variation: in this latter case we would not know if we would see our trend more broadly.
+
+Also, with aggegation, we can have a smaller number of replications per factor combination.
+The averaging will, in effect, give a lot more reps per aggregated performance measure.
+
+Aggregate, grouping only by the factors used in the plot.
+
+
+A caution with aggregation is that it can be deceitful if you have scaling issues or extreme outliers.
+With bias, our scale is fairly well set, so we are good!
+
+
+### Regression Summarization
+
+One can treat the simulation results as a dataset in its own right.
+In this case we can regress a performance measure against the methods and various factor levels to get "main effects" of how the different levels impact performance holding the other levels constant.
+
+
+### Focus on subset, kick rest to supplement
+
+Frequently researchers might simply filter the simulation results to a single factor level for some nuisance parameter.
+For example, we might examine ICC of 0.20 only, as this is a "reasonable" value given substance matter knowledge.
+We would then consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, like in an online supplemental appendix.
+
+It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
 

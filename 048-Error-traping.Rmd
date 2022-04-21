@@ -1,21 +1,135 @@
+```{r, include =FALSE}
+library( purrr )
+```
+
+
 # Error trapping and other headaches
 
 If you have an advanced estimator, or are relying on some package, it is quite possible that every so often your estimate will trigger an error, or give you a NA result, or something similarly bad.
 More innocuous, you might have estimators that can generate warnings; if you run 10,000 trials, that can add up to a lot of warnings which can be overwhelming to sort through.
+In some cases, these warnings might be coupled with the estimator returning a very off result; it is unclear, in this case, whether we should include that result in our overall performance measures for that estimator.
+After all, it tried to warn us!
 
-In this section, we talk about some ways to make your simulations safe and robust.
+In this section, we talk about some ways to make your simulations safe and robust, and also discuss some ways to track warnings and include them in peformance measures.
+ 
 
-## Safe code
+## Safe code {#safe_code}
+
+
+Sometimes if you write a function that does a lot of complex things with
+uncertain objects -- i.e. consider a complex estimator using an unstable package not of your own creation -- you can run into trouble where you have a intermittent error.
+
+This can really be annoying; consider the case where your simulation crashes on 1 out of 500 chance: if you run 1000 simulation trials, your program will likely not make it to the end, thus wasting all of your time.
+You can write code that can, instead of stopping when it reaches an error, trap the error and move on with the next simulation trial.
+
+To illustrate, consider the following broken function:
+
+```{r, error=TRUE}
+my_complex_function = function( param ) {
+    
+    vals = rnorm( param, mean = 0.5 )
+    if ( sum( vals ) > 5 ) {
+        broken_code( 4 )
+    } else {
+        sqrt( sum( vals ) )
+    }
+}
+```
+
+We run it like so:
+```{r, error=TRUE}
+my_complex_function( 1 )
+my_complex_function( 7 )
+
+resu = rerun( 20, my_complex_function( 7 ) )
+```
+
+Oh no!  Our function crashes sometimes.
+To trap the errors we use the purrr package to make a "safe" function as so:
+
+```{r}
+my_safe_function = safely( my_complex_function )
+my_safe_function( 7 )
+```
+
+There are other function wrappers in this family, such as "possibly":
+```{r}
+my_possible_function = possibly( my_complex_function, 
+                                 otherwise = NA )
+my_possible_function( 7 )
+
+as.numeric( rerun( 10, my_possible_function(7) ) )
+```
+
+Finally, we can use "quietly" to make warnings and stuff go away:
+```{r}
+my_quiet_function = quietly( my_complex_function )
+
+my_quiet_function( 1 )
+```
+
+This can be especially valuable to control massive amounts of printout in a simulation.  If you have lots of extraneous printout, it can slow down the execution of your code far more than you might think.
+
+
+### What to do with warnings
+
+Sometimes our analytic strategy might give some sort of warning (or fail altogether).
+For example, from the cluster randomized experiment case study we have:
+
+```{r}
+set.seed(101012)  # (I picked this to show a warning.)
+dat = gen_dat_model( J = 50, n_bar = 100, sigma2_u = 0 )
+mod <- lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+```
+
+We have to make a deliberate decision as to what to do about this:
+ 
+ - Keep these "weird" trials?
+ - Drop them?
+
+If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
+If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn't give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+
+If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
+Especially if you drop some trials, it is important to see how often things are acting pecularly.
+
+The main tool for doing this is the `quietly()` function:
+```{r}
+quiet_lmer = quietly( lmer )
+qmod <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+qmod
+```
+
+You then might have, in your analyzing code:
+```{r, eval=FALSE}
+analyze_data <- function( dat ) {
+    
+    M1 <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+    message1 = ifelse( length( M1$message ) > 0, 1, 0 )
+    warning1 = ifelse( length( M1$warning ) > 0, 1, 0 )
+
+    # Compile our results
+    tibble( ATE_hat = coef(M1)["Z"],
+            SE_hat = se.coef(M1)["Z"],
+            message = message1,
+            warning = warning1 )
+}
+```
+
+Now you have your primary estimates, and also flags for whether there was a convergence issue.
+In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
+
 
 
 ## Saving files and results
 
 Always save your simulation results to a file.
-They are painful and time consuming to run, and you will invariably want to analyze them in a variety of different ways, once you have looked at your preliminary analysis.
-We advocate saving your simulation as soom as it is complete.
+Simulations are painful and time consuming to run, and you will invariably want to analyze the results of them in a variety of different ways, once you have looked at your preliminary analysis.
+We advocate saving your simulation as soon as it is complete.
 But there are some ways to do better than that, such as saving as you go.
+This can protect you if your simulation occasionally crashes, or if you want to rerun only parts of your simulation for some reason.
 
-### Saving simulations as you go ###
+### Saving simulations as you go
 
 If you are not sure you have time to run your entire simulation, or you think your computer might crash half way through, or something similar, you can save each chunk you run as you go, in its own file.  You then stack those files at the end to get your final results.
 With clever design, you can even then selectively delete files to rerun only parts of your larger simulation---but be sure to rerun everything from scratch before you run off and publish your results, to avoid embarrassing errors.
@@ -68,13 +182,6 @@ This means if we kill our simulation half-way through, most of the work would be
 Our function is then going to either do the simulation (and save the result to disk immediately), or, if it can find the file with the results from a previous run, load those results from disk:
 
 ```{r, eval=FALSE}
-##### Run the simulation!   #####
-
-scat( "Running simulation in %d chunks\n", nrow(factors) )
-
-tictoc::tic()
-
-# parallel version
 safe_run_sim = safely( run_sim )
 file_saving_sim = function( chunkNo, seed, ... ) {
     fname = paste0( "results/frags/fragment_", chunkNo, "_", seed, ".rds" )
@@ -143,8 +250,6 @@ sim_results$sr = rep( c("res","err"), nrow(sim_results)/2)
 sim_results = pivot_wider( sim_results, names_from = sr, values_from = res )
 
 saveRDS( sim_results, file="results/simulation_results.rds" )
-
-cat( "Script finished\n" )
 ```
 
 
@@ -167,6 +272,37 @@ my_write_csv <- function( data, path, file ) {
 }
 ```
 
-This will look for a path (starting from your R Project, by taking advantage of the `here` package), and put your datafile in that spot.
+This will look for a path (starting from your R Project, by taking advantage of the `here` package), and put your data file in that spot.
 If the spot doesn't exist, it will make it for you.
+
+
+
+
+### Loading and combining files of simulation results
+
+Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
+This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.
+
+
+```{r, eval=FALSE}
+load.all.sims = function( filehead="results/" ) {
+  
+  files = list.files( filehead, full.names=TRUE)
+  
+  res = map_df( files, function( fname ) {
+    cat( "Reading results from ", fname, "\n" )
+    rs = readRDS( file = fname )
+    rs$filename = fname
+    rs
+  })
+  res
+}
+```
+
+You would use as so:
+```{r, eval=FALSE}
+results = load.all.sims( filehead="raw_results/" )
+```
+
+
 
