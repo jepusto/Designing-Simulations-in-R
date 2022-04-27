@@ -171,20 +171,19 @@ ggplot(subset(results, testname %in% test_select & m %in% m_select & q < 5),
 
 Source: Tipton, E., & Pustejovsky, J. E. (2015). Small-sample adjustments for tests of moderators and model fit using robust variance estimation in meta-regression. _Journal of Educational and Behavioral Statistics, 40_(6), 604-634.
 
-### Example 3 (Pustejovsky & Swan, 2014)
+### Example: Heat maps of coverage
 
-- Coverage of parametric bootstrap confidence intervals for momentary time sampling data
-- Compare maximum likelihood estimators to posterior mode (penalized likelihood) estimators of prevalence
-- 2-dimensional parameter space:
-    - prevalence (19 levels)
-    - incidence (10 levels)
-- Sample size (15 levels)
+The visualization below shows the coverage of parametric bootstrap confidence intervals for momentary time sampling data
+In this simulation study the authors were comparing maximum likelihood estimators to posterior mode (penalized likelihood) estimators of prevalence.
+We have a 2-dimensional parameter space of prevalence (19 levels) by incidence (10 levels).
+We also have 15 levels of sample size.
 
-Source: Pustejovsky, J. E., & Swan, D. M. (2015). Four methods for analyzing partial interval recording data, with application to single-case research. _Multivariate Behavioral Research, 50_(3), 365-380.
+One option here is to use a heat map, showing the combinations of prevelance and incidence as a grid for each sample size level.
+We break coverage into ranges of interest, with green being "good" (near 95%) and yellow being "close" (92.5% or above).
+For this to work, we need our MCSE to be small enough that our coverage is estimated precisely enough to show structure.
 
-```{r, echo=FALSE, fig.height=5.5, fig.width = 10}
 
-library(plyr)
+```{r swan_example_setup, echo=FALSE, fig.height=5.5, fig.width = 10}
 
 load("data/MTS bootstrap performance.Rdata")
 
@@ -203,7 +202,12 @@ coverage_smoother <- function(results){
   return(cbind(results, pcoverage_smooth, zcoverage_smooth))
 }
 
-MTS_coverage <- ddply(MTS_results, .fun = coverage_smoother, .(K_intervals, k_priors, theta))
+MTS_coverage <- MTS_results %>%
+  nest_by( K_intervals, k_priors, theta )
+MTS_coverage$res = map( MTS_coverage$data, coverage_smoother ) 
+MTS_coverage = unnest( MTS_coverage, cols = res )
+
+
 MTS_coverage2 <- MTS_coverage
 MTS_coverage2$phi <- 1 - MTS_coverage2$phi
 MTS_coverage <- rbind(MTS_coverage, MTS_coverage2)
@@ -245,6 +249,11 @@ qplot(phi, zeta, fill = pcoverage_cut_smooth,
   theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
 ```
 
+
+To see this plot IRL, see Pustejovsky, J. E., & Swan, D. M. (2015). Four methods for analyzing partial interval recording data, with application to single-case research. _Multivariate Behavioral Research, 50_(3), 365-380.
+
+
+
 ## Modeling
 
 Simulations are designed experiments, often with a full factorial structure.
@@ -260,7 +269,7 @@ For example, consider the Bias of biserial correlation estimate from an extreme 
 Visually, we see that most factors appear to matter for bias, but we might want to get a sense of how much.
 In particular, does the the population vs sample cutoff option matter, on average, for bias?
 
-```{r, warning=FALSE}
+```{r modeling_demonstration, warning=FALSE}
 options(scipen = 5)
 mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
 summary(mod, digits=2)
@@ -277,7 +286,7 @@ We next discuss two additional tools:
 
 
 
-```{r, warning=FALSE}
+```{r anova_example, warning=FALSE}
 anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
 summary(anova_table)
 ```
