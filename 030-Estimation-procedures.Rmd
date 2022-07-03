@@ -2,6 +2,8 @@
 
 
 ```{r, include=FALSE}
+library(tidyverse)
+
 # From prior chapter on ANOVA case study.
 generate_data <- function(mu, sigma_sq, sample_size) {
 
@@ -35,7 +37,7 @@ one_run = function( mu, sigma_sq, sample_size ) {
 
 In the abstract, a function that implements an estimation procedure should have the following form:
 ```{r}
-estimate <- function(sim_data) {
+estimate <- function(data) {
 
   # calculations/model-fitting/estimation procedures
   
@@ -50,7 +52,7 @@ The estimates could be point-estimates of parameters, standard errors, confidenc
 Depending on the research question, this function might involve a combination of several procedures (e.g., a diagnostic test for heteroskedasticity, followed by the conventional formula or heteroskedasticity-robust formula for standard errors).
 Also depending on the research question, we might need to create _several_ functions that implement different estimation procedures to be compared. 
 
-In Chapter \@ref(case_ANOVA), for example, we saw different functions for some of the methods Brown and Forsythe considered for heteroskedastic ANOVA.
+In Chapter @case_ANOVA, for example, we saw different functions for some of the methods Brown and Forsythe considered for heteroskedastic ANOVA.
 We re-print them here, taking full advantage of our digital-bookness:
 
 ```{r}
@@ -98,120 +100,6 @@ Welch_F <- function(sim_data) {
 
 
 
-## Further notes on computational efficiency
-
-Computational and programming efficiency is usually a secondary consideration when you're starting to design a simulation study. It's better to produce accurate code, even if it's a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results). All that said, there is some glaring redundancy in the two functions above.
-Both of them start by taking the simulated data and calculating summary statistics for each group, using the following code:
-
-```{r, eval=FALSE}
-x_bar <- with(sim_data, tapply(x, group, mean))
-s_sq <- with(sim_data, tapply(x, group, var))
-n <- table(sim_data$group)
-g <- length(x_bar)
-```
-
-In the interest of not repeating ourselves, it would better to pull this code out as a separate function and then re-write the `ANOVA_F` and `Welch_F` functions to take the summary statistics as input. Here is a function that takes simulated data and returns a list of summary statistics:
-
-```{r}
-summarize_data <- function(sim_data) {
-  
-  res <- sim_data %>% group_by( group ) %>%
-    summarise( x_bar = mean( x ),
-               s_sq = var( x ),
-               n = n() )
-  res
-}
-```
-
-We just packaged the code from above, and puts our results in a nice table (and thus pivoted to using tidyverse to calculate these things):
-
-```{r}
-sim_data = generate_data(mu=mu, sigma_sq=sigma_sq, sample_size=sample_size)
-summarize_data(sim_data)
-```
-
-Now we can re-write both $F$-test functions to use the output of this function:
-
-```{r}
-ANOVA_F_agg <- function(x_bar, s_sq, n) {
-  g = length(x_bar)
-  df1 <- g - 1
-  df2 <- sum(n) - g
-  
-  msbtw <- sum(n * (x_bar - weighted.mean(x_bar, w = n))^2) / df1
-  mswn <- sum((n - 1) * s_sq) / df2
-  fstat <- msbtw / mswn
-  pval <- pf(fstat, df1, df2, lower.tail = FALSE)
- 
-  return(pval)
-}
-
-summary_stats <- summarize_data(sim_data)
-with(summary_stats, ANOVA_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
-
-Welch_F_agg <- function(x_bar, s_sq, n) {
-  g = length(x_bar)
-  w <- n / s_sq
-  u <- sum(w)
-  x_tilde <- sum(w * x_bar) / u
-  msbtw <- sum(w * (x_bar - x_tilde)^2) / (g - 1)
-
-  G <- sum((1 - w / u)^2 / (n - 1))
-  denom <- 1 +  G * 2 * (g - 2) / (g^2 - 1)
-  W <- msbtw / denom
-  f <- (g^2 - 1) / (3 * G)
-
-  pval <- pf(W, df1 = g - 1, df2 = f, lower.tail = FALSE)
-
-  return(pval)
-}
-
-with(summary_stats, ANOVA_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
-```
-
-The results are the same as before. 
-
-We then put all these pieces in our revised `one_run()` method as so:
-
-```{r}
-one_run_fast <- function( mu, sigma_sq, sample_size ) {
-  sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
-                            sample_size = sample_size)
-  summary_stats <- summarize_data(sim_data)
-  anova_p <- with(summary_stats, 
-                  ANOVA_F_agg(x_bar = x_bar,s_sq = s_sq, n = n))
-  Welch_p <- with(summary_stats, 
-                  Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
-  tibble(ANOVA = anova_p, Welch = Welch_p)
-}
-
-one_run_fast( mu = mu, sigma_sq = sigma_sq,
-              sample_size = sample_size )
-```
-
-The reason this is important is we are now doing our group aggregation only once, rather than once per method.  We can use our microbenchmark to see our speedup:
-
-```{r}
-library(microbenchmark)
-timings <- microbenchmark(noagg = one_run(mu = mu, sigma_sq = sigma_sq, 
-                                          sample_size = sample_size),
-                          agg = one_run_fast(mu = mu, sigma_sq = sigma_sq, 
-                                             sample_size = sample_size) )
-timings
-```
-
-And our relative speedup is:
-```{r}
-with(summary(timings), round(mean[1] / mean[2], 1))
-```
-
-To recap, there are two advantages of this kind of coding:
-
- 1. Code reuse is generally good because when you have the same code in multiple places it can make it harder to read and understand your code. If you see two blocks of code you might worry they are only mostly similar, not exactly similar, and waste time trying to differentiate.  If you have a single, well-named function, you immediately know what a block of code is doing.
- 
- 2. Saving the results of calculations can speed up your computation since you are saving your partial work.  This can be useful to reduce calculations that are particularly time intensive.
- 
-
 
 ## Checking the estimation function
 
@@ -224,12 +112,8 @@ aov_results <- oneway.test(x ~ factor(group), data = sim_data,
                            var.equal = TRUE)
 aov_results
 
-summary_stats <- summarize_data(sim_data)
-F_results <- with(summary_stats,
-                  ANOVA_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
-F_results
+F_results <- ANOVA_F(sim_data)
 all.equal(aov_results$p.value, F_results)
-
 ```
 
 We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some weird floating point errors due to rounding in R.
@@ -237,35 +121,32 @@ We use `all.equal()` because it will check equality up to a tolerance in R, whic
 We can follow the same approach to check the results of the Welch test because it is also implemented in `oneway.test`:
 
 ```{r}
-aov_results <- oneway.test(x ~ factor(group), data = sim_data, var.equal = FALSE)
+aov_results <- oneway.test(x ~ factor(group),
+                           data = sim_data, 
+                           var.equal = FALSE)
 aov_results
+Welch_results <- Welch_F(sim_data)
+all.equal(aov_results$p.value, Welch_results)
 
-W_results <- with(summary_stats, Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
-W_results
-all.equal(aov_results$p.value, W_results)
 ```
 
-Checking estimation functions can be a bit more difficult for procedures that are not already implemented in R. For example, the two other procedures examined by Brown and Forsythe, the James' test and Brown and Forsythe's $F*$ test, are not available in base R. They are, however, available in the user-contributed package `onewaytests` (I found this by searching for "Brown-Forsythe" at http://rseek.org/). We could benchmark our calculations against this package, but of course there is some risk that the package might not be correct. Another route is to verify your results on numerical examples reported in authoritative papers, on the assumption that there's less risk of an error there. In the original paper that proposed the test, Welch (1951) provides a worked numerical example of the procedure. He reports the following summary statistics:
-
-```{r}
-g <- 3
-x_bar <- c(27.8, 24.1, 22.2)
-s_sq <- c(60.1, 6.3, 15.4)
-n <- c(20, 20, 10)
-```
-
-He also reports $W = 3.35$ and $f = 22.6$. Replicating the calculations with our `Welch_F` function:
-
-```{r}
-Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n)
-```
-
-We get slightly different results! But we know that our function is correct---or at least consistent with `oneway.test`---so what's going on? It turns out that there was an error in some of Welch's intermediate calculations, which can only be spotted because he reported all of his work in the paper. 
+See @sec_comp_efficiency for a bit more on checking functions, and a side-note about transparency in the writing of papers.
 
 
-## Exercises
 
-The following exercises involve exploring and tweaking the simulation code we've developed to replicate the results of Brown and Forsythe (1974).
+## Checking via simulation
+
+If your estimation procedure truly is new, how would you check it?
+Well, one obvious answer is simulation!
+
+In principle, for large samples and data generated under the assumptions required by your new procedure, you should have a fairly good sense that it should work and how it should work.
+It is often the case that as you design your simulation, and then start analyzing the results, 
+
+
+
+## Exercises (adding the BFF test)
+
+Let's continue to explore and tweak the simulation code we've developed to replicate the results of Brown and Forsythe (1974).
 Below is the key functions for the data-generating process (taken from the prior chapter).
 The estimation procedures are above.
 
@@ -287,9 +168,12 @@ generate_data <- function(mu, sigma_sq, sample_size) {
 ```
 
 
-### Adding the BFF\* test 
 
-Write a function that implements the Brown-Forsythe F\*-test (the BFF\* test!) as described on p. 130 of Brown and Forsythe (1974). Incorporate the function into the `one_run()` function from the previous question, and use it to estimate rejection rates of the BFF\* test for the parameter values in the fifth line of Table 1 (which are the same as those used in the previous question). 
+
+1. Write a function that implements the Brown-Forsythe F\*-test (the BFF\* test!) as described on p. 130 of Brown and Forsythe (1974).
+Call it on a sample dataset to check it.
+
+2. Now incorporate the function into the `one_run()` function from the previous question, and use it to estimate rejection rates of the BFF\* test for the parameter values in the fifth line of Table 1 of Brown and Forsythe (1974).
 
 ```{r}
 BF_F <- function(x_bar, s_sq, n, g) {

@@ -11,15 +11,17 @@ theme_set( theme_classic() )
 ```
 
 
-# Data-generating models
+# Data-generating models {#chap_DGP}
 
 The data generating model, or data generating process (DGP), is the recipe we use to create fake data that we will use for analysis.
-When we generate from a model we know what the "right answer" is.
+When we generate from a specified model we know what the "right answer" is.
 We can then compare our estimates to this right answer, to assess whether our estimation procedures worked.
 
-The easiest way to describe a DGP is usually via a sequence of equations and random variables.  We then convert these equations to code by following the steps laid out.
+The easiest way to describe a DGP is usually via a sequence of equations and random variables that define a series of steps.
+These will, in the end, be a function of a set of parameters, values that we must specify.
+We then convert these equations to code by following the steps laid out.
 
-For example, for the Welch data earlier we might have, for observation $i$ in group $g$:
+For example, for the Welch data earlier we have, for observation $i$ in group $g$, a mathematical representation of our data of:
 
 $$ X_{ig} = \mu_g + \epsilon_{ig} \mbox{ with } \epsilon_{ig} \sim N( 0, \sigma^2_g ) $$
 These math equations would also come along with specified parameter values (the $\mu_g$, etc), and sample size requirements.
@@ -56,7 +58,13 @@ generate_data <- function(mu, sigma_sq, sample_size) {
     
   return(sim_data)
 }
+```
 
+Our function takes parameters as we normally thing of them (`mu`, `sigma_sq`), and other values that we might not think of as parameters per-se (`sample_size`).
+When simulating data, we have to specify quantities that we, when analyzing data, often have to take for granted.
+
+We our method as so:
+```{r}
 mu <- c(1, 2, 5, 6)
 sigma_sq <- c(3, 2, 5, 1)
 sample_size <- c(3, 6, 2, 4)
@@ -67,39 +75,8 @@ sim_dat <- generate_data(mu = mu,
 sim_dat
 ```
 
-## Computational efficiency versus simplicity
 
-An alternative approach to the above would be to write a function that generates _multiple_ sets of simulated data all at once. For example, we could specify that we want `R` replications of the study and have the function spit out a matrix with `R` columns, one for each simulated dataset:
 
-```{r}
-generate_data_matrix <- function(mu, sigma_sq, sample_size, R) {
-
-  N <- sum(sample_size) 
-  g <- length(sample_size) 
-  
-  group <- rep(1:g, times = sample_size) 
-  mu_long <- rep(mu, times = sample_size)
-  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
-
-  x_mat <- matrix(rnorm(N * R, mean = mu_long, sd = sigma_long),
-                  nrow = N, ncol = R)
-  sim_data <- list(group = group, x_mat = x_mat)
-    
-  return(sim_data)
-}
-
-generate_data_matrix(mu = mu, sigma_sq = sigma_sq,
-                     sample_size = sample_size, R = 4)
-```
-
-This approach is a bit more computationally efficient because the setup calculations (getting `N`, `g`, `group`, `mu_full`, and `sigma_full`) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to `rnorm()`. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
-Furthermore, if the number of replicates `R` is large and each replication produces a large dataset, this "all-at-once" approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
-On balance, we recommend following the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise). 
-
-Beyond a few obvious coding tricks we will discuss, one should optimize code only after you discover you need to.
-Optimizing as you go usually means you will spend a lot of time wrestling with code far more complicated than it needs to be.
-For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code won't help overall simulation runtimes much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
-Keep things simple; your time is more important than the computer's time.
 
 
 ## Checking the data-generating function
@@ -114,7 +91,7 @@ check_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
                             sample_size = rep(10000, 4))
 
 chk <- check_data %>% group_by( group ) %>%
-  summarise( n = n(),
+  dplyr::summarise( n = n(),
              mean = mean( x ),
              var = var( x ) ) %>%
   mutate( mu = mu,
@@ -122,6 +99,8 @@ chk <- check_data %>% group_by( group ) %>%
   relocate( group, n, mean, mu, var, sigma2 )
 chk
 ```
+
+We are recovering our parameters.
 
 We can also make some diagnostic plots to assess whether we have normal data (using QQ plots, where we expect a straight line if the data are normal):
 ```{r}
@@ -133,13 +112,11 @@ ggplot( check_data, aes( sample=x ) ) +
 
 
 
-
-## Exercises
-
-### Shifted-and-scaled t distribution
+## Exercises (the Shifted-and-scaled t distribution) {#ex_dgp}
 
 The shifted-and-scaled $t$-distribution has parameters $\mu$ (mean), $\sigma$ (scale), and $\nu$ (degrees of freedom).
 If $T$ follows a student's $t$-distribution with $\nu$ degrees of freedom, then $S = \mu + \sigma T$ follows a shifted-and-scaled $t$-distribution.
+
 The following function will generate random draws from this distribution (the scaling of $(\nu-2)/\nu$ is to account for a non-scaled $t$-distribution having a variance of $\nu/(\nu-2)$).
 
 ```{r}
@@ -150,6 +127,11 @@ r_tss <- function(n, mean, sd, df) {
 r_tss(n = 8, mean = 3, sd = 2, df = 5)
 ```
 
-Modify that `simulate_data` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
-Re-run the Type-I error rate calculations from [the prior exercises](#exAnovaExercises) with a $t$-distribution with 5 degrees of freedom.
+1. Modify the above `simulate_data` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
+Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
+
+2. Now generate more data and calculate the standard deviations to see if they are correctly calibrated (generate a big dataset to ensure you get a reliable standard deviation estimate).
+
+3. Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises [link](#exAnovaExercises) on page @exAnovaExercises using a $t$-distribution with 5 degrees of freedom.
 Do the results change substantially?
+

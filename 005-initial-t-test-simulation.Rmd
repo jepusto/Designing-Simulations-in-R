@@ -1,40 +1,24 @@
 
 # An initial simulation
 
-We begin with the concrete before we get abstract, with an initial simulation study that looks at the $t$-test under violations
-of the normality assumption.
-The goal here is to make the idea of Monte Carlo simulation concrete, and to illustrate the idea of replication
+We begin with the concrete before we get abstract, with an initial simulation study that looks at the lowly
+one-sample $t$-test under violations of the normality assumption.
+In particular, we will examine the coverage of our $t$-test.
+*Coverage* is the chance of a confidence interval capturing the true parameter value.
+
+The goal of this chapter is to make the idea of Monte Carlo simulation concrete, and to illustrate the idea of replication
 and aggregation of results.
 In a sense, this chapter is the entire book.
 That being said, we hope to provide some deeper thinking on all the component parts in everything that follows.
 
 
-```{r  include = FALSE}
-set.seed( 1019 )
-```
-
 
 ```{r  setup, include=FALSE}
 library( tidyverse )
+set.seed( 1019 )
 ```
 
-This simulation (and much of this book) relies on the `tidyverse` package, which needs to be loaded.
-We also shut up tidyverse's weird summarize warnings while we are at it.
-These lines of code are pretty much the header of any script we use.
-
-```{r}
-library( tidyverse )
-options(list(dplyr.summarise.inform = FALSE))
-```
-
-We use methods from the "tidyverse" for cleaner code and some nice shortcuts.
-See the online, free and excellent (https://r4ds.had.co.nz/)[R for Data Science textbook] for more on the tidyverse.
-
-
-We will start with a simulation study to examine the coverage of the lowly
-one-sample $t$-test. *Coverage* is the chance of a confidence interval
-capturing the true parameter value.
-
+Before simulation, we want to understand what we are investigating.
 Let's first look at the $t$-test on some fake data:
 
 ```{r}
@@ -128,16 +112,16 @@ rps = replicate( 1000, {
 table( rps )
 ```
 
-Our interval is often entirely too low and very rarely does our interval miss
-because it is entirely too high.  Furthermore, our average coverage is not
-95% as it should be:
+Our interval is often entirely too high and very rarely does our interval miss
+because it is entirely too low.
+Furthermore, our average coverage is not 95% as it should be:
 
 ```{r}
 mean( rps == 1 )
 ```
 
 Again, to take simulation uncertainty into account we do a proportion test.
-Here we have a confidence interval of our true coverage under our model
+Here we have a confidence interval of our true coverage rate under our model
 misspecification:
 
 ```{r}
@@ -177,13 +161,14 @@ run.experiment = function( n ) {
 Now we run `run.experiment` for different $n$.  We do this with `map_dbl()`,
 which takes a list and calls a function for each value in the list (See R for
 DS, Chapter 21.5).
+This is kind of like a for loop, and is the tidyverse form of the `sapply()` method.
 
 ```{r  runtexp, cache=TRUE}
 ns = c( 5, 10, 20, 40, 80, 160, 320, 740 )
 cover = map_dbl( ns, run.experiment )
 ```
 
-We next take our results, make a data.frame out of them, and plot:
+We next take our results, make a data.frame out of them, and plot, ith a log scale for our $x$-axis:
 
 ```{r ttest_result_figure, fig.width=5, fig.height=4}
 res = data.frame( n = ns, coverage=cover )
@@ -192,11 +177,10 @@ ggplot( res, aes( x=n, y=100*coverage ) ) +
   geom_hline( yintercept=95, col="red" ) +
   scale_x_log10( breaks=ns ) +
   labs( title="Coverage rates for t-test on exponential data",
-        x = "n (sample size)", y = "coverage (%)" )
+        x = "n (sample size)", y = "coverage (%)" ) +
+  coord_cartesian( ylim=c(80,100) )
 ```
 
-
-Note the plot is on a log scale for the $x$-axis.
 
 So far we have done a  very simple simulation to assess how well a statistical method works in a given circumstance.
 We have run a single factor experiment, systematically varying the sample size to examine how the behavior of our estimator changes.

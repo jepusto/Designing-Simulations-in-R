@@ -439,7 +439,7 @@ runs %>%
   summarise( 
     mean_ATE_hat = mean( ATE_hat ),
     bias = mean( ATE_hat - ATE ),
-    SE_bias = sd( ATE_hat - ATE ) / sqrt(R)
+    MCSE_bias = sd( ATE_hat - ATE ) / sqrt(R)
   )
 ```
 
@@ -453,7 +453,7 @@ The Agg and MLM methods, by contrast, estimate the site-average effect; this is 
 ### Which method has the smallest standard error?
 
 The true Standard Error is simply how variable the point estimates are, i.e., the standard deviation of the point estimates for a given estimator.
-The standard error is a measure of how stable our estimates are across datasets that all came from the same data generating process.
+It reflects how stable our estimates are across datasets that all came from the same data generating process.
 We calculate the standard error, and also the relative standard error using linear regression as a baseline:
 
 ```{r}
@@ -466,12 +466,12 @@ true_SE %>%
   mutate( per_SE = SE / SE[method=="LR"] )
 ```
 
-The other methods appear to have SEs about 8% smaller than Linear Regression
+The other methods appear to have SEs about 8% smaller than Linear Regression.
 
 
 ### Which method has the smallest Root Mean Squared Error?
 
-So far linear regression is not doing well: it has bias and it also has a larger standard error than the other two.
+So far linear regression is not doing well: it has more bias and a larger standard error than the other two.
 We can assess overall performance by combining these two quantities with the RMSE:
 
 ```{r}
@@ -505,11 +505,11 @@ runs %>%  group_by( method ) %>%
     stability = 100 * sd_SE_hat / SE )
 ```
 
-All of the SEs appear to be a bit conservative on average.  (3 or 4 percentage points too big).
+The SEs for Agg and MLM appear to be a bit conservative on average.  (3 or 4 percentage points too big).
 
 The stability of the SE-hats is also of interest.
 The last column shows how variable the standard error estimates are relative to the true standard error.
-50% would mean the standard error estimates can easily be off by 50% of the truth, which is not particularly good.
+50% would mean the standard error estimates can easily be off by 50% of the truth, which would not be particularly good.
 
 ### Did we have enough simulation trials?
 
@@ -520,18 +520,20 @@ library( simhelpers )
 runs$ATE = ATE
 runs %>% group_by(method) %>%
     group_modify(
-      ~ calc_absolute( ., estimates = ATE_hat, true_param = ATE,
+      ~ calc_absolute( ., 
+                       estimates = ATE_hat,
+                       true_param = ATE,
                        perfm_criteria = c("bias","rmse")) )
 ```
 
-We see the MCSEs are small relative to the linear regression bias term and the RMSEs: we simulated enough runs to see these gross trneds.
+We see the MCSEs are small relative to the linear regression bias term and the RMSEs: we simulated enough runs to see these gross trends.
 
 
 
 
 ## Extending to a multifactor simulation
 
-So far, our case study illustrates how multisite simulation (or any simulation) can be constructed by using a model as a recipe for data generation.
+Our case study in Chapter @case_cluster illustrated how multisite simulation (or any simulation) can be constructed by using a model as a recipe for data generation.
 We have also reinforced our basic message that making functions to wrap parts of simulation substantially eases code construction.
 But we only investigated a single scenario.
 How do our findings generalize?  When are the different methods differently appropriate? 
