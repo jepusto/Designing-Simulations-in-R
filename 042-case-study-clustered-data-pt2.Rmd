@@ -1,0 +1,274 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE} 
+library( tidyverse )
+options(list(dplyr.summarise.inform = FALSE))
+
+
+### Code from the prior chapter
+source( "case_study_code/clustered_data_simulation.R" )
+
+dat <- gen_dat_model( n=5, J=3, p=0.5, 
+                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
+                        sigma2_u = 0.4, sigma2_e = 1,
+                      alpha = 0.5 )
+
+```
+
+
+# Case study: A simulation with clustered data, continued
+
+
+We continue our case study of a more complex data generation from Chapter @case_cluster.
+To analyze our data, we use two libraries, the `lme4` package (for multilevel modeling), the `arm` package (which gives us nice access to standard errors, with `se.fixef()`), and `lmerTest` (which gives us $p$-values for multilevel modeling).
+We also need the `estimatr` package to get robust SEs with `lm_robust`.
+
+```{r, warning=FALSE, message=FALSE}
+library( lme4 )
+library( arm )
+library( lmerTest )
+library( estimatr )
+```
+
+We have three analysis functions, which we can put in three different methods:
+
+Multilevel Regression (MLM):
+
+```{r}
+analysis_MLM <- function( dat ) {
+  M1 = lmer( Yobs ~ 1 + Z + (1|sid),
+             data=dat )
+  est = fixef( M1 )[["Z"]]
+  se = se.fixef( M1 )[["Z"]]
+  pv = summary(M1)$coefficients["Z",5]
+  tibble( ATE_hat = est, SE_hat = se, p_value = pv )
+}
+```
+
+
+Linear Regression with Cluster-Robust Standard Errors (LM):
+```{r}
+analysis_OLS <- function( dat ) {
+  M2 <- lm_robust( Yobs ~ 1 + Z, 
+            data=dat, clusters=sid )
+  est <- M2$coefficients[["Z"]]
+  se  <- M2$std.error[["Z"]]
+  pv <- M2$p.value[["Z"]]
+  tibble( ATE_hat = est, SE_hat = se, p_value = pv )
+}
+```
+
+
+Aggregate data (Agg):
+```{r}
+analysis_agg <- function( dat ) {
+  datagg <- 
+    dat %>% 
+    group_by( sid, Z ) %>%
+    summarise( 
+      Ybar = mean( Yobs ),
+      n = n() 
+    )
+  
+  stopifnot( nrow( datagg ) == length(unique(dat$sid) ) )
+  
+  M3 <- lm_robust( Ybar ~ 1 + Z, 
+                   data=datagg, se_type = "HC2" )
+  est <- M3$coefficients[["Z"]]
+  se <- M3$std.error[["Z"]]
+  pv <- M3$p.value[["Z"]]
+  tibble( ATE_hat = est, SE_hat = se, p_value = pv )
+}
+```
+
+And then a single function that puts all these together:
+  
+```{r}
+analyze_data = function( dat ) {
+  MLM = analysis_MLM( dat )
+  LR = analysis_OLS( dat )
+  Agg = analysis_agg( dat )
+  
+  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
+             .id = "method" )
+}
+
+```
+
+When we pass a dataset to it, we get a nice table of results that we can evaluate:
+
+```{r}
+analyze_data( dat )
+```
+
+Each method for analysis is a single line.  We record estimated impact, estimated standard error, and a nominal p-value.
+Note how the `bind_rows()` method can take naming on the fly, and give us a column of `method`, which will be very useful to keep track of what estimated what.
+We intentionally wrap up our results with a data frame to make later processing of data with the tidyverse package much easier.
+
+
+## The simulation
+
+
+So we have our two steps, and the next step of our simulation is to rerun them both a bunch of times.
+Always start with a single scenario to figure out if your code is working and if your intuition is working.
+
+```{r cluster_rand_sim, cache=TRUE, message=FALSE, warning=FALSE}
+ATE <- 0.30
+R <- 1000
+
+one_run <- function( ATE ) {
+  dat <- gen_dat_model( n_bar = 200, J=30, 
+                          gamma_1 = ATE, gamma_2 = 0.5,
+                          sigma2_u = 0.20, sigma2_e = 0.80,
+                          alpha = 0.75 )
+  analyze_data(dat)  
+}
+
+tictoc::tic()  # Start the clock!
+set.seed( 40404 )
+runs <- 
+  purrr::rerun( R, one_run( ATE ) ) %>%
+  bind_rows( .id="runID" )
+
+tictoc::toc()
+```
+We have the individual results of all our methods applied to each generated dataset.
+
+
+## Analysis of our single scenario
+
+For our single scenario, we can now evaluate how well the estimators did.
+In particular we have these primary questions:
+
+ - Is it biased? (bias)
+ - Is it precise? (standard error)
+ - Does it predict well? (RMSE)
+ - Can we estimate uncertainty well? (i.e., are our estimated SEs about right?)
+
+We systematically go through answering these questions for our initial scenario.
+
+
+### Are the estimators biased?
+
+Bias is with respect to a target estimand.
+Here we assess whether our estimates are systematically different from the parameter we used to generate the data (this is the ATE parameter).
+We also calculate the MCSE for the bias using a simple sampling formula.
+
+```{r cluster_bias}
+runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    mean_ATE_hat = mean( ATE_hat ),
+    bias = mean( ATE_hat - ATE ),
+    MCSE_bias = sd( ATE_hat - ATE ) / sqrt(R)
+  )
+```
+
+Linear regression is biased.  There is no evidence of bias for Agg or MLM.
+This is because the linear regression is targeting the person-average average treatment effect.
+Our data generating process makes larger sites have larger effects, so the person average is going to be higher since those larger sites will count more.
+The Agg and MLM methods, by contrast, estimate the site-average effect; this is in line with our DGP.
+
+
+
+### Which method has the smallest standard error?
+
+The true Standard Error is simply how variable the point estimates are, i.e., the standard deviation of the point estimates for a given estimator.
+It reflects how stable our estimates are across datasets that all came from the same data generating process.
+We calculate the standard error, and also the relative standard error using linear regression as a baseline:
+
+```{r}
+true_SE <- runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    SE = sd( ATE_hat )
+  )
+true_SE %>%
+  mutate( per_SE = SE / SE[method=="LR"] )
+```
+
+The other methods appear to have SEs about 8% smaller than Linear Regression.
+
+
+### Which method has the smallest Root Mean Squared Error?
+
+So far linear regression is not doing well: it has more bias and a larger standard error than the other two.
+We can assess overall performance by combining these two quantities with the RMSE:
+
+```{r}
+runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    RMSE = sqrt( mean( (ATE_hat - ATE)^2 ) )
+  )
+```
+
+RMSE is a way of taking both bias and variance into account, all at once. 
+Here, LR's bias plus increased variability is giving it a higher RMSE.
+For Agg and MLM, the RMSE is basically the standard error; this makes sense as they are not biased.
+For LR we see a slight bump to the RMSE, but clearly the standard error dominates the bias term.
+This is especially the case as RMSE is the square root of the bias and standard errors _squared_; this makes difference between them even more extreme.
+
+
+### Do the methods have correctly estimated standard errors?
+
+To assess this, we can look at the average _estimated_ (squared) standard error and compare it to the true standard error.
+Our standard errors are _inflated_ if they are systematically larger than they should be, across the simulation runs.
+We can also look at how stable our standard error estimates are, by taking the standard deviation of our standard error estimates.
+
+```{r}
+runs %>%  group_by( method ) %>%
+  summarise( 
+    SE = sd( ATE_hat ),
+    mean_SE_hat = sqrt( mean( SE_hat^2 ) ),
+    infl = 100 * mean_SE_hat / SE,
+    sd_SE_hat = sd( SE_hat ),
+    stability = 100 * sd_SE_hat / SE )
+```
+
+The SEs for Agg and MLM appear to be a bit conservative on average.  (3 or 4 percentage points too big).
+
+The stability of the SE-hats is also of interest.
+The last column shows how variable the standard error estimates are relative to the true standard error.
+50% would mean the standard error estimates can easily be off by 50% of the truth, which would not be particularly good.
+
+### Did we have enough simulation trials?
+
+Finally, we can check our MCSEs for our performance measures to see if we have enough runs to believe these differences:
+
+```{r cluster_MCSE_calculation}
+library( simhelpers )
+runs$ATE = ATE
+runs %>% group_by(method) %>%
+    group_modify(
+      ~ calc_absolute( ., 
+                       estimates = ATE_hat,
+                       true_param = ATE,
+                       perfm_criteria = c("bias","rmse")) )
+```
+
+We see the MCSEs are small relative to the linear regression bias term and the RMSEs: we simulated enough runs to see these gross trends.
+
+
+
+
+
+
+
+## Exercises
+
+
+1. As foreground to the following chapters, can you explore multiple scenarios to see if the trends are common?  First write a function that takes a set of parameters and runs the entire simulation and returns the results as a small dataframe.
+Then use code like this to make a graph of some result measure as a function of a varying parameter (you pick which parameter you wish to vary):
+
+```{r, eval=FALSE}
+
+vals = seq( start, stop, length.out = 5 )
+res = map_df( vals, my_simulation_function, 
+              par1 = val1, par2 = val2, etc )
+```
+

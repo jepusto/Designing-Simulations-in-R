@@ -2,13 +2,15 @@
 
 In the prior chapter we saw a simple simulation evaluation of a $t$-test.
 We next break that simulation down into components, and then in the subsequent chapters we dig into how to think about each component.
+In our methodological work, we try to always follow the same workflow that we outline below when writing simulations.
+We make no claim that this is the only or best way to do things, but it does work for us.
 
 
 ## General structure of a simulation
 
-The easiest way to evaluate an estimator is to generate some data from scratch, generating it in such a way that we know what the ``right answer'' is, and then to analyze our data using our estimators we wish to study.
+The easiest way to evaluate an estimator is to generate some data from scratch, generating it in such a way that we know what the "right answer" is, and then to analyze our data using our estimators we wish to study.
 We then check to see if the estimators got the right answer. We can write down how close the estimators got, whether the estimators were too high or too low, and so forth.
-We can also use the estimators to conduct a hypothesis test, testing the hypothetical null, and we can write down whether we rejected or did not reject this null.
+We can also use the estimators to conduct a hypothesis test, testing some hypothetical null, and we can write down whether we rejected or did not reject this null.
  
 If we do this once, we have some idea of whether the estimators worked in that specific example, but we don't know if this is due to random chance.
 To assess general trends, therefore, we repeat this process over and over, keeping track of how well our estimators did in each trial.
@@ -16,33 +18,19 @@ We finally aggregate our results, and see if one estimator systematically outper
 
 If we want to know if an estimator is generally superior to another, we can generate data from a variety of different scenarios, seeing if the estimator is systematically winning across simulation contexts. If we do this in a a structured and thoughtful manner, we can eventually make claims as to the behaviors of our estimators that we are investigating.
 
-A simulation study can be thought of as something like a controlled scientific experiment: we want to understand the properties of our estimators, so we put them in a variety of different scenarios to see how they perform. We then look for general trends across these scenarios in order to understand general patterns of behavior of our estimators.
-
-
-In particular, a simulation would be the following steps:  
-\begin{enumerate}
-\item For a  (the Data Generation Process), repeat $R$ times:
-\begin{enumerate}
-	\item Generate a dataset with a known target parameter.  
-	\item Estimate this parameter with each of our estimators.
-	\item Record these estimates, and how close these estimates are to the target.
-\end{enumerate}
-\item Aggregate our $R$ trials for each estimator to assess how well our estimators work in practice.
-\end{enumerate}
-We might then systematically repeat the above for a series of different scenarios to generalize our findings.
-
+A simulation study can be thought of as something like a controlled scientific experiment: we want to understand the properties of our estimators, so we put them in a variety of different scenarios to see how they perform. We then look for general trends across these scenarios in order to understand general patterns of behavior.
 
 As we saw in our initial example, the logic of simulation is, for a specific and specified scenario scenario:
 
 1. __Generate__ a sample of data based on a specified statistical model/process.
     
-2. __Analyze__ data using one or more procedures/workflows.  
+2. __Analyze__ data using one or more procedures/workflows.
 
-3. __Repeat__ (1) & (2) $R$ times.
+3. __Repeat__ (1) & (2) $R$ times, recording $R$ sets of results.
 
-4. __Summarize__ the performance of the procedure across our $R$ repetitions.  
+4. __Summarize__ the performance of the procedure across our $R$ repetitions to assess how well our estimators work in practice. 
 
-We will then do this for a series of scenarios, so we can see how performance changes as we chance circumstance.
+We will then repeat the above for different scenarios, so we can see how performance changes as we chance circumstance.
 But first, let's just focus on a single scenario.
 
 
@@ -73,6 +61,7 @@ one_run <- function() {
   analyze(dat)
 }
 results <- rerun(R, one_run())
+results <- bind_rows(results)
 
 # Summarize
 assess_performance <- function(results) {
@@ -91,37 +80,44 @@ To repeat, this approach has several advantages:
   * Facilitates creative re-use.
 
 
+
 In fact, the `simhelpers` package will build these skeletons (along with some other useful code to wire the pieces together) via the `create_skeleton()` method.
 
 ```{r eval=FALSE}
 simhelpers::create_skeleton()
 ```
 
+This function will open up a new R script for you contains a template for a simulation study, with sections corresponding to each component.
 Starting with this, you will already be well on the road to writing a tidy simulation.
 
 
-### Data-generating model
+### The Data Generating Process (DGP)
 
-The data-generating model takes a set of parameter values as input and generates a set of simulated data as output. 
+The data-generating process takes a set of parameter values as input and generates a set of simulated data as output.
 When we generate data, we control the ground truth!
-This allows us to know what the answer is, so we know if our methods are doing the right thing.
+This allows us to know what the answer is (e.g., what the real treatment effect is), so we can later know if our methods are doing the right thing.
 
 ### Estimation methods
 
-The estimation methods consist of the set of statistical procedures under examination.
-Each method takes a dataset and produces a set of estimates or results (i.e., point estimates, standard errors, confidence intervals, p-values, etc.).
-You might have different functions for each estimation method you are investigating.
-Our estimation methods should, in principle, work on real data as well as simulated data; the more we can "black box" these into a single function call, the easier it will be to separate out the structure of the simulation and the complexity of the methods being evaluated.
+The estimation methods are the sets of statistical procedures under examination.
+For example, an estimation method might be to estimate the average growth rate along with a standard error.
+Or it might be conduct a hypothesis test, like we saw earlier.
+
+Each estimation methods should take a dataset and produces a set of estimates or results (i.e., point estimates, standard errors, confidence intervals, p-values, etc.).
+You probably should have different functions for each estimation method you are investigating.
+
+A well written estimation methods should, in principle, work on real data as well as simulated data; the more we can "black box" our methods into a single function calls, the easier it will be to separate out the structure of the simulation from the complexity of the methods being evaluated.
 
 ### Repetition
 
 There are a variety of ways in R to do something over and over.
-The one above, `rerun` does exactly what it sounds like: repeatidly run the line of code a given number of times.
+The one above, `rerun` does exactly what it sounds like: repeatedly run a specified line of code a given number of times.
 
 Making a helper method such as `one_run()` makes debugging our simulations a lot, lot easier.
 This `one_run()` method is like the coordinator or dispatcher of our system: it generates the data, calls all the evaluation methods we want to call, combines all the results, and hands them back for recording.
 
 We will usually stack all our returned results into one large dataframe of simulation results to ready it for the next step, which is assessing performance.
+We usually do this with `bind_rows()` or use methods that do it automatically.
 
 
 ### Performance summaries
@@ -134,99 +130,22 @@ To estimate these quantities we repeat steps 2 and 3 many times to get a large n
 We then _summarize the distribution_ of the estimates to characterize performance of a method. 
 
 
-### Results
-
-Simulation results consist of sets of performance metrics for every combination of parameter values in the experimental design. Thus, steps 2 through 4 will need to get repeated a bunch.  
-
-
-
 
 ## Multiple Scenarios
 
 The above gives a breakdown for running a simulation for a single context.
 In our $t$-test case study, for example, we might ask how well the $t$-test works when we have $n=100$ units and an exponential distribution to our data.
-But we rarely want to example a single context, but instead want to explore how well a procedure works across a range of contexts.
+But we rarely want to examine a single context, but instead want to explore how well a procedure works across a range of contexts.
 
 We again use the principles of modular coding: we write code to do a single scenario (and wrap that in a function), and then call that function for all the scenarios we wish.
 This is a type of _designed experiment_, in which factors such as sample size and true parameter values are systematically varied.
 In fact, simulation studies typically follow a  **full factorial design**, in which each level of a factor (something we vary, such as sample size, true treatment effect, or residual variance) is crossed with every other level.
 The experimental design then consists of sets of parameter values (including design parameters, such as sample sizes) that will be considered in the study. 
-We discuss this after we more fully develop the core concepts listed above.
-
-
-## Keeping the pieces organized
-
-The above presents a simulation study as having five main components:
-
-```{r, message = FALSE, echo = FALSE, fig.width = 8, fig.height = 4}
-library(dplyr)
-library(diagram)
-par(mar = c(0.1, 0.1, 0.1, 0.1))
-openplotmat()
-elpos <- coordinates(c(2,1,2))
-fromto <- matrix(ncol = 2, byrow = TRUE,
-                 data = c(4, 1, 1, 2, 2, 3, 3, 5))
-nr <- nrow(fromto)
-arrpos <- matrix(ncol = 2, nrow = nr)
-for (i in 1:nr) {
- arrpos[i, ] <- straightarrow(from = elpos[fromto[i, 1], ],
-                               to = elpos[fromto[i, 2], ],
-                               lwd = 2, arr.pos = 0.6, arr.length = 0.5) 
-}
- 
-box_dat <- data_frame(lab = c("Data-generating model",
-                              "Estimation methods",
-                              "Performance summaries",
-                              "Experimental design",
-                              "Results"),
-                      col = c("lightblue","lightgreen","yellow","orange","red"))
-
-for (i in 1:nrow(box_dat)) {
-  textrect(elpos[i,], 0.15, 0.1, lab = box_dat$lab[i],
-           box.col = box_dat$col[i], shadow.size = 0, cex = 1.3)
-}
-
-```
-
-The code we write to implement simulations should follow this same structure, with different functions corresponding to each component.
-
-In our methodological work, we try to always follow the same workflow when writing simulations.
-We make no claim that this is the only or best way to do things, but it does work for us.
-
-To write a simulation we start by making a template via the `simhelpers` package:
-
-```{r, eval=FALSE}
-library(simhelpers)
-create_skeleton()
-```
-
-This function will open up a new R script for you contains a template for a simulation study, with sections corresponding to each component.
+We will discuss this after we more fully develop the core concepts listed above (see Chapter @exp_design).
 
 
 
 
-## Further readings & resources
 
-- [Morris, White, & Crowther (2019)](https://doi.org/10.1002/sim.8086). Using simulation studies to evaluate statistical methods.
-
-    - High-level simulation design considerations.
-    - Details about performance criteria calculations.
-    - Stata-centric.
-
-- [SimDesign](https://github.com/philchalmers/SimDesign/wiki) R package (Chalmers, 2019)
-
-    - Tools for building generic simulation workflows.
-    - [Chalmers & Adkin (2019)](http://www.tqmp.org/RegularArticles/vol16-4/p248/). Writing effective and reliable Monte Carlo simulations with the SimDesign package.
-  
-
-- [DeclareDesign](https://declaredesign.org/) (Blair, Cooper, Coppock, & Humphreys)
-
-    - Specialized suite of R packages for simulating research designs.
-    - Design philosophy is very similar to "tidy" simulation approach.
-
-- [SimHelpers](https://meghapsimatrix.github.io/simhelpers/index.html) R package (Joshi & Pustejovsky, 2020)
-
-    - Helper functions for calculating performance criteria.
-    - Includes Monte Carlo standard errors.
 
 
