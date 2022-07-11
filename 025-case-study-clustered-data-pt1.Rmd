@@ -1,0 +1,318 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE} 
+library( tidyverse )
+options(list(dplyr.summarise.inform = FALSE))
+
+# knitr::purl("044-case-study-clustered-data.Rmd")
+```
+
+# Case study: A simulation with clustered data {#case_cluster}
+
+Generating data with complex structure can be intimidating, but if you set out a recipe for how the data is generated it is often not to bad to build that recipe up with code.
+We will illustrate how to tackle this kind of data with a case study of best practices for analyzing data from a cluster-randomized RCT of students nested in schools.
+
+A lot of the current literature on multisite trials is exploring how variation in the size of impacts across sites can cause bad things can happen.  What does it mean for this particular context?
+
+There are various ways of analyzing such data:
+
+ * Individual Level Analysis
+    - Multilevel modeling (MLM): Fit a multilevel model to account for dependencies within cluster.
+    - Linear regression (LR): Fit a linear model and use cluster robust standard errors.
+ 
+ * Aggregation
+    - Aggregation (Agg): Calculate average outcomes for each cluster and fit a linear model with heteroskedastic robust SEs
+  
+We might then ask, are any of these strategies biased?  When and how much?
+Are any of these strategies more precise (have smaller SEs)?
+Are the standard errors for these different strategies valid?
+We might think aggregation should be worse since we are losing information, right?
+If so, how much is lost?
+
+To make this investigation a bit more rich, we are also going to ask a final question that will influence our data generating process.
+We want to investigate what happens when the impact of a site depends on the site size.
+This is a common question that has gained some attention in the education world, where we might reasonably think sites of different sizes may respond to treatment differently.
+We want to know if our studied methods would end up giving us biased results, should there be such a relationship.
+
+
+## A design decision: What do we want to manipulate?
+
+There are a lot of ways we might generate data.
+To figure out what kinds of controls we have on that process, we need to think about the goals of the simulation.
+
+In our case, for example, we might think:
+
+ 1) We figure if all the sites are the same size, we are probably safe. But if sites vary, then we could have issues with our estimators.
+ 2) Also, if site size varies, but has nothing to do with impact, then we are probably good, at least for bias, but if it is associated then how we average our sites is going to matter.
+
+Usually it is good practice to keep the simple option along with the complex one.
+We want to both check that something does not matter as well as verify it does.
+
+Given this, we land on the following points:
+
+ * We need to consider both all-same-size sites and variable size sites.
+ * Our DGP probably should have some impact variation across sites.
+ * We should probably connect impact variation to site size to explore a more malicious context.
+ * For simplicity we will simply include a site size by treatment interaction term to get our heterogeneity.
+
+
+## A mathematical model for cluster-randomized data
+
+The easiest way to write down a recipe for data generation is with a mathematical model.
+This is especially important for more complex DGPs, such as those for hierarchical data.
+
+We know we want a collection of clusters with different sizes and different baseline mean outcomes.
+To keep things simple, we might want a common treatment shift within cluster: if we treat a cluster, everyone is raised by some specified amount.
+
+We want to have some measure of site size.
+For starters, lets create a covariate which is the percent of the average site size that a site is:
+$$ S_j = \frac{n_j - \bar{n}}{ \bar{n} } $$
+
+Using this coveriate, we could end up with this model to describe our data:
+$$
+\begin{aligned}
+Y_{ij} &= \beta_{0j} + \epsilon_{ij} \\
+\epsilon_{ij} &\sim N( 0, \sigma^2_\epsilon ) \\
+\beta_{0j} &= \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j S_j + u_j \\
+u_j &\sim N( 0, \sigma^2_u )
+\end{aligned}
+$$
+Our parameters are the mean outcome of control unit ($\gamma_0$), the treatment Impact ($\gamma_1$), the amount of cross site variation ($\sigma^2_u$), and residual variation ($\sigma^2_\epsilon$).
+Our $\gamma_2$ is our site-size by treatment interaction term: bigger sites will (assuming $\gamma_2$ is positive) have larger treatment impacts.
+
+If you prefer the reduced form, it would be:
+
+$$ Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j S_j  + u_j + \epsilon_{ij}  $$
+We might also include a main effect for $S_j$.
+This would make larger sites systematically different than smaller sites at baseline, rather than having it only be part of our treatment variation term.
+For simplicity we drop it here.
+
+
+To generate data, we would also need several other quantities specified.
+First, we need to know the number of clusters ($J$), the sizes of the clusters ($n_j$, for $j = 1, \ldots, J$).
+We have to provide a recipe for generating these sizes.  We might try
+
+$$ n_j \sim unif( (1-\alpha)\bar{n}, (1+\alpha)\bar{n} ) $$
+with a fixed $\alpha$ to control the amount of variation in cluster size.
+If $\bar{n} = 100$ and $\alpha = 0.25$ then we would, for example, have sites ranging from 75 to 125 in size.
+
+Given how we are generating site size, look again at our treatment impact heterogeneity term:
+
+$$ \gamma_2 Z_j \left(\frac{n_j - \bar{n}}{\bar{n}}\right)  $$ 
+Note how we are standardizing by average site size to make our covariate not change in terms of its importance as a function of site size, but rather as a function of $\alpha$.
+In particular, $\frac{n_j - \bar{n}}{\bar{n}}$ will range from $-\alpha$ to $\alpha$, regardless of average site size.
+Carefully setting up a DGP so the "knobs" we use are standardized like this can make interpreting the simulation results much easier.
+Consider if we did not divide by $\bar{n}$: then larger sites would also have more severe heterogeniety in treatment impact; this could make interpreting the results very confusing.
+
+
+We next need to define how we generate our treatment indicator, $Z_j$.
+We might specify some proportion $p$ assigned to treatment, and set $Z_j = 1$ or $Z_j = 0$ using a simple random sampling approach on our $J$ units.
+
+
+
+## Multilevel data generation is a recipe using a statistical model
+
+Now let's translate our mathematical model to code.
+In the real world:
+
+ - We obtain data, we pick a model, we estimate parameters
+ - The data comes with covariates and outcomes
+ - It also comes with sample size, sizes of the clusters, etc.
+
+In the simulation world, by comparison:
+
+ - We pick a model, we decide how much data, we generate covariates, we pick the parameters, and then we generate outcomes 
+ - We need to decide how many clusters, how big the clusters are, etc.
+ - We have to specify how the covariates are made.  This piece is very different from real-world analysis.
+
+
+Step 1: Generate your sites
+
+ - Generate site-level covariates
+ - Generate sample size within each site
+ - Generate site level random effects
+
+Step 2: Generate your students inside the sites
+
+ - Generate student covariates
+ - Generate student residuals
+ - Add everything up to generate student outcomes
+
+The mathematical model gives us exactly the details we need to execute on these steps.
+In particular, we can translate the math directly to R code, and then finally put it all in a function.
+
+In general, we have several components to our model:
+
+*COVARIATES and STRUCTURAL COVARIATES*
+Covariates are the things that we are usually given when analyzing real data.
+This is a broad definition, including things beside baseline information:
+
+ - Conventional: student demographics, school-level characteristics, treatment assignment
+ - Structural: number of observations in each school, proportion treated in each school
+
+We don't often think of these things as "covariates" but in a simulation we have to get them from somewhere.
+
+*MODEL*
+This is the parametric relationship between everything: how the outcomes are linked to the covariates.
+This includes specification of any additional randomness (residuals, etc.)
+
+*DESIGN PARAMETERS*
+These are, e.g., the number of sites or variation in site size.
+These control how we generate the structural covariates.
+In the real world, we don't tend to think of these things are covariates per se, they are more just consequences of the data.
+We rarely model them, but instead coniditon on them, in a statistical analysis.
+
+*PARAMETERS*
+These are the specifics: for a given model, parameters describe degree of variability, what the slope is, and so forth.
+We usually estimate these FROM data.
+Critically, if we know them, we can GENERATE NEW DATA.
+
+
+
+### Generating the multisite data
+
+We know we will need to generate and then analyze data.
+First lets focus on the "generate" piece.
+Borrowing from our DGP skeleton, we specify a function with all the parameters we might want to pass it, including defaults for each (see \@(#default_arguments) for more on function defaults):
+
+```{r, eval=FALSE}
+gen_dat_model <- function( n_bar = 10,
+                           J = 30,
+                           p = 0.5,
+                           gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
+                           sigma2_u = 0, sigma2_e = 1,
+                           alpha = 0 ) {
+  # Code (see below) goes here.
+}
+```                           
+                           
+Note our parameters are a mix of *model parameters* (gamma_0, gamma_1, sigma2_e, etc., representing coefficients in regressions, variance terms, etc.) and *design parameters* (n_bar, J, p) that directly inform data generation.
+We set default arguments (e.g., gamma_0=0) so we can ignore aspects of your DGP that we don’t care about later on.
+
+
+
+
+*Make the sites.*
+We make the sites first:
+
+```{r, eval = FALSE}
+  # generate site sizes 
+  n_min = round( n_bar * (1 - alpha) )
+  n_max = round( n_bar * (1 + alpha) )
+  nj <- sample( n_min:n_max, J, replace=TRUE )
+
+  # Generate average control outcome and average ATE for all sites
+  # (The random effects)
+  u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
+  
+  # randomize units within each site (proportion p to treatment)
+  Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
+  
+  # Calculate site intercept for each site
+  beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
+```
+
+Note the line with `sample(1:J) <= J*p`; this is a simple trick to generate treatment and control.
+
+There is also a serious error in the above code; we leave it as an exercise (see below) to find and fix it.
+
+
+
+*Make the individuals.*
+Then the individuals
+```{r, eval=FALSE}
+  # Make individual site membership
+  sid = as.factor( rep( 1:J, nj ) )
+  dd = data.frame( sid = sid )
+  
+  # Make individual level tx variables
+  dd$Z = Zj[ dd$sid ]
+  
+  # Generate the residuals 
+  N = sum( nj )
+  e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
+  
+  # Bundle and send out
+  dd <- mutate( dd, 
+                sid=as.factor(sid),
+                Yobs = beta_0j[sid] + e, 
+                Z = Zj[ sid ] )
+```
+
+The `rep` command will repeat each number, 1, 2... J, the corresponding number of times as listed in nj.
+
+```{r, include=FALSE}
+gen_dat_model <- function( n_bar = 10,
+                           J = 30,
+                           p = 0.5,
+                           gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
+                           sigma2_u = 0, sigma2_e = 1,
+                           alpha = 0 ) {
+  # generate site sizes 
+  n_min = round( n_bar * (1 - alpha) )
+  n_max = round( n_bar * (1 + alpha) )
+  nj <- sample( n_min:n_max, J, replace=TRUE )
+
+  # Generate average control outcome and average ATE for all sites
+  # (The random effects)
+  u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
+  
+  # randomize units within each site (proportion p to treatment)
+  Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
+  
+  # Calculate site intercept for each site
+  beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
+
+    # Make individual site membership
+  sid = as.factor( rep( 1:J, nj ) )
+  dd = data.frame( sid = sid )
+  
+  # Make individual level tx variables
+  dd$Z = Zj[ dd$sid ]
+  
+  # Generate the residuals 
+  N = sum( nj )
+  e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
+  
+  # Bundle and send out
+  dd <- mutate( dd, 
+                sid=as.factor(sid),
+                Yobs = beta_0j[sid] + e, 
+                Z = Zj[ sid ] )
+}
+```
+
+
+We wrap it all in a function, and when we call it we get:
+```{r}
+dat <- gen_dat_model( n=5, J=3, p=0.5, 
+                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
+                        sigma2_u = 0.4, sigma2_e = 1,
+                      alpha = 0.5 )
+
+dat
+```
+
+
+
+## Exercises
+
+1. What is the variance of the outcomes generated by our model if there is no treatment effect?  (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working? 
+
+
+1. In gen_dat_model we have the following line of code to generate the number of individuals per site.
+
+```{r bad_sample_line, eval=FALSE}
+nj <- sample( n_min:n_max, J, 
+                 replace=TRUE )
+```
+
+This code has an error.  Generate a variety of datasets where you vary `n_min`, `n_max` and `J` to discover the error.  Then repair the code.
+Checking your data generating process across a range of scenarios is extremely important.
+
+
+2. Extend the data generating process to include individual level covariates?
