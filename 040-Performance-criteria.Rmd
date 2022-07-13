@@ -156,6 +156,133 @@ This is fine, but one should be aware that this can happen and do it on purpose.
 
 
 
+
+
+
+```{r, include=FALSE} 
+library( tidyverse )
+options(list(dplyr.summarise.inform = FALSE))
+
+
+### Code from the prior chapter
+source( "case_study_code/clustered_data_simulation.R" )
+
+dat <- gen_dat_model( n=5, J=3, p=0.5, 
+                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
+                        sigma2_u = 0.4, sigma2_e = 1,
+                      alpha = 0.5 )
+
+```
+
+
+### Example on Cluster RCT
+
+In our cluster RCT running example, we have three estimation methods that we are applying to our simulated data.
+We next repeatidly generate our data and obtain our estimates as follows:
+It is always wise to start with a single scenario to figure out if your code is working and if your intuition is working.
+
+```{r cluster_rand_sim, eval=FALSE}
+ATE <- 0.30
+R <- 1000
+
+one_run <- function( ATE ) {
+  dat <- gen_dat_model( n_bar = 200, J=30, 
+                          gamma_1 = ATE, gamma_2 = 0.5,
+                          sigma2_u = 0.20, sigma2_e = 0.80,
+                          alpha = 0.75 )
+  analyze_data(dat)  
+}
+
+tictoc::tic()  # Start the clock!
+set.seed( 40404 )
+runs <- 
+  purrr::rerun( R, one_run( ATE ) ) %>%
+  bind_rows( .id="runID" )
+
+tictoc::toc()
+
+saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
+```
+
+```{r, include=FALSE}
+# Note: Rerun above code by hand to get current saved results.
+runs <- readRDS("results/cluster_RCT_simulation.rds" )
+```
+
+We now have the individual results of all our methods applied to each generated dataset.
+The next step is to evaluate how well the estimators did.
+Regarding our point estimate, we have these primary questions:
+
+ - Is it biased? (bias)
+ - Is it precise? (standard error)
+ - Does it predict well? (RMSE)
+ 
+We systematically go through answering these questions for our initial scenario.
+
+
+### Are the estimators biased?
+
+Bias is with respect to a target estimand.
+Here we assess whether our estimates are systematically different from the parameter we used to generate the data (this is the ATE parameter).
+We also calculate the MCSE for the bias using a simple sampling formula.
+
+```{r cluster_bias}
+runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    mean_ATE_hat = mean( ATE_hat ),
+    bias = mean( ATE_hat - ATE ),
+    MCSE_bias = sd( ATE_hat - ATE ) / sqrt(R)
+  )
+```
+
+Linear regression is biased.  There is no evidence of bias for Agg or MLM.
+This is because the linear regression is targeting the person-average average treatment effect.
+Our data generating process makes larger sites have larger effects, so the person average is going to be higher since those larger sites will count more.
+The Agg and MLM methods, by contrast, estimate the site-average effect; this is in line with our DGP.
+
+
+
+### Which method has the smallest standard error?
+
+The true Standard Error is simply how variable the point estimates are, i.e., the standard deviation of the point estimates for a given estimator.
+It reflects how stable our estimates are across datasets that all came from the same data generating process.
+We calculate the standard error, and also the relative standard error using linear regression as a baseline:
+
+```{r}
+true_SE <- runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    SE = sd( ATE_hat )
+  )
+true_SE %>%
+  mutate( per_SE = SE / SE[method=="LR"] )
+```
+
+The other methods appear to have SEs about 8% smaller than Linear Regression.
+
+
+### Which method has the smallest Root Mean Squared Error?
+
+So far linear regression is not doing well: it has more bias and a larger standard error than the other two.
+We can assess overall performance by combining these two quantities with the RMSE:
+
+```{r}
+runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    RMSE = sqrt( mean( (ATE_hat - ATE)^2 ) )
+  )
+```
+
+RMSE is a way of taking both bias and variance into account, all at once. 
+Here, LR's bias plus increased variability is giving it a higher RMSE.
+For Agg and MLM, the RMSE is basically the standard error; this makes sense as they are not biased.
+For LR we see a slight bump to the RMSE, but clearly the standard error dominates the bias term.
+This is especially the case as RMSE is the square root of the bias and standard errors _squared_; this makes difference between them even more extreme.
+
+
+
 ## Assessing a standard error estimator
 
 Statistics is perhaps more about assessing how good an estimate is than making an estimate in the first place.
@@ -197,6 +324,33 @@ Variance is also the component that gives us the classic bias-variance breakdown
 
 That being said, to put things in terms of performance criteria humans understand it is usually nicer to put final evaluation metrics back into standard error units.
 For example, saying there is a 10% reduction in the standard error is more meaningful (even if less impressive sounding) than saying there is a 19% reduction in the variance.
+
+
+### Assessing SEs for our Cluster RCT simulation
+
+For our standard errors, we have a primary question of: Can we estimate uncertainty well? I.e., are our estimated SEs about right?
+
+To assess this, we can look at the average _estimated_ (squared) standard error and compare it to the true standard error.
+Our standard errors are _inflated_ if they are systematically larger than they should be, across the simulation runs.
+We can also look at how stable our standard error estimates are, by taking the standard deviation of our standard error estimates.
+We interpret this quantity relative to the actual standard error to get how far off, as a percent of the actual standard error, we tend to be.
+
+```{r}
+runs %>%  group_by( method ) %>%
+  summarise( 
+    SE = sd( ATE_hat ),
+    mean_SEhat = sqrt( mean( SE_hat^2 ) ),
+    infl = 100 * mean_SEhat / SE,
+    sd_SEhat = sd( SE_hat ),
+    stability = 100 * sd_SEhat / SE )
+```
+
+The SEs for Agg and MLM appear to be a bit conservative on average.  (3 or 4 percentage points too big).
+
+The last column (`stability`) shows how variable the standard error estimates are relative to the true standard error.
+50% would mean the standard error estimates can easily be off by 50% of the truth, which would not be particularly good.
+Here we see the linear regression is more unstable than the other methods (cluster-robust standard errors are generally unstable, so this is not too surprising).
+It is a bad day for linear regression.
 
 
 
@@ -251,6 +405,51 @@ $$r_\alpha = \frac{1}{R} \sum_{r=1}^R I(P_r < \alpha).$$
 
 For the null, one can also plot the emperical cumulative density function of the $p$-values; a valid test should give a $45^\circ$ line as the $p$-values should be standard uniform in distribution.
 
+
+### Our Cluster RCT Simulation
+
+For our scenario, we generated data with an actual treatment effect.
+Without further simulation, we therefore could only assess power, not validity.
+This is easily solved!
+We simply rerun the above code with `ATE = 0`.
+
+```{r, include=FALSE}
+tictoc::tic()  # Start the clock!
+set.seed( 404044 )
+runs_val <- 
+  purrr::rerun( R, one_run( 0 ) ) %>%
+  bind_rows( .id="runID" )
+tictoc::toc()
+
+saveRDS( runs_val, file = "results/cluster_RCT_simulation_validity.rds" )
+```
+
+
+```{r, include=FALSE}
+runs <- readRDS("results/cluster_RCT_simulation.rds" )
+runs_val <- readRDS("results/cluster_RCT_simulation_validity.rds" )
+```
+
+
+Assessing power and validity is exactly the same calculation: we see how often we have a $p$-value less than 0.05.
+For power we have:
+
+```{r}
+runs %>% group_by( method ) %>%
+  summarise( power = mean( p_value <= 0.05 ) )
+```
+For validity:
+```{r}
+runs_val %>% group_by( method ) %>%
+  summarise( power = mean( p_value <= 0.05 ) )
+```
+
+The power when there is an effect is not particularly high, and the validity is around 0.05.
+Note linear regression has notabily higher power... but this is in part due to the invalidity of the test (note the rejection rate is around 6%, rather than the target of 5%).
+This is also likely due to the bias in estimation.
+Let's see how everyone performs with confidence intervals, next.
+
+
 ## Assessing confidence intervals
 
 Some estimation procedures result in confidence intervals (or sets) which are ranges of values that should contain the true answer with some specified degree of confidence.
@@ -279,6 +478,22 @@ The coverage rate and average length criteria are then as defined in the table b
 Just as with hypothesis testing, a strict statistical interpretation would deem a hypothesis testing procedure acceptable if it has actual coverage rate greater than or equal to $\beta$.
 If multiple tests satisfy this criterion, then the test with the lowest expected length would be preferable. Some analysts prefer to look at lower and upper coverage separately, where lower coverage is $\text{Pr}(A \leq \theta)$ and upper coverage is $\text{Pr}(\theta \leq B)$. 
 
+
+### Clusters with Confidence
+
+For our CRT simulation, we first have to calculate confidence intervals, and then assess coverage.
+We could have used methods such as `confint()` in the estimation approaches; this would be preferred if we wanted more accurately calculated confidence intervals that used $t$-distributions and so forth to account for the moderate number of clusters.
+
+But if we want to use normal assumption confidence intervals we can calculate them post-hoc:
+```{r}
+runs %>% mutate( CI_l = ATE_hat - 1.96*SE_hat,
+                 CI_h = ATE_hat + 1.96*SE_hat,
+                 covered = CI_l <= 0.30 & 0.30 <= CI_h ) %>%
+  group_by( method ) %>%
+  summarise( coverage = mean( covered ) )
+```
+Our coverage is all lower than expected, with linear regression being around 5 percentage points too low and the other two methods being about 2.5 percentage points low.
+Linear regression is taking a hit from the bias term.
 
 
 ## Further measures of performance
@@ -481,6 +696,44 @@ welch %>% group_by(n1,n2,mean_diff) %>%
 ```
 
 
+
+
+
+### Cluster RCT, continued: Do we have enough simulation trials?
+
+Finally, we can check our MCSEs for our performance measures to see if we have enough runs to believe these differences:
+
+```{r cluster_MCSE_calculation}
+library( simhelpers )
+runs$ATE = ATE
+runs %>% group_by(method) %>%
+    group_modify(
+      ~ calc_absolute( ., 
+                       estimates = ATE_hat,
+                       true_param = ATE,
+                       perfm_criteria = c("bias","rmse")) )
+```
+
+We see the MCSEs are small relative to the linear regression bias term and the RMSEs: we simulated enough runs to see these gross trends.
+
+
+
+
+
+
+
+## Exercises
+
+
+1. As foreground to the following chapters, can you explore multiple scenarios to see if the trends are common?  First write a function that takes a set of parameters and runs the entire simulation and returns the results as a small dataframe.
+Then use code like this to make a graph of some result measure as a function of a varying parameter (you pick which parameter you wish to vary):
+
+```{r, eval=FALSE}
+
+vals = seq( start, stop, length.out = 5 )
+res = map_df( vals, my_simulation_function, 
+              par1 = val1, par2 = val2, etc )
+```
 
 
 
