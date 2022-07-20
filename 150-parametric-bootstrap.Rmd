@@ -1,0 +1,109 @@
+
+```{r, include=FALSE}
+library( tidyverse )
+```
+
+
+# The Parametric bootstrap
+
+An inference procedure very much connected to simulation studies is the parametric bootstrap.
+The parametric bootstrap is a bootstrap technique designed to obtain standard error estimates for an estimated parametric model.
+It can do better than the case-wise bootstrap in some circumstances, usually when there is need to avoid the discrete, chunky nature of a casewise bootstrap (which will only give values that exist in the original dataset).
+
+For a parametric bootstrap, the core idea is to fit a given model to actual data, and then take the parameters we estimate from that model as the DGP parameters in a simulation study.
+The parametric bootstrap is a simulation study for a specific scenario, and our goal is to assess how variable (and, possibly, biased) our estimator is for this specific scenario.
+If the behavior of our estimator in our simulated scenario is similar to what it would be under repeated trials in the real world, then our bootstrap answers will be informative as to how well our original estimator performs in practice.
+This is the bootstrap principle, or analogy with an additional assumption that the real-world is effectively well specified as the parameteric model we are fitting.
+
+In particular we do the following:
+ 
+ 1.   generate data from a model with coefficients as estimated on the original data.
+ 2.   repeatedly estimate our target quantity on a series of synthetic data sets, all generated from this model.
+ 3.   examine this collection of estimates to assess the character of the estimates themselves, i.e. how much they vary, whether we are systematically estimating too high or too low, and so forth.
+ 5.   The variance and bias of our estimates in our simulation is probably like the actual variance and bias of our original estimate (this is precisely the bootstrap analogy).
+
+A key feature of the parametric bootstrap is it is not, generally, a multifactor simulation experiment.
+We fit our model to the data, and use our best estimate of the world, as given by the fit model, to generate our data.
+This means we generally want to simulate in contexts that are (mostly) _pivotal_, meaning the distribution of our test statistic or point estimate is relatively stable across different scenarios.
+In other words, we want the uncertainty of our estimator to not heavily depend on the exact parameter values we use in our simulation, so that if we are simulating with incorrect parameters our bootstrap analogy will still hold.
+
+Often, to achieve a reasonable claim of being pivotal, we will focus on standardized statistics, such as the $t$-statistic of
+
+$$ t = \frac{est}{\widehat{SE}} $$
+It is more common for the distribution of a standardized test statistic to have a canonical distribution across scenarios than an absolute estimate.
+
+
+## Air conditioners: a stolen case study
+
+Following the case study presented in [CITE bootstrap book], consider some failure times of air conditioning units:
+
+```{r}
+dat = c( 3, 5, 7, 18, 43, 85, 91, 98, 100, 130, 230, 487 )
+```
+
+We are interested in the log of the average failure time:
+```{r}
+n = length(dat)
+y.bar = mean(dat)
+theta.hat = log( y.bar )
+
+c( n = n, y.bar = y.bar, theta.hat = theta.hat )
+```
+
+We are interested in this because we are modeling the failure time of the air conditioners with an exponential distribution.
+This means we will generate new failure times with an exponential distribution:
+
+```{r}
+reps = replicate( 10000, {
+	smp = rexp(n, 1/y.bar)
+	log( mean( smp ) )
+})
+
+res_par = tibble( 
+  bias.hat = mean( reps ) - theta.hat,
+  var.hat = var( reps ),
+  CIlog_low = theta.hat + bias.hat - sqrt(var.hat) * qnorm(0.975),
+  CIlog_high = theta.hat + bias.hat - sqrt(var.hat) * qnorm(0.025),
+  CI_low = exp( CIlog_low ),
+  CI_high = exp( CIlog_high ) )
+res_par
+```
+
+Note how we are, as usual, in our standard simulation framework of repeatidly (1) generating data and (2) analyzing the simulated data.
+Nothing is changed.
+
+
+The nonparametric, or case-wise, bootstrap (this is what people normally mean when they say bootstrap) would look like this:
+
+```{r}
+reps = replicate( 10000, {
+	smp = sample( dat, replace=TRUE )
+	log( mean( smp ) )
+})
+
+res_np = tibble( 
+  bias.hat = mean( reps ) - theta.hat,
+  var.hat = var( reps ),
+  CIlog_low = theta.hat + bias.hat - sqrt(var.hat) * qnorm(0.975),
+  CIlog_high = theta.hat + bias.hat - sqrt(var.hat) * qnorm(0.025),
+  CI_low = exp( CIlog_low ),
+  CI_high = exp( CIlog_high ) )
+
+
+bind_rows( parametric = res_par, 
+           casewise = res_np, .id = "method") %>%
+  mutate( length = CI_high - CI_low )
+
+```
+
+This is _also_ a simulation: our data generating process is a bit more vague, however, as we are just resampling the data.
+This means our estimands are not as clearly specified.
+For example, in our parameteric approach, our target parameter is known to be true.
+In the case-wise, the connection between our DGP and the parameter `theta.hat` is less explicit.
+
+
+Overall, in this case, our parametric bootstrap can model the tail behavior of an exponential better than case-wise.
+Especially considering the small number of observations, it is going to be a more faithful representation of what we are doing--provided our model is well specified for the real world distribution.
+
+
+

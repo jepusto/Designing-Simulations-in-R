@@ -18,13 +18,62 @@ When we generate from a specified model we know what the "right answer" is.
 We can then compare our estimates to this right answer, to assess whether our estimation procedures worked.
 
 The easiest way to describe a DGP is usually via a sequence of equations and random variables that define a series of steps.
-These will, in the end, be a function of a set of parameters, values that we must specify.
+This is especially important for more complex DGPs, such as those for hierarchical data, as we will see later on.
+These models will often be a series of linear equations that use the same common elements, and possibly build on one another.
+Our equations will, in the end, be a function of a set of parameters, values that we must specify.
 We then convert these equations to code by following the steps laid out.
+In general, we have several components to a full mathematical model that we could use to generate data.
+
+*COVARIATES and STRUCTURAL COVARIATES*
+Covariates are the things that we are usually given when analyzing real data.
+This is a broad definition, including things beside baseline information:
+
+ - Conventional: student demographics, school-level characteristics, treatment assignment
+ - Structural: number of observations in each school, proportion treated in each school
+
+In the real world, we don't tend to think of structural covariates as covariates per se, they are more just consequences of the data.
+We rarely model them, but instead condition on them, in a statistical analysis.
+In a simulation, however, we will have to decide how they come to be.
+
+*MODEL*
+This is the parametric relationship between everything, such as a specification of how the outcomes are linked to the covariates.
+This includes specification of the randomness (the distribution of the residuals, etc.).
+The model will be the list of equations you might see in the analysis of the data you are trying to generate.
+
+We will also have some extra parts of the model, that define how to generate the structural covariates.
+For example, we might specify that site sizes are uniform between a specified minimum and maximum size.
+
+*DESIGN PARAMETERS*
+These are, e.g., the number of sites and the range of allowed site sizes.
+These will control how we generate the structural covariates.
+
+*PARAMETERS*
+These are the specifics: for a given model, parameters describe how strong a relationship there is between covariate and outcome, variance of the residuals, and so forth.
+We usually estimate these *from* data.
+Critically, if we know them, we can *generate new data*.
+
 
 For example, for the Welch data earlier we have, for observation $i$ in group $g$, a mathematical representation of our data of:
 
 $$ X_{ig} = \mu_g + \epsilon_{ig} \mbox{ with } \epsilon_{ig} \sim N( 0, \sigma^2_g ) $$
-These math equations would also come along with specified parameter values (the $\mu_g$, etc), and sample size requirements.
+
+These math equations would also come along with specified parameter values (the $\mu_g$, the $\sigma^2_g$), and the design parameter of the sample sizes.
+
+
+## A statistical model is a recipe for data generation
+
+The next step is to translate our mathematical model to code.
+In the real world:
+
+ - We obtain data, we pick a model, we estimate parameters
+ - The data comes with covariates and outcomes
+ - It also comes with sample size, sizes of the clusters, etc.
+
+In the simulation world, by comparison:
+
+ - We pick a model, we decide how much data, we generate covariates, we pick the parameters, and then we generate outcomes 
+ - We need to decide how many clusters, how big the clusters are, etc.
+ - We have to specify how the covariates are made.  This last piece is very different from real-world analysis.
 
 In terms of code, a function that implements a data-generating model should have the following form:
 ```{r}
@@ -121,9 +170,9 @@ In this case study we extend this work to ask what impact treatment variation ha
 
 To set the stage, we identify three different ways one might analyze data from a cluster randomized trial:
 
-    - Multilevel modeling (MLM): Fit a multilevel model to account for dependencies within cluster.
-    - Linear regression (LR): Fit a linear model and use cluster robust standard errors.
-    - Aggregation (Agg): Calculate average outcomes for each cluster and fit a linear model with heteroskedastic robust SEs
+ - Multilevel modeling (MLM): Fit a multilevel model to account for dependencies within cluster.
+ - Linear regression (LR): Fit a linear model and use cluster robust standard errors.
+ - Aggregation (Agg): Calculate average outcomes for each cluster and fit a linear model with heteroskedastic robust SEs
   
 We might then ask, are any of these strategies biased?  When and how much?
 Are any of these strategies more precise (have smaller SEs)?
@@ -161,40 +210,7 @@ Some of the clusters will be treated, and some not.
 We can imagine our final data being individual students, with each student having a cluster id, a treatment assignment (shared for all in the cluster) and an outcome.
 
 
-### A mathematical model is a recipe for data generation
 
-The easiest way to write down a recipe for data generation is with a mathematical model.
-This is especially important for more complex DGPs, such as those for hierarchical data.
-These models will often be a series of linear equations that use the same common elements, and possibly build on one another.
-In general, we have several components to a full mathematical model that we could use to generate data.
-
-*COVARIATES and STRUCTURAL COVARIATES*
-Covariates are the things that we are usually given when analyzing real data.
-This is a broad definition, including things beside baseline information:
-
- - Conventional: student demographics, school-level characteristics, treatment assignment
- - Structural: number of observations in each school, proportion treated in each school
-
-In the real world, we don't tend to think of structural covariates as covariates per se, they are more just consequences of the data.
-We rarely model them, but instead condition on them, in a statistical analysis.
-In a simulation, however, we will have to decide how they come to be.
-
-*MODEL*
-This is the parametric relationship between everything, such as a specification of how the outcomes are linked to the covariates.
-This includes specification of the randomness (the distribution of the residuals, etc.).
-The model will be the list of equations you might see in the analysis of the data you are trying to generate.
-
-We will also have some extra parts of the model, that define how to generate the structural covariates.
-For example, we might specify that site sizes are uniform between a specified minimum and maximum size.
-
-*DESIGN PARAMETERS*
-These are, e.g., the number of sites and the range of allowed site sizes.
-These will control how we generate the structural covariates.
-
-*PARAMETERS*
-These are the specifics: for a given model, parameters describe how strong a relationship there is between covariate and outcome, variance of the residuals, and so forth.
-We usually estimate these FROM data.
-Critically, if we know them, we can GENERATE NEW DATA.
 
 
 ### A model for a cluster RCT
@@ -257,20 +273,7 @@ We might specify some proportion $p$ assigned to treatment, and set $Z_j = 1$ or
 We will see code for this below.
 
 
-### A statistical model is a recipe for data generation
-
-The next step is to translate our mathematical model to code.
-In the real world:
-
- - We obtain data, we pick a model, we estimate parameters
- - The data comes with covariates and outcomes
- - It also comes with sample size, sizes of the clusters, etc.
-
-In the simulation world, by comparison:
-
- - We pick a model, we decide how much data, we generate covariates, we pick the parameters, and then we generate outcomes 
- - We need to decide how many clusters, how big the clusters are, etc.
- - We have to specify how the covariates are made.  This last piece is very different from real-world analysis.
+### Converting our model to code
 
 For multilevel data generation, we follow our model, and go by layers.
 First, we generate the sites:
@@ -359,7 +362,8 @@ The `rep` command repeats each number ($1, 2, /ldots,J$), the corresponding numb
 
 
 
-```{r, include=FALSE}
+```{r secret_code_MLM_DGP, include=FALSE}
+# Secret code block!
 gen_dat_model <- function( n_bar = 10,
                            J = 30,
                            p = 0.5,

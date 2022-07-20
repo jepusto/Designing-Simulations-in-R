@@ -26,6 +26,34 @@ In particular, the set of estimates generated from a simulation constitute a (ty
 We then use that sample to _estimate_ the performance criteria of interest.
 For example, if we want to know what percent of the time we would reject the null hypothesis (for a given, specified situation) we could estimate it by seeing how often we do in 1000 trials.
 
+The first step for doing this is to generate that set of estimates.
+Here we do so for our cluster randomized experiment running example:
+
+```{r cluster_rand_sim, eval=FALSE}
+ATE <- 0.30
+R <- 1000
+
+one_run <- function( ATE ) {
+  dat <- gen_dat_model( n_bar = 200, J=30, 
+                          gamma_1 = ATE, gamma_2 = 0.5,
+                          sigma2_u = 0.20, sigma2_e = 0.80,
+                          alpha = 0.75 )
+  analyze_data(dat)  
+}
+
+tictoc::tic()  # Start the clock!
+set.seed( 40404 )
+runs <- 
+  purrr::rerun( R, one_run( ATE ) ) %>%
+  bind_rows( .id="runID" )
+
+tictoc::toc()
+
+saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
+```
+We save our results to a file for future use; this speeds up our lives since we don't have to constantly re-run our simulation each time we want to explore the results.
+
+
 Now, because we have only a sample of trials rather than the full distribution, our estimates are merely estimates.
 In other words, they can be wrong, just due to random chance.
 We can describe how wrong with the __Monte Carlo standard error (MCSE)__.
@@ -39,44 +67,43 @@ Given a desired MCSE, we could similarly determine how many replications were ne
 ## Inference vs. Estimation
 
 There are two general classes of analysis one typically does with data: inference and estimation.
-To illustrate, say we were wanting to understand the potential costs and benefits of adjusting for covariates when analyzing a randomized experiment, where we were focused on the average treatment effect, $\tau$.
+To illustrate, we continue to reflect on the question of best practices for analyzing a cluster randomized experiment.
+For this problem, we are focused on the site-average treatment effect, $\tau$.
+We can ask whether $\tau$ is non-zero (inference), and we can further ask what $\tau$ actually is (estimation).
+More expanded we have:
 
 *Inference* is when we do hypothesis testing, asking whether there is evidence for some sort of effect, or asking whether there is evidence that some coefficient is greater than or less than some specified value.
-In particular, for our simple example, to know if there is evidence that there is a treatment effect at all we would test the null of $H_0: \tau = 0$.
+In particular, for our example, to know if there is evidence that there is a treatment effect at all we would test the null of $H_0: \tau = 0$.
 
 *Estimation* is when we estimate the actual average treatment effect of $\tau$.
-Hand-in-hand with estimation is estimation uncertainty, i.e. assessing how close we believe our estimate to be to the truth.
-This uncertainty might be estimated with an estimated standard error.
+Estimation has two major components, the point estimator and the uncertainty estimator.
+We generally evaluate both the \emph{actual} properties of the point estimator and the performance of the \emph{estimated} properties of the point estimator.
+For example, consider a specific estimate $\hat{\tau}$ of our average treatment effect.
+We first wish to know the actual bias and true standard error ($SE$) of $\hat{\tau}$.
+These are its actual properties.
+However, for each estimated $\hat{\tau}$, we also estimate $\widehat{SE}$, as our estimated measure of how precise our estimate is.
+We need to understand the properties of $\widehat{SE}$ as well.
 
 Inference and estimation are clearly highly related--if we have a good estimate of the treatment effect and it is not zero, then we are willing to say that there is a treatment effect--but depending on the framing, the way you would set up a simulation to investigate the behavior of your estimators could be different.
 
 
 ## Comparing estimators
 
-A core type of simulation is to to examine and compare the properties of different inferential methods or estimators across a variety of circumstances.
-There might be different methods for obtaining some estimate, and we want to know which is best.
+We often have different methods for obtaining some estimate, and we often want to know which is best.
+For example, this comparison is the core question behind our running example of identifying which estimation strategy (aggregation, linear regression, or multilevel modeling) we should generally use when analyzing cluster randomized trial data.
+The goal of a simulation comparing our estimators would be to identify whether our estimation strategies were different, whether one was superior to the other (and when), and what the salient differences were.
+To fully understand the trade-offs and benefits, we would examine and compare the properties of our different approaches across a variety of circumstances, and with respect to a variety of metrics of success.
 
-For example, for our above hypothetical scenario of an RCT we might consider using either of two estimators of interest, the simple difference in means,
-\[ \hat{\tau}_{sd} = \overline{Y}_1 - \overline{Y}_0,  \]
-where $\overline{Y}_z$ is the average outcome of those units given treatment $z$, or the coefficient $\widehat{\tau}_{ols}$ from fitting the ordinary regression:
-\[ Y = a + b X + \tau Z + \epsilon .\]
-
-For $\hat{\tau}_{sd}$ we might use Neyman's formula for estimating the standard error:
-\[ \widehat{SE}(\tau_{sd} ) = \frac{ \hat{\sigma}_1^2 }{ n_1 } + \frac{ \hat{\sigma}_0^2}{n_0} . \]
-For $\widehat{\tau}_{ols}$ we might use, say, the usual standard errors we get from generic statistics software.
-Finally, for inference, we would perhaps use the $p$-value from a Wald test for our simple difference in means and the $p$-values we get from the regression command.
-
-The goal of a simulation comparing these estimators would be to identify whether our two estimation strategies were different, whether one was superior to the other (and when), and what the salient differences were.
- 
-For inference, we first might ask whether both our methods are valid, i.e., ask whether these methods work correctly when we test for a treatment effect when there is none. 
-In particular, we might wonder whether adjusting for a covariate could open the door to inference problems due to model misspecification, such as in a scenario where the residuals had some non-normal distribution.
+For inference, we first might ask whether our methods are valid, i.e., ask whether the methods work correctly when we test for a treatment effect when there is none. 
+For example, we might wonder whether using multilevel models could open the door to inference problems if we had model misspecification, such as in a scenario where the residuals had some non-normal distribution.
 These sorts of questions are questions of validity.
 
 Also for inference, we might ask which method is better for detecting an effect when there is one.
-Here, we want to know how our two estimators perform in circumstances with a non-zero average treatment effect.
+Here, we want to know how our estimators perform in circumstances with a non-zero average treatment effect.
 Do they reject the null often, or rarely?
-How much does including covariates increase our chances of rejection?
+How much does using aggregation decrease (or increase?) our chances of rejection?
 These are questions about power.
+
 
 For estimation, we would generally be concerned with two things: bias and variance.
 An estimator is biased if it would generally give estimates that are systematically higher (or lower) than the parameter being estimated in a given scenario.
@@ -85,20 +112,12 @@ The variance is the true standard error, squared.
 
 We might also be concerned with how well we can estimate the uncertainty of our estimators (i.e., estimate our standard error).
 For example, we might have an estimator that works very well, but we have no ability to estimate how well in any given circumstance.
-Continuing our example from above, we might want to examine how well, for example, the Neyman standard error estimator works as compared to the standard error we get out of a linear regression.
+Continuing our example from above, we might want to examine how well, for example, the standard errors we get from aggregation work as compared to the standard errors we get out of our linear regression approach.
 
+Finally, we might want to know how well confidence intervals based on our methods work.
+Do the intervals capture the true estimands with the desired level of accuracy, across the simulation trials?
+Are the intervals for one method generally shorter or longer than those of another?
 
-
-
-## Evaluation of Estimation Methods
-
-Estimation has two major components, the point estimator and the uncertainty estimator.
-We evaluate both the \emph{actual} properties of the point estimator and the performance of the \emph{estimated} properties of the point estimator.
-For example, consider a specific estimate $\hat{\tau}$ of our average treatment effect.
-We first wish to know the actual bias and true standard error ($SE$) of $\hat{\tau}$.
-These are its actual properties.
-However, for each estimated $\hat{\tau}$, we also estimate $\widehat{SE}$, as our estimated measure of how precise our estimate is.
-We need to understand the properties of $\widehat{SE}$ as well.
 
    
 
@@ -106,7 +125,7 @@ We need to understand the properties of $\widehat{SE}$ as well.
 
 Assessing the actual properties of a point estimator is generally fairly simple.
 For a given scenario, we repeatedly generate data and estimate effects.
-We then take the mean and standard deviation of these repeated trials' estimates to estimate the actual properties of the estimator via Monte Carlo.
+We then take summary measures such as the mean and standard deviation of these repeated trials' estimates to estimate the actual properties of the estimator via Monte Carlo.
 Given sufficient simulation trials, we can obtain arbitrarily accurate measures.
 
 For example, we can ask what the \emph{actual} variance (or standard error) of our estimator is.
@@ -131,8 +150,11 @@ Finally, the Mean Square Error (MSE) is a combination of the above two measures:
 $$ MSE = \frac{1}{R} \sum_{r = 1}^R \left( T_r - \theta\right)^2 . $$
 
 An important relationship connecting these three measures is
-$$ MSE = bias^2 + variance .$$
-
+$$ MSE = bias^2 + variance = bias^2 + SE^2 .$$
+It is important to clarify an important point: the _true standard error_ of an estimator $\hat{\tau}$ is the standard deviation of $\hat{\tau}$ across multiple datasets.
+In practice, we never know this value, but in a simulation we can obtain it as the standard deviation of our simulation trial estimates.
+People generally, when they say "Standard Error" mean _estimated_ Standard Error, ($\widehat{SE}$) which is when one uses the emperical data to estimate $SE$.
+For assessing actual properties, we have the true standard error (up to Monte Carlo simulation error).
 
 For absolute assessments of performance, an estimator with low bias, low variance, and thus low RMSE is desired.
 For comparisons of relative performance, an estimator with lower RMSE is usually preferable to an estimator with higher RMSE; if two estimators have comparable RMSE, then the estimator with lower bias (or lower median bias) would usually be preferable. 
@@ -175,34 +197,12 @@ dat <- gen_dat_model( n=5, J=3, p=0.5,
 ```
 
 
-### Example on Cluster RCT
+### Example on our Cluster RCT
 
 In our cluster RCT running example, we have three estimation methods that we are applying to our simulated data.
 We next repeatidly generate our data and obtain our estimates as follows:
 It is always wise to start with a single scenario to figure out if your code is working and if your intuition is working.
 
-```{r cluster_rand_sim, eval=FALSE}
-ATE <- 0.30
-R <- 1000
-
-one_run <- function( ATE ) {
-  dat <- gen_dat_model( n_bar = 200, J=30, 
-                          gamma_1 = ATE, gamma_2 = 0.5,
-                          sigma2_u = 0.20, sigma2_e = 0.80,
-                          alpha = 0.75 )
-  analyze_data(dat)  
-}
-
-tictoc::tic()  # Start the clock!
-set.seed( 40404 )
-runs <- 
-  purrr::rerun( R, one_run( ATE ) ) %>%
-  bind_rows( .id="runID" )
-
-tictoc::toc()
-
-saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
-```
 
 ```{r, include=FALSE}
 # Note: Rerun above code by hand to get current saved results.
@@ -222,8 +222,7 @@ Regarding our point estimate, we have these primary questions:
 We systematically go through answering these questions for our initial scenario.
 
 
-### Are the estimators biased?
-
+**Are the estimators biased?**
 Bias is with respect to a target estimand.
 Here we assess whether our estimates are systematically different from the parameter we used to generate the data (this is the ATE parameter).
 We also calculate the MCSE for the bias using a simple sampling formula.
@@ -245,8 +244,7 @@ The Agg and MLM methods, by contrast, estimate the site-average effect; this is 
 
 
 
-### Which method has the smallest standard error?
-
+**Which method has the smallest standard error?**
 The true Standard Error is simply how variable the point estimates are, i.e., the standard deviation of the point estimates for a given estimator.
 It reflects how stable our estimates are across datasets that all came from the same data generating process.
 We calculate the standard error, and also the relative standard error using linear regression as a baseline:
@@ -264,7 +262,7 @@ true_SE %>%
 The other methods appear to have SEs about 8% smaller than Linear Regression.
 
 
-### Which method has the smallest Root Mean Squared Error?
+**Which method has the smallest Root Mean Squared Error?**
 
 So far linear regression is not doing well: it has more bias and a larger standard error than the other two.
 We can assess overall performance by combining these two quantities with the RMSE:

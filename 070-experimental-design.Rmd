@@ -1,0 +1,636 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r, include=FALSE}
+library( tidyverse )
+library( purrr )
+options(list(dplyr.summarise.inform = FALSE))
+theme_set( theme_classic() )
+
+```
+
+
+# Designing the multifactor simulation experiment {#exp_design}
+
+So far, we've created code that will give us results for a single combination of parameter values. In practice, simulation studies typically examine a range of different values, including varying the level of the true parameter values and perhaps also varying sample sizes. Let's now look at the remaining piece of the simulation puzzle: the study's experimental design. 
+
+Simulation studies often take the form of __full factorial__ designed experiments. In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of factors and levels. 
+
+For example, for the Cronbach alpha simulation, we might want to vary:
+
+* the true value of alpha, with values ranging from 0.1 to 0.9;
+* the degrees of freedom of the multivariate $t$ distribution, with values of 5, 10, 20, or 100;
+* the sample size, with values of 50 or 100; and
+* the number of items, with values of 4 or 8.
+
+Here is code that implements this design, using 500 replications per condition:
+```{r}
+# first express the simulation parameters as a list of factors, each
+# factor having a list of values to explore.
+design_factors <- list(
+  n = c(50, 100),
+  p = c(4, 8),
+  alpha = seq(0.1, 0.9, 0.1),
+  df = c(5, 10, 20, 100)
+)
+
+params <- cross_df(design_factors)
+params$iterations <- 500
+params$seed <- 20170405 + 1:nrow(params)
+```
+
+This gives us a $`r paste(lengths(design_factors), collapse = "\\times")`$ factorial design:
+```{r}
+lengths(design_factors)
+```
+
+The `params` data frame is a representation of the full experimental design:
+```{r}
+params
+```
+
+We see we have a total of `r nrow(params)` cells, each cell corresponding to a simulation scenario to explore.
+
+
+
+## Choosing parameter combinations
+
+We've seen how to create a set of experimental conditions, but how do we go about choosing parameter values to examine? Choosing parameters is a central part of good simulation design because the primary limitation of simulation studies is always their _generalizability_. On the one hand, it's difficult to extrapolate findings from a simulation study beyond the set of simulation conditions that were examined. On the other hand, it's often difficult or impossible to examine the full space of all possible parameter values, except for very simple problems. Even in the Cronbach alpha simulation, we've got four factors, and the last three could each take an infinite number of different levels, in theory. How can we come up with a defensible set of levels to examine?
+
+The choice of simulation conditions needs to be made in the context of the problem or model that you're studying, so it's a bit difficult to offer valid, decontextualized advice.
+We can provide a couple of observations all the same:
+
+1. For research simulations, it often is important to be able to relate your findings to previous research. This suggests that you should select parameter levels to make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (actually, there's a lot of really crummy ones out there!), and so this should not be your sole guide or justification.
+
+2. Generally, it is better to err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation.
+
+3. It is also important to explore breakdown points (e.g., what sample size is too small for a method to work?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.
+
+
+An important point regarding (2) is that you can be more comprehensive and then have fewer replications per scenario.
+For example, say you were planning on doing 1000 simulations per scenario, but then you realize there is some new factor that you don't think matters, but that you believe other researchers will worry about.
+You could add in that factor, say with four levels, and then do 250 simulations per scenario.
+The total work remains the same.
+
+When analyzing the final simulation you can then first verify you do not see trends along this new factor, and then marganalize out the factor in your summaries of results.
+Marganalizing out a factor (i.e., averaging your performance metrics across the additional factor) is a powerful technique to make a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario.
+
+
+
+
+## Using pmap to run multifactor simulations
+
+To run simulations across all of our factor combinations, we are going to use a very useful method in the `purrr` package called `pmap()`.
+`pmap()` marches down a set of lists, running a function on each $p$-tuple of elements, passing them as parameters.
+It returns a list of the results of this sequence of function calls.
+
+```{r}
+my_function <- function( a, b, theta, scale ) {
+    scale * (a + theta*(b-a))
+}
+
+args = list( a = 1:3, 
+             b = 5:7, 
+             theta = c(0.2, 0.3, 0.7) )
+purrr::pmap_dbl(  args, my_function, scale = 10 )
+```
+
+One important note is the variable names for the lists being iterated over must correspond exactly to function arguments of the called function.  Extra parameters can be passed after the function name; these will be held constant, and passed to each function call.
+
+As we see above, `pmap()` has variants such as `_dbl` or `_df` just like the `map()` and `map2()` methods.
+These variants will automatically stack or convert the list of things returned into a tidier collection (for `_dbl` it will convert to a vector of numbers, for `_df` it will stack to make a large dataframe, assuming each thing returned is a little dataframe).
+
+Ok, but this doesn't quite look like what we want: our factors are stored as a dataframe, not three lists.
+This is where R gets interesting: data frames are lists of vectors.
+Witness:
+
+```{r}
+args[[2]]
+
+a_df = as.data.frame(args)
+a_df
+a_df[[2]]
+
+purrr::pmap_dbl( a_df, my_function, scale = 10)
+```
+
+Note how we can pass `a_df` to `pmap`, and have it do exactly what it did with the lists.
+This is because the way R stores a dataframe is as a list of vectors or lists (with each of the vectors or lists having the exact same length).  This works beautifully with `pmap()`.
+
+All of this means `pmap()` can run a specified function on each row of a dataset.
+Continuing the Cronback Alpha simulation from above, we would have the following:
+
+
+```{r run-cronbach-sims, eval = TRUE, cache = TRUE, include=FALSE}
+library(future)
+library(furrr)
+source( "case_study_code/cronbach_alpha_simulation.R")
+plan(multisession)
+sim_results <- 
+  params %>%
+  mutate(res = future_pmap(., .f = run_alpha_sim,
+                            .options = furrr_options(seed = NULL) ) )
+```
+
+
+This allows us to call our `run_alpha_sim()` method for each row of our list of scenarios we want to explore.
+When we do, we can also store the results __as a new variable in the same dataset__:
+```{r, eval = FALSE}
+sim_results <- params
+sim_results$res <- pmap(params, .f = run_alpha_sim)
+```
+
+When we do this, we will be creating a __list-column__, where each observation is a little dataset:
+
+```{r}
+sim_results
+```
+
+Each element in our list column is the little summary of our simulation results for that scenario.
+Here is the third scenario, for example:
+
+```{r}
+sim_results$res[[3]]
+```
+
+We finally use `unnest()` to expand the `res` variable, replicating the values of the main variables once for each row in the nested dataset:
+
+```{r}
+library(tidyr)
+sim_results <- unnest(sim_results, cols = res)
+sim_results
+```
+
+We can put all of this together in a a tidy workflow as follows:
+
+```{r, eval = FALSE}
+sim_results <- 
+  params %>%
+  mutate(res = pmap(., .f = run_sim)) %>%
+  unnest(cols = res)
+```
+
+If we wanted to use parallel processing (more on this later) we can also simply use the `simhelpers` package (the following code is auto-generated by the `create_skeleton()` method as well):
+
+```{r, eval=FALSE}
+plan(multisession) # choose an appropriate plan from the future package
+evaluate_by_row(params, run_alpha_sim)
+```
+
+
+
+## Keeping things organized and the source command
+
+Once you have your multifactor simulation, if it is a particularly complex one, you will have three general collections of code:
+
+ * Code for generating data
+ * Code for analyzing data
+ * Code for running a single simulation scenario
+
+If each of these pieces is large and complex, you might consider putting them in three different `.R` files.
+Then, in your primary simulation, you would source these files.
+E.g.,
+
+```{r, eval=FALSE}
+source( "pack_data_generators.R" )
+source( "pack_estimators.R" )
+source( "pack_simulation_support.R" )
+```
+
+You might also just have the `pack_simulation_support.R` source the other two files, and then source the single simulation support file.
+
+One reason for doing this is you can then have testing code in each of your files, testing each of your components.
+When you are not focused on that component, you don't have to look at that testing code.
+
+Another is you can have a variety of data generators, forming a library of options.
+You can then create different simulations that use different pieces, in a larger project.
+
+For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
+Our file then had several methods:
+
+```
+> ls()
+[1] "describe_sim_data"  "make_dat"           "make.dat.1side"     "make.dat.1side.old" "make.dat.orig"     
+[6] "make.dat.simple"    "make.dat.tuned"     "rand.exp"           "summarize_sim_data"
+```
+
+The describe and summarize methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
+We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
+
+Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that file and use those estimators on our actual data.
+This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
+Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
+
+Modular programming is key.
+
+
+
+## Analyzing results from a multifactor experiment
+
+We can group by our simulation factors and calculate all our performance metrics at once.
+For example, here is the code for calculating performance measures across our simulation for cluster randomized experiments:
+
+```{r}
+res <- readRDS( file = "results/simulation_CRT.rds" )
+
+sres <- 
+  res %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarise( 
+    bias = mean(ATE_hat - ATE),
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE )^2 ) ),
+    ESE_hat = sqrt( mean( SE_hat^2 ) ),
+    SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+    power = mean( p_value <= 0.05 ),
+    R = n(),
+    .groups = "drop"
+  )
+sres
+```
+
+But then what?
+We have `r nrow(res) / 3` different scenarios across our factors (with three rows per scenario, one for each method).
+How can we visualize and understand trends across this complex domain.
+
+There several techniques for summarizing across the data that one might use.
+
+### Bundling
+As a first step, we might bundle the simulations by the primary factors of interest.
+We would then plot these bundles as box plots to see central tendency along with variation.
+With bundling, we would need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable than the truth.
+
+
+### Aggregation
+With aggregation, we average over some of the factors, collapsing our simulation results down to fewer moving parts.
+This is better than having not had those factors in the first place!
+Averaging over a factor is a more general answer than having not varied the factor at all.
+
+For example, if we average across ICC and site variation, and see how the methods change performance as a function of $J$, we would know that this is a general trend across a range of scenarios defined by different ICC and site variation levels.
+Our conclusions would then be more general than if we picked a single ICC and amount of site variation: in this latter case we would not know if we would see our trend more broadly.
+
+Also, with aggegation, we can have a smaller number of replications per factor combination.
+The averaging will, in effect, give a lot more reps per aggregated performance measure.
+
+Aggregate, grouping only by the factors used in the plot.
+
+
+A caution with aggregation is that it can be deceitful if you have scaling issues or extreme outliers.
+With bias, our scale is fairly well set, so we are good!
+
+
+### Regression Summarization
+
+One can treat the simulation results as a dataset in its own right.
+In this case we can regress a performance measure against the methods and various factor levels to get "main effects" of how the different levels impact performance holding the other levels constant.
+
+
+### Focus on subset, kick rest to supplement
+
+Frequently researchers might simply filter the simulation results to a single factor level for some nuisance parameter.
+For example, we might examine ICC of 0.20 only, as this is a "reasonable" value given substance matter knowledge.
+We would then consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, like in an online supplemental appendix.
+
+It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
+
+
+
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, include=FALSE} 
+library( tidyverse )
+options(list(dplyr.summarise.inform = FALSE))
+
+
+### Code from the prior chapter
+source( "case_study_code/clustered_data_simulation.R" )
+
+dat <- gen_dat_model( n=5, J=3, p=0.5, 
+                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
+                        sigma2_u = 0.4, sigma2_e = 1,
+                      alpha = 0.5 )
+
+```
+
+
+## Example: The Clustered RCT
+
+We now extend our case study presented in Section @case_cluster to a multifactor simulation.
+So far, we have only investigated a single scenario at a time, although our modular approach does make exploring a range of scenarios by re-calling our simulation function relatively straightforward.
+But how do our findings generalize?  When are the different methods differently appropriate? 
+To answer this, we need to extend to a multifactor simulation to _systematically_ explore trends across contexts for our three estimators.
+We begin by identifying some questions we might have, given our preliminary results.
+
+Regarding bias, in our initial simulation, we noticed that Linear Regression is estimating a person-weighted quantity, and so would be considered biased for the site-average ATE.
+We might next ask, how much does bias change if we change the site-size by impact relationship?
+
+For precision, we also saw that Linear Regression has a higher standard error.
+But is this a general finding?  When does this occur?
+Are there contexts where linear regression will do better than the others?
+Originally we thought aggregation would lose information becuase little sites will have the same weight as big sites, but be more imprecisely estimated.
+Were we wrong? Or perhaps if site size was even more variable, Agg might do worse and worse.
+
+Finally, the estimated SEs all appeared to be good, although they were rather variable, relative to the true SE.
+We might then ask, is this always the case?  Will the estimated SEs fall apart (e.g., be way too large or way too small, in  general) in different contexts?
+
+To answer these questions we need to more systematically explore the space of models.  But we have a lot of knobs to turn.
+In our simulation, we can generate fake cluster randomized data with the following features:
+
+ - The treatment impact of the site can vary, and vary with the site size
+ - We can have sites of different sizes if we want
+ - We can also vary:
+ 
+     - the site intercept variance
+     - the residual variance, 
+     - the treatment impact
+     - the site size
+     - the number of sites, ...
+
+We cannot easily vary all of these.
+We instead reflect on our research questions, speculate as to what is likely to matter, and then consider varying the following:
+
+ - Average site size: Does the number of students/site matter?
+ - Number of sites: Do cluster-robust SEs work with fewer sites?
+ - Variation in site size: Varying site sizes cause bias or break things?
+ - Correlation of site size and site impact: Will correlation cause bias?
+ - Cross site variation: Does the amount of site variation matter?
+
+Even so, we have a problem: How do we index cross site variation?
+If we simply add more cross site variation, our total variation will increase.
+If methods deteriorate, we then have a confound: is it the cross site variation causing the problem, or is it the total variation?
+We therefore want to vary site variation while controlling total variation.
+
+
+In extending our simulation we will also come across all sorts of concerns such as how to handle convergence issues in the modeling.
+We also need to think about how to deal with nuisance factors and how to summarize complex simulations.
+Finally, how do we choose appropriate factors and not become beholden to the parameters in our model?
+
+
+
+### Standardization in a data generating process
+
+Given our model, we can generate data by specifying our parameters and variables of $\gamma_{0}, \gamma_{1}, \gamma_{2}, \sigma^2_\epsilon, \sigma^2_u, \bar{n}, \alpha, J, p$.
+
+Now, as discussed above, we want to manipulate within vs. between variation.  If we just add more between variation (increase $\sigma^2_u$), our overall variation of $Y$ will increase.
+This will make it hard to think about, e.g., power, since we have confounded within vs. between variation with overall variation (which is itself bad for power).
+It also impacts interpretation of coefficients.  A treatment effect of 0.2 on our outcome scale is "smaller" if there is more overall variation.
+
+To handle this we first (1) Standardize our data and then (2) reparameterize, so we have human-selected parameters that we can interpret that we then _translate_ to our list of data generation parameters.
+This allows us to, for exmaple, operate in standard quantities such as effect size units.
+It also allows us ot index our DGP with more interpretable parameters such as the Intra-Class Correlation (ICC).
+
+Our model is 
+$$ Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j \left(\frac{n_j - \bar{n}}{\bar{n}} \right)  + u_j + \epsilon_{ij}  $$
+
+The variance of our control-side outcomes is
+$$ 
+\begin{aligned}
+var( Y_{ij}(0) ) &= var( \beta_{0j} + \epsilon_{ij} ) \\
+ &= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
+&= \sigma^2_u + \sigma^2_\epsilon
+\end{aligned}
+$$ 
+The effect size of an impact is defined as the impact over the control-side standard deviation.
+(Sometimes people use the pooled standard deviation, but this is usually a bad choice if one suspects treatment variation.  More treatment variation should not reduce the effect size for the same absolute average impact.)
+
+$$ ES = \frac{\gamma_1}{SD( Y | Z_j = 0 )} = \frac{\gamma_1}{\sqrt{ \sigma^2_u + \sigma^2_\epsilon } } $$
+
+The way we think about how "big" $\gamma_1$ is depends on how much site variation and residual variation there is.
+But it is also easier to detect effects when the residual variation is small.
+Effect sizes "standardize out" these sorts of tensions.  We can use that.
+
+In particular, we will use the Intraclass Correlation Coeffiicent (ICC), defined as
+$$ ICC = \frac{ \sigma^2_u }{ \sigma^2_\epsilon + \sigma^2_u } . $$
+The ICC is a measure of within vs. between variation.
+
+What we then do is first standardized our data, meaning we ensure the control side variance equals 1.
+Using the above, this means $\sigma^2_u + \sigma^2_\epsilon = 1$.
+It also gives us $ICC = \sigma^2_u$, and $\sigma^2_\epsilon = 1 - ICC$.
+
+Our two model parameters are now tied together by our single ICC tuning parameter.
+The core idea is we can now manipulate the aspects of the DGP we want while holding other aspects of the DGP constant.
+Given our standardized scale, we have dropped a parameter from our set we might want to vary, and ensured varying the other parameter (now the ICC) is varying only one aspect of the DGP, not both.
+Before, increasing $\sigma^2_u$ had two consequences: total variation and relative amount of variation at the school level.
+Manipulating ICC only does the latter.
+
+Our revised code is then, at the simulation driver level:
+
+```{r revised_run_CRT_sim}
+run_CRT_sim <- function(reps, 
+                        n_bar = 10, J = 30, p = 0.5,
+                        ATE = 0, ICC = 0.4,
+                        size_coef = 0, alpha = 0,
+                        seed = NULL, aggregate = TRUE) {
+
+  stopifnot( ICC >= 0 && ICC < 1 )
+  
+  scat( "Running n=%d, J=%d, ICC=%.2f, ATE=%.2f (%d replicates)\n", n_bar, J, ICC, ATE, reps)
+
+  if (!is.null(seed)) set.seed(seed)
+
+  res <- 
+    purrr::rerun( reps, {
+      dat <- gen_dat_model( n_bar = n_bar, J = J, p = p,
+                            gamma_0 = 0, gamma_1 = ATE, gamma_2 = size_coef,
+                            sigma2_u = ICC, sigma2_e = 1 - ICC,
+                            alpha = alpha )
+      analyze_data(dat)
+    }) %>%
+    bind_rows( .id="runID" )
+}
+```
+
+Note the `stopifnot`: it is wise to ensure our parameter transforms are all reasonable, so we don't get unexplained errors or strange results.
+
+Also note how we are transforming our ICC parameter into specific other parameters to maintain our effect size interpretation of our
+simulation.
+We don't need to modify the `gen_dat_model` method: we are just specifying the constellation of parameters as a function of the parameters we want to directly control in the simulation.
+
+
+### Making analyze_data() quiet
+
+If we run our simulation when there is little cluster variation, we start getting a lot of warnings from our MLM estimator:
+```{r}
+# TBD
+```
+
+When we scale up to our full simulations, these warnings can become a nuisance.
+Furthermore, the `lmer` command can sometimes just fails (we believe there is some bug in the optimizer that fails if things are just perfectly wrong).
+If this was on simulation run 944 out of 1000, we would lose everything!
+To protect ourselves, we trap messages and warnings as so (see Chapter \@(#safe_code) for more on this):
+
+```
+quiet_lmer = quietly( lmer )
+analyze_data <- function( dat ) {
+    
+    # MLM
+    M1 <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+    message1 = ifelse( length( M1$message ) > 0, 1, 0 )
+    warning1 = ifelse( length( M1$warning ) > 0, 1, 0 )
+
+   ...
+
+    # Compile our results
+    tibble( 
+      method = c( "MLM", "LR", "Agg" ),
+      ATE_hat = c( est1, est2, est3 ),
+      SE_hat = c( se1, se2, se3 ),
+      p_value = c( pv1, pv2, pv3 ),
+      message = c( message1, 0, 0 ),
+      warning = c( warning1, 0, 0 )
+    )
+}
+```
+
+We now get a note about the message regarding convergence saved in our results:
+
+```{r demo_analyze_CRT_data}
+analyze_data(dat)
+```
+
+### Where to compute performance measures: inside vs. outside?
+
+
+*INSIDE (aggregate as you simulate):*
+For each scenario we get a tidy result of our performance measures
+Less data to store, easier to compartmentalize
+No ability to add new performance measures on the fly
+
+*OUTSIDE (keep all simulation runs):*
+You can dynamically add or change how you calculate performance measures
+End up with massive amounts of data to store and manipulate
+
+
+### Run the simulation
+
+Running our simulation is the exact same code as we have used before.
+Simulations take awhile to run so we save them so we can analyze at our leisure.
+Here we are storing the individual runs, not the analyzed results!
+
+```{r run_the_CRT_simulation, eval=FALSE}
+params <- 
+  cross_df(design_factors) %>%
+  mutate(
+    reps = 100,
+    seed = 20200320 + 1:n()
+  )
+params$res = pmap(params, .f = one_CRT_sim )
+res = params %>% unnest( cols=c(data) )
+saveRDS( res, file = "results/simulation_CRT.rds" )
+```
+
+
+### Analyzing our results
+
+Now that we have run our simulation, we turn to our questions listed above, extending our initial findings from our initial scenario to assess trends across our simulation factors.
+
+
+**Checking on convergence issues.**
+First, we explore how often we get a convergence message:
+
+```{r examine_convergence_rates}
+res <- readRDS( "results/simulation_CRT.rds" )
+res %>% 
+  group_by( method, ICC ) %>%
+  summarise( message = mean( message ) ) %>%
+  pivot_wider( names_from = "method", values_from="message" )
+```
+
+We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
+At this point we might decide to drop those runs with a message or keep them.
+In this case, we decide to keep (it shouldn't matter much in any case except the ICC = 0 case).
+We might eventually want to do a separate analysis of the ICC = 0 context to see if the MLM approach actually falls apart, or if it is just throwing error messages.
+
+**Calculating standard metrics.**
+Once we have our individual runs for our difference scenarios, we group and calculate our performance metrics for each group.
+
+```{r calc_CRT_performance_metrics}
+sres <- 
+  res %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarise( 
+    bias = mean(ATE_hat - ATE),
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE )^2 ) ),
+    ESE_hat = sqrt( mean( SE_hat^2 ) ),
+    SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+    power = mean( p_value <= 0.05 ),
+    R = n(),
+    .groups = "drop"
+  )
+```
+
+**Bias analysis.**
+As a first step to understanding bias, we might bundle our results by ICC.
+In this code we are making groups of method by ICC level so we get side-by-side boxplots for each ICC level considered:
+
+```{r clusterRCT_plot_bias_v1}
+ggplot( sres, aes( ICC, bias, col=method, group=paste0(ICC,method) ) ) +
+  facet_grid( alpha ~ size_coef, labeller = label_both ) +
+  geom_boxplot(coef = Inf) +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal() +
+  scale_x_continuous( breaks = unique( sres$ICC) )
+```
+
+Each box is a collection of simulation trials. E.g., for `ICC = 0.6`, `size_coef = 0.2`, and `alpha = 0.8` we have 9 scenarios representing the varying level 1 and level 2 sample sizes:
+```{r}
+filter( sres, ICC == 0.6, size_coef == 0.2,
+        alpha == 0.8, method=="Agg" ) %>%
+  dplyr::select( n_bar:alpha, bias )
+```
+
+We are seeing a few outliers for some of the boxplots, suggesting that there are other factors driving bias.  We could try bundling along different aspects to see:
+
+```{r clusterRCT_plot_bias_v2}
+ggplot( sres, aes( as.factor(n_bar), bias, col=method, group=paste0(n_bar,method) ) ) +
+  facet_grid( alpha ~  size_coef, labeller = label_both ) +
+  geom_boxplot(coef = Inf) +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal()
+```
+
+No progress there.  Perhaps it is instability or MCSE.
+
+The boxplots are hard for seeing trends.
+Instead of bundling, we can therefore aggregate:
+```{r}
+ssres <- 
+  sres %>% 
+  group_by( ICC, method, alpha, size_coef ) %>%
+  summarise( bias = mean( bias ) )
+
+ggplot( ssres, aes( ICC, bias, col=method ) ) +
+  facet_grid( alpha ~  size_coef, labeller = label_both ) +
+  geom_point( alpha=0.75 ) + 
+  geom_line( alpha=0.75 ) +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal()
+```
+
+This shows that site variation leads to greater bias, but only if the coefficient for size is nonzero.
+We also see that all the estimators must be the same if site variation is 0, with the overplotted lines on the top row of the figure.
+
+
+
+## Exercises
+
+1) For our cluster RCT, use the simulation results to assess how much better (or worse) the different methods are to each other in terms of confidence interval coverage. What scenarios tend to result in the worst coverage?
+
+
+
+
+
+
+
+
+
+

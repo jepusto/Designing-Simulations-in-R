@@ -1,0 +1,291 @@
+# Presentation of simulation results
+
+```{r, include=FALSE}
+library( tidyverse )
+```
+
+Last chapter, we started to investigate how to present a multifactor experiment.
+In this chapter, we talk about some principles behind the choices one might make in generating final reports of a simulation.
+There are three primary approaches to the analysis and presentation of simulation results:
+
+1. Tabulation
+2. Visualization
+3. Modeling
+
+There are generally two primary goals for your results:
+
+- Understand the effects of all of the factors manipulated in the simulation.
+- Develop evidence that addresses your research questions.
+
+For your final write-up, you will not want to present everything.
+A wall of numbers and observations will serve to pummel the reader, rather than inform them; readers rarely enjoy being pummeled, and the solution is quite often to skim such material while feeling hurt and betayed.
+Instead, you should present selected results that clearly illustrate the main findings from the study and anything unusual/anomolous.
+This will typically be with a few well-chosen figues.
+Then, in the text of your write-up, you might include examples that make specific numerical comparisons.
+Do not include too many of theses, and be sure to say why the numerical comparisons you include are important.
+Finally, have supplementary materials that contain further detail such as additional figures and analysis, and complete simulation results.
+
+If you want to be a moral person worthy of the awards of Heaven, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct the analysis themselves.
+This last part provides a great legitimacy bump to your work: even if no one touches your code, knowing that they could builds confidence.
+People naturally think, "if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes and it is probably right."
+
+
+We briefly walk through the three modes of engaging with one's simulation results, with a few examples taken from the literature.
+
+
+
+## Tabulation 
+
+Traditionally, simulation study results are presented in big tables.
+We think this doesn't really make the take-aways of a simulation readily apparent.
+Perhaps tables are fine if...
+    - they involve only a few numbers, and a few targeted comparisons 
+    - it is important to report _exact_ values for some quantities
+
+Unfortunately, simulations usually produce lots of numbers, and involve making lots of comparisons.
+You are going to want to show, for example, the relative performance of alternative estimators, or the performance of your estimators under different conditions for the data-generating model.
+This means a lot of rows, and a lot of dimensions.
+Tables can do two dimensions; when you try to cram more than that into a table, no one is particularly well served.
+
+Furthermore, in simulation, exact values for your bias/RMSE/type-I error, or whatever, are not usually of interest. And in fact, we rarely have them due to Monte Carlo simulation error.
+The tables provide a false sense of security, unless you include uncertainty, which clutters your table even further.
+
+Tables and simulations do not particularly well mix.
+In particular, if you are ever tempted into putting your table in landscape mode to get it to fit on the page, think again.
+It is often more useful and insightful to present results in graphs (Gelman, Pasarica, & Dodhia, 2002).
+
+So, onwards.
+
+## Visualization
+
+Visualization should nearly always be the first step in analyzing simulation results.
+
+This often requires creating a _BUNCH_ of graphs to look at different aspects of the data.
+
+Helpful tools/concepts:
+
+- Boxplots are often useful for depicting range and central tendency across many combinations of parameter values. 
+- Use color, shape, and line type to encode different factors
+- Small multiples (faceting) can then encode further factors (e.g., varying sample size)
+
+We next present a series of visualizations taken from our published work, illustrating some different themes behind visualization that we believe are important.
+
+
+### Example 1: Biserial correlation estimation
+
+Our first example shows the bias of a biserial correlation estimate from an extreme groups design.
+This simulation was a $96 \times 2 \times 5 \times 5$ factorial design (true correlation for a range of values, cut-off type, cut-off percentile, and sample size).
+The correlation, with 96 levels, forms the $x$-axis, giving us nice performance curves.
+We use line type for the sample size, allowing us to easily see how bias collapses as sample size increases.
+Finally, the facet grid gives our final factors of cut-off type and cut-off percentile.
+All our factors, and nearly 5000 explored simulation scenarios, are visible in a single plot.
+
+
+```{r, echo=FALSE, warning=FALSE, fig.width = 10, fig.height = 4}
+load("data/d2r results.rData")
+allResults$n <- ordered(allResults$n)
+allResults$p.inv <- allResults$p1
+allResults$p1 <- ordered(allResults$p1, 
+                labels = paste("p1 = 1/",unique(allResults$p1), sep=""))
+allResults$fixed <- factor(allResults$fixed, levels=c("TRUE","FALSE"), 
+                labels = c("Fixed percentiles","Sample percentiles"))
+
+r_F <- allResults %>%
+  filter(stat=="r.i" & design=="Extreme Group") %>%
+  droplevels()
+levels(r_F$fixed) <- c("Pop. cutoff","Sample cutoff")
+r_F$bias <- r_F$mean - r_F$rho
+r_F$bias.sm <- r_F$mean.sm - r_F$rho
+r_F$rmse <- sqrt(r_F$bias^2 + r_F$var)
+
+library(ggplot2)
+ggplot(r_F, aes(rho, bias, linetype = n)) +
+  geom_smooth(method="loess", se=FALSE, color = "black") + 
+  facet_grid(fixed ~ p1) + theme_bw() +
+  labs(linetype = "n") +
+  scale_y_continuous(name=expression(Bias(r[eg]))) + 
+  scale_x_continuous(name=expression(rho))
+```
+
+Source: Pustejovsky, J. E. (2014). Converting from d to r to z when the design uses extreme groups, dichotomization, or experimental control. Psychological Methods, 19(1), 92-112.
+
+Note that in our figure, we have smoothed the lines with respect to `rho` using `geom_smooth()`.
+This is a nice tool for taking some of the simulation jitter out of an analysis to show overall trends more directly.
+
+
+### Example 2: Variance estimation and Meta-regression
+
+- Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression
+- Comparison of 5 different small-sample corrections
+- Complex experimental design, varying
+    - sample size ($m$)
+    - dimension of hypothesis ($q$)
+    - covariates tested
+    - degree of model mis-specification
+
+```{r, echo=FALSE, fig.height=5, fig.width=9}
+load("data/RVE_simulation.Rdata")
+results <- results_large_m
+results <- within(results, {
+  type <- substr(contrast,1,1)
+  q <- as.numeric(substr(contrast,3,3))
+  p <- ifelse(type=="O",q + 1,6)  
+  q_lab <- factor(q)
+  levels(q_lab) <- paste("q =", levels(q_lab)) 
+  testname <- factor(test, levels = c("Chi-sq (Uncorrected)","Chi-sq","Naive F",
+                                      "Fay-Cornelius 2","Cai-Hayes 1","T-sq Z","T-sq B","T-sq A",
+                                      "Fay-Cornelius 1","Cai-Hayes 2","Cai-Hayes 3",
+                                      "Satterthwaite 1","Satterthwaite 2","Satterthwaite 3","Satterthwaite 4",
+                                      "PW-eigen","Zhang-eigen"))
+  levels(testname)[which(levels(testname)=="Chi-sq")] <- "Chi-sq (BRL)"
+  levels(testname)[which(levels(testname) %in% c("Fay-Cornelius 2","Cai-Hayes 1"))] <- c("EDF","EDT")
+  levels(testname)[which(levels(testname) %in% c("T-sq Z","T-sq B","T-sq A"))] <- c("T^2 Z","T^2 B","T^2 A")
+})
+
+iterations <- 5000
+MC_CI <- qnorm(0.975) * sqrt(0.05 * 0.95 / iterations)
+
+test_select <- c("EDT","EDF","T^2 A", "T^2 B","T^2 Z")
+m_select <- c(10, 20, 40, 80)
+
+ggplot(subset(results, testname %in% test_select & m %in% m_select & q < 5),
+       aes(testname, p05, fill = testname)) + 
+  geom_boxplot() + 
+  facet_grid(q ~ m, scales = "free_y",labeller = "label_both") + 
+  scale_x_discrete(labels = abbreviate) + 
+  labs(x = NULL, y = "Type I error", fill = "Test") + 
+  geom_hline(yintercept= 0.05) + 
+  geom_hline(yintercept= 0.05 + MC_CI, linetype = "dashed") +
+  theme_bw()
+
+```
+
+Source: Tipton, E., & Pustejovsky, J. E. (2015). Small-sample adjustments for tests of moderators and model fit using robust variance estimation in meta-regression. _Journal of Educational and Behavioral Statistics, 40_(6), 604-634.
+
+### Example: Heat maps of coverage
+
+The visualization below shows the coverage of parametric bootstrap confidence intervals for momentary time sampling data
+In this simulation study the authors were comparing maximum likelihood estimators to posterior mode (penalized likelihood) estimators of prevalence.
+We have a 2-dimensional parameter space of prevalence (19 levels) by incidence (10 levels).
+We also have 15 levels of sample size.
+
+One option here is to use a heat map, showing the combinations of prevelance and incidence as a grid for each sample size level.
+We break coverage into ranges of interest, with green being "good" (near 95%) and yellow being "close" (92.5% or above).
+For this to work, we need our MCSE to be small enough that our coverage is estimated precisely enough to show structure.
+
+
+```{r swan_example_setup, echo=FALSE, fig.height=5.5, fig.width = 10}
+
+load("data/MTS bootstrap performance.Rdata")
+
+MTS_results <- BSresults
+
+breaks_coverage <- c(0, 0.925, 0.94, 0.96, 0.975, 1)
+labels_coverage <- c("0-92.5%", "92.5-94%", "94-96%", "96-97.5%", "97.5-100%")
+coverage_colors <- c("0-92.5%" = "pink", "92.5-94%" = "yellow" , "94-96%" = "green", "96-97.5%" = "blue", "97.5-100%" = "purple")
+
+coverage_smoother <- function(results){
+  pcoverage_model <- loess(pcoverage ~ phi + zeta, data = results, span = 0.25)
+  zcoverage_model <- loess(zcoverage ~ phi + zeta, data = results, span = 0.25)
+  pcoverage_smooth <- predict(pcoverage_model, newdata = results)
+  zcoverage_smooth <- predict(zcoverage_model, newdata = results)
+  
+  return(cbind(results, pcoverage_smooth, zcoverage_smooth))
+}
+
+MTS_coverage <- MTS_results %>%
+  nest_by( K_intervals, k_priors, theta )
+MTS_coverage$res = map( MTS_coverage$data, coverage_smoother ) 
+MTS_coverage = unnest( MTS_coverage, cols = res )
+
+
+MTS_coverage2 <- MTS_coverage
+MTS_coverage2$phi <- 1 - MTS_coverage2$phi
+MTS_coverage <- rbind(MTS_coverage, MTS_coverage2)
+MTS_coverage$pcoverage_smooth <- ifelse(MTS_coverage$pcoverage_smooth > 1, 1, MTS_coverage$pcoverage_smooth)
+
+MTS_coverage$pcoverage_cut <- cut(MTS_coverage$pcoverage, breaks = breaks_coverage,
+                              labels = labels_coverage, include.lowest = TRUE)
+MTS_coverage$pcoverage_cut_smooth <- cut(MTS_coverage$pcoverage_smooth, breaks = breaks_coverage,
+                                     labels = labels_coverage, include.lowest = TRUE)
+
+MTS_coverage$zcoverage_smooth <- ifelse(MTS_coverage$zcoverage_smooth > 1, 1, MTS_coverage$zcoverage_smooth)
+
+MTS_coverage$zcoverage_cut <- cut(MTS_coverage$zcoverage, breaks = breaks_coverage,
+                              labels = labels_coverage, include.lowest = TRUE)
+MTS_coverage$zcoverage_cut_smooth <- cut(MTS_coverage$zcoverage_smooth, breaks = breaks_coverage,
+                                     labels = labels_coverage, include.lowest = TRUE)
+
+
+qplot(phi, zeta, fill = pcoverage_cut_smooth, 
+      geom = "tile",
+      data = subset(MTS_coverage, theta == Inf & K_intervals >= 40)) +
+  facet_wrap(~K_intervals, ncol = 4, scales = "free_y") +
+  scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+  scale_x_continuous(breaks=seq(.1, 1, .1)) +
+  scale_fill_manual(values = coverage_colors) + 
+  labs(x = "Prevalence", y = "Incidence", fill = "Coverage") + theme_bw()+ 
+  theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
+```
+
+```{r, echo=FALSE, fig.height=5.5, fig.width = 10}
+qplot(phi, zeta, fill = pcoverage_cut_smooth, 
+      geom = "tile",
+      data = subset(MTS_coverage, theta == 10 & K_intervals >= 40)) +
+  facet_wrap(~K_intervals, ncol = 4, scales = "free_y") +
+  scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+  scale_x_continuous(breaks=seq(.1, 1, .1)) +
+  scale_fill_manual(values = coverage_colors) + 
+  labs(x = "Prevalence", y = "Incidence", fill = "Coverage") + theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
+```
+
+
+To see this plot IRL, see Pustejovsky, J. E., & Swan, D. M. (2015). Four methods for analyzing partial interval recording data, with application to single-case research. _Multivariate Behavioral Research, 50_(3), 365-380.
+
+
+
+## Modeling
+
+Simulations are designed experiments, often with a full factorial structure.
+We can therefore leverage classic means for analyzing such full factorial experiment.
+In particular, we in effect model how a performance measure varies as a function of the different experimental factors.
+We can use regression or other modeling to do this.
+
+First, in the language of a full factor experiment, we might be interested in the "main effects" or "interaction effects."
+A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts our peformance measure.
+When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that for a host of simulation contexts, grouped by levels of our main effect, we see a trend.
+
+For example, consider the Bias of biserial correlation estimate from an extreme groups design example from above.
+Visually, we see that most factors appear to matter for bias, but we might want to get a sense of how much.
+In particular, does the the population vs sample cutoff option matter, on average, for bias?
+
+```{r modeling_demonstration, warning=FALSE}
+options(scipen = 5)
+mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
+summary(mod, digits=2)
+```
+
+The above printout gives main effects for each factor, averaged across other factors.
+It is automatically generating linear, quadradic, cubic and fourth order contrasts for the ordered factors of p1 and n.
+We see that, across other contexts, the sample cutoff is around 0.004 lower than population.
+
+We next discuss two additional tools:
+
+>- ANOVA can be useful for understanding major sources of variation in simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+>- Smoothing (e.g., local linear regression) over continuous factors 
+
+
+
+```{r anova_example, warning=FALSE}
+anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
+summary(anova_table)
+```
+
+```{r, warning=FALSE}
+library(lsr)
+etaSquared(anova_table)
+```
+
+\cmntM{Perhaps we need an example where some things don't matter?  We need to discuss what one learns from this table.}
+
