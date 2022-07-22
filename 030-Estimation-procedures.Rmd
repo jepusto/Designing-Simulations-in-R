@@ -140,7 +140,24 @@ If your estimation procedure truly is new, how would you check it?
 Well, one obvious answer is simulation!
 
 In principle, for large samples and data generated under the assumptions required by your new procedure, you should have a fairly good sense that it should work and how it should work.
-It is often the case that as you design your simulation, and then start analyzing the results, 
+It is often the case that as you design your simulation, and then start analyzing the results, you will find your estimators are really not working as planned.
+
+This will usually be due to (at least) three factors: you didn't implement your method correctly, your method is not yet a good idea in the first place, and you don't understand something important about how your method works.
+You can then debug your code, revise your method, and do some serious thinking to eventually end up with a deeper understanding of method that is a better idea in general, and correctly implemented in all likelihood.
+
+For example, in one research project Luke and other co-authors was working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
+The idea is to group units based on a covariate that predicts compliance status, and then estimate within each group; hopefully this would improve overall estimation.
+
+In the first simulation, the estimates were full of NAs and odd results because we failed to properly account for what happens when the number of compliers was estimated to be zero.
+That was table stakes: after repairing that, we still found odd behavior and serious and unexpected bias, which turned out to be due to failing to implement the averaging of the groups step correctly.
+We fixed the estimator again and re-ran, and found that even when we had a variable that was almost perfectly predictive of compliance, gains were still surprisingly minimal.
+Eventually we understood that the groups with very few compliers were will so unstable that they ruined the overall estimate.
+These results inspired us to introduce other estimators that dropped or down-weighted these strata, which gave our paper a deeper purpose and contribution.
+
+Simulation is an iterative process.
+It is to help you, the researcher, learn about your estimators so you can find a way forward with your work.
+What you learn then feeds back to the prior research, and you have a cycle that you eventually step off of, if you want to finish your paper.
+But do not expect it to be a single, well-defined, trajectory.
 
 
 
@@ -213,6 +230,7 @@ analysis_agg <- function( dat ) {
 Note the `stopifnot` command: putting *assert statements* in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors in your code.
 For example, R likes to recycle vectors to make them the right length; if you gave it a wrong length in error, this can be a brutal error to discover.
 These statements halt your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, showing up in odd results that you don't understand later on.
+See Section @about_stopifnot for more.
 
 Finally, we write a single function that puts all these together:
   
@@ -244,7 +262,7 @@ We intentionally wrap up our results with a data frame to make later processing 
 ## Exercises
 
 
-## More Welch and adding the BFF test
+### More Welch and adding the BFF test
 
 Let's continue to explore and tweak the simulation code we've developed to replicate the results of Brown and Forsythe (1974).
 Below is the key functions for the data-generating process (taken from the prior chapter).
@@ -287,7 +305,7 @@ BF_F <- function(x_bar, s_sq, n, g) {
 ```
 
 
-## More estimators for the CRT
+### More estimators for the CRT
 
 3. Sometimes you might want to consider two versions of an estimator. For example, in our cluster RCT code above we are using robust standard errors for the linear model estimator. Say we also want to include naive standard error estimates that we get out of the `lm` call.
 

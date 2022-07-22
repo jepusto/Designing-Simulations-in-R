@@ -160,7 +160,7 @@ ggplot( check_data, aes( sample=x ) ) +
 
 
 
-## Simulating clustered data {#case_cluster}
+## Example: Simulating clustered data {#case_cluster}
 
 Generating data with complex structure can be intimidating, but if you set out a recipe for how the data is generated it is often not to bad to build that recipe up with code.
 We will illustrate how to tackle this kind of data with a case study of best practices for analyzing data from a cluster-randomized RCT of students nested in schools.
@@ -417,6 +417,87 @@ dat
 
 Our data generation code is complete.
 The next step is to test the code, making sure it is doing what we think it is (see exercises).
+
+
+
+
+### Standardization in a data generating process
+
+Given our model, we can generate data by specifying our parameters and variables of $\gamma_{0}, \gamma_{1}, \gamma_{2}, \sigma^2_\epsilon, \sigma^2_u, \bar{n}, \alpha, J, p$.
+
+Now, as discussed above, we want to manipulate within vs. between variation.  If we just add more between variation (increase $\sigma^2_u$), our overall variation of $Y$ will increase.
+This will make it hard to think about, e.g., power, since we have confounded within vs. between variation with overall variation (which is itself bad for power).
+It also impacts interpretation of coefficients.  A treatment effect of 0.2 on our outcome scale is "smaller" if there is more overall variation.
+
+To handle this we first (1) Standardize our data and then (2) reparameterize, so we have human-selected parameters that we can interpret that we then _translate_ to our list of data generation parameters.
+This allows us to, for exmaple, operate in standard quantities such as effect size units.
+It also allows us ot index our DGP with more interpretable parameters such as the Intra-Class Correlation (ICC).
+
+Our model is 
+$$ Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j \left(\frac{n_j - \bar{n}}{\bar{n}} \right)  + u_j + \epsilon_{ij}  $$
+
+The variance of our control-side outcomes is
+$$ 
+\begin{aligned}
+var( Y_{ij}(0) ) &= var( \beta_{0j} + \epsilon_{ij} ) \\
+ &= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
+&= \sigma^2_u + \sigma^2_\epsilon
+\end{aligned}
+$$ 
+The effect size of an impact is defined as the impact over the control-side standard deviation.
+(Sometimes people use the pooled standard deviation, but this is usually a bad choice if one suspects treatment variation.  More treatment variation should not reduce the effect size for the same absolute average impact.)
+
+$$ ES = \frac{\gamma_1}{SD( Y | Z_j = 0 )} = \frac{\gamma_1}{\sqrt{ \sigma^2_u + \sigma^2_\epsilon } } $$
+
+The way we think about how "big" $\gamma_1$ is depends on how much site variation and residual variation there is.
+But it is also easier to detect effects when the residual variation is small.
+Effect sizes "standardize out" these sorts of tensions.  We can use that.
+
+In particular, we will use the Intraclass Correlation Coeffiicent (ICC), defined as
+$$ ICC = \frac{ \sigma^2_u }{ \sigma^2_\epsilon + \sigma^2_u } . $$
+The ICC is a measure of within vs. between variation.
+
+What we then do is first standardized our data, meaning we ensure the control side variance equals 1.
+Using the above, this means $\sigma^2_u + \sigma^2_\epsilon = 1$.
+It also gives us $ICC = \sigma^2_u$, and $\sigma^2_\epsilon = 1 - ICC$.
+
+Our two model parameters are now tied together by our single ICC tuning parameter.
+The core idea is we can now manipulate the aspects of the DGP we want while holding other aspects of the DGP constant.
+Given our standardized scale, we have dropped a parameter from our set we might want to vary, and ensured varying the other parameter (now the ICC) is varying only one aspect of the DGP, not both.
+Before, increasing $\sigma^2_u$ had two consequences: total variation and relative amount of variation at the school level.
+Manipulating ICC only does the latter.
+
+We would call `gen_dat_model` from our usual simulation driver as follows:
+
+```{r revised_CRT, eval=FALSE}
+run_CRT_sim <- function(reps, 
+                        n_bar = 10, J = 30, p = 0.5,
+                        ATE = 0, ICC = 0.4,
+                        size_coef = 0, alpha = 0 ) {
+
+  stopifnot( ICC >= 0 && ICC < 1 )
+  
+  scat( "Running n=%d, J=%d, ICC=%.2f, ATE=%.2f (%d replicates)\n",
+        n_bar, J, ICC, ATE, reps)
+
+  res <- 
+    purrr::rerun( reps, {
+      dat <- gen_dat_model( n_bar = n_bar, J = J, p = p,
+                            gamma_0 = 0, gamma_1 = ATE, gamma_2 = size_coef,
+                            sigma2_u = ICC, sigma2_e = 1 - ICC,
+                            alpha = alpha )
+      analyze_data(dat)
+    }) %>%
+    bind_rows( .id="runID" )
+}
+```
+
+Note the `stopifnot`: it is wise to ensure our parameter transforms are all reasonable, so we don't get unexplained errors or strange results.
+
+We are transforming our ICC parameter into specific other parameters that are used in our actual model to maintain our effect size interpretation of our simulation.
+We haven't even modified `gen_dat_model` method: we are just specifying the constellation of parameters as a function of the parameters we want to directly control in the simulation.
+
+
 
 
 ## Exercises 

@@ -2,6 +2,12 @@
 # The final functions from the clustered data case study
 
 library( tidyverse )
+library( lme4 )
+library( arm )
+library( lmerTest )
+library( estimatr )
+
+
 options(list(dplyr.summarise.inform = FALSE))
 
 
@@ -44,10 +50,9 @@ gen_dat_model <- function( n_bar = 10,
                 Z = Zj[ sid ] )
 }
 
-library( lme4 )
-library( arm )
-library( lmerTest )
-library( estimatr )
+
+
+#### Analysis functions #####
 
 
 analysis_MLM <- function( dat ) {

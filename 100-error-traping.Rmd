@@ -1,3 +1,8 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 ```{r, include =FALSE}
 library( purrr )
 ```
@@ -76,7 +81,11 @@ This can be especially valuable to control massive amounts of printout in a simu
 Sometimes our analytic strategy might give some sort of warning (or fail altogether).
 For example, from the cluster randomized experiment case study we have:
 
-```{r}
+```{r, include=FALSE}
+source( "case_study_code/clustered_data_simulation.R" )
+```
+
+```{r illustrate_warnings}
 set.seed(101012)  # (I picked this to show a warning.)
 dat = gen_dat_model( J = 50, n_bar = 100, sigma2_u = 0 )
 mod <- lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
@@ -119,190 +128,56 @@ analyze_data <- function( dat ) {
 Now you have your primary estimates, and also flags for whether there was a convergence issue.
 In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
 
+## Protecting your functions with "stop" {#about_stopifnot}
 
+When writing functions, especially those that take a lot of parameters, it is often wise to include `stopifnot()` statements at the top to verify the function is getting what it expects.
+For example, look at this (fake) example of generating data with different means and variances
 
-## Saving files and results
-
-Always save your simulation results to a file.
-Simulations are painful and time consuming to run, and you will invariably want to analyze the results of them in a variety of different ways, once you have looked at your preliminary analysis.
-We advocate saving your simulation as soon as it is complete.
-But there are some ways to do better than that, such as saving as you go.
-This can protect you if your simulation occasionally crashes, or if you want to rerun only parts of your simulation for some reason.
-
-### Saving simulations as you go
-
-If you are not sure you have time to run your entire simulation, or you think your computer might crash half way through, or something similar, you can save each chunk you run as you go, in its own file.  You then stack those files at the end to get your final results.
-With clever design, you can even then selectively delete files to rerun only parts of your larger simulation---but be sure to rerun everything from scratch before you run off and publish your results, to avoid embarrassing errors.
-
-Here, for example, is a script from a research project examining how one might use post-stratification to improve the precision of an IV estimate.
-This is the script that runs the simulation.
-Note the sourcing of other scripts that have all the relevant functions; these are not important here.
-Due to modular programming, we can see what this script does, even without those detail.
-
-```{r IV_simulation_driver, eval=FALSE}
-source( "pack_simulation_functions.R" )
-
-if ( !file.exists("results/frags" ) ) {
-    dir.create("results/frags")
-}
-
-# Number of simulation replicates per scenario
-R = 1000
-
-# Do simulation breaking up R into this many chunks
-M_CHUNK = 10
-
-###### Set up the multifactor simulation #######
-
-# chunkNo is a hack to make a bunch of smaller chunks for doing parallel more
-# efficiently.
-factors = expand_grid( chunkNo = 1:M_CHUNK,
-                       N = c( 500, 1000, 2000 ),
-                       pi_c = c( 0.05, 0.075, 0.10 ),
-                       nt_shift = c( -1, 0, 1 ),
-                       pred_comp = c( "yes", "no" ),
-                       pred_Y = c( "yes", "no" ),
-                       het_tx = c( "yes", "no" ),
-                       sd0 = 1
-                       )
-factors <- factors %>% mutate(
-    reps = R / M_CHUNK,
-    seed = 16200320 + 1:n()
-)
-```
-
-This generates a data frame of all our factor combinations.
-This is our list of "tasks" (each row of factors).
-These tasks have repeats: the "chunks" means we do a portion of each scenario, as specified by our simulation factors, as a process.
-This would allow for greater parallelization (e.g., if we had more cores), and also lets us save our work without finishing an entire scenario of, in this case, 1000 iterations.
-
-To set up our simulation we make a little helper method to do one row.
-With each row, once we have run it, we save it to disk.
-This means if we kill our simulation half-way through, most of the work would be saved.
-Our function is then going to either do the simulation (and save the result to disk immediately), or, if it can find the file with the results from a previous run, load those results from disk:
-
-```{r, eval=FALSE}
-safe_run_sim = safely( run_sim )
-file_saving_sim = function( chunkNo, seed, ... ) {
-    fname = paste0( "results/frags/fragment_", chunkNo, "_", seed, ".rds" )
-    res = NA
-    if ( !file.exists(fname) ) {
-        res = safe_run_sim( chunkNo=chunkNo, seed=seed, ... )
-        saveRDS(res, file = fname )
-    } else {
-        res = readRDS( file=fname )
-    }
-    return( res )
+```{r assert_demo}
+make_groups <- function( means, sds ) {
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
 }
 ```
 
-Note how we wrap our core `run_sim` method in `safely`; it was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
-
-We next run the simulation.
-We shuffle the rows of our task list so that which process gets what task is randomized.
-If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
-
-We have an `if-then` structure to easily switch between parallel and nonparallel code.
-This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
-Plus it would be all mixed up since multiple processes are working simultaneously.
-
-This overall structure allows the researcher to delete one of the "fragment" files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
-This means the researcher can insert a `browser()` command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
-
-```{r, eval=FALSE}
-# Shuffle the rows so we run in random order to load balance.
-factors = sample_n(factors, nrow(factors) )
-
-if ( TRUE ) {
-    # Run in parallel
-    parallel::detectCores()
-    
-    library(future)
-    library(furrr)
-    
-    #plan(multiprocess) # choose an appropriate plan from future package
-    #plan(multicore)
-    plan(multisession, workers = parallel::detectCores() - 2 )
-    
-    factors$res <- future_pmap(factors, .f = file_saving_sim,
-                          .options = furrr_options(seed = NULL),
-                          .progress = TRUE )
-    
-} else {
-  # Run not in parallel, used for debugging
-  factors$res <- pmap(factors, .f = file_saving_sim )
-}
-
-tictoc::toc()
-```
-
-Our method cleverly loads files in, or generates them, for each chunk.
-The seed setting ensures reproducibility.
-Once we are done, we need to clean up our results:
-
-```{r, eval=FALSE}
-sim_results <- 
-    factors %>% 
-    unnest(cols = res)
-
-# Cut apart the results and error messages
-sim_results$sr = rep( c("res","err"), nrow(sim_results)/2)
-sim_results = pivot_wider( sim_results, names_from = sr, values_from = res )
-
-saveRDS( sim_results, file="results/simulation_results.rds" )
-```
-
-
-
-### Dynamically making directories
-
-If you are generating a lot of files, then you should put them somewhere.
-But where?
-It is nice to dynamically generate a directory for your files on fly.
-One way to do this is to write a function that will make any needed directory, if it doesn't exist, and then put your file in that spot.
-For example, you might have your own version of `write_csv` as:
-
+If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:
 ```{r}
-my_write_csv <- function( data, path, file ) {
-  
-  if ( !dir.exists( here::here( path ) ) ) {
-    dir.create( here::here( path ), recursive=TRUE ) 
-  }
-  write_csv( data, paste0( path, file ) )
+make_groups( c(100,200,300,400), c(1,100,10000) )
+```
+
+If this function was used in our data generating code, we would see the warnings but might not know exactly what they were.
+We can instead protect our function by putting an *assert statements* in our function like this:
+```{r}
+make_groups <- function( means, sds ) {
+  stopifnot( length(means) == length(sds) )
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
 }
 ```
 
-This will look for a path (starting from your R Project, by taking advantage of the `here` package), and put your data file in that spot.
-If the spot doesn't exist, it will make it for you.
+This ensures your code is getting called as you intended.
+What is nasty about this possible error is nothing is telling you something is wrong!
+You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
+You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.
 
-
-
-
-### Loading and combining files of simulation results
-
-Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
-This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.
-
-
-```{r, eval=FALSE}
-load.all.sims = function( filehead="results/" ) {
-  
-  files = list.files( filehead, full.names=TRUE)
-  
-  res = map_df( files, function( fname ) {
-    cat( "Reading results from ", fname, "\n" )
-    rs = readRDS( file = fname )
-    rs$filename = fname
-    rs
-  })
-  res
+These statements can also serve as a sort of documentation as to what you expect.
+Consider, for example:
+```{r}
+make_xy <- function( N, mu_x, mu_y, rho ) {
+  stopifnot( -1 <= rho && rho <= 1 )
+  X = mu_x + rnorm( N )
+  Y = mu_y + rho * X + sqrt(1-rho^2)*rnorm(N)
+  tibble(X = X, Y=Y)
 }
 ```
+Here we see that rho should be between -1 and 1 quite clearly.
+A good reminder of what the parameter is for.
 
-You would use as so:
-```{r, eval=FALSE}
-results = load.all.sims( filehead="raw_results/" )
+This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
+Consider:
+```{r, error=TRUE}
+a <- make_xy( 10, 2, 3, 0.75 )
+b <- make_xy( 10, 0.75, 2, 3 )
+c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
 ```
-
-
 
