@@ -6,7 +6,19 @@ output:
 
 ```{r include = FALSE}
 library(tidyverse)
+options(list(dplyr.summarise.inform = FALSE))
+
+
+### Code from the prior chapter
+source( "case_study_code/clustered_data_simulation.R" )
+
+dat <- gen_dat_model( n=5, J=3, p=0.5, 
+                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
+                        sigma2_u = 0.4, sigma2_e = 1,
+                      alpha = 0.5 )
+
 ```
+
 
 
 
@@ -28,6 +40,34 @@ For example, if we want to know what percent of the time we would reject the nul
 
 The first step for doing this is to generate that set of estimates.
 Here we do so for our cluster randomized experiment running example:
+
+```{r secret_run_cluster_rand_sim, include=FALSE}
+ATE <- 0.30
+R <- 1000
+
+one_run <- function( ATE ) {
+  dat <- gen_dat_model( n_bar = 200, J=30, 
+                        gamma_1 = ATE, gamma_2 = 0.5,
+                        sigma2_u = 0.20, sigma2_e = 0.80,
+                        alpha = 0.75 )
+  analyze_data(dat)  
+}
+
+if ( !file.exists("results/cluster_RCT_simulation.rds") ) {
+  tictoc::tic()  # Start the clock!
+  set.seed( 40404 )
+  runs <- 
+    purrr::rerun( R, one_run( ATE ) ) %>%
+    bind_rows( .id="runID" )
+  
+  tictoc::toc()
+  
+  saveRDS( runs, file = "results/cluster_RCT_simulation.rds" ) 
+} else {
+  runs = readRDS( file = "results/cluster_RCT_simulation.rds" ) 
+}
+```
+
 
 ```{r cluster_rand_sim, eval=FALSE}
 ATE <- 0.30
@@ -51,6 +91,7 @@ tictoc::toc()
 
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
+
 We save our results to a file for future use; this speeds up our lives since we don't have to constantly re-run our simulation each time we want to explore the results.
 
 
@@ -180,28 +221,10 @@ This is fine, but one should be aware that this can happen and do it on purpose.
 
 
 
-
-```{r, include=FALSE} 
-library( tidyverse )
-options(list(dplyr.summarise.inform = FALSE))
-
-
-### Code from the prior chapter
-source( "case_study_code/clustered_data_simulation.R" )
-
-dat <- gen_dat_model( n=5, J=3, p=0.5, 
-                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
-                        sigma2_u = 0.4, sigma2_e = 1,
-                      alpha = 0.5 )
-
-```
-
-
 ### Example on our Cluster RCT
 
 In our cluster RCT running example, we have three estimation methods that we are applying to our simulated data.
 We next repeatidly generate our data and obtain our estimates as follows:
-It is always wise to start with a single scenario to figure out if your code is working and if your intuition is working.
 
 
 ```{r load_cluster_sim_data, include=FALSE}
@@ -211,7 +234,9 @@ R <- 1000
 runs <- readRDS("results/cluster_RCT_simulation.rds" )
 ```
 
-We now have the individual results of all our methods applied to each generated dataset.
+It is always wise to start with a single scenario to figure out if your code is working and if your intuition is working.
+
+Once complete, we have the individual results of all our methods applied to each generated dataset.
 The next step is to evaluate how well the estimators did.
 Regarding our point estimate, we have these primary questions:
 
@@ -413,7 +438,25 @@ Without further simulation, we therefore could only assess power, not validity.
 This is easily solved!
 We simply rerun the above code with `ATE = 0`.
 
-```{r, eval=FALSE}
+
+```{r secret_run_cluster_rct, include=FALSE}
+if ( !file.exists("results/cluster_RCT_simulation_validity.rds" )) {
+tictoc::tic()  # Start the clock!
+set.seed( 404044 )
+runs_val <- 
+  purrr::rerun( R, one_run( 0 ) ) %>%
+  bind_rows( .id="runID" )
+tictoc::toc()
+
+saveRDS( runs_val, file = "results/cluster_RCT_simulation_validity.rds" )
+} else {
+  runs_val = readRDS( "results/cluster_RCT_simulation_validity.rds" )
+}
+```
+
+
+
+```{r run_cluster_rct, eval=FALSE}
 tictoc::tic()  # Start the clock!
 set.seed( 404044 )
 runs_val <- 

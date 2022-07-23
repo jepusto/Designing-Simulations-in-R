@@ -125,9 +125,8 @@ And fully expect to add and subtract from your set of parameters as you get your
 
 
 
-## Example: The Clustered RCT
+### Choosing parameters for the Clustered RCT
 
-Choosing parameters is the heart of the multifactor experiment.
 Extending our case study presented in Section @case_cluster to a multifactor simulation, let's think about how to design our full experiment.
 
 So far, we have only investigated a single scenario at a time, although our modular approach does make exploring a range of scenarios by re-calling our simulation function relatively straightforward.
@@ -173,6 +172,19 @@ When designing the final factors, it is important to ensure those factors are is
 For example, in our case, if we simply added more cross site variation by directly increasing the random effects for the clusters, our total variation will increase.
 If we see that methods deteriorate, we then have a confound: is it the cross site variation causing the problem, or is it the total variation?
 We therefore want to vary site variation while controlling total variation; this is why we use the ICC knob discussed in the section on the data generation process.
+
+We might thus end up with the following for our factors:
+
+```{r CRT_factors}
+crt_design_factors <- list(
+  n_bar = c( 20, 80, 320 ),
+  J = c( 5, 20, 80 ),
+  ATE = c( 0.2 ),
+  size_coef = c( 0, 0.2 ),
+  ICC = c( 0, 0.2, 0.4, 0.6, 0.8 ),
+  alpha = c( 0, 0.5, 0.8 )
+)
+```
 
 
 
@@ -221,37 +233,37 @@ We can pass `a_df` to `pmap`, and `pmap` takes it as a list of lists, and theref
 All of this means `pmap()` can run a specified function on each row of a dataset.
 Continuing the Cronbach Alpha simulation from above, we would have the following:
 
-```{r run-cronbach-sims_code, eval = FALSE, include=FALSE}
+```{r secret-run-cronbach-sims_code, include=FALSE}
+# (See below this block for book code)
 params$iterations <- 500
-sim_results <- 
-  params %>%
-  mutate(res = pmap(. run_alpha_sim ) )
-saveRDS( sim_results, file = "results/cronbach_results.rds" )
+if ( !file.exists( "results/cronbach_results.csv" ) ) {
+  # Secret Run code in parallel for speedup
+  library(future)
+  library(furrr)
+  source( "case_study_code/cronbach_alpha_simulation.R")
+  plan(multisession)
+  params$seed = 1:nrow(params) * 17 + 100000
+  sim_results <- 
+    params %>%
+    mutate(res = future_pmap(., .f = run_alpha_sim,
+                              .options = furrr_options(seed = NULL) ) )
+  write_csv( sim_results, file = "results/cronbach_results.csv" )
+} else {
+  sim_results = read_csv("results/cronbach_results.csv")
+}
+sim_results <- sim_results %>%
+  dplyr::select( -seed )
+```
+
+```{r run-cronbach-sims, eval = FALSE}
+params$iterations <- 500
+sim_results <-  params %>%
+  mutate(res = pmap(., run_alpha_sim ) )
 ```
 
 We add a column to `params` to record the desired 500 replications per condition.
 The above code calls our `run_alpha_sim()` method for each row of our list of scenarios we want to explore.
 Even better, we are storing the results __as a new variable in the same dataset__.
-
-```{r secret-load-cronbach, include=FALSE, eval=TRUE}
-sim_results = readRDS("results/cronbach_results.rds") %>%
-  dplyr::select( -seed )
-```
-
-```{r secret-run-cronbach-sims, eval = FALSE, include=FALSE}
-# Secret Run code in parallel for speedup
-library(future)
-library(furrr)
-source( "case_study_code/cronbach_alpha_simulation.R")
-plan(multisession)
-params$seed = 1:nrow(params) * 17 + 100000
-sim_results <- 
-  params %>%
-  mutate(res = future_pmap(., .f = run_alpha_sim,
-                            .options = furrr_options(seed = NULL) ) )
-write_csv( sim_results, file = "results/cronbach_results.csv" )
-```
-
 
 ```{r}
 sim_results
@@ -289,17 +301,13 @@ plan(multisession) # choose an appropriate plan from the future package
 evaluate_by_row(params, run_alpha_sim)
 ```
 
-We save using the tidyverse writing command; see "R for Data Science"
-textbook, 11.5.
+We finally save our results using tidyverse's `write_csv()`; see "R for Data Science" textbook, 11.5.
 We can ensure we have a directory by making one via `dir.create()` (see Section @saving_files for more on files):
 
 ```{r, eval=FALSE}
 dir.create("results", showWarnings = FALSE )
-write_csv( res, "results/simulation_CRT.csv" )
+write_csv( sim_results, file = "results/cronbach_results.csv" )
 ```
-
-
-
 
 
 ## Ways of repeating oneself
@@ -312,16 +320,16 @@ We have three core elements in our simulation:
 In arranging these elements, we have a choice: do we compute performance measures for each simulation scenario as we go (inside) vs. computing after we get all of our individual results (outside)?
 
 *INSIDE (aggregate as you simulate):*
-In this approach, we, for each scenario defined by a specific combination of factors, run our simulation for that scenario, assess the performance, and then return a nice summary table of how well our methods did.
+In this approach, illustrated above, we, for each scenario defined by a specific combination of factors, run our simulation for that scenario, assess the performance, and then return a nice summary table of how well our methods did.
 This is the most straightforward, given what we have done so far: we have a method to run a simulation for a scenario, and we simply run that method for a bunch of scenarios and collate.
 
-After the `pmap()` call, we would end up with a dataframe with all our simulations, one simulation context per row (or maybe bundles, one for each method), with
+After the `pmap()` call, we end up with a dataframe with all our simulations, one simulation context per row (or maybe bundles, one for each method), with
 our measured performance outcomes.  This is ideally all we need to analyze.
 
 We have less data to store, and it is easier to compartmentalize.
 On the cons side, we have no ability to add new performance measures on the fly.
 
-This seems pretty good.
+Overall, this seems pretty good.
 That being said, sometimes we might want to use a lot of disk space and keep
 much more.  In particular, each row of the above corresponds to the summary
 of a whole collection of individual runs.  We might instead store all of
@@ -368,14 +376,20 @@ complete storage. Note how the `pmap_df` stacks the
 multiple rows from each run, giving us everything nicely bundled up:
 
 ```{r secret_cronback_full, include=FALSE}
-if ( !file.exists("results/cronbach_results_full.rds" ) ) {
+if ( !file.exists("results/cronbach_results_full.csv" ) ) {
+  source( "case_study_code/cronbach_alpha_simulation.R" )
+  library(future)
+  library(furrr)
+  plan(multisession)
+  params$seed = 1:nrow(params) * 17 + 100000
   params$res <- params %>% 
-    pmap( run_alpha_sim_raw, iterations = 500 )
+    future_pmap( run_alpha_sim_raw,
+                 .options = furrr_options(seed = NULL) )
   sim_results_full <- unnest( params,
                               cols = res ) 
-  saveRDS( sim_results_full, "results/cronbach_results_full.rds" )
+  write_csv( sim_results_full, "results/cronbach_results_full.csv" )
 }
-sim_results_full = readRDS("results/cronbach_results_full.rds")
+sim_results_full = read_csv("results/cronbach_results_full.csv")
 ```
 
 ```{r cronbach_alpha_sim_all_rows, eval=FALSE}
@@ -383,6 +397,7 @@ params$res <- params %>%
     pmap( run_alpha_sim_raw, iterations = 500 )
 sim_results_full <- unnest( params,
                             cols = res ) 
+write_csv( sim_results_full, "results/cronbach_results_full.csv" )
 ```
 
 We end up with a lot more rows:
@@ -391,16 +406,10 @@ nrow( sim_results_full )
 nrow( sim_results )
 ```
 
-We next save our results:
-
-```{r, eval=FALSE }
-saveRDS( sim_results_full, "results/cronbach_results_full.rds" )
-```
-
 Compare the file sizes: one is several k, the other is around 20 megabytes.
 ```{r}
-file.size("results/cronbach_results.rds") / 1024
-file.size("results/cronbach_results_full.rds") / 1024
+file.size("results/cronbach_results.csv") / 1024
+file.size("results/cronbach_results_full.csv") / 1024
 ```
 
 
@@ -439,15 +448,41 @@ Simulations take awhile to run so we save them so we can analyze at our leisure.
 Because we are not exactly sure what performance metrics we want, we will save our individual results, and calculate performance metrics on the full data.
 I.e., we are storing the individual runs, not the analyzed results!
 
+
 The code is as follows:
+
+```{r secret_run_full_CRT, include=FALSE}
+if ( !file.exists( "results/simulation_CRT.rds" ) ) {
+  # Secret Run code in parallel for speedup
+  library(future)
+  library(furrr)
+  source( "case_study_code/clustered_data_simulation.R")
+  plan(multisession)
+  params$seed = 1:nrow(params) * 17 + 100000
+  params <- 
+    cross_df(crt_design_factors) %>%
+    mutate(
+      reps = 100,
+      seed = 20200320 + 1:n()
+    )
+  params$res = future_pmap(params, .f = run_CRT_sim,
+                           .options = furrr_options(seed = NULL) )
+  res <- params %>% unnest( cols=c(res) )
+  saveRDS( res, file = "results/simulation_CRT.rds" )
+} else {
+  res = readRDS("results/simulation_CRT.rds")
+}
+```
+
+
 ```{r run_the_CRT_simulation, eval=FALSE}
 params <- 
-  cross_df(design_factors) %>%
+  cross_df(crt_design_factors) %>%
   mutate(
     reps = 100,
     seed = 20200320 + 1:n()
   )
-params$res = pmap(params, .f = one_CRT_sim )
+params$res = pmap(params, .f = run_CRT_sim )
 res = params %>% unnest( cols=c(data) )
 saveRDS( res, file = "results/simulation_CRT.rds" )
 ```
@@ -458,7 +493,7 @@ We then group by our simulation factors and calculate all our performance metric
 For example, here is the code for calculating performance measures across our simulation for the cluster randomized experiments example:
 
 ```{r, messages=FALSE}
-res <- read_csv( file = "results/simulation_CRT.csv" )
+res <- readRDS( file = "results/simulation_CRT.rds" )
 
 sres <- 
   res %>% 
@@ -482,7 +517,7 @@ sres
 If we run our simulation when there is little cluster variation, we start getting a lot of messages and warnings from our MLM estimator.
 For example, from a single call we get:
 ```{r}
-analyze_data(dat)
+res <- analyze_data(dat)
 ```
 
 When we scale up to our full simulations, these warnings can become a nuisance.
@@ -569,8 +604,11 @@ analyze_data <- function( dat ) {
 ```
 
 ```{r demo_analyze_CRT_data}
-analyze_data(dat)
+res <- analyze_data(dat)
+res
 ```
+
+See?  No more warnings, but we see the message as a variable in our results.
 
 
 

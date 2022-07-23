@@ -11,6 +11,14 @@ library( estimatr )
 options(list(dplyr.summarise.inform = FALSE))
 
 
+
+
+# Utility function for printout
+scat = function( str, ... ) {
+  cat( sprintf( str, ... ) )
+}
+
+
 gen_dat_model <- function( n_bar = 10,
                            J = 30,
                            p = 0.5,
