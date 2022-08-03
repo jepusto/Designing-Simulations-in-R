@@ -1,179 +1,190 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r echo = FALSE, messages = FALSE, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE, 
+                      fig.width = 5,
+                      fig.height = 3,
+                      out.width = "75%", 
+                      fig.align = "center")
+options(list(dplyr.summarise.inform = FALSE))
+theme_set( theme_classic() )
+
+set.seed( 4404041 )
+library(future)
+library(furrr)
+
+```
+
+
 # Using simulation as a power calculator
 
-We can simulate as a power calculator.
-In particular, we generate data according to our best guess as to what we might find in a planned evaluation, and then analyze these synthetic data.
-Do this repeatidly, and we can estimate the power we have, if we are generally right about our guesses.
-This is all a power analysis is.
+We can use simulation as a power calculator.
+In particular, to estimate power, we generate data according to our best guess as to what we might find in a planned evaluation, and then analyze these synthetic data and see if we detect the effect we built into our DGP.
+We then do this repeatedly, and see how often we detect our effect.
+This is power.
 
-This has benefits over using power calculators since we can take into account odd aspects of our modeling, and also do non-standard approaches to evaluation that we might not find in a normal powe calculator.
+Now, if we are generally right about our guesses about our DGP and the associated parameters we plugged into it, in terms of some planned study, then our power will be right on.
+This is all a power analysis is, using simulation or otherwise.
 
+Simulation has benefits over using power calculators because we can take into account odd aspects of our modeling, and also do non-standard approaches to evaluation that we might not find in a normal power calculator.
+
+We illustrate this idea with a case study.
 In this example, we are planning a school-level intervention to reduce rates of discipline via a socio-emotional targeting intervention on both teachers and students, where we have strongly predictive historic data and a time-series component.
+This is a planned RCT, where we will treat entire schools (so a cluster-randomized study).
+We are struggling because treating each school is very expensive (we have to run a large training and coaching of the staff), so each unit is a major decision.
+We want something like 4, 5, or maybe 6 treated schools.
+Our diving question is: Can we get away with this?
+
 
 
 ## Getting design parameters from pilot data
 
-We had pilot data from school administrative records, and we use those to estimate parameters to plug into our simulation.
+We had pilot data from school administrative records (in particular discipline rates for each school and year for a series of five years), and we use those to estimate parameters to plug into our simulation.
 We assume our experimental sample will be on schools that have chronic issues
-with discipline, so we filter on historic data to get schools we imagine are likely to be in our study.
+with discipline, so we filtered our historic data to get schools we imagined to likely be in our study.
 
+We ended up with the following data, with log-transformed discipline rates for each year (we did this to put things on a multiplicative scale, and to make our data more normal given heavy skew in the original).  Each row is a potential school in the district.
 
+```{r, messages=FALSE, warnings=FALSE}
+datW = read_csv( "data/discipline_data.csv" )
+datW
 ```
-library( tidyverse )
-library( readxl )
 
-datW = read_excel( "discipline_data.xlsx" )
-
+We use these to calculate a mean and covariance structure for generating data:
+```{r}
 lpd_mns = apply( datW[,-1], 2, mean )
 lpd_mns
 
 lpd_cov = cov( datW[,-1] )
 lpd_cov
+```
 
+## The data generating process
+We then write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a "treatment effect" of scaling the discipline rate by the treatment coefficient for the last two years.
 
-
+```{r}
 make_dat_param = function( n_c, n_t, tx=1 ) {
-    
     n = n_c + n_t
-    
     lpdisc = MASS::mvrnorm( n, mu = lpd_mns, Sigma = lpd_cov )
-    colnames( lpdisc ) = paste0( "log_pdisc_", colnames( lpdisc ) )
+    lpdisc = exp( lpdisc )
+    colnames( lpdisc ) = paste0( "pdisc_", colnames( lpdisc ) )
     lpdisc = as.data.frame( lpdisc ) %>%
         mutate( ID = 1:n(),
                 Z = 0 + ( sample( n ) <= n_t ) )
     
-    lpdisc = lpdisc %>%
-        mutate( across( log_pdisc_2015:log_pdisc_2019,
-                        ~ exp( .x ) ) )
-    
-    names( lpdisc ) = str_replace( names(lpdisc), "log_", "" )
-    
-  
+    # Add in treatment effect
     lpdisc = mutate( lpdisc, 
-                       pdisc_2018 = pdisc_2018 * ifelse( Z == 1, tx, 1 ),
+                     pdisc_2018 = pdisc_2018 * ifelse( Z == 1, tx, 1 ),
                      pdisc_2019 = pdisc_2019 * ifelse( Z == 1, tx, 1 ) )
  
-    lpdisc
+    lpdisc %>% 
+      relocate( ID, Z )
 }
+```
 
+Our function generates schools with discipline given by the provided mean and covariance structure; we have calibrated our data generating process to give us data that looks very similar to the data we would see in the field.
 
-if ( FALSE ) {
-    
-    a = make_dat_param( 4, 4, 0.5 )  
-    aL = a %>% 
+For our impact model, the treatment kicks in for the final two years, multiplying discipline rate by `tx` (so `tx = 1` means no treatment effect).
+
+Testing our function gives this:
+```{r}
+set.seed( 59585 )
+a = make_dat_param( 100, 100, 0.5 )  
+head( a, n = 4 )
+```
+
+We can group each treatment arm and look at discipline over the years:
+```{r}
+  aL = a %>% 
         pivot_longer( pdisc_2015:pdisc_2019, 
                       names_to = c( ".value", "year" ),
                       names_pattern = "(.*)_(.*)" ) %>%
         mutate( year = as.numeric( year ) )
-    aL
-    ggplot( aL, aes( year, pdisc, col=Z, group=ID ) ) +
-        geom_line()
     
     aLg = aL %>% group_by( year, Z ) %>%
         summarise( pdisc = mean( pdisc ) )
-    ggplot( aLg, aes( year, pdisc, col=Z, group=Z ) ) +
-        geom_line()
+    ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
+        geom_line() +
+      labs( color = "Tx?" )
     
-}
 ```
 
+Our treatment group drops faster than the control.  We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
 
-```
+We next write some functions to analyze our data.
+This should feel very familiar: we are just doing our simulation framework, as usual.
 
-# Parameter power simulation for cluster RCT with school-level outcomes.
-
-library( tidyverse )
-
-source( "make_param_data_generator.R" )
-
-
-
-
-
-if ( FALSE ) {
-    sdat = make_dat_param( 4, 4, 0.5 )
-    sdat
-    sdatL = pivot_longer( sdat, cols = pdisc_2015:pdisc_2018, 
-                          names_to = "year",
-                          values_to = "pdisc" )
-    sdatL
-    ggplot( sdatL, aes( year, pdisc, col=Z, group=ID ) ) +
-        geom_line()
-}
-
-
-
+```{r}
 eval_dat = function( sdat ) {
     
-    # Simple average change model
-    M = lm( pdisc_2018 ~ 1 + Z + pdisc_2017 + pdisc_2016 + pdisc_2015, data=sdat )
-    
-    #Ml1 = lm( pdisc_2018 ~ 1 + Z + pdisc_2017, data=sdat )
-    
-    # No covariate adjustment average change model (on log outcome)
-    M2 = lm( log( pdisc_2018 ) ~ 1 + Z, data=sdat )
+    # No covariate adjustment, average change model (on log outcome)
+    M_raw = lm( log( pdisc_2018 ) ~ 1 + Z, data=sdat )
+
+    # Simple average change model using 2018 as outcome.
+    M_simple = lm( pdisc_2018 ~ 1 + Z + pdisc_2017 + pdisc_2016 + pdisc_2015,
+                   data=sdat )
 
     # Simple model on logged outcome
-    Mrat = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + log( pdisc_2016) + log( pdisc_2015 ),
-               data=sdat )
+    M_log = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + log( pdisc_2016) + log( pdisc_2015 ),
+                data=sdat )
     
-    # Look at change of disc vs average prior as outcome
+    # Ratio of average disc to average prior disc as outcome
     sdat = mutate( sdat,
                    avg_disc = (pdisc_2018 + pdisc_2019)/2,
                    prior_disc = (pdisc_2017 + pdisc_2016 + pdisc_2015 )/3,
-                   disc = pdisc_2018 / prior_disc )
-    Mrat2 = lm( disc ~ 1 + Z, data = sdat )
+                   disc = pdisc_2018 / prior_disc,
+                   disc_two = avg_disc / prior_disc )
+    M_ratio = lm( disc ~ 1 + Z, data = sdat )
+    M_ratio_twopost = lm( disc_two ~ 1 + Z, data = sdat )
     
-    
-    # Two post-tx time periods averaged to reduce noise
-    twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + log( pdisc_2016 ) + log( pdisc_2015 ), data=sdat )
+    # Use average of two post-tx time periods, averaged to reduce noise
+    M_twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + log( pdisc_2016 ) + log( pdisc_2015 ), data=sdat )
 
-    # Time fixed effects
+    # Time and unit fixed effects
     sdatL = pivot_longer( sdat, cols = pdisc_2015:pdisc_2019, 
                           names_to = "year",
                           values_to = "pdisc" ) %>%
         mutate( Z = Z * (year %in% c( "pdisc_2018", "pdisc_2019" ) ),
                 ID = paste0( "S", ID ) )
     
-    Mfe = lm( log( pdisc ) ~ 0 + ID + year + Z, 
-              data=filter( sdatL, year != "pdisc_2019" ) )
-    
-    
-    # Time fixed effects, two post
-    Mfe2 = lm( log( pdisc ) ~ 0 + ID + year + Z, data=sdatL )
-        
-    
-    
-    rs = map_df( list( raw=M2, simple=M, ratio=Mrat, ratio2 = Mrat2, 
-                       twopost = twopost, FE = Mfe, FE_twopost = Mfe2 ), 
-                 broom::tidy, .id="model" ) %>%
+    M_2wfe = lm( log( pdisc ) ~ 0 + ID + year + Z,
+                 data=sdatL )
+
+    # Bundle all our models by getting the estimated treatment impact
+    # from each.
+    models <- list( raw=M_raw, simple=M_simple,
+                       log=M_log, ratio = M_ratio, 
+                       ratio_twopost = M_ratio_twopost,
+                       log_twopost = M_twopost, 
+                       FE = M_2wfe )
+    rs <- map_df( models, broom::tidy, .id="model" ) %>%
         filter( term=="Z" ) %>%
-        dplyr::select( -term )
-    
-  
+        dplyr::select( -term ) %>%
+      arrange( model )
     
     rs
 }
+```
 
-# 
-# eval_dat_oracle( sdat, tx ) {
-#     # Oracle (single post)
-#     dd = sdat %>% 
-#         mutate( pdisc_2018 = pdisc_2018 * ifelse( Z, 1/tx, 1 ) ) %>%
-#         dplyr::select( -Z )
-#     orc = bind_rows( `1` = dd, `0` = dd, .id="Z" ) %>%
-#         mutate( Z = as.numeric( Z ),
-#                 pdisc_2018 = pdisc_2018 * ifelse( Z, tx, 1 ) )
-#     Morc = lm( log( pdisc_2018 ) ~ 1 + Z, data=orc )
-#     
-#     
-# }
+Our method marches through a host of models; we weren't sure what the gains would be from one model to another, so we decided to conduct power analyses on all of them.
+Again, we look at what our evaluation function does:
 
-if ( FALSE ) {
-    eval_dat( make_dat_param( n_c = 4, n_t = 4, tx = 0.5 ) )
-}
+```{r}
+dat = make_dat_param( n_c = 4, n_t = 4, tx = 0.5 )
+eval_dat( dat )
+```
+We have a nice set of estimates, one for each model.  
 
+## Running the simulation
 
+Now we put it all together in our classic simulator:
+```{r}
 sim_run = function( n_c, n_t, tx, R, seed = NULL ) {
     if ( !is.null( seed ) ) {
         set.seed(seed)
@@ -185,61 +196,52 @@ sim_run = function( n_c, n_t, tx, R, seed = NULL ) {
     })
     bind_rows( rps )
 }
+```
 
 
-if ( FALSE ) {
-    sim_run( n_c = 4, n_t = 4, tx = 0.5, R = 10 )
-}
-
-
-#### Run the simulation #####
-
-
-
-parallel::detectCores()
-
-library(future)
-library(furrr)
-
-#plan(multiprocess) # choose an appropriate plan from future package
-#plan(multicore)
-plan(multisession, workers = parallel::detectCores() - 1 )
-
-
-
+We then do the usual to run across a set of scenarios, running `sim_run` on each row of the following:
+```{r}
 res = expand_grid( tx = c( 1, 0.75, 0.5 ),
                    n_c = c( 4, 5, 6, 8, 12, 20 ),
                    n_t = c( 4, 5, 6 ) )
 res$R = 1000
 res$seed = 1010203 + 1:nrow(res)
+```
 
-##
-## Do the run! 
-##
+
+```{r secret_run_disc_simulation, include=FALSE}
+# See below for the presented, visible code
+if ( !file.exists( "data/discipline_simulation.rds" ) ) {
+  
+  #sim_run( 4, 4, 0.5, 10 )
+  
+#plan(multiprocess) # choose an appropriate plan from future package
+#plan(multicore)
+  library( future )
+  library( furrr )
+plan(multisession, workers = parallel::detectCores() - 1 )
 
 tictoc::tic()
-
+res
 # parallel version
 res$res <- future_pmap(res, .f = sim_run,
                           .options = furrr_options(seed = NULL),
                           .progress = TRUE )
-
-# non-parallel version
-#res$res = pmap( res, sim_run )
-
 tictoc::toc()
 
-
-
-
 res
-res = unnest( res, cols=res )
+res_u = unnest( res, cols=res )
+res_u
 
-res
+saveRDS( res_u, file="data/discipline_simulation.rds" )
+}
+```
 
-saveRDS( res, file="simulation_results.rds" )
 
-res = readRDS( file="simulation_results.rds" )
+For evaluation, we load our saved results and calculate rejection rates (we use an alpha of 0.10 since we are doing one-sided testing):
+
+```{r}
+res = readRDS( file="data/discipline_simulation.rds" )
 
 sres <- res %>% group_by( n_c, n_t, tx, model ) %>%
     summarise( E_est = mean( estimate ),
@@ -247,112 +249,143 @@ sres <- res %>% group_by( n_c, n_t, tx, model ) %>%
                E_SE_hat = mean( std.error ),
                pow = mean( p.value <= 0.10 ) ) # one-sided testing
 sres
+```
+
+## Evaluating power
+
+Once our simulation is run, we can explore power as a function of the design characteristics.
+In particular, we eventually want to calculate the chance of noticing effects of different sizes, given various sample sizes we might employ.
+Our driving question is how few schools on the treated side can we get away with?
+Also, we want to know how much having more schools on the control side allows us to get away with fewer schools on the treated side.
 
 
+### Checking validity of our models
+Before we look at power, we need to check on whether our different models are valid.
+This is especiallt important as we are in a small $n$ context, so we know asymptotics may not hold as they should.
+To check our models for validity we subset our trials to where `tx = 1`, and look at the rejection rates.
 
+We first run a regression to see if rejection is a function of sample size (are smaller samples more invalid) and treatment-control imbalance.
+We center both variables so our intercepts are overall average rejection rates for each model considered:
 
-##### Validity ######
-# Checking for validity (reject the null).  This shows the FE method is overly
-# aggressive.
-filter( sres, tx == 1 ) %>%
-    mutate( n = n_c + n_t ) %>%
-    group_by( model, n ) %>%
-    summarise( pow = round( mean( pow ), digits=2 ) ) %>%
-    pivot_wider( names_from=n, values_from=pow ) 
+```{r disc_validity}
+sres = mutate( sres,
+               n = n_c + n_t,
+               imbalance = pmax( n_t / n_c, n_c / n_t ) - 1 )
+sres$n = (sres$n - mean(sres$n)) / sd(sres$n)
+mod = lm( pow ~ 0 + (n + imbalance) * model - n - imbalance,
+          data = filter( sres, tx == 1 ) )
+broom::tidy(mod) %>%
+  knitr::kable( digits = 3)
+```
 
+We can also plot the nominal rejection rates under the null:
 
-fes = filter( res, model == "FE", tx == 1, n_c < 10 )
-fes
-qplot( fes$p.value )
-mean( fes$p.value <= 0.10 )
-mean( fes$p.value <= 0.062 )
+```{r}
+sres %>% filter( tx == 1 ) %>%
+ggplot( aes( n_c, pow, col=model ) ) +
+  facet_wrap( ~ n_t, nrow=1 ) +
+  geom_line() +
+  geom_hline( yintercept = 0.10 ) +
+  scale_x_log10(breaks=unique(sres$n_c) )
+```
 
+We see the fixed effect models have elevated rates of rejection.
+Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
+The other models all appear valid.
 
-# Adjust power
-res = mutate( res, threshold = ifelse( model == "FE" | model == "FE_twopost", 0.062, 0.10 ) )
+We can also check for bias of our methods:
+```{r}
+sres %>% group_by( model, tx ) %>%
+  summarise( E_est = mean( E_est ) ) %>%
+  pivot_wider( names_from="tx", values_from="E_est" )
+```
 
-sres <- res %>% group_by( n_c, n_t, tx, model ) %>%
-  summarise( E_est = mean( estimate ),
-             SE = sd( estimate ),
-             E_SE_hat = mean( std.error ),
-             pow = mean( p.value <= threshold ) ) # one-sided testing
-sres
+We see our models are estimating different things, none of which are the treatment effect as we parameterized it.
+In particular, "FE," "log," "raw," and "log_twopost" are all estimating the impact on the log scale.
+Note that $log( 0.5 ) \approx -0.69$ and $log( 0.75 ) \approx -0.29$.
+Our "simple" estimator is estimating the impact on the absolute scale; reducing discipline rates by 50% corresponds to about a 2% reduction in actual cases.
+Finally, "ratio" and "ratio_twopost" are estimating the change in the average ratio of post-policy discipline to pre; they are akin to a gain score as compared to the log regressions.
 
+### Assessing Precision (SE)
 
+Now, which methods are the most precise?
+We look at the true standard errors across our methods (we drop "simple" and the "ratio" estimators since they are not on the ratio scale):
 
-##### Precision (SE) ######
-
-
-#sres = mutate( sres, 
-#               MDES = 2.8*SE )
-
-# Which methods are the most precise?
-
-sres %>% filter( !( model %in% c("ratio2","simple") ) ) %>%
+```{r disc_precision}
+sres %>% 
+  group_by( model, n_c, n_t ) %>%
+  summarise( SE = mean(SE ) ) %>%
+  filter( !(model %in% c( "simple", "ratio", "ratio_twopost" ) ) ) %>%
   ggplot( aes( n_c, SE, col=model )) +
-    facet_grid( n_t ~ tx ) +
+    facet_grid( . ~ n_t ) +
     geom_line() + geom_point() +
-    geom_hline( yintercept = 0 )
+    geom_hline( yintercept = 0 ) +
+  labs( colour = "Model" )
+```
 
-sres
+It looks like averaging two years for the outcome is helpful, and bumps up precision.
+The two way fixed effects model seems to react to the number of control units differently than the other estimators; it is way more precise when the number of controls is few, but the other estimators catch up.
+The "raw" estimator gives a baseline of no covariate adjustment; everything is substantially more precise than it.
+The covariates matter a lot.
 
-ggplot( sres, aes( tx, SE, col=model )) +
-    facet_grid( n_t ~ n_c ) +
-    geom_line() + geom_point() +
-    geom_hline( yintercept = 0 )
+### Assessing power 
 
+We next look at power over our explored contexts, for the models that we find to be valid (i.e., not FE).  
 
-##### Power ######
-
-# Look at power over our explored contexts.  What reaches 80% power?
-sres
-ggplot( sres, aes( n_c, pow, col=model )) +
-    facet_grid( n_t ~ tx, labeller = label_both ) +
+```{r disc_power}
+sres %>% 
+  filter( model != "FE",tx != 1 ) %>%
+  ggplot( aes( n_c, pow, col=model )) +
+    facet_grid(  . ~ tx + n_t, labeller = label_both ) +
     geom_line() + geom_point() +
     geom_hline( yintercept = 0, col="grey" ) +
     geom_hline( yintercept = c( 0.10, 0.80 ), lty=2 ) +
-  theme_minimal()+ theme( legend.position="bottom", 
-                          legend.direction="horizontal", legend.key.width=unit(1,"cm"),
+  theme_minimal()+ theme( legend.position="bottom",
+                          legend.direction="horizontal",
+                          legend.key.width=unit(1,"cm"),
                           panel.border = element_blank() ) +
   labs( title="Power for various methods vs number of controls.",
-        caption="Each row corresponds to 4, 5, or 6 treated schools\n80% power marked as dashed line.", 
       y = "Power" )
-ggsave(filename="power_plot.pdf", width=5, height = 7)
+```
+
+We mark 80% power with a dashed line.  For a 25% reduction in discipline, nothing reaches desired levels of power.
+For 50% reduction, some designs do, but we need substantial numbers of control schools.
+Averaging two years of outcomes post-treatment seems important: the "twopost" methods have a distinct power bump.
+For a single year of outcome data, the log model seems our best bet.
 
 
-# Focus on the 6 6 version
-s66 = filter( sres, n_c == 6, n_t == 6, tx == 0.5 )
-s66
-s66 = mutate( s66, 
-              E_est = exp( E_est ),
-              MDES = exp( - (1.64 + 0.8) * SE ),
-              MDES_2 = exp( -(1.64 + 0.8) * E_SE_hat ) )
-s66
+### Assessing Minimum Detectable Effects
 
+Sometimes we want to know, given a design, what size effect we might be able to detect.
+The usual measure for this is the Minimum Detectable Effect (MDE), which is usually the size of the smallest effect we could detect with power 80%.
 
-# MDES for select ratio estimators
+To calculate Minimal Detectable Effects (MDEs) for the log-scale estimators, 
+we first average our SEs over our different designs, grouped by sample size, and then convert the SEs to MDEs by multiplying by 2.8.
+We then have to convert to our treatment scale by flipping the sign and exponentiating, to get out of the log scale.
 
-# Calculate SEs
-sres2 = sres %>% group_by( model, n_c, n_t ) %>%
-    summarise( SE = mean( SE ),
-               E_SE_hat = mean( E_SE_hat ) ) %>%
-    mutate(               MDES = 1 - exp( - (1.64 + 0.8) * SE ),
-                          MDES_2 = 1 - exp( -(1.64 + 0.8) * E_SE_hat ) )
-sres2
+```{r disc_mde}
+sres2 = sres %>% 
+  group_by( model, n_c, n_t ) %>%
+  summarise( SE = mean( SE ),
+             E_SE_hat = mean( E_SE_hat ) ) %>%
+  mutate( MDE = exp( - (1.64 + 0.8) * SE ) )
 
-sres2 %>% filter( !(model %in% c( "oracle", "simple", "ratio2" ) ) ) %>%
-  ggplot( aes( n_c, MDES, col=model ) ) +
+sres2 %>% 
+  filter( !(model %in% c( "simple", "ratio", "ratio_twopost" ) ) ) %>%
+  ggplot( aes( n_c, MDE, col=model ) ) +
   facet_wrap( ~ n_t, labeller = label_both ) +
   geom_point() + geom_line()  +
-  #    geom_line( aes( y=MDES_2 ), lty=2, alpha=0.5 ) +
+  geom_hline( yintercept = 0.5 ) +
   theme_minimal() +
+  scale_x_log10( breaks = unique( sres$n_c ) ) +
   theme( legend.position="bottom",
          legend.direction="horizontal", legend.key.width=unit(1,"cm"),
          panel.border = element_blank() ) +
-  labs( x = "Number of control units", y = "MDES (proportion reduction of rate)",
-        caption = "A MDES of 0.6 means a 60% reduction (more than half) in discipline rates",
-        title = "MDES vs number of control units for various methods" )
-ggsave( filename = "MDES_plot.pdf", width = 6, height = 4 )
+  labs( x = "Number of control units", y = "MDE (proportion reduction of rate)",
+        caption = "A MDE of 0.6 means a 60% reduction (more than half) in discipline rates",
+        title = "MDE vs number of control units for various methods" )
 ```
+
+Corresponding with our findings regarding precision, above, the twopost estimator is the most sensitive, finding the smallest effects.
 
 

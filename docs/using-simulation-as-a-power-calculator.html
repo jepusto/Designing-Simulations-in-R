@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2022-07-23" />
+<meta name="date" content="2022-08-03" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -405,6 +405,15 @@ div.csl-indent {
 <li class="chapter" data-level="19" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html"><i class="fa fa-check"></i><b>19</b> Using simulation as a power calculator</a>
 <ul>
 <li class="chapter" data-level="19.1" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#getting-design-parameters-from-pilot-data"><i class="fa fa-check"></i><b>19.1</b> Getting design parameters from pilot data</a></li>
+<li class="chapter" data-level="19.2" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#the-data-generating-process-1"><i class="fa fa-check"></i><b>19.2</b> The data generating process</a></li>
+<li class="chapter" data-level="19.3" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#running-the-simulation-1"><i class="fa fa-check"></i><b>19.3</b> Running the simulation</a></li>
+<li class="chapter" data-level="19.4" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#evaluating-power"><i class="fa fa-check"></i><b>19.4</b> Evaluating power</a>
+<ul>
+<li class="chapter" data-level="19.4.1" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#checking-validity-of-our-models"><i class="fa fa-check"></i><b>19.4.1</b> Checking validity of our models</a></li>
+<li class="chapter" data-level="19.4.2" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#assessing-precision-se"><i class="fa fa-check"></i><b>19.4.2</b> Assessing Precision (SE)</a></li>
+<li class="chapter" data-level="19.4.3" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#assessing-power"><i class="fa fa-check"></i><b>19.4.3</b> Assessing power</a></li>
+<li class="chapter" data-level="19.4.4" data-path="using-simulation-as-a-power-calculator.html"><a href="using-simulation-as-a-power-calculator.html#assessing-minimum-detectable-effects"><i class="fa fa-check"></i><b>19.4.4</b> Assessing Minimum Detectable Effects</a></li>
+</ul></li>
 </ul></li>
 <li class="chapter" data-level="20" data-path="simulation-under-the-potential-outcomes-framework.html"><a href="simulation-under-the-potential-outcomes-framework.html"><i class="fa fa-check"></i><b>20</b> Simulation under the Potential Outcomes Framework</a>
 <ul>
@@ -446,348 +455,521 @@ div.csl-indent {
             <section class="normal" id="section-">
 <div id="using-simulation-as-a-power-calculator" class="section level1 hasAnchor" number="19">
 <h1><span class="header-section-number">Chapter 19</span> Using simulation as a power calculator<a href="using-simulation-as-a-power-calculator.html#using-simulation-as-a-power-calculator" class="anchor-section" aria-label="Anchor link to header"></a></h1>
-<p>We can simulate as a power calculator.
-In particular, we generate data according to our best guess as to what we might find in a planned evaluation, and then analyze these synthetic data.
-Do this repeatidly, and we can estimate the power we have, if we are generally right about our guesses.
-This is all a power analysis is.</p>
-<p>This has benefits over using power calculators since we can take into account odd aspects of our modeling, and also do non-standard approaches to evaluation that we might not find in a normal powe calculator.</p>
-<p>In this example, we are planning a school-level intervention to reduce rates of discipline via a socio-emotional targeting intervention on both teachers and students, where we have strongly predictive historic data and a time-series component.</p>
+<p>We can use simulation as a power calculator.
+In particular, to estimate power, we generate data according to our best guess as to what we might find in a planned evaluation, and then analyze these synthetic data and see if we detect the effect we built into our DGP.
+We then do this repeatedly, and see how often we detect our effect.
+This is power.</p>
+<p>Now, if we are generally right about our guesses about our DGP and the associated parameters we plugged into it, in terms of some planned study, then our power will be right on.
+This is all a power analysis is, using simulation or otherwise.</p>
+<p>Simulation has benefits over using power calculators because we can take into account odd aspects of our modeling, and also do non-standard approaches to evaluation that we might not find in a normal power calculator.</p>
+<p>We illustrate this idea with a case study.
+In this example, we are planning a school-level intervention to reduce rates of discipline via a socio-emotional targeting intervention on both teachers and students, where we have strongly predictive historic data and a time-series component.
+This is a planned RCT, where we will treat entire schools (so a cluster-randomized study).
+We are struggling because treating each school is very expensive (we have to run a large training and coaching of the staff), so each unit is a major decision.
+We want something like 4, 5, or maybe 6 treated schools.
+Our diving question is: Can we get away with this?</p>
 <div id="getting-design-parameters-from-pilot-data" class="section level2 hasAnchor" number="19.1">
 <h2><span class="header-section-number">19.1</span> Getting design parameters from pilot data<a href="using-simulation-as-a-power-calculator.html#getting-design-parameters-from-pilot-data" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>We had pilot data from school administrative records, and we use those to estimate parameters to plug into our simulation.
+<p>We had pilot data from school administrative records (in particular discipline rates for each school and year for a series of five years), and we use those to estimate parameters to plug into our simulation.
 We assume our experimental sample will be on schools that have chronic issues
-with discipline, so we filter on historic data to get schools we imagine are likely to be in our study.</p>
-<pre><code>library( tidyverse )
-library( readxl )
-
-datW = read_excel( &quot;discipline_data.xlsx&quot; )
-
-lpd_mns = apply( datW[,-1], 2, mean )
-lpd_mns
-
-lpd_cov = cov( datW[,-1] )
-lpd_cov
-
-
-
-make_dat_param = function( n_c, n_t, tx=1 ) {
-    
-    n = n_c + n_t
-    
-    lpdisc = MASS::mvrnorm( n, mu = lpd_mns, Sigma = lpd_cov )
-    colnames( lpdisc ) = paste0( &quot;log_pdisc_&quot;, colnames( lpdisc ) )
-    lpdisc = as.data.frame( lpdisc ) %&gt;%
-        mutate( ID = 1:n(),
-                Z = 0 + ( sample( n ) &lt;= n_t ) )
-    
-    lpdisc = lpdisc %&gt;%
-        mutate( across( log_pdisc_2015:log_pdisc_2019,
-                        ~ exp( .x ) ) )
-    
-    names( lpdisc ) = str_replace( names(lpdisc), &quot;log_&quot;, &quot;&quot; )
-    
-  
-    lpdisc = mutate( lpdisc, 
-                       pdisc_2018 = pdisc_2018 * ifelse( Z == 1, tx, 1 ),
-                     pdisc_2019 = pdisc_2019 * ifelse( Z == 1, tx, 1 ) )
- 
-    lpdisc
-}
-
-
-if ( FALSE ) {
-    
-    a = make_dat_param( 4, 4, 0.5 )  
-    aL = a %&gt;% 
-        pivot_longer( pdisc_2015:pdisc_2019, 
-                      names_to = c( &quot;.value&quot;, &quot;year&quot; ),
-                      names_pattern = &quot;(.*)_(.*)&quot; ) %&gt;%
-        mutate( year = as.numeric( year ) )
-    aL
-    ggplot( aL, aes( year, pdisc, col=Z, group=ID ) ) +
-        geom_line()
-    
-    aLg = aL %&gt;% group_by( year, Z ) %&gt;%
-        summarise( pdisc = mean( pdisc ) )
-    ggplot( aLg, aes( year, pdisc, col=Z, group=Z ) ) +
-        geom_line()
-    
-}</code></pre>
-<pre><code>
-# Parameter power simulation for cluster RCT with school-level outcomes.
-
-library( tidyverse )
-
-source( &quot;make_param_data_generator.R&quot; )
-
-
-
-
-
-if ( FALSE ) {
-    sdat = make_dat_param( 4, 4, 0.5 )
-    sdat
-    sdatL = pivot_longer( sdat, cols = pdisc_2015:pdisc_2018, 
-                          names_to = &quot;year&quot;,
-                          values_to = &quot;pdisc&quot; )
-    sdatL
-    ggplot( sdatL, aes( year, pdisc, col=Z, group=ID ) ) +
-        geom_line()
-}
-
-
-
-eval_dat = function( sdat ) {
-    
-    # Simple average change model
-    M = lm( pdisc_2018 ~ 1 + Z + pdisc_2017 + pdisc_2016 + pdisc_2015, data=sdat )
-    
-    #Ml1 = lm( pdisc_2018 ~ 1 + Z + pdisc_2017, data=sdat )
-    
-    # No covariate adjustment average change model (on log outcome)
-    M2 = lm( log( pdisc_2018 ) ~ 1 + Z, data=sdat )
-
-    # Simple model on logged outcome
-    Mrat = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + log( pdisc_2016) + log( pdisc_2015 ),
-               data=sdat )
-    
-    # Look at change of disc vs average prior as outcome
-    sdat = mutate( sdat,
-                   avg_disc = (pdisc_2018 + pdisc_2019)/2,
-                   prior_disc = (pdisc_2017 + pdisc_2016 + pdisc_2015 )/3,
-                   disc = pdisc_2018 / prior_disc )
-    Mrat2 = lm( disc ~ 1 + Z, data = sdat )
-    
-    
-    # Two post-tx time periods averaged to reduce noise
-    twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + log( pdisc_2016 ) + log( pdisc_2015 ), data=sdat )
-
-    # Time fixed effects
-    sdatL = pivot_longer( sdat, cols = pdisc_2015:pdisc_2019, 
-                          names_to = &quot;year&quot;,
-                          values_to = &quot;pdisc&quot; ) %&gt;%
-        mutate( Z = Z * (year %in% c( &quot;pdisc_2018&quot;, &quot;pdisc_2019&quot; ) ),
-                ID = paste0( &quot;S&quot;, ID ) )
-    
-    Mfe = lm( log( pdisc ) ~ 0 + ID + year + Z, 
-              data=filter( sdatL, year != &quot;pdisc_2019&quot; ) )
-    
-    
-    # Time fixed effects, two post
-    Mfe2 = lm( log( pdisc ) ~ 0 + ID + year + Z, data=sdatL )
-        
-    
-    
-    rs = map_df( list( raw=M2, simple=M, ratio=Mrat, ratio2 = Mrat2, 
-                       twopost = twopost, FE = Mfe, FE_twopost = Mfe2 ), 
-                 broom::tidy, .id=&quot;model&quot; ) %&gt;%
-        filter( term==&quot;Z&quot; ) %&gt;%
-        dplyr::select( -term )
-    
-  
-    
-    rs
-}
-
-# 
-# eval_dat_oracle( sdat, tx ) {
-#     # Oracle (single post)
-#     dd = sdat %&gt;% 
-#         mutate( pdisc_2018 = pdisc_2018 * ifelse( Z, 1/tx, 1 ) ) %&gt;%
-#         dplyr::select( -Z )
-#     orc = bind_rows( `1` = dd, `0` = dd, .id=&quot;Z&quot; ) %&gt;%
-#         mutate( Z = as.numeric( Z ),
-#                 pdisc_2018 = pdisc_2018 * ifelse( Z, tx, 1 ) )
-#     Morc = lm( log( pdisc_2018 ) ~ 1 + Z, data=orc )
-#     
-#     
-# }
-
-if ( FALSE ) {
-    eval_dat( make_dat_param( n_c = 4, n_t = 4, tx = 0.5 ) )
-}
-
-
-sim_run = function( n_c, n_t, tx, R, seed = NULL ) {
-    if ( !is.null( seed ) ) {
-        set.seed(seed)
-    }
-    cat( &quot;Running n_c, n_t =&quot;, n_c, n_t, &quot;tx =&quot;, tx, &quot;\n&quot; )
-    rps = rerun( R, {
-        sdat = make_dat_param(n_c = n_c, n_t = n_t, tx = tx)
-        eval_dat( sdat )
-    })
-    bind_rows( rps )
-}
-
-
-if ( FALSE ) {
-    sim_run( n_c = 4, n_t = 4, tx = 0.5, R = 10 )
-}
-
-
-#### Run the simulation #####
-
-
-
-parallel::detectCores()
-
-library(future)
-library(furrr)
-
-#plan(multiprocess) # choose an appropriate plan from future package
-#plan(multicore)
-plan(multisession, workers = parallel::detectCores() - 1 )
-
-
-
-res = expand_grid( tx = c( 1, 0.75, 0.5 ),
-                   n_c = c( 4, 5, 6, 8, 12, 20 ),
-                   n_t = c( 4, 5, 6 ) )
-res$R = 1000
-res$seed = 1010203 + 1:nrow(res)
-
-##
-## Do the run! 
-##
-
-tictoc::tic()
-
-# parallel version
-res$res &lt;- future_pmap(res, .f = sim_run,
-                          .options = furrr_options(seed = NULL),
-                          .progress = TRUE )
-
-# non-parallel version
-#res$res = pmap( res, sim_run )
-
-tictoc::toc()
-
-
-
-
-res
-res = unnest( res, cols=res )
-
-res
-
-saveRDS( res, file=&quot;simulation_results.rds&quot; )
-
-res = readRDS( file=&quot;simulation_results.rds&quot; )
-
-sres &lt;- res %&gt;% group_by( n_c, n_t, tx, model ) %&gt;%
-    summarise( E_est = mean( estimate ),
-               SE = sd( estimate ),
-               E_SE_hat = mean( std.error ),
-               pow = mean( p.value &lt;= 0.10 ) ) # one-sided testing
-sres
-
-
-
-
-##### Validity ######
-# Checking for validity (reject the null).  This shows the FE method is overly
-# aggressive.
-filter( sres, tx == 1 ) %&gt;%
-    mutate( n = n_c + n_t ) %&gt;%
-    group_by( model, n ) %&gt;%
-    summarise( pow = round( mean( pow ), digits=2 ) ) %&gt;%
-    pivot_wider( names_from=n, values_from=pow ) 
-
-
-fes = filter( res, model == &quot;FE&quot;, tx == 1, n_c &lt; 10 )
-fes
-qplot( fes$p.value )
-mean( fes$p.value &lt;= 0.10 )
-mean( fes$p.value &lt;= 0.062 )
-
-
-# Adjust power
-res = mutate( res, threshold = ifelse( model == &quot;FE&quot; | model == &quot;FE_twopost&quot;, 0.062, 0.10 ) )
-
-sres &lt;- res %&gt;% group_by( n_c, n_t, tx, model ) %&gt;%
-  summarise( E_est = mean( estimate ),
-             SE = sd( estimate ),
-             E_SE_hat = mean( std.error ),
-             pow = mean( p.value &lt;= threshold ) ) # one-sided testing
-sres
-
-
-
-##### Precision (SE) ######
-
-
-#sres = mutate( sres, 
-#               MDES = 2.8*SE )
-
-# Which methods are the most precise?
-
-sres %&gt;% filter( !( model %in% c(&quot;ratio2&quot;,&quot;simple&quot;) ) ) %&gt;%
-  ggplot( aes( n_c, SE, col=model )) +
-    facet_grid( n_t ~ tx ) +
-    geom_line() + geom_point() +
-    geom_hline( yintercept = 0 )
-
-sres
-
-ggplot( sres, aes( tx, SE, col=model )) +
-    facet_grid( n_t ~ n_c ) +
-    geom_line() + geom_point() +
-    geom_hline( yintercept = 0 )
-
-
-##### Power ######
-
-# Look at power over our explored contexts.  What reaches 80% power?
-sres
-ggplot( sres, aes( n_c, pow, col=model )) +
-    facet_grid( n_t ~ tx, labeller = label_both ) +
-    geom_line() + geom_point() +
-    geom_hline( yintercept = 0, col=&quot;grey&quot; ) +
-    geom_hline( yintercept = c( 0.10, 0.80 ), lty=2 ) +
-  theme_minimal()+ theme( legend.position=&quot;bottom&quot;, 
-                          legend.direction=&quot;horizontal&quot;, legend.key.width=unit(1,&quot;cm&quot;),
-                          panel.border = element_blank() ) +
-  labs( title=&quot;Power for various methods vs number of controls.&quot;,
-        caption=&quot;Each row corresponds to 4, 5, or 6 treated schools\n80% power marked as dashed line.&quot;, 
-      y = &quot;Power&quot; )
-ggsave(filename=&quot;power_plot.pdf&quot;, width=5, height = 7)
-
-
-# Focus on the 6 6 version
-s66 = filter( sres, n_c == 6, n_t == 6, tx == 0.5 )
-s66
-s66 = mutate( s66, 
-              E_est = exp( E_est ),
-              MDES = exp( - (1.64 + 0.8) * SE ),
-              MDES_2 = exp( -(1.64 + 0.8) * E_SE_hat ) )
-s66
-
-
-# MDES for select ratio estimators
-
-# Calculate SEs
-sres2 = sres %&gt;% group_by( model, n_c, n_t ) %&gt;%
-    summarise( SE = mean( SE ),
-               E_SE_hat = mean( E_SE_hat ) ) %&gt;%
-    mutate(               MDES = 1 - exp( - (1.64 + 0.8) * SE ),
-                          MDES_2 = 1 - exp( -(1.64 + 0.8) * E_SE_hat ) )
-sres2
-
-sres2 %&gt;% filter( !(model %in% c( &quot;oracle&quot;, &quot;simple&quot;, &quot;ratio2&quot; ) ) ) %&gt;%
-  ggplot( aes( n_c, MDES, col=model ) ) +
-  facet_wrap( ~ n_t, labeller = label_both ) +
-  geom_point() + geom_line()  +
-  #    geom_line( aes( y=MDES_2 ), lty=2, alpha=0.5 ) +
-  theme_minimal() +
-  theme( legend.position=&quot;bottom&quot;,
-         legend.direction=&quot;horizontal&quot;, legend.key.width=unit(1,&quot;cm&quot;),
-         panel.border = element_blank() ) +
-  labs( x = &quot;Number of control units&quot;, y = &quot;MDES (proportion reduction of rate)&quot;,
-        caption = &quot;A MDES of 0.6 means a 60% reduction (more than half) in discipline rates&quot;,
-        title = &quot;MDES vs number of control units for various methods&quot; )
-ggsave( filename = &quot;MDES_plot.pdf&quot;, width = 6, height = 4 )</code></pre>
-
+with discipline, so we filtered our historic data to get schools we imagined to likely be in our study.</p>
+<p>We ended up with the following data, with log-transformed discipline rates for each year (we did this to put things on a multiplicative scale, and to make our data more normal given heavy skew in the original). Each row is a potential school in the district.</p>
+<div class="sourceCode" id="cb449"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb449-1"><a href="using-simulation-as-a-power-calculator.html#cb449-1" aria-hidden="true" tabindex="-1"></a>datW <span class="ot">=</span> <span class="fu">read_csv</span>( <span class="st">&quot;data/discipline_data.csv&quot;</span> )</span></code></pre></div>
+<pre><code>## Rows: 27 Columns: 6
+## ── Column specification ──────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (1): Code
+## dbl (5): 2015, 2016, 2017, 2018, 2019
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<div class="sourceCode" id="cb451"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb451-1"><a href="using-simulation-as-a-power-calculator.html#cb451-1" aria-hidden="true" tabindex="-1"></a>datW</span></code></pre></div>
+<pre><code>## # A tibble: 27 × 6
+##    Code  `2015` `2016` `2017` `2018` `2019`
+##    &lt;chr&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;
+##  1 S1     -2.87  -2.81  -2.93  -3.52  -4.90
+##  2 S2     -3.60  -2.83  -2.56  -2.76  -3.32
+##  3 S3     -3.00  -2.88  -2.81  -3.39  -4.91
+##  4 S4     -3.90  -3.20  -2.53  -3.67  -4.34
+##  5 S5     -2.46  -2.00  -3.34  -3.66  -4.71
+##  6 S6     -2.86  -2.74  -2.51  -3.21  -3.80
+##  7 S7     -2.47  -2.59  -2.69  -2.15  -2.43
+##  8 S8     -2.13  -1.93  -1.82  -2.21  -2.95
+##  9 S9     -3.36  -3.16  -3.06  -3.26  -3.10
+## 10 S10    -2.89  -2.54  -2.26  -2.89  -3.25
+## # … with 17 more rows
+## # ℹ Use `print(n = ...)` to see more rows</code></pre>
+<p>We use these to calculate a mean and covariance structure for generating data:</p>
+<div class="sourceCode" id="cb453"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb453-1"><a href="using-simulation-as-a-power-calculator.html#cb453-1" aria-hidden="true" tabindex="-1"></a>lpd_mns <span class="ot">=</span> <span class="fu">apply</span>( datW[,<span class="sc">-</span><span class="dv">1</span>], <span class="dv">2</span>, mean )</span>
+<span id="cb453-2"><a href="using-simulation-as-a-power-calculator.html#cb453-2" aria-hidden="true" tabindex="-1"></a>lpd_mns</span></code></pre></div>
+<pre><code>##      2015      2016      2017      2018      2019 
+## -3.076298 -2.868337 -2.931562 -3.337221 -4.011440</code></pre>
+<div class="sourceCode" id="cb455"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb455-1"><a href="using-simulation-as-a-power-calculator.html#cb455-1" aria-hidden="true" tabindex="-1"></a>lpd_cov <span class="ot">=</span> <span class="fu">cov</span>( datW[,<span class="sc">-</span><span class="dv">1</span>] )</span>
+<span id="cb455-2"><a href="using-simulation-as-a-power-calculator.html#cb455-2" aria-hidden="true" tabindex="-1"></a>lpd_cov</span></code></pre></div>
+<pre><code>##           2015      2016      2017      2018
+## 2015 0.4191843 0.2996073 0.2282627 0.3691894
+## 2016 0.2996073 0.3656335 0.2014201 0.2511376
+## 2017 0.2282627 0.2014201 0.3084799 0.2927782
+## 2018 0.3691894 0.2511376 0.2927782 0.5767486
+## 2019 0.1921622 0.1623542 0.2541191 0.2927812
+##           2019
+## 2015 0.1921622
+## 2016 0.1623542
+## 2017 0.2541191
+## 2018 0.2927812
+## 2019 0.5425783</code></pre>
+</div>
+<div id="the-data-generating-process-1" class="section level2 hasAnchor" number="19.2">
+<h2><span class="header-section-number">19.2</span> The data generating process<a href="using-simulation-as-a-power-calculator.html#the-data-generating-process-1" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>We then write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a “treatment effect” of scaling the discipline rate by the treatment coefficient for the last two years.</p>
+<div class="sourceCode" id="cb457"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb457-1"><a href="using-simulation-as-a-power-calculator.html#cb457-1" aria-hidden="true" tabindex="-1"></a>make_dat_param <span class="ot">=</span> <span class="cf">function</span>( n_c, n_t, <span class="at">tx=</span><span class="dv">1</span> ) {</span>
+<span id="cb457-2"><a href="using-simulation-as-a-power-calculator.html#cb457-2" aria-hidden="true" tabindex="-1"></a>    n <span class="ot">=</span> n_c <span class="sc">+</span> n_t</span>
+<span id="cb457-3"><a href="using-simulation-as-a-power-calculator.html#cb457-3" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> MASS<span class="sc">::</span><span class="fu">mvrnorm</span>( n, <span class="at">mu =</span> lpd_mns, <span class="at">Sigma =</span> lpd_cov )</span>
+<span id="cb457-4"><a href="using-simulation-as-a-power-calculator.html#cb457-4" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> <span class="fu">exp</span>( lpdisc )</span>
+<span id="cb457-5"><a href="using-simulation-as-a-power-calculator.html#cb457-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">colnames</span>( lpdisc ) <span class="ot">=</span> <span class="fu">paste0</span>( <span class="st">&quot;pdisc_&quot;</span>, <span class="fu">colnames</span>( lpdisc ) )</span>
+<span id="cb457-6"><a href="using-simulation-as-a-power-calculator.html#cb457-6" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> <span class="fu">as.data.frame</span>( lpdisc ) <span class="sc">%&gt;%</span></span>
+<span id="cb457-7"><a href="using-simulation-as-a-power-calculator.html#cb457-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">mutate</span>( <span class="at">ID =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>(),</span>
+<span id="cb457-8"><a href="using-simulation-as-a-power-calculator.html#cb457-8" aria-hidden="true" tabindex="-1"></a>                <span class="at">Z =</span> <span class="dv">0</span> <span class="sc">+</span> ( <span class="fu">sample</span>( n ) <span class="sc">&lt;=</span> n_t ) )</span>
+<span id="cb457-9"><a href="using-simulation-as-a-power-calculator.html#cb457-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb457-10"><a href="using-simulation-as-a-power-calculator.html#cb457-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add in treatment effect</span></span>
+<span id="cb457-11"><a href="using-simulation-as-a-power-calculator.html#cb457-11" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> <span class="fu">mutate</span>( lpdisc, </span>
+<span id="cb457-12"><a href="using-simulation-as-a-power-calculator.html#cb457-12" aria-hidden="true" tabindex="-1"></a>                     <span class="at">pdisc_2018 =</span> pdisc_2018 <span class="sc">*</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, tx, <span class="dv">1</span> ),</span>
+<span id="cb457-13"><a href="using-simulation-as-a-power-calculator.html#cb457-13" aria-hidden="true" tabindex="-1"></a>                     <span class="at">pdisc_2019 =</span> pdisc_2019 <span class="sc">*</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, tx, <span class="dv">1</span> ) )</span>
+<span id="cb457-14"><a href="using-simulation-as-a-power-calculator.html#cb457-14" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb457-15"><a href="using-simulation-as-a-power-calculator.html#cb457-15" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="sc">%&gt;%</span> </span>
+<span id="cb457-16"><a href="using-simulation-as-a-power-calculator.html#cb457-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">relocate</span>( ID, Z )</span>
+<span id="cb457-17"><a href="using-simulation-as-a-power-calculator.html#cb457-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Our function generates schools with discipline given by the provided mean and covariance structure; we have calibrated our data generating process to give us data that looks very similar to the data we would see in the field.</p>
+<p>For our impact model, the treatment kicks in for the final two years, multiplying discipline rate by <code>tx</code> (so <code>tx = 1</code> means no treatment effect).</p>
+<p>Testing our function gives this:</p>
+<div class="sourceCode" id="cb458"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb458-1"><a href="using-simulation-as-a-power-calculator.html#cb458-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>( <span class="dv">59585</span> )</span>
+<span id="cb458-2"><a href="using-simulation-as-a-power-calculator.html#cb458-2" aria-hidden="true" tabindex="-1"></a>a <span class="ot">=</span> <span class="fu">make_dat_param</span>( <span class="dv">100</span>, <span class="dv">100</span>, <span class="fl">0.5</span> )  </span>
+<span id="cb458-3"><a href="using-simulation-as-a-power-calculator.html#cb458-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>( a, <span class="at">n =</span> <span class="dv">4</span> )</span></code></pre></div>
+<pre><code>##   ID Z pdisc_2015 pdisc_2016 pdisc_2017
+## 1  1 1 0.06881051 0.10758281 0.06382513
+## 2  2 1 0.10945911 0.03779567 0.05328905
+## 3  3 1 0.01649212 0.03527745 0.01868862
+## 4  4 0 0.14944083 0.12577203 0.09451428
+##   pdisc_2018  pdisc_2019
+## 1 0.02737314 0.012127238
+## 2 0.03669081 0.022538540
+## 3 0.00256124 0.002767943
+## 4 0.04844326 0.022815571</code></pre>
+<p>We can group each treatment arm and look at discipline over the years:</p>
+<div class="sourceCode" id="cb460"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb460-1"><a href="using-simulation-as-a-power-calculator.html#cb460-1" aria-hidden="true" tabindex="-1"></a>  aL <span class="ot">=</span> a <span class="sc">%&gt;%</span> </span>
+<span id="cb460-2"><a href="using-simulation-as-a-power-calculator.html#cb460-2" aria-hidden="true" tabindex="-1"></a>        <span class="fu">pivot_longer</span>( pdisc_2015<span class="sc">:</span>pdisc_2019, </span>
+<span id="cb460-3"><a href="using-simulation-as-a-power-calculator.html#cb460-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">names_to =</span> <span class="fu">c</span>( <span class="st">&quot;.value&quot;</span>, <span class="st">&quot;year&quot;</span> ),</span>
+<span id="cb460-4"><a href="using-simulation-as-a-power-calculator.html#cb460-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">names_pattern =</span> <span class="st">&quot;(.*)_(.*)&quot;</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb460-5"><a href="using-simulation-as-a-power-calculator.html#cb460-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">mutate</span>( <span class="at">year =</span> <span class="fu">as.numeric</span>( year ) )</span>
+<span id="cb460-6"><a href="using-simulation-as-a-power-calculator.html#cb460-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb460-7"><a href="using-simulation-as-a-power-calculator.html#cb460-7" aria-hidden="true" tabindex="-1"></a>    aLg <span class="ot">=</span> aL <span class="sc">%&gt;%</span> <span class="fu">group_by</span>( year, Z ) <span class="sc">%&gt;%</span></span>
+<span id="cb460-8"><a href="using-simulation-as-a-power-calculator.html#cb460-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">summarise</span>( <span class="at">pdisc =</span> <span class="fu">mean</span>( pdisc ) )</span>
+<span id="cb460-9"><a href="using-simulation-as-a-power-calculator.html#cb460-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ggplot</span>( aLg, <span class="fu">aes</span>( year, pdisc, <span class="at">col=</span><span class="fu">as.factor</span>(Z) ) ) <span class="sc">+</span></span>
+<span id="cb460-10"><a href="using-simulation-as-a-power-calculator.html#cb460-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb460-11"><a href="using-simulation-as-a-power-calculator.html#cb460-11" aria-hidden="true" tabindex="-1"></a>      <span class="fu">labs</span>( <span class="at">color =</span> <span class="st">&quot;Tx?&quot;</span> )</span></code></pre></div>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-215-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.</p>
+<p>We next write some functions to analyze our data.
+This should feel very familiar: we are just doing our simulation framework, as usual.</p>
+<div class="sourceCode" id="cb461"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb461-1"><a href="using-simulation-as-a-power-calculator.html#cb461-1" aria-hidden="true" tabindex="-1"></a>eval_dat <span class="ot">=</span> <span class="cf">function</span>( sdat ) {</span>
+<span id="cb461-2"><a href="using-simulation-as-a-power-calculator.html#cb461-2" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb461-3"><a href="using-simulation-as-a-power-calculator.html#cb461-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># No covariate adjustment, average change model (on log outcome)</span></span>
+<span id="cb461-4"><a href="using-simulation-as-a-power-calculator.html#cb461-4" aria-hidden="true" tabindex="-1"></a>    M_raw <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( pdisc_2018 ) <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data=</span>sdat )</span>
+<span id="cb461-5"><a href="using-simulation-as-a-power-calculator.html#cb461-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb461-6"><a href="using-simulation-as-a-power-calculator.html#cb461-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple average change model using 2018 as outcome.</span></span>
+<span id="cb461-7"><a href="using-simulation-as-a-power-calculator.html#cb461-7" aria-hidden="true" tabindex="-1"></a>    M_simple <span class="ot">=</span> <span class="fu">lm</span>( pdisc_2018 <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> pdisc_2017 <span class="sc">+</span> pdisc_2016 <span class="sc">+</span> pdisc_2015,</span>
+<span id="cb461-8"><a href="using-simulation-as-a-power-calculator.html#cb461-8" aria-hidden="true" tabindex="-1"></a>                   <span class="at">data=</span>sdat )</span>
+<span id="cb461-9"><a href="using-simulation-as-a-power-calculator.html#cb461-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb461-10"><a href="using-simulation-as-a-power-calculator.html#cb461-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple model on logged outcome</span></span>
+<span id="cb461-11"><a href="using-simulation-as-a-power-calculator.html#cb461-11" aria-hidden="true" tabindex="-1"></a>    M_log <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( pdisc_2018 ) <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> <span class="fu">log</span>( pdisc_2017) <span class="sc">+</span> <span class="fu">log</span>( pdisc_2016) <span class="sc">+</span> <span class="fu">log</span>( pdisc_2015 ),</span>
+<span id="cb461-12"><a href="using-simulation-as-a-power-calculator.html#cb461-12" aria-hidden="true" tabindex="-1"></a>                <span class="at">data=</span>sdat )</span>
+<span id="cb461-13"><a href="using-simulation-as-a-power-calculator.html#cb461-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb461-14"><a href="using-simulation-as-a-power-calculator.html#cb461-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Ratio of average disc to average prior disc as outcome</span></span>
+<span id="cb461-15"><a href="using-simulation-as-a-power-calculator.html#cb461-15" aria-hidden="true" tabindex="-1"></a>    sdat <span class="ot">=</span> <span class="fu">mutate</span>( sdat,</span>
+<span id="cb461-16"><a href="using-simulation-as-a-power-calculator.html#cb461-16" aria-hidden="true" tabindex="-1"></a>                   <span class="at">avg_disc =</span> (pdisc_2018 <span class="sc">+</span> pdisc_2019)<span class="sc">/</span><span class="dv">2</span>,</span>
+<span id="cb461-17"><a href="using-simulation-as-a-power-calculator.html#cb461-17" aria-hidden="true" tabindex="-1"></a>                   <span class="at">prior_disc =</span> (pdisc_2017 <span class="sc">+</span> pdisc_2016 <span class="sc">+</span> pdisc_2015 )<span class="sc">/</span><span class="dv">3</span>,</span>
+<span id="cb461-18"><a href="using-simulation-as-a-power-calculator.html#cb461-18" aria-hidden="true" tabindex="-1"></a>                   <span class="at">disc =</span> pdisc_2018 <span class="sc">/</span> prior_disc,</span>
+<span id="cb461-19"><a href="using-simulation-as-a-power-calculator.html#cb461-19" aria-hidden="true" tabindex="-1"></a>                   <span class="at">disc_two =</span> avg_disc <span class="sc">/</span> prior_disc )</span>
+<span id="cb461-20"><a href="using-simulation-as-a-power-calculator.html#cb461-20" aria-hidden="true" tabindex="-1"></a>    M_ratio <span class="ot">=</span> <span class="fu">lm</span>( disc <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> sdat )</span>
+<span id="cb461-21"><a href="using-simulation-as-a-power-calculator.html#cb461-21" aria-hidden="true" tabindex="-1"></a>    M_ratio_twopost <span class="ot">=</span> <span class="fu">lm</span>( disc_two <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> sdat )</span>
+<span id="cb461-22"><a href="using-simulation-as-a-power-calculator.html#cb461-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb461-23"><a href="using-simulation-as-a-power-calculator.html#cb461-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use average of two post-tx time periods, averaged to reduce noise</span></span>
+<span id="cb461-24"><a href="using-simulation-as-a-power-calculator.html#cb461-24" aria-hidden="true" tabindex="-1"></a>    M_twopost <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( avg_disc ) <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> <span class="fu">log</span>( pdisc_2017 ) <span class="sc">+</span> <span class="fu">log</span>( pdisc_2016 ) <span class="sc">+</span> <span class="fu">log</span>( pdisc_2015 ), <span class="at">data=</span>sdat )</span>
+<span id="cb461-25"><a href="using-simulation-as-a-power-calculator.html#cb461-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb461-26"><a href="using-simulation-as-a-power-calculator.html#cb461-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Time and unit fixed effects</span></span>
+<span id="cb461-27"><a href="using-simulation-as-a-power-calculator.html#cb461-27" aria-hidden="true" tabindex="-1"></a>    sdatL <span class="ot">=</span> <span class="fu">pivot_longer</span>( sdat, <span class="at">cols =</span> pdisc_2015<span class="sc">:</span>pdisc_2019, </span>
+<span id="cb461-28"><a href="using-simulation-as-a-power-calculator.html#cb461-28" aria-hidden="true" tabindex="-1"></a>                          <span class="at">names_to =</span> <span class="st">&quot;year&quot;</span>,</span>
+<span id="cb461-29"><a href="using-simulation-as-a-power-calculator.html#cb461-29" aria-hidden="true" tabindex="-1"></a>                          <span class="at">values_to =</span> <span class="st">&quot;pdisc&quot;</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb461-30"><a href="using-simulation-as-a-power-calculator.html#cb461-30" aria-hidden="true" tabindex="-1"></a>        <span class="fu">mutate</span>( <span class="at">Z =</span> Z <span class="sc">*</span> (year <span class="sc">%in%</span> <span class="fu">c</span>( <span class="st">&quot;pdisc_2018&quot;</span>, <span class="st">&quot;pdisc_2019&quot;</span> ) ),</span>
+<span id="cb461-31"><a href="using-simulation-as-a-power-calculator.html#cb461-31" aria-hidden="true" tabindex="-1"></a>                <span class="at">ID =</span> <span class="fu">paste0</span>( <span class="st">&quot;S&quot;</span>, ID ) )</span>
+<span id="cb461-32"><a href="using-simulation-as-a-power-calculator.html#cb461-32" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb461-33"><a href="using-simulation-as-a-power-calculator.html#cb461-33" aria-hidden="true" tabindex="-1"></a>    M_2wfe <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( pdisc ) <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> ID <span class="sc">+</span> year <span class="sc">+</span> Z,</span>
+<span id="cb461-34"><a href="using-simulation-as-a-power-calculator.html#cb461-34" aria-hidden="true" tabindex="-1"></a>                 <span class="at">data=</span>sdatL )</span>
+<span id="cb461-35"><a href="using-simulation-as-a-power-calculator.html#cb461-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb461-36"><a href="using-simulation-as-a-power-calculator.html#cb461-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Bundle all our models by getting the estimated treatment impact</span></span>
+<span id="cb461-37"><a href="using-simulation-as-a-power-calculator.html#cb461-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># from each.</span></span>
+<span id="cb461-38"><a href="using-simulation-as-a-power-calculator.html#cb461-38" aria-hidden="true" tabindex="-1"></a>    models <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">raw=</span>M_raw, <span class="at">simple=</span>M_simple,</span>
+<span id="cb461-39"><a href="using-simulation-as-a-power-calculator.html#cb461-39" aria-hidden="true" tabindex="-1"></a>                       <span class="at">log=</span>M_log, <span class="at">ratio =</span> M_ratio, </span>
+<span id="cb461-40"><a href="using-simulation-as-a-power-calculator.html#cb461-40" aria-hidden="true" tabindex="-1"></a>                       <span class="at">ratio_twopost =</span> M_ratio_twopost,</span>
+<span id="cb461-41"><a href="using-simulation-as-a-power-calculator.html#cb461-41" aria-hidden="true" tabindex="-1"></a>                       <span class="at">log_twopost =</span> M_twopost, </span>
+<span id="cb461-42"><a href="using-simulation-as-a-power-calculator.html#cb461-42" aria-hidden="true" tabindex="-1"></a>                       <span class="at">FE =</span> M_2wfe )</span>
+<span id="cb461-43"><a href="using-simulation-as-a-power-calculator.html#cb461-43" aria-hidden="true" tabindex="-1"></a>    rs <span class="ot">&lt;-</span> <span class="fu">map_df</span>( models, broom<span class="sc">::</span>tidy, <span class="at">.id=</span><span class="st">&quot;model&quot;</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb461-44"><a href="using-simulation-as-a-power-calculator.html#cb461-44" aria-hidden="true" tabindex="-1"></a>        <span class="fu">filter</span>( term<span class="sc">==</span><span class="st">&quot;Z&quot;</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb461-45"><a href="using-simulation-as-a-power-calculator.html#cb461-45" aria-hidden="true" tabindex="-1"></a>        dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>term ) <span class="sc">%&gt;%</span></span>
+<span id="cb461-46"><a href="using-simulation-as-a-power-calculator.html#cb461-46" aria-hidden="true" tabindex="-1"></a>      <span class="fu">arrange</span>( model )</span>
+<span id="cb461-47"><a href="using-simulation-as-a-power-calculator.html#cb461-47" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb461-48"><a href="using-simulation-as-a-power-calculator.html#cb461-48" aria-hidden="true" tabindex="-1"></a>    rs</span>
+<span id="cb461-49"><a href="using-simulation-as-a-power-calculator.html#cb461-49" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>Our method marches through a host of models; we weren’t sure what the gains would be from one model to another, so we decided to conduct power analyses on all of them.
+Again, we look at what our evaluation function does:</p>
+<div class="sourceCode" id="cb462"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb462-1"><a href="using-simulation-as-a-power-calculator.html#cb462-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">=</span> <span class="fu">make_dat_param</span>( <span class="at">n_c =</span> <span class="dv">4</span>, <span class="at">n_t =</span> <span class="dv">4</span>, <span class="at">tx =</span> <span class="fl">0.5</span> )</span>
+<span id="cb462-2"><a href="using-simulation-as-a-power-calculator.html#cb462-2" aria-hidden="true" tabindex="-1"></a><span class="fu">eval_dat</span>( dat )</span></code></pre></div>
+<pre><code>## # A tibble: 7 × 5
+##   model         estimate std.error stati…¹ p.value
+##   &lt;chr&gt;            &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
+## 1 FE            -0.525     0.326   -1.61     0.119
+## 2 log            0.208     0.229    0.909    0.430
+## 3 log_twopost   -0.0673    0.291   -0.232    0.832
+## 4 ratio         -0.00850   0.119   -0.0714   0.945
+## 5 ratio_twopost -0.203     0.141   -1.44     0.201
+## 6 raw            0.106     0.163    0.652    0.539
+## 7 simple         0.00730   0.00625  1.17     0.327
+## # … with abbreviated variable name ¹​statistic</code></pre>
+<p>We have a nice set of estimates, one for each model.</p>
+</div>
+<div id="running-the-simulation-1" class="section level2 hasAnchor" number="19.3">
+<h2><span class="header-section-number">19.3</span> Running the simulation<a href="using-simulation-as-a-power-calculator.html#running-the-simulation-1" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Now we put it all together in our classic simulator:</p>
+<div class="sourceCode" id="cb464"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb464-1"><a href="using-simulation-as-a-power-calculator.html#cb464-1" aria-hidden="true" tabindex="-1"></a>sim_run <span class="ot">=</span> <span class="cf">function</span>( n_c, n_t, tx, R, <span class="at">seed =</span> <span class="cn">NULL</span> ) {</span>
+<span id="cb464-2"><a href="using-simulation-as-a-power-calculator.html#cb464-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> ( <span class="sc">!</span><span class="fu">is.null</span>( seed ) ) {</span>
+<span id="cb464-3"><a href="using-simulation-as-a-power-calculator.html#cb464-3" aria-hidden="true" tabindex="-1"></a>        <span class="fu">set.seed</span>(seed)</span>
+<span id="cb464-4"><a href="using-simulation-as-a-power-calculator.html#cb464-4" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb464-5"><a href="using-simulation-as-a-power-calculator.html#cb464-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cat</span>( <span class="st">&quot;Running n_c, n_t =&quot;</span>, n_c, n_t, <span class="st">&quot;tx =&quot;</span>, tx, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span> )</span>
+<span id="cb464-6"><a href="using-simulation-as-a-power-calculator.html#cb464-6" aria-hidden="true" tabindex="-1"></a>    rps <span class="ot">=</span> <span class="fu">rerun</span>( R, {</span>
+<span id="cb464-7"><a href="using-simulation-as-a-power-calculator.html#cb464-7" aria-hidden="true" tabindex="-1"></a>        sdat <span class="ot">=</span> <span class="fu">make_dat_param</span>(<span class="at">n_c =</span> n_c, <span class="at">n_t =</span> n_t, <span class="at">tx =</span> tx)</span>
+<span id="cb464-8"><a href="using-simulation-as-a-power-calculator.html#cb464-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">eval_dat</span>( sdat )</span>
+<span id="cb464-9"><a href="using-simulation-as-a-power-calculator.html#cb464-9" aria-hidden="true" tabindex="-1"></a>    })</span>
+<span id="cb464-10"><a href="using-simulation-as-a-power-calculator.html#cb464-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">bind_rows</span>( rps )</span>
+<span id="cb464-11"><a href="using-simulation-as-a-power-calculator.html#cb464-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>We then do the usual to run across a set of scenarios, running <code>sim_run</code> on each row of the following:</p>
+<div class="sourceCode" id="cb465"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb465-1"><a href="using-simulation-as-a-power-calculator.html#cb465-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">expand_grid</span>( <span class="at">tx =</span> <span class="fu">c</span>( <span class="dv">1</span>, <span class="fl">0.75</span>, <span class="fl">0.5</span> ),</span>
+<span id="cb465-2"><a href="using-simulation-as-a-power-calculator.html#cb465-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">n_c =</span> <span class="fu">c</span>( <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">12</span>, <span class="dv">20</span> ),</span>
+<span id="cb465-3"><a href="using-simulation-as-a-power-calculator.html#cb465-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">n_t =</span> <span class="fu">c</span>( <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span> ) )</span>
+<span id="cb465-4"><a href="using-simulation-as-a-power-calculator.html#cb465-4" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>R <span class="ot">=</span> <span class="dv">1000</span></span>
+<span id="cb465-5"><a href="using-simulation-as-a-power-calculator.html#cb465-5" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>seed <span class="ot">=</span> <span class="dv">1010203</span> <span class="sc">+</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(res)</span></code></pre></div>
+<p>For evaluation, we load our saved results and calculate rejection rates (we use an alpha of 0.10 since we are doing one-sided testing):</p>
+<div class="sourceCode" id="cb466"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb466-1"><a href="using-simulation-as-a-power-calculator.html#cb466-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">readRDS</span>( <span class="at">file=</span><span class="st">&quot;data/discipline_simulation.rds&quot;</span> )</span>
+<span id="cb466-2"><a href="using-simulation-as-a-power-calculator.html#cb466-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb466-3"><a href="using-simulation-as-a-power-calculator.html#cb466-3" aria-hidden="true" tabindex="-1"></a>sres <span class="ot">&lt;-</span> res <span class="sc">%&gt;%</span> <span class="fu">group_by</span>( n_c, n_t, tx, model ) <span class="sc">%&gt;%</span></span>
+<span id="cb466-4"><a href="using-simulation-as-a-power-calculator.html#cb466-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>( <span class="at">E_est =</span> <span class="fu">mean</span>( estimate ),</span>
+<span id="cb466-5"><a href="using-simulation-as-a-power-calculator.html#cb466-5" aria-hidden="true" tabindex="-1"></a>               <span class="at">SE =</span> <span class="fu">sd</span>( estimate ),</span>
+<span id="cb466-6"><a href="using-simulation-as-a-power-calculator.html#cb466-6" aria-hidden="true" tabindex="-1"></a>               <span class="at">E_SE_hat =</span> <span class="fu">mean</span>( std.error ),</span>
+<span id="cb466-7"><a href="using-simulation-as-a-power-calculator.html#cb466-7" aria-hidden="true" tabindex="-1"></a>               <span class="at">pow =</span> <span class="fu">mean</span>( p.value <span class="sc">&lt;=</span> <span class="fl">0.10</span> ) ) <span class="co"># one-sided testing</span></span>
+<span id="cb466-8"><a href="using-simulation-as-a-power-calculator.html#cb466-8" aria-hidden="true" tabindex="-1"></a>sres</span></code></pre></div>
+<pre><code>## # A tibble: 378 × 8
+## # Groups:   n_c, n_t, tx [54]
+##      n_c   n_t    tx model    E_est     SE E_SE_…¹
+##    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+##  1     4     4  0.5  FE     -0.693  0.313   0.277 
+##  2     4     4  0.5  log    -0.694  0.476   0.430 
+##  3     4     4  0.5  log_t… -0.692  0.431   0.383 
+##  4     4     4  0.5  ratio  -0.374  0.219   0.203 
+##  5     4     4  0.5  ratio… -0.291  0.151   0.139 
+##  6     4     4  0.5  raw    -0.719  0.535   0.515 
+##  7     4     4  0.5  simple -0.0195 0.0194  0.0157
+##  8     4     4  0.75 FE     -0.292  0.310   0.274 
+##  9     4     4  0.75 log    -0.295  0.488   0.435 
+## 10     4     4  0.75 log_t… -0.305  0.424   0.373 
+## # … with 368 more rows, 1 more variable:
+## #   pow &lt;dbl&gt;, and abbreviated variable name
+## #   ¹​E_SE_hat
+## # ℹ Use `print(n = ...)` to see more rows, and `colnames()` to see all variable names</code></pre>
+</div>
+<div id="evaluating-power" class="section level2 hasAnchor" number="19.4">
+<h2><span class="header-section-number">19.4</span> Evaluating power<a href="using-simulation-as-a-power-calculator.html#evaluating-power" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Once our simulation is run, we can explore power as a function of the design characteristics.
+In particular, we eventually want to calculate the chance of noticing effects of different sizes, given various sample sizes we might employ.
+Our driving question is how few schools on the treated side can we get away with?
+Also, we want to know how much having more schools on the control side allows us to get away with fewer schools on the treated side.</p>
+<div id="checking-validity-of-our-models" class="section level3 hasAnchor" number="19.4.1">
+<h3><span class="header-section-number">19.4.1</span> Checking validity of our models<a href="using-simulation-as-a-power-calculator.html#checking-validity-of-our-models" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Before we look at power, we need to check on whether our different models are valid.
+This is especiallt important as we are in a small <span class="math inline">\(n\)</span> context, so we know asymptotics may not hold as they should.
+To check our models for validity we subset our trials to where <code>tx = 1</code>, and look at the rejection rates.</p>
+<p>We first run a regression to see if rejection is a function of sample size (are smaller samples more invalid) and treatment-control imbalance.
+We center both variables so our intercepts are overall average rejection rates for each model considered:</p>
+<div class="sourceCode" id="cb468"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb468-1"><a href="using-simulation-as-a-power-calculator.html#cb468-1" aria-hidden="true" tabindex="-1"></a>sres <span class="ot">=</span> <span class="fu">mutate</span>( sres,</span>
+<span id="cb468-2"><a href="using-simulation-as-a-power-calculator.html#cb468-2" aria-hidden="true" tabindex="-1"></a>               <span class="at">n =</span> n_c <span class="sc">+</span> n_t,</span>
+<span id="cb468-3"><a href="using-simulation-as-a-power-calculator.html#cb468-3" aria-hidden="true" tabindex="-1"></a>               <span class="at">imbalance =</span> <span class="fu">pmax</span>( n_t <span class="sc">/</span> n_c, n_c <span class="sc">/</span> n_t ) <span class="sc">-</span> <span class="dv">1</span> )</span>
+<span id="cb468-4"><a href="using-simulation-as-a-power-calculator.html#cb468-4" aria-hidden="true" tabindex="-1"></a>sres<span class="sc">$</span>n <span class="ot">=</span> (sres<span class="sc">$</span>n <span class="sc">-</span> <span class="fu">mean</span>(sres<span class="sc">$</span>n)) <span class="sc">/</span> <span class="fu">sd</span>(sres<span class="sc">$</span>n)</span>
+<span id="cb468-5"><a href="using-simulation-as-a-power-calculator.html#cb468-5" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">=</span> <span class="fu">lm</span>( pow <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> (n <span class="sc">+</span> imbalance) <span class="sc">*</span> model <span class="sc">-</span> n <span class="sc">-</span> imbalance,</span>
+<span id="cb468-6"><a href="using-simulation-as-a-power-calculator.html#cb468-6" aria-hidden="true" tabindex="-1"></a>          <span class="at">data =</span> <span class="fu">filter</span>( sres, tx <span class="sc">==</span> <span class="dv">1</span> ) )</span>
+<span id="cb468-7"><a href="using-simulation-as-a-power-calculator.html#cb468-7" aria-hidden="true" tabindex="-1"></a>broom<span class="sc">::</span><span class="fu">tidy</span>(mod) <span class="sc">%&gt;%</span></span>
+<span id="cb468-8"><a href="using-simulation-as-a-power-calculator.html#cb468-8" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>( <span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div>
+<table>
+<thead>
+<tr class="header">
+<th align="left">term</th>
+<th align="right">estimate</th>
+<th align="right">std.error</th>
+<th align="right">statistic</th>
+<th align="right">p.value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">modelFE</td>
+<td align="right">0.143</td>
+<td align="right">0.006</td>
+<td align="right">24.593</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="even">
+<td align="left">modellog</td>
+<td align="right">0.099</td>
+<td align="right">0.006</td>
+<td align="right">16.999</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="odd">
+<td align="left">modellog_twopost</td>
+<td align="right">0.093</td>
+<td align="right">0.006</td>
+<td align="right">15.939</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="even">
+<td align="left">modelratio</td>
+<td align="right">0.090</td>
+<td align="right">0.006</td>
+<td align="right">15.437</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="odd">
+<td align="left">modelratio_twopost</td>
+<td align="right">0.093</td>
+<td align="right">0.006</td>
+<td align="right">15.967</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="even">
+<td align="left">modelraw</td>
+<td align="right">0.092</td>
+<td align="right">0.006</td>
+<td align="right">15.751</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="odd">
+<td align="left">modelsimple</td>
+<td align="right">0.091</td>
+<td align="right">0.006</td>
+<td align="right">15.571</td>
+<td align="right">0.000</td>
+</tr>
+<tr class="even">
+<td align="left">n:modelFE</td>
+<td align="right">-0.003</td>
+<td align="right">0.006</td>
+<td align="right">-0.459</td>
+<td align="right">0.647</td>
+</tr>
+<tr class="odd">
+<td align="left">n:modellog</td>
+<td align="right">0.001</td>
+<td align="right">0.006</td>
+<td align="right">0.141</td>
+<td align="right">0.888</td>
+</tr>
+<tr class="even">
+<td align="left">n:modellog_twopost</td>
+<td align="right">-0.005</td>
+<td align="right">0.006</td>
+<td align="right">-0.919</td>
+<td align="right">0.360</td>
+</tr>
+<tr class="odd">
+<td align="left">n:modelratio</td>
+<td align="right">0.000</td>
+<td align="right">0.006</td>
+<td align="right">0.071</td>
+<td align="right">0.944</td>
+</tr>
+<tr class="even">
+<td align="left">n:modelratio_twopost</td>
+<td align="right">0.002</td>
+<td align="right">0.006</td>
+<td align="right">0.414</td>
+<td align="right">0.680</td>
+</tr>
+<tr class="odd">
+<td align="left">n:modelraw</td>
+<td align="right">-0.006</td>
+<td align="right">0.006</td>
+<td align="right">-1.008</td>
+<td align="right">0.316</td>
+</tr>
+<tr class="even">
+<td align="left">n:modelsimple</td>
+<td align="right">0.001</td>
+<td align="right">0.006</td>
+<td align="right">0.191</td>
+<td align="right">0.849</td>
+</tr>
+<tr class="odd">
+<td align="left">imbalance:modelFE</td>
+<td align="right">0.005</td>
+<td align="right">0.005</td>
+<td align="right">0.857</td>
+<td align="right">0.394</td>
+</tr>
+<tr class="even">
+<td align="left">imbalance:modellog</td>
+<td align="right">-0.003</td>
+<td align="right">0.005</td>
+<td align="right">-0.587</td>
+<td align="right">0.558</td>
+</tr>
+<tr class="odd">
+<td align="left">imbalance:modellog_twopost</td>
+<td align="right">0.004</td>
+<td align="right">0.005</td>
+<td align="right">0.708</td>
+<td align="right">0.480</td>
+</tr>
+<tr class="even">
+<td align="left">imbalance:modelratio</td>
+<td align="right">0.000</td>
+<td align="right">0.005</td>
+<td align="right">-0.001</td>
+<td align="right">0.999</td>
+</tr>
+<tr class="odd">
+<td align="left">imbalance:modelratio_twopost</td>
+<td align="right">0.001</td>
+<td align="right">0.005</td>
+<td align="right">0.249</td>
+<td align="right">0.804</td>
+</tr>
+<tr class="even">
+<td align="left">imbalance:modelraw</td>
+<td align="right">0.006</td>
+<td align="right">0.005</td>
+<td align="right">1.154</td>
+<td align="right">0.251</td>
+</tr>
+<tr class="odd">
+<td align="left">imbalance:modelsimple</td>
+<td align="right">0.001</td>
+<td align="right">0.005</td>
+<td align="right">0.180</td>
+<td align="right">0.858</td>
+</tr>
+</tbody>
+</table>
+<p>We can also plot the nominal rejection rates under the null:</p>
+<div class="sourceCode" id="cb469"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb469-1"><a href="using-simulation-as-a-power-calculator.html#cb469-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span> <span class="fu">filter</span>( tx <span class="sc">==</span> <span class="dv">1</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb469-2"><a href="using-simulation-as-a-power-calculator.html#cb469-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>( <span class="fu">aes</span>( n_c, pow, <span class="at">col=</span>model ) ) <span class="sc">+</span></span>
+<span id="cb469-3"><a href="using-simulation-as-a-power-calculator.html#cb469-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>( <span class="sc">~</span> n_t, <span class="at">nrow=</span><span class="dv">1</span> ) <span class="sc">+</span></span>
+<span id="cb469-4"><a href="using-simulation-as-a-power-calculator.html#cb469-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb469-5"><a href="using-simulation-as-a-power-calculator.html#cb469-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="fl">0.10</span> ) <span class="sc">+</span></span>
+<span id="cb469-6"><a href="using-simulation-as-a-power-calculator.html#cb469-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_log10</span>(<span class="at">breaks=</span><span class="fu">unique</span>(sres<span class="sc">$</span>n_c) )</span></code></pre></div>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-221-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>We see the fixed effect models have elevated rates of rejection.
+Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
+The other models all appear valid.</p>
+<p>We can also check for bias of our methods:</p>
+<div class="sourceCode" id="cb470"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb470-1"><a href="using-simulation-as-a-power-calculator.html#cb470-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span> <span class="fu">group_by</span>( model, tx ) <span class="sc">%&gt;%</span></span>
+<span id="cb470-2"><a href="using-simulation-as-a-power-calculator.html#cb470-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">E_est =</span> <span class="fu">mean</span>( E_est ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb470-3"><a href="using-simulation-as-a-power-calculator.html#cb470-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>( <span class="at">names_from=</span><span class="st">&quot;tx&quot;</span>, <span class="at">values_from=</span><span class="st">&quot;E_est&quot;</span> )</span></code></pre></div>
+<pre><code>## # A tibble: 7 × 4
+## # Groups:   model [7]
+##   model           `0.5`  `0.75`        `1`
+##   &lt;chr&gt;           &lt;dbl&gt;   &lt;dbl&gt;      &lt;dbl&gt;
+## 1 FE            -0.692  -0.290  -0.000703 
+## 2 log           -0.692  -0.288   0.00120  
+## 3 log_twopost   -0.692  -0.291   0.00241  
+## 4 ratio         -0.372  -0.187  -0.000937 
+## 5 ratio_twopost -0.289  -0.145  -0.00108  
+## 6 raw           -0.694  -0.290   0.00327  
+## 7 simple        -0.0206 -0.0104  0.0000998</code></pre>
+<p>We see our models are estimating different things, none of which are the treatment effect as we parameterized it.
+In particular, “FE,” “log,” “raw,” and “log_twopost” are all estimating the impact on the log scale.
+Note that <span class="math inline">\(log( 0.5 ) \approx -0.69\)</span> and <span class="math inline">\(log( 0.75 ) \approx -0.29\)</span>.
+Our “simple” estimator is estimating the impact on the absolute scale; reducing discipline rates by 50% corresponds to about a 2% reduction in actual cases.
+Finally, “ratio” and “ratio_twopost” are estimating the change in the average ratio of post-policy discipline to pre; they are akin to a gain score as compared to the log regressions.</p>
+</div>
+<div id="assessing-precision-se" class="section level3 hasAnchor" number="19.4.2">
+<h3><span class="header-section-number">19.4.2</span> Assessing Precision (SE)<a href="using-simulation-as-a-power-calculator.html#assessing-precision-se" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Now, which methods are the most precise?
+We look at the true standard errors across our methods (we drop “simple” and the “ratio” estimators since they are not on the ratio scale):</p>
+<div class="sourceCode" id="cb472"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb472-1"><a href="using-simulation-as-a-power-calculator.html#cb472-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span> </span>
+<span id="cb472-2"><a href="using-simulation-as-a-power-calculator.html#cb472-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( model, n_c, n_t ) <span class="sc">%&gt;%</span></span>
+<span id="cb472-3"><a href="using-simulation-as-a-power-calculator.html#cb472-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">SE =</span> <span class="fu">mean</span>(SE ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb472-4"><a href="using-simulation-as-a-power-calculator.html#cb472-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>( <span class="sc">!</span>(model <span class="sc">%in%</span> <span class="fu">c</span>( <span class="st">&quot;simple&quot;</span>, <span class="st">&quot;ratio&quot;</span>, <span class="st">&quot;ratio_twopost&quot;</span> ) ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb472-5"><a href="using-simulation-as-a-power-calculator.html#cb472-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>( <span class="fu">aes</span>( n_c, SE, <span class="at">col=</span>model )) <span class="sc">+</span></span>
+<span id="cb472-6"><a href="using-simulation-as-a-power-calculator.html#cb472-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_grid</span>( . <span class="sc">~</span> n_t ) <span class="sc">+</span></span>
+<span id="cb472-7"><a href="using-simulation-as-a-power-calculator.html#cb472-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>() <span class="sc">+</span> <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb472-8"><a href="using-simulation-as-a-power-calculator.html#cb472-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="dv">0</span> ) <span class="sc">+</span></span>
+<span id="cb472-9"><a href="using-simulation-as-a-power-calculator.html#cb472-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">colour =</span> <span class="st">&quot;Model&quot;</span> )</span></code></pre></div>
+<p><img src="Designing-Simulations-in-R_files/figure-html/disc_precision-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>It looks like averaging two years for the outcome is helpful, and bumps up precision.
+The two way fixed effects model seems to react to the number of control units differently than the other estimators; it is way more precise when the number of controls is few, but the other estimators catch up.
+The “raw” estimator gives a baseline of no covariate adjustment; everything is substantially more precise than it.
+The covariates matter a lot.</p>
+</div>
+<div id="assessing-power" class="section level3 hasAnchor" number="19.4.3">
+<h3><span class="header-section-number">19.4.3</span> Assessing power<a href="using-simulation-as-a-power-calculator.html#assessing-power" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>We next look at power over our explored contexts, for the models that we find to be valid (i.e., not FE).</p>
+<div class="sourceCode" id="cb473"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb473-1"><a href="using-simulation-as-a-power-calculator.html#cb473-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span> </span>
+<span id="cb473-2"><a href="using-simulation-as-a-power-calculator.html#cb473-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>( model <span class="sc">!=</span> <span class="st">&quot;FE&quot;</span>,tx <span class="sc">!=</span> <span class="dv">1</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb473-3"><a href="using-simulation-as-a-power-calculator.html#cb473-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>( <span class="fu">aes</span>( n_c, pow, <span class="at">col=</span>model )) <span class="sc">+</span></span>
+<span id="cb473-4"><a href="using-simulation-as-a-power-calculator.html#cb473-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_grid</span>(  . <span class="sc">~</span> tx <span class="sc">+</span> n_t, <span class="at">labeller =</span> label_both ) <span class="sc">+</span></span>
+<span id="cb473-5"><a href="using-simulation-as-a-power-calculator.html#cb473-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>() <span class="sc">+</span> <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb473-6"><a href="using-simulation-as-a-power-calculator.html#cb473-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">col=</span><span class="st">&quot;grey&quot;</span> ) <span class="sc">+</span></span>
+<span id="cb473-7"><a href="using-simulation-as-a-power-calculator.html#cb473-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="fu">c</span>( <span class="fl">0.10</span>, <span class="fl">0.80</span> ), <span class="at">lty=</span><span class="dv">2</span> ) <span class="sc">+</span></span>
+<span id="cb473-8"><a href="using-simulation-as-a-power-calculator.html#cb473-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()<span class="sc">+</span> <span class="fu">theme</span>( <span class="at">legend.position=</span><span class="st">&quot;bottom&quot;</span>,</span>
+<span id="cb473-9"><a href="using-simulation-as-a-power-calculator.html#cb473-9" aria-hidden="true" tabindex="-1"></a>                          <span class="at">legend.direction=</span><span class="st">&quot;horizontal&quot;</span>,</span>
+<span id="cb473-10"><a href="using-simulation-as-a-power-calculator.html#cb473-10" aria-hidden="true" tabindex="-1"></a>                          <span class="at">legend.key.width=</span><span class="fu">unit</span>(<span class="dv">1</span>,<span class="st">&quot;cm&quot;</span>),</span>
+<span id="cb473-11"><a href="using-simulation-as-a-power-calculator.html#cb473-11" aria-hidden="true" tabindex="-1"></a>                          <span class="at">panel.border =</span> <span class="fu">element_blank</span>() ) <span class="sc">+</span></span>
+<span id="cb473-12"><a href="using-simulation-as-a-power-calculator.html#cb473-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">title=</span><span class="st">&quot;Power for various methods vs number of controls.&quot;</span>,</span>
+<span id="cb473-13"><a href="using-simulation-as-a-power-calculator.html#cb473-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">y =</span> <span class="st">&quot;Power&quot;</span> )</span></code></pre></div>
+<p><img src="Designing-Simulations-in-R_files/figure-html/disc_power-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>We mark 80% power with a dashed line. For a 25% reduction in discipline, nothing reaches desired levels of power.
+For 50% reduction, some designs do, but we need substantial numbers of control schools.
+Averaging two years of outcomes post-treatment seems important: the “twopost” methods have a distinct power bump.
+For a single year of outcome data, the log model seems our best bet.</p>
+</div>
+<div id="assessing-minimum-detectable-effects" class="section level3 hasAnchor" number="19.4.4">
+<h3><span class="header-section-number">19.4.4</span> Assessing Minimum Detectable Effects<a href="using-simulation-as-a-power-calculator.html#assessing-minimum-detectable-effects" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Sometimes we want to know, given a design, what size effect we might be able to detect.
+The usual measure for this is the Minimum Detectable Effect (MDE), which is usually the size of the smallest effect we could detect with power 80%.</p>
+<p>To calculate Minimal Detectable Effects (MDEs) for the log-scale estimators,
+we first average our SEs over our different designs, grouped by sample size, and then convert the SEs to MDEs by multiplying by 2.8.
+We then have to convert to our treatment scale by flipping the sign and exponentiating, to get out of the log scale.</p>
+<div class="sourceCode" id="cb474"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb474-1"><a href="using-simulation-as-a-power-calculator.html#cb474-1" aria-hidden="true" tabindex="-1"></a>sres2 <span class="ot">=</span> sres <span class="sc">%&gt;%</span> </span>
+<span id="cb474-2"><a href="using-simulation-as-a-power-calculator.html#cb474-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( model, n_c, n_t ) <span class="sc">%&gt;%</span></span>
+<span id="cb474-3"><a href="using-simulation-as-a-power-calculator.html#cb474-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">SE =</span> <span class="fu">mean</span>( SE ),</span>
+<span id="cb474-4"><a href="using-simulation-as-a-power-calculator.html#cb474-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">E_SE_hat =</span> <span class="fu">mean</span>( E_SE_hat ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb474-5"><a href="using-simulation-as-a-power-calculator.html#cb474-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">MDE =</span> <span class="fu">exp</span>( <span class="sc">-</span> (<span class="fl">1.64</span> <span class="sc">+</span> <span class="fl">0.8</span>) <span class="sc">*</span> SE ) )</span>
+<span id="cb474-6"><a href="using-simulation-as-a-power-calculator.html#cb474-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb474-7"><a href="using-simulation-as-a-power-calculator.html#cb474-7" aria-hidden="true" tabindex="-1"></a>sres2 <span class="sc">%&gt;%</span> </span>
+<span id="cb474-8"><a href="using-simulation-as-a-power-calculator.html#cb474-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>( <span class="sc">!</span>(model <span class="sc">%in%</span> <span class="fu">c</span>( <span class="st">&quot;simple&quot;</span>, <span class="st">&quot;ratio&quot;</span>, <span class="st">&quot;ratio_twopost&quot;</span> ) ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb474-9"><a href="using-simulation-as-a-power-calculator.html#cb474-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>( <span class="fu">aes</span>( n_c, MDE, <span class="at">col=</span>model ) ) <span class="sc">+</span></span>
+<span id="cb474-10"><a href="using-simulation-as-a-power-calculator.html#cb474-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>( <span class="sc">~</span> n_t, <span class="at">labeller =</span> label_both ) <span class="sc">+</span></span>
+<span id="cb474-11"><a href="using-simulation-as-a-power-calculator.html#cb474-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> <span class="fu">geom_line</span>()  <span class="sc">+</span></span>
+<span id="cb474-12"><a href="using-simulation-as-a-power-calculator.html#cb474-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="fl">0.5</span> ) <span class="sc">+</span></span>
+<span id="cb474-13"><a href="using-simulation-as-a-power-calculator.html#cb474-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb474-14"><a href="using-simulation-as-a-power-calculator.html#cb474-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_log10</span>( <span class="at">breaks =</span> <span class="fu">unique</span>( sres<span class="sc">$</span>n_c ) ) <span class="sc">+</span></span>
+<span id="cb474-15"><a href="using-simulation-as-a-power-calculator.html#cb474-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>( <span class="at">legend.position=</span><span class="st">&quot;bottom&quot;</span>,</span>
+<span id="cb474-16"><a href="using-simulation-as-a-power-calculator.html#cb474-16" aria-hidden="true" tabindex="-1"></a>         <span class="at">legend.direction=</span><span class="st">&quot;horizontal&quot;</span>, <span class="at">legend.key.width=</span><span class="fu">unit</span>(<span class="dv">1</span>,<span class="st">&quot;cm&quot;</span>),</span>
+<span id="cb474-17"><a href="using-simulation-as-a-power-calculator.html#cb474-17" aria-hidden="true" tabindex="-1"></a>         <span class="at">panel.border =</span> <span class="fu">element_blank</span>() ) <span class="sc">+</span></span>
+<span id="cb474-18"><a href="using-simulation-as-a-power-calculator.html#cb474-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">x =</span> <span class="st">&quot;Number of control units&quot;</span>, <span class="at">y =</span> <span class="st">&quot;MDE (proportion reduction of rate)&quot;</span>,</span>
+<span id="cb474-19"><a href="using-simulation-as-a-power-calculator.html#cb474-19" aria-hidden="true" tabindex="-1"></a>        <span class="at">caption =</span> <span class="st">&quot;A MDE of 0.6 means a 60% reduction (more than half) in discipline rates&quot;</span>,</span>
+<span id="cb474-20"><a href="using-simulation-as-a-power-calculator.html#cb474-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">&quot;MDE vs number of control units for various methods&quot;</span> )</span></code></pre></div>
+<p><img src="Designing-Simulations-in-R_files/figure-html/disc_mde-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>Corresponding with our findings regarding precision, above, the twopost estimator is the most sensitive, finding the smallest effects.</p>
+
+</div>
 </div>
 </div>
             </section>
