@@ -1,0 +1,128 @@
+```{r, include=FALSE}
+library( tidyverse )
+rm( list = ls() )
+```
+
+
+
+# Case study: Attrition in a simple randomized experiment
+
+Missingness of the outcome variable is a common problem in randomized experiments conducted with human participants. For experiments where the focus is on estimating average causal effects, many different strategies for handling attrition have been proposed. Gerber and Green (2012) describe several strategies, including:
+
+* Complete-case analysis, in which observations with missing outcome data are simply dropped from analysis;
+* Regression estimation under the assumption that missingness is independent of potential outcomes, conditional on a set of pre-treatment covariates; and
+* Monotone treatment response bounds, which provides bounds on the average treatment effect among participants who would provide outcome data under any treatment condition, under the assumption that that the effect of treatment on providing outcome data is strictly non-negative. 
+
+In this case study, we will develop a data-generating process that allows us to study these different estimation strategies. To make things interesting, we will examine a scenario in which the data include covariates that influence the probability of providing outcome data under treatment and under control, as well as being predictive of the outcome. 
+
+To formalize these notions, let us define the following variables:
+
+- $X$: a continuous covariate
+- $C$: a binary covariate
+- $A$: an indicator for whether a participant provides outcome data if assigned to treatment (latent)
+- $R$: an indicator for whether a participant provides outcome data if assigned to control, given that $A = 1$ (latent)
+- $Z$: a randomized treatment indicator
+- $Y^0, Y^1$: potential outcomes (latent)
+- $Y^F$: the outcome that would be observed if all participants were to respond (latent)
+- $Y$: the measured outcome, which is only observed for some participants
+- $O$: an indicator for whether the outcome $Y$ is observed
+
+We will posit that these variables are related as follows:
+```{r, echo = FALSE, fig.width = 6, fig.height = 4}
+library(ggdag)
+node_pos <- data.frame(
+  name = c("C","X","A","R","Z","Yf","O","Y"),
+  x = c(0,0,2,2,4,4,5,5),
+  y = c(1,3,2,3,1,2,3,2)
+)
+dagify(
+  A ~ C + X,
+  R ~ C + X,
+  Yf ~ A + R + C + X + Z,
+  O ~ Z + A + R,
+  Y ~ Yf + O,
+  exposure = "Z",
+  outcome = "Y",
+  latent = c("A","R","Yf"),
+  coords = node_pos
+) %>%
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_point() +
+  geom_dag_edges() +
+  geom_dag_text() +
+  theme_dag()
+```
+
+Now, let's lay out a more specific distributional model:
+$$
+\begin{aligned}
+X &\sim N(0,1) \\
+C &\sim Bern(\kappa) - \kappa\\
+Z &\sim Bern(0.5) \\
+A &\sim Bern\left(\pi_A(C,X)\right) \\
+R &\sim Bern\left(\pi_R(C,X)\right)
+\end{aligned}
+$$
+where the response indicators follow the models
+$$
+\begin{aligned}
+\text{logit} \ \pi_A(C,X) &= \alpha_{A0} + \alpha_{A1} C + \alpha_{A2} X \\
+\text{logit} \ \pi_R(C,X) &= \alpha_{R0} + \alpha_{R1} C + \alpha_{R2} X.
+\end{aligned}
+$$
+Next, let $B$ denote $\text{E}(Y^0 | A, R, C, X)$ and suppose that 
+$$
+B = \beta_0 + \beta_1 C + \beta_2 X + \beta_3 R + \beta_4 C \times R + \beta_5 X \times R.
+$$
+Let $D$ denote the the treatment effect surface, $\text{E}(Y^1 - Y^0 | A, R, C, X)$, and suppose that 
+$$
+D = \delta_0 + \delta_1 C + \delta_2 X + \delta_3 R + \delta_4 C \times R + \delta_5 X \times R.
+$$
+Note that these models do not differentiate between the never-responders (who have $A = 0$) and those who respond only if assigned to treatment (who have $A = 1, R = 0$) because the outcome will never be observed for never-responders. 
+
+With these functions, we define the potential outcomes as
+$$
+\begin{aligned}
+Y^0 &= B + e_0 \\
+Y^1 &= B + D + e_1,
+\end{aligned}
+$$
+where $(e_0, e_1)$ are bivariate normal with means of zero, standard deviations $\sigma_0, \sigma_1$, and correlation $\rho$.
+
+The remaining variables in the model are structurally related to those previously defined:
+$$
+\begin{aligned}
+O &= (1 - Z) R A + Z A \\
+Y^F &= (1 - Z) Y^0 + Z Y^1 \\
+Y &= \begin{cases} Y^F & \text{if} & \quad O = 1 \\ \cdot & \text{if} & \quad O = 0. \end{cases}
+\end{aligned}
+$$
+The observed data include the variables $X, C, Z, O$, and $Y$.
+
+## The data generating process
+
+Let's write a function to generate data based on this model. Here's a skeleton to get started:
+```{r}
+sim_attrition_data <- function(
+    N,                      # sample size
+    kappa,                  # probability of C
+    alpha_A,                # regression for response under treatment
+    alpha_R,                # regression for response under control
+    beta,                   # regression parameters for Y0
+    delta,                  # regression parameters for treatment response
+    sigma0 = 1, sigma1 = 1, # conditional standard deviation of potential outcomes
+    rho                     # conditional correlation between potential outcomes
+) {
+  # generate data frame
+  return(df)
+}
+
+```
+
+## Estimators
+
+What estimators might we use with these data?
+
+## Performance criteria
+
+What performance criteria should we look at?

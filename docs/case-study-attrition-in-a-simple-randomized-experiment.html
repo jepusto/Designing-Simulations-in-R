@@ -4,18 +4,18 @@
 
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>Chapter 16 Error trapping and other headaches | Designing Monte Carlo Simulations in R</title>
+  <title>Chapter 9 Case study: Attrition in a simple randomized experiment | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
   <meta name="generator" content="bookdown 0.26 and GitBook 2.6.7" />
 
-  <meta property="og:title" content="Chapter 16 Error trapping and other headaches | Designing Monte Carlo Simulations in R" />
+  <meta property="og:title" content="Chapter 9 Case study: Attrition in a simple randomized experiment | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
   
   <meta property="og:description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
   <meta name="github-repo" content="jepusto/Designing-Simulations-in-R" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Chapter 16 Error trapping and other headaches | Designing Monte Carlo Simulations in R" />
+  <meta name="twitter:title" content="Chapter 9 Case study: Attrition in a simple randomized experiment | Designing Monte Carlo Simulations in R" />
   
   <meta name="twitter:description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
   
@@ -30,8 +30,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   
   
-<link rel="prev" href="optimize_code.html"/>
-<link rel="next" href="saving_files.html"/>
+<link rel="prev" href="case_Cronbach.html"/>
+<link rel="next" href="exp_design.html"/>
 <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
@@ -120,28 +120,6 @@ code span.vs { color: #4070a0; } /* VerbatimString */
 code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
 </style>
 
-<style type="text/css">
-/* Used with Pandoc 2.11+ new --citeproc when CSL is used */
-div.csl-bib-body { }
-div.csl-entry {
-  clear: both;
-}
-.hanging div.csl-entry {
-  margin-left:2em;
-  text-indent:-2em;
-}
-div.csl-left-margin {
-  min-width:2em;
-  float:left;
-}
-div.csl-right-inline {
-  margin-left:2em;
-  padding-left:1em;
-}
-div.csl-indent {
-  margin-left: 2em;
-}
-</style>
 
 <link rel="stylesheet" href="style.css" type="text/css" />
 </head>
@@ -459,172 +437,96 @@ div.csl-indent {
           <div class="page-inner">
 
             <section class="normal" id="section-">
-<div id="error-trapping-and-other-headaches" class="section level1 hasAnchor" number="16">
-<h1><span class="header-section-number">Chapter 16</span> Error trapping and other headaches<a href="error-trapping-and-other-headaches.html#error-trapping-and-other-headaches" class="anchor-section" aria-label="Anchor link to header"></a></h1>
-<p>If you have an advanced estimator, or are relying on some package, it is quite possible that every so often your estimate will trigger an error, or give you a NA result, or something similarly bad.
-More innocuous, you might have estimators that can generate warnings; if you run 10,000 trials, that can add up to a lot of warnings which can be overwhelming to sort through.
-In some cases, these warnings might be coupled with the estimator returning a very off result; it is unclear, in this case, whether we should include that result in our overall performance measures for that estimator.
-After all, it tried to warn us!</p>
-<p>In this section, we talk about some ways to make your simulations safe and robust, and also discuss some ways to track warnings and include them in peformance measures.</p>
-<div id="safe_code" class="section level2 hasAnchor" number="16.1">
-<h2><span class="header-section-number">16.1</span> Safe code<a href="error-trapping-and-other-headaches.html#safe_code" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>Sometimes if you write a function that does a lot of complex things with
-uncertain objects – i.e. consider a complex estimator using an unstable package not of your own creation – you can run into trouble where you have a intermittent error.</p>
-<p>This can really be annoying; consider the case where your simulation crashes on 1 out of 500 chance: if you run 1000 simulation trials, your program will likely not make it to the end, thus wasting all of your time.
-You can write code that can, instead of stopping when it reaches an error, trap the error and move on with the next simulation trial.</p>
-<p>To illustrate, consider the following broken function:</p>
-<div class="sourceCode" id="cb369"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb369-1"><a href="error-trapping-and-other-headaches.html#cb369-1" aria-hidden="true" tabindex="-1"></a>my_complex_function <span class="ot">=</span> <span class="cf">function</span>( param ) {</span>
-<span id="cb369-2"><a href="error-trapping-and-other-headaches.html#cb369-2" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb369-3"><a href="error-trapping-and-other-headaches.html#cb369-3" aria-hidden="true" tabindex="-1"></a>    vals <span class="ot">=</span> <span class="fu">rnorm</span>( param, <span class="at">mean =</span> <span class="fl">0.5</span> )</span>
-<span id="cb369-4"><a href="error-trapping-and-other-headaches.html#cb369-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> ( <span class="fu">sum</span>( vals ) <span class="sc">&gt;</span> <span class="dv">5</span> ) {</span>
-<span id="cb369-5"><a href="error-trapping-and-other-headaches.html#cb369-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">broken_code</span>( <span class="dv">4</span> )</span>
-<span id="cb369-6"><a href="error-trapping-and-other-headaches.html#cb369-6" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
-<span id="cb369-7"><a href="error-trapping-and-other-headaches.html#cb369-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sqrt</span>( <span class="fu">sum</span>( vals ) )</span>
-<span id="cb369-8"><a href="error-trapping-and-other-headaches.html#cb369-8" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb369-9"><a href="error-trapping-and-other-headaches.html#cb369-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
-<p>We run it like so:</p>
-<div class="sourceCode" id="cb370"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb370-1"><a href="error-trapping-and-other-headaches.html#cb370-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_complex_function</span>( <span class="dv">1</span> )</span></code></pre></div>
-<pre><code>## [1] 1.017772</code></pre>
-<div class="sourceCode" id="cb372"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb372-1"><a href="error-trapping-and-other-headaches.html#cb372-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_complex_function</span>( <span class="dv">7</span> )</span></code></pre></div>
-<pre><code>## Warning in sqrt(sum(vals)): NaNs produced</code></pre>
-<pre><code>## [1] NaN</code></pre>
-<div class="sourceCode" id="cb375"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb375-1"><a href="error-trapping-and-other-headaches.html#cb375-1" aria-hidden="true" tabindex="-1"></a>resu <span class="ot">=</span> <span class="fu">rerun</span>( <span class="dv">20</span>, <span class="fu">my_complex_function</span>( <span class="dv">7</span> ) )</span></code></pre></div>
-<pre><code>## Error in broken_code(4): could not find function &quot;broken_code&quot;</code></pre>
-<p>Oh no! Our function crashes sometimes.
-To trap the errors we use the purrr package to make a “safe” function as so:</p>
-<div class="sourceCode" id="cb377"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb377-1"><a href="error-trapping-and-other-headaches.html#cb377-1" aria-hidden="true" tabindex="-1"></a>my_safe_function <span class="ot">=</span> <span class="fu">safely</span>( my_complex_function )</span>
-<span id="cb377-2"><a href="error-trapping-and-other-headaches.html#cb377-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_safe_function</span>( <span class="dv">7</span> )</span></code></pre></div>
-<pre><code>## $result
-## [1] 1.777413
-## 
-## $error
-## NULL</code></pre>
-<p>There are other function wrappers in this family, such as “possibly”:</p>
-<div class="sourceCode" id="cb379"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb379-1"><a href="error-trapping-and-other-headaches.html#cb379-1" aria-hidden="true" tabindex="-1"></a>my_possible_function <span class="ot">=</span> <span class="fu">possibly</span>( my_complex_function, </span>
-<span id="cb379-2"><a href="error-trapping-and-other-headaches.html#cb379-2" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">otherwise =</span> <span class="cn">NA</span> )</span>
-<span id="cb379-3"><a href="error-trapping-and-other-headaches.html#cb379-3" aria-hidden="true" tabindex="-1"></a><span class="fu">my_possible_function</span>( <span class="dv">7</span> )</span></code></pre></div>
-<pre><code>## [1] 1.398475</code></pre>
-<div class="sourceCode" id="cb381"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb381-1"><a href="error-trapping-and-other-headaches.html#cb381-1" aria-hidden="true" tabindex="-1"></a><span class="fu">as.numeric</span>( <span class="fu">rerun</span>( <span class="dv">10</span>, <span class="fu">my_possible_function</span>(<span class="dv">7</span>) ) )</span></code></pre></div>
-<pre><code>## Warning in sqrt(sum(vals)): NaNs produced
-
-## Warning in sqrt(sum(vals)): NaNs produced</code></pre>
-<pre><code>##  [1]       NA      NaN      NaN 2.073588 1.404310
-##  [6]       NA 1.926848 1.757944 1.826238 1.939823</code></pre>
-<p>Finally, we can use “quietly” to make warnings and stuff go away:</p>
-<div class="sourceCode" id="cb384"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb384-1"><a href="error-trapping-and-other-headaches.html#cb384-1" aria-hidden="true" tabindex="-1"></a>my_quiet_function <span class="ot">=</span> <span class="fu">quietly</span>( my_complex_function )</span>
-<span id="cb384-2"><a href="error-trapping-and-other-headaches.html#cb384-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb384-3"><a href="error-trapping-and-other-headaches.html#cb384-3" aria-hidden="true" tabindex="-1"></a><span class="fu">my_quiet_function</span>( <span class="dv">1</span> )</span></code></pre></div>
-<pre><code>## $result
-## [1] 0.9258635
-## 
-## $output
-## [1] &quot;&quot;
-## 
-## $warnings
-## character(0)
-## 
-## $messages
-## character(0)</code></pre>
-<p>This can be especially valuable to control massive amounts of printout in a simulation. If you have lots of extraneous printout, it can slow down the execution of your code far more than you might think.</p>
-<div id="what-to-do-with-warnings" class="section level3 hasAnchor" number="16.1.1">
-<h3><span class="header-section-number">16.1.1</span> What to do with warnings<a href="error-trapping-and-other-headaches.html#what-to-do-with-warnings" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>Sometimes our analytic strategy might give some sort of warning (or fail altogether).
-For example, from the cluster randomized experiment case study we have:</p>
-<div class="sourceCode" id="cb386"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb386-1"><a href="error-trapping-and-other-headaches.html#cb386-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">101012</span>)  <span class="co"># (I picked this to show a warning.)</span></span>
-<span id="cb386-2"><a href="error-trapping-and-other-headaches.html#cb386-2" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">=</span> <span class="fu">gen_dat_model</span>( <span class="at">J =</span> <span class="dv">50</span>, <span class="at">n_bar =</span> <span class="dv">100</span>, <span class="at">sigma2_u =</span> <span class="dv">0</span> )</span>
-<span id="cb386-3"><a href="error-trapping-and-other-headaches.html#cb386-3" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>sid), <span class="at">data=</span>dat )</span></code></pre></div>
-<pre><code>## boundary (singular) fit: see help(&#39;isSingular&#39;)</code></pre>
-<p>We have to make a deliberate decision as to what to do about this:</p>
+<div id="case-study-attrition-in-a-simple-randomized-experiment" class="section level1 hasAnchor" number="9">
+<h1><span class="header-section-number">Chapter 9</span> Case study: Attrition in a simple randomized experiment<a href="case-study-attrition-in-a-simple-randomized-experiment.html#case-study-attrition-in-a-simple-randomized-experiment" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>Missingness of the outcome variable is a common problem in randomized experiments conducted with human participants. For experiments where the focus is on estimating average causal effects, many different strategies for handling attrition have been proposed. Gerber and Green (2012) describe several strategies, including:</p>
 <ul>
-<li>Keep these “weird” trials?</li>
-<li>Drop them?</li>
+<li>Complete-case analysis, in which observations with missing outcome data are simply dropped from analysis;</li>
+<li>Regression estimation under the assumption that missingness is independent of potential outcomes, conditional on a set of pre-treatment covariates; and</li>
+<li>Monotone treatment response bounds, which provides bounds on the average treatment effect among participants who would provide outcome data under any treatment condition, under the assumption that that the effect of treatment on providing outcome data is strictly non-negative.</li>
 </ul>
-<p>If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
-If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn’t give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.</p>
-<p>If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
-Especially if you drop some trials, it is important to see how often things are acting pecularly.</p>
-<p>The main tool for doing this is the <code>quietly()</code> function:</p>
-<div class="sourceCode" id="cb388"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb388-1"><a href="error-trapping-and-other-headaches.html#cb388-1" aria-hidden="true" tabindex="-1"></a>quiet_lmer <span class="ot">=</span> <span class="fu">quietly</span>( lmer )</span>
-<span id="cb388-2"><a href="error-trapping-and-other-headaches.html#cb388-2" aria-hidden="true" tabindex="-1"></a>qmod <span class="ot">&lt;-</span> <span class="fu">quiet_lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>sid), <span class="at">data=</span>dat )</span>
-<span id="cb388-3"><a href="error-trapping-and-other-headaches.html#cb388-3" aria-hidden="true" tabindex="-1"></a>qmod</span></code></pre></div>
-<pre><code>## $result
-## Linear mixed model fit by REML [&#39;lmerModLmerTest&#39;]
-## Formula: ..1
-##    Data: ..2
-## REML criterion at convergence: 6485.293
-## Random effects:
-##  Groups   Name        Std.Dev.
-##  sid      (Intercept) 0.0000  
-##  Residual             0.9879  
-## Number of obs: 2302, groups:  sid, 50
-## Fixed Effects:
-## (Intercept)            Z  
-##    -0.03143      0.03433  
-## optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings 
-## 
-## $output
-## [1] &quot;&quot;
-## 
-## $warnings
-## character(0)
-## 
-## $messages
-## [1] &quot;boundary (singular) fit: see help(&#39;isSingular&#39;)\n&quot;</code></pre>
-<p>You then might have, in your analyzing code:</p>
-<div class="sourceCode" id="cb390"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb390-1"><a href="error-trapping-and-other-headaches.html#cb390-1" aria-hidden="true" tabindex="-1"></a>analyze_data <span class="ot">&lt;-</span> <span class="cf">function</span>( dat ) {</span>
-<span id="cb390-2"><a href="error-trapping-and-other-headaches.html#cb390-2" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb390-3"><a href="error-trapping-and-other-headaches.html#cb390-3" aria-hidden="true" tabindex="-1"></a>    M1 <span class="ot">&lt;-</span> <span class="fu">quiet_lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>sid), <span class="at">data=</span>dat )</span>
-<span id="cb390-4"><a href="error-trapping-and-other-headaches.html#cb390-4" aria-hidden="true" tabindex="-1"></a>    message1 <span class="ot">=</span> <span class="fu">ifelse</span>( <span class="fu">length</span>( M1<span class="sc">$</span>message ) <span class="sc">&gt;</span> <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span> )</span>
-<span id="cb390-5"><a href="error-trapping-and-other-headaches.html#cb390-5" aria-hidden="true" tabindex="-1"></a>    warning1 <span class="ot">=</span> <span class="fu">ifelse</span>( <span class="fu">length</span>( M1<span class="sc">$</span>warning ) <span class="sc">&gt;</span> <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span> )</span>
-<span id="cb390-6"><a href="error-trapping-and-other-headaches.html#cb390-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb390-7"><a href="error-trapping-and-other-headaches.html#cb390-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compile our results</span></span>
-<span id="cb390-8"><a href="error-trapping-and-other-headaches.html#cb390-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( <span class="at">ATE_hat =</span> <span class="fu">coef</span>(M1)[<span class="st">&quot;Z&quot;</span>],</span>
-<span id="cb390-9"><a href="error-trapping-and-other-headaches.html#cb390-9" aria-hidden="true" tabindex="-1"></a>            <span class="at">SE_hat =</span> <span class="fu">se.coef</span>(M1)[<span class="st">&quot;Z&quot;</span>],</span>
-<span id="cb390-10"><a href="error-trapping-and-other-headaches.html#cb390-10" aria-hidden="true" tabindex="-1"></a>            <span class="at">message =</span> message1,</span>
-<span id="cb390-11"><a href="error-trapping-and-other-headaches.html#cb390-11" aria-hidden="true" tabindex="-1"></a>            <span class="at">warning =</span> warning1 )</span>
-<span id="cb390-12"><a href="error-trapping-and-other-headaches.html#cb390-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
-<p>Now you have your primary estimates, and also flags for whether there was a convergence issue.
-In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.</p>
+<p>In this case study, we will develop a data-generating process that allows us to study these different estimation strategies. To make things interesting, we will examine a scenario in which the data include covariates that influence the probability of providing outcome data under treatment and under control, as well as being predictive of the outcome.</p>
+<p>To formalize these notions, let us define the following variables:</p>
+<ul>
+<li><span class="math inline">\(X\)</span>: a continuous covariate</li>
+<li><span class="math inline">\(C\)</span>: a binary covariate</li>
+<li><span class="math inline">\(A\)</span>: an indicator for whether a participant provides outcome data if assigned to treatment (latent)</li>
+<li><span class="math inline">\(R\)</span>: an indicator for whether a participant provides outcome data if assigned to control, given that <span class="math inline">\(A = 1\)</span> (latent)</li>
+<li><span class="math inline">\(Z\)</span>: a randomized treatment indicator</li>
+<li><span class="math inline">\(Y^0, Y^1\)</span>: potential outcomes (latent)</li>
+<li><span class="math inline">\(Y^F\)</span>: the outcome that would be observed if all participants were to respond (latent)</li>
+<li><span class="math inline">\(Y\)</span>: the measured outcome, which is only observed for some participants</li>
+<li><span class="math inline">\(O\)</span>: an indicator for whether the outcome <span class="math inline">\(Y\)</span> is observed</li>
+</ul>
+<p>We will posit that these variables are related as follows:
+<img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-2-1.png" width="576" /></p>
+<p>Now, let’s lay out a more specific distributional model:
+<span class="math display">\[
+\begin{aligned}
+X &amp;\sim N(0,1) \\
+C &amp;\sim Bern(\kappa) - \kappa\\
+Z &amp;\sim Bern(0.5) \\
+A &amp;\sim Bern\left(\pi_A(C,X)\right) \\
+R &amp;\sim Bern\left(\pi_R(C,X)\right)
+\end{aligned}
+\]</span>
+where the response indicators follow the models
+<span class="math display">\[
+\begin{aligned}
+\text{logit} \ \pi_A(C,X) &amp;= \alpha_{A0} + \alpha_{A1} C + \alpha_{A2} X \\
+\text{logit} \ \pi_R(C,X) &amp;= \alpha_{R0} + \alpha_{R1} C + \alpha_{R2} X.
+\end{aligned}
+\]</span>
+Next, let <span class="math inline">\(B\)</span> denote <span class="math inline">\(\text{E}(Y^0 | A, R, C, X)\)</span> and suppose that
+<span class="math display">\[
+B = \beta_0 + \beta_1 C + \beta_2 X + \beta_3 R + \beta_4 C \times R + \beta_5 X \times R.
+\]</span>
+Let <span class="math inline">\(D\)</span> denote the the treatment effect surface, <span class="math inline">\(\text{E}(Y^1 - Y^0 | A, R, C, X)\)</span>, and suppose that
+<span class="math display">\[
+D = \delta_0 + \delta_1 C + \delta_2 X + \delta_3 R + \delta_4 C \times R + \delta_5 X \times R.
+\]</span>
+Note that these models do not differentiate between the never-responders (who have <span class="math inline">\(A = 0\)</span>) and those who respond only if assigned to treatment (who have <span class="math inline">\(A = 1, R = 0\)</span>) because the outcome will never be observed for never-responders.</p>
+<p>With these functions, we define the potential outcomes as
+<span class="math display">\[
+\begin{aligned}
+Y^0 &amp;= B + e_0 \\
+Y^1 &amp;= B + D + e_1,
+\end{aligned}
+\]</span>
+where <span class="math inline">\((e_0, e_1)\)</span> are bivariate normal with means of zero, standard deviations <span class="math inline">\(\sigma_0, \sigma_1\)</span>, and correlation <span class="math inline">\(\rho\)</span>.</p>
+<p>The remaining variables in the model are structurally related to those previously defined:
+<span class="math display">\[
+\begin{aligned}
+O &amp;= (1 - Z) R A + Z A \\
+Y^F &amp;= (1 - Z) Y^0 + Z Y^1 \\
+Y &amp;= \begin{cases} Y^F &amp; \text{if} &amp; \quad O = 1 \\ \cdot &amp; \text{if} &amp; \quad O = 0. \end{cases}
+\end{aligned}
+\]</span>
+The observed data include the variables <span class="math inline">\(X, C, Z, O\)</span>, and <span class="math inline">\(Y\)</span>.</p>
+<div id="the-data-generating-process" class="section level2 hasAnchor" number="9.1">
+<h2><span class="header-section-number">9.1</span> The data generating process<a href="case-study-attrition-in-a-simple-randomized-experiment.html#the-data-generating-process" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Let’s write a function to generate data based on this model. Here’s a skeleton to get started:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-1" aria-hidden="true" tabindex="-1"></a>sim_attrition_data <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
+<span id="cb1-2"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-2" aria-hidden="true" tabindex="-1"></a>    N,                      <span class="co"># sample size</span></span>
+<span id="cb1-3"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-3" aria-hidden="true" tabindex="-1"></a>    kappa,                  <span class="co"># probability of C</span></span>
+<span id="cb1-4"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-4" aria-hidden="true" tabindex="-1"></a>    alpha_A,                <span class="co"># regression for response under treatment</span></span>
+<span id="cb1-5"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-5" aria-hidden="true" tabindex="-1"></a>    alpha_R,                <span class="co"># regression for response under control</span></span>
+<span id="cb1-6"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-6" aria-hidden="true" tabindex="-1"></a>    beta,                   <span class="co"># regression parameters for Y0</span></span>
+<span id="cb1-7"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-7" aria-hidden="true" tabindex="-1"></a>    delta,                  <span class="co"># regression parameters for treatment response</span></span>
+<span id="cb1-8"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">sigma0 =</span> <span class="dv">1</span>, <span class="at">sigma1 =</span> <span class="dv">1</span>, <span class="co"># conditional standard deviation of potential outcomes</span></span>
+<span id="cb1-9"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-9" aria-hidden="true" tabindex="-1"></a>    rho                     <span class="co"># conditional correlation between potential outcomes</span></span>
+<span id="cb1-10"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-10" aria-hidden="true" tabindex="-1"></a>) {</span>
+<span id="cb1-11"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># generate data frame</span></span>
+<span id="cb1-12"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(df)</span>
+<span id="cb1-13"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb1-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
 </div>
+<div id="estimators" class="section level2 hasAnchor" number="9.2">
+<h2><span class="header-section-number">9.2</span> Estimators<a href="case-study-attrition-in-a-simple-randomized-experiment.html#estimators" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>What estimators might we use with these data?</p>
 </div>
-<div id="about_stopifnot" class="section level2 hasAnchor" number="16.2">
-<h2><span class="header-section-number">16.2</span> Protecting your functions with “stop”<a href="error-trapping-and-other-headaches.html#about_stopifnot" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>When writing functions, especially those that take a lot of parameters, it is often wise to include <code>stopifnot()</code> statements at the top to verify the function is getting what it expects.
-For example, look at this (fake) example of generating data with different means and variances</p>
-<div class="sourceCode" id="cb391"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb391-1"><a href="error-trapping-and-other-headaches.html#cb391-1" aria-hidden="true" tabindex="-1"></a>make_groups <span class="ot">&lt;-</span> <span class="cf">function</span>( means, sds ) {</span>
-<span id="cb391-2"><a href="error-trapping-and-other-headaches.html#cb391-2" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">=</span> <span class="fu">rnorm</span>( <span class="fu">length</span>(means), <span class="at">mean=</span>means, <span class="at">sd =</span> sds )</span>
-<span id="cb391-3"><a href="error-trapping-and-other-headaches.html#cb391-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">round</span>( Y )</span>
-<span id="cb391-4"><a href="error-trapping-and-other-headaches.html#cb391-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
-<p>If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:</p>
-<div class="sourceCode" id="cb392"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb392-1"><a href="error-trapping-and-other-headaches.html#cb392-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make_groups</span>( <span class="fu">c</span>(<span class="dv">100</span>,<span class="dv">200</span>,<span class="dv">300</span>,<span class="dv">400</span>), <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">100</span>,<span class="dv">10000</span>) )</span></code></pre></div>
-<pre><code>## [1]  100  133 1675  402</code></pre>
-<p>If this function was used in our data generating code, we would see the warnings but might not know exactly what they were.
-We can instead protect our function by putting an <em>assert statements</em> in our function like this:</p>
-<div class="sourceCode" id="cb394"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb394-1"><a href="error-trapping-and-other-headaches.html#cb394-1" aria-hidden="true" tabindex="-1"></a>make_groups <span class="ot">&lt;-</span> <span class="cf">function</span>( means, sds ) {</span>
-<span id="cb394-2"><a href="error-trapping-and-other-headaches.html#cb394-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>( <span class="fu">length</span>(means) <span class="sc">==</span> <span class="fu">length</span>(sds) )</span>
-<span id="cb394-3"><a href="error-trapping-and-other-headaches.html#cb394-3" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">=</span> <span class="fu">rnorm</span>( <span class="fu">length</span>(means), <span class="at">mean=</span>means, <span class="at">sd =</span> sds )</span>
-<span id="cb394-4"><a href="error-trapping-and-other-headaches.html#cb394-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">round</span>( Y )</span>
-<span id="cb394-5"><a href="error-trapping-and-other-headaches.html#cb394-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
-<p>This ensures your code is getting called as you intended.
-What is nasty about this possible error is nothing is telling you something is wrong!
-You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
-You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.</p>
-<p>These statements can also serve as a sort of documentation as to what you expect.
-Consider, for example:</p>
-<div class="sourceCode" id="cb395"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb395-1"><a href="error-trapping-and-other-headaches.html#cb395-1" aria-hidden="true" tabindex="-1"></a>make_xy <span class="ot">&lt;-</span> <span class="cf">function</span>( N, mu_x, mu_y, rho ) {</span>
-<span id="cb395-2"><a href="error-trapping-and-other-headaches.html#cb395-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>( <span class="sc">-</span><span class="dv">1</span> <span class="sc">&lt;=</span> rho <span class="sc">&amp;&amp;</span> rho <span class="sc">&lt;=</span> <span class="dv">1</span> )</span>
-<span id="cb395-3"><a href="error-trapping-and-other-headaches.html#cb395-3" aria-hidden="true" tabindex="-1"></a>  X <span class="ot">=</span> mu_x <span class="sc">+</span> <span class="fu">rnorm</span>( N )</span>
-<span id="cb395-4"><a href="error-trapping-and-other-headaches.html#cb395-4" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">=</span> mu_y <span class="sc">+</span> rho <span class="sc">*</span> X <span class="sc">+</span> <span class="fu">sqrt</span>(<span class="dv">1</span><span class="sc">-</span>rho<span class="sc">^</span><span class="dv">2</span>)<span class="sc">*</span><span class="fu">rnorm</span>(N)</span>
-<span id="cb395-5"><a href="error-trapping-and-other-headaches.html#cb395-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">X =</span> X, <span class="at">Y=</span>Y)</span>
-<span id="cb395-6"><a href="error-trapping-and-other-headaches.html#cb395-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
-<p>Here we see that rho should be between -1 and 1 quite clearly.
-A good reminder of what the parameter is for.</p>
-<p>This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
-Consider:</p>
-<div class="sourceCode" id="cb396"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb396-1"><a href="error-trapping-and-other-headaches.html#cb396-1" aria-hidden="true" tabindex="-1"></a>a <span class="ot">&lt;-</span> <span class="fu">make_xy</span>( <span class="dv">10</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="fl">0.75</span> )</span>
-<span id="cb396-2"><a href="error-trapping-and-other-headaches.html#cb396-2" aria-hidden="true" tabindex="-1"></a>b <span class="ot">&lt;-</span> <span class="fu">make_xy</span>( <span class="dv">10</span>, <span class="fl">0.75</span>, <span class="dv">2</span>, <span class="dv">3</span> )</span></code></pre></div>
-<pre><code>## Error in make_xy(10, 0.75, 2, 3): -1 &lt;= rho &amp;&amp; rho &lt;= 1 is not TRUE</code></pre>
-<div class="sourceCode" id="cb398"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb398-1"><a href="error-trapping-and-other-headaches.html#cb398-1" aria-hidden="true" tabindex="-1"></a>c <span class="ot">&lt;-</span> <span class="fu">make_xy</span>( <span class="dv">10</span>, <span class="at">rho =</span> <span class="fl">0.75</span>, <span class="at">mu_x =</span> <span class="dv">2</span>, <span class="at">mu_y =</span> <span class="dv">3</span> )</span></code></pre></div>
+<div id="performance-criteria-1" class="section level2 hasAnchor" number="9.3">
+<h2><span class="header-section-number">9.3</span> Performance criteria<a href="case-study-attrition-in-a-simple-randomized-experiment.html#performance-criteria-1" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>What performance criteria should we look at?</p>
 
 </div>
 </div>
@@ -633,8 +535,8 @@ Consider:</p>
           </div>
         </div>
       </div>
-<a href="optimize_code.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
-<a href="saving_files.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+<a href="case_Cronbach.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="exp_design.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
     </div>
   </div>
 <script src="libs/gitbook-2.6.7/js/app.min.js"></script>
@@ -666,7 +568,7 @@ gitbook.start({
 "size": 2
 },
 "edit": {
-"link": "https://github.com/jepusto/Designing-Simulations-in-R/edit/master/100-error-traping.Rmd",
+"link": "https://github.com/jepusto/Designing-Simulations-in-R/edit/master/062-case-study-attrition.Rmd",
 "text": "Edit"
 },
 "history": {
