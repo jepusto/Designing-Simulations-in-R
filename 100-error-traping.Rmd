@@ -5,17 +5,19 @@ editor_options:
 ---
 ```{r, include =FALSE}
 library( purrr )
+set.seed(4043)
+library( tidyverse )
 ```
 
 
 # Error trapping and other headaches
 
 If you have an advanced estimator, or are relying on some package, it is quite possible that every so often your estimate will trigger an error, or give you a NA result, or something similarly bad.
-More innocuous, you might have estimators that can generate warnings; if you run 10,000 trials, that can add up to a lot of warnings which can be overwhelming to sort through.
+More innocuous, you might have estimators that can generate warnings; if you run 10,000 trials, that can add up to a lot of warnings, which can be overwhelming to sort through.
 In some cases, these warnings might be coupled with the estimator returning a very off result; it is unclear, in this case, whether we should include that result in our overall performance measures for that estimator.
 After all, it tried to warn us!
 
-In this section, we talk about some ways to make your simulations safe and robust, and also discuss some ways to track warnings and include them in peformance measures.
+In this section, we talk about some ways to make your simulations safe and robust, and also discuss some ways to track warnings and include them in performance measures.
  
 
 ## Safe code {#safe_code}
@@ -25,9 +27,9 @@ Sometimes if you write a function that does a lot of complex things with
 uncertain objects -- i.e. consider a complex estimator using an unstable package not of your own creation -- you can run into trouble where you have a intermittent error.
 
 This can really be annoying; consider the case where your simulation crashes on 1 out of 500 chance: if you run 1000 simulation trials, your program will likely not make it to the end, thus wasting all of your time.
-You can write code that can, instead of stopping when it reaches an error, trap the error and move on with the next simulation trial.
+To protect yourself, you can write code that can, instead of stopping when it reaches an error, trap the error and move on with the next simulation trial.
 
-To illustrate, consider the following broken function:
+To illustrate, consider the following broken function that sometimes gives us what we want, sometimes gives us a NaN due to taking the square root of a negative number, and sometimes crashes completely due to `broken_code()` not existing:
 
 ```{r, error=TRUE}
 my_complex_function = function( param ) {
@@ -36,37 +38,64 @@ my_complex_function = function( param ) {
     if ( sum( vals ) > 5 ) {
         broken_code( 4 )
     } else {
-        sqrt( sum( vals ) )
+        sqrt( sum( vals ) * sign( vals )[[1]] )
     }
 }
 ```
 
 We run it like so:
 ```{r, error=TRUE}
-my_complex_function( 1 )
+my_complex_function( 2 )
+my_complex_function( 2 )
 my_complex_function( 7 )
+```
 
-resu = rerun( 20, my_complex_function( 7 ) )
+So far so good, other than a NaN warning.  Now let's run it a bunch of times:
+```{r, error=TRUE}
+resu = map( 1:20, ~ my_complex_function( 7 ) )
 ```
 
 Oh no!  Our function crashes sometimes.
 To trap the errors we use the purrr package to make a "safe" function as so:
 
 ```{r}
-my_safe_function = safely( my_complex_function )
+my_safe_function = safely( my_complex_function,
+                           otherwise = NA )
 my_safe_function( 7 )
 ```
 
-There are other function wrappers in this family, such as "possibly":
+Our safe version of the function gives us back a list of things: the result (or NULL if there was an error), and the error message (or NULL if there was no error).
+`safely()` is an example of a _function wrapper_, which takes a function and gives you back a new function that does something slightly different.
+
+We include `otherwise = NA` so we always get a result, even if it is a NA result.  Otherwise we would get a NULL when there is an error, which might be harder to track.
+
+For example, we can use the above repeatedly, and then do a nice trick to get a list of error message separate from our list of results:
+```{r}
+resu = map( 1:20, ~ my_safe_function( 7 ) )
+resu <- transpose( resu )
+unlist( resu$result )
+```
+
+The `transpose()` method takes a list of lists, and reorganizes them to give you a list of all the first elements, a list of all the second elements, etc.
+This is very powerful for wrangling data, because then we can make a tibble with list columns as so:
+```{r}
+tb <- tibble( result = unlist( resu$result ),
+        error = resu$error )
+print( tb, n = 4 )
+```
+
+
+There are other function wrappers in this "safe computing" family, such as "possibly," which will try to run something and give you a default value if it fails:
 ```{r}
 my_possible_function = possibly( my_complex_function, 
                                  otherwise = NA )
 my_possible_function( 7 )
 
-as.numeric( rerun( 10, my_possible_function(7) ) )
+rs <- map_dbl( 1:10, ~ my_possible_function(7) )
+rs
 ```
 
-Finally, we can use "quietly" to make warnings and stuff go away:
+There is also "quietly," which makes warnings and messages get bundled, rather than printed to the console:
 ```{r}
 my_quiet_function = quietly( my_complex_function )
 
@@ -75,8 +104,57 @@ my_quiet_function( 1 )
 
 This can be especially valuable to control massive amounts of printout in a simulation.  If you have lots of extraneous printout, it can slow down the execution of your code far more than you might think.
 
+Note that `quietly()` does not trap errors, just warnings:
+```{r, error=TRUE}
+rs <- map( 1:20, ~ my_quiet_function(7) )
+```
 
-### What to do with warnings
+You can "double wrap" your function, if you want, but what you get back is a bit of a mess:
+```{r}
+my_safe_quiet_function = quietly( safely( my_complex_function, otherwise = NA ) )
+my_safe_quiet_function(7)
+```
+
+
+
+
+### Making a safe function call
+
+You can do some magical massaging to make things work better upfront so you can capture both errors and warnings and get the results in a nice tidy tibble.
+For example, say our `my_complex_function()` is a method designed to analyze our data.
+We might then write a wrapper that cleans up our safe and quiet version 
+
+```{r}
+unpack_mess <- function( mess ) {
+  rs = tibble( result = NA, error = NA,
+               warnings = "" )
+  rs$result = mess$result$result
+  rs$error = list( mess$result$error )
+  if ( length( mess$warnings ) > 0 ) {
+    rs$warnings = paste( mess$warnings, collapse="; " )
+  }
+  rs
+}
+unpack_mess( my_safe_quiet_function( 7 ) )
+
+my_safe_quiet_function <- compose( unpack_mess, my_safe_quiet_function )
+my_safe_quiet_function(7)
+```
+
+The `compose()` method makes a new function that will call `unpack_mess()` automatically.
+We have now wrapped our original function, in effect, three times.
+The result is a new function that takes the same parameters as our original `my_complex_function()` method, and returns some results, including information about errors and warnings, in a nicely organized way.
+
+We could use such a modified function in a loop, and stack our results:
+```{r}
+rs <- map_df( 1:20, ~ my_safe_quiet_function(6) )
+rs
+```
+
+These tools allow us to take existing analytic code and make it safe and quiet, so we can keep things organized in our simulation.
+
+
+### What to do with warnings in simulations
 
 Sometimes our analytic strategy might give some sort of warning (or fail altogether).
 For example, from the cluster randomized experiment case study we have:
@@ -131,6 +209,7 @@ In the analysis section you can then evaluate what proportion of the time there 
 ## Protecting your functions with "stop" {#about_stopifnot}
 
 When writing functions, especially those that take a lot of parameters, it is often wise to include `stopifnot()` statements at the top to verify the function is getting what it expects.
+These are sometimes called "assert statements" and are a tool for making errors show up as early as possible.
 For example, look at this (fake) example of generating data with different means and variances
 
 ```{r assert_demo}
