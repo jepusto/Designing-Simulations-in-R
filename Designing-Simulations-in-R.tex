@@ -288,7 +288,7 @@ This can allow for power analyses far more nuanced and tailored to a given circu
 \subsection{Simulating processess}\label{simulating-processess}}
 
 Less central to this book, but a very common use for simulation, is to simulation some sort of complex process to better understand it or the consequences of it.
-For example, some larger school districts (e.g., New York City) have centralized lotteries for school assignment where families rank some number of schols by order of preference.
+For example, some larger school districts (e.g., New York City) have centralized lotteries for school assignment where families rank some number of schools by order of preference.
 The central office then assigns students to schools via a lottery procedure where each student gets a lottery number that breaks ties when there are too many students desiring to go to a specific school.
 As a consequence, students have a random probability of assignment to the schools on their list, depending on their choices, the choices of other students, and their lottery numbers.
 
@@ -421,7 +421,7 @@ We call our new method as so:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 1.095781e-68
+## [1] 2.61271e-74
 \end{verbatim}
 
 \begin{Shaded}
@@ -431,7 +431,7 @@ We call our new method as so:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.2236271
+## [1] 0.4190303
 \end{verbatim}
 
 \begin{Shaded}
@@ -441,7 +441,7 @@ We call our new method as so:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.6117171
+## [1] 0.9745024
 \end{verbatim}
 
 In this case, each time we run our code, we get a different answer since we are generating random numbers with each call.
@@ -4069,6 +4069,141 @@ How does coverage change for different values of \(A\)?
 
 \[ var( f(A) ) \approx \frac{1}{f'(\alpha)} (A - \alpha)^2 . \]
 
+\hypertarget{case-study-attrition-in-a-simple-randomized-experiment}{%
+\chapter{Case study: Attrition in a simple randomized experiment}\label{case-study-attrition-in-a-simple-randomized-experiment}}
+
+Missingness of the outcome variable is a common problem in randomized experiments conducted with human participants. For experiments where the focus is on estimating average causal effects, many different strategies for handling attrition have been proposed. Gerber and Green (2012) describe several strategies, including:
+
+\begin{itemize}
+\tightlist
+\item
+  Complete-case analysis, in which observations with missing outcome data are simply dropped from analysis;
+\item
+  Regression estimation under the assumption that missingness is independent of potential outcomes, conditional on a set of pre-treatment covariates; and
+\item
+  Monotone treatment response bounds, which provides bounds on the average treatment effect among participants who would provide outcome data under any treatment condition, under the assumption that that the effect of treatment on providing outcome data is strictly non-negative.
+\end{itemize}
+
+In this case study, we will develop a data-generating process that allows us to study these different estimation strategies. To make things interesting, we will examine a scenario in which the data include covariates that influence the probability of providing outcome data under treatment and under control, as well as being predictive of the outcome.
+
+To formalize these notions, let us define the following variables:
+
+\begin{itemize}
+\tightlist
+\item
+  \(X\): a continuous covariate
+\item
+  \(C\): a binary covariate
+\item
+  \(A\): an indicator for whether a participant provides outcome data if assigned to treatment (latent)
+\item
+  \(R\): an indicator for whether a participant provides outcome data if assigned to control, given that \(A = 1\) (latent)
+\item
+  \(Z\): a randomized treatment indicator
+\item
+  \(Y^0, Y^1\): potential outcomes (latent)
+\item
+  \(Y^F\): the outcome that would be observed if all participants were to respond (latent)
+\item
+  \(Y\): the measured outcome, which is only observed for some participants
+\item
+  \(O\): an indicator for whether the outcome \(Y\) is observed
+\end{itemize}
+
+We will posit that these variables are related as follows:
+
+\begin{verbatim}
+## 
+## Attaching package: 'ggdag'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:stats':
+## 
+##     filter
+\end{verbatim}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/attrition-dag-1} \end{center}
+
+Now, let's lay out a more specific distributional model:
+\[
+\begin{aligned}
+X &\sim N(0,1) \\
+C &\sim Bern(\kappa) - \kappa\\
+Z &\sim Bern(0.5) \\
+A &\sim Bern\left(\pi_A(C,X)\right) \\
+R &\sim Bern\left(\pi_R(C,X)\right)
+\end{aligned}
+\]
+where the response indicators follow the models
+\[
+\begin{aligned}
+\text{logit} \ \pi_A(C,X) &= \alpha_{A0} + \alpha_{A1} C + \alpha_{A2} X \\
+\text{logit} \ \pi_R(C,X) &= \alpha_{R0} + \alpha_{R1} C + \alpha_{R2} X.
+\end{aligned}
+\]
+Next, let \(B\) denote \(\text{E}(Y^0 | A, R, C, X)\) and suppose that
+\[
+B = \beta_0 + \beta_1 C + \beta_2 X + \beta_3 R + \beta_4 C \times R + \beta_5 X \times R.
+\]
+Let \(D\) denote the the treatment effect surface, \(\text{E}(Y^1 - Y^0 | A, R, C, X)\), and suppose that
+\[
+D = \delta_0 + \delta_1 C + \delta_2 X + \delta_3 R + \delta_4 C \times R + \delta_5 X \times R.
+\]
+Note that these models do not differentiate between the never-responders (who have \(A = 0\)) and those who respond only if assigned to treatment (who have \(A = 1, R = 0\)) because the outcome will never be observed for never-responders.
+
+With these functions, we define the potential outcomes as
+\[
+\begin{aligned}
+Y^0 &= B + e_0 \\
+Y^1 &= B + D + e_1,
+\end{aligned}
+\]
+where \((e_0, e_1)\) are bivariate normal with means of zero, standard deviations \(\sigma_0, \sigma_1\), and correlation \(\rho\).
+
+The remaining variables in the model are structurally related to those previously defined:
+\[
+\begin{aligned}
+O &= (1 - Z) R A + Z A \\
+Y^F &= (1 - Z) Y^0 + Z Y^1 \\
+Y &= \begin{cases} Y^F & \text{if} & \quad O = 1 \\ \cdot & \text{if} & \quad O = 0. \end{cases}
+\end{aligned}
+\]
+The observed data include the variables \(X, C, Z, O\), and \(Y\).
+
+\hypertarget{the-data-generating-process}{%
+\section{The data generating process}\label{the-data-generating-process}}
+
+Let's write a function to generate data based on this model. Here's a skeleton to get started:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sim\_attrition\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(}
+\NormalTok{    N,                      }\CommentTok{\# sample size}
+\NormalTok{    kappa,                  }\CommentTok{\# probability of C}
+\NormalTok{    alpha\_A,                }\CommentTok{\# regression for response under treatment}
+\NormalTok{    alpha\_R,                }\CommentTok{\# regression for response under control}
+\NormalTok{    beta,                   }\CommentTok{\# regression parameters for Y0}
+\NormalTok{    delta,                  }\CommentTok{\# regression parameters for treatment response}
+    \AttributeTok{sigma0 =} \DecValTok{1}\NormalTok{, }\AttributeTok{sigma1 =} \DecValTok{1}\NormalTok{, }\CommentTok{\# conditional standard deviation of potential outcomes}
+\NormalTok{    rho                     }\CommentTok{\# conditional correlation between potential outcomes}
+\NormalTok{) \{}
+  \CommentTok{\# generate data frame}
+  \FunctionTok{return}\NormalTok{(df)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{estimators}{%
+\section{Estimators}\label{estimators}}
+
+What estimators might we use with these data?
+
+\hypertarget{performance-criteria-1}{%
+\section{Performance criteria}\label{performance-criteria-1}}
+
+What performance criteria should we look at?
+
 \hypertarget{exp_design}{%
 \chapter{Designing the multifactor simulation experiment}\label{exp_design}}
 
@@ -4833,9 +4968,9 @@ We now get a note about the message regarding convergence saved in our results:
 ## # A tibble: 3 x 6
 ##   method ATE_hat SE_hat p_value message warning
 ##   <chr>    <dbl>  <dbl>   <dbl>   <dbl>   <dbl>
-## 1 MLM    -0.376   1.44    0.842       0       0
-## 2 LR     -0.0973  0.784   0.921       0       0
-## 3 Agg    -0.440   0.856   0.698       0       0
+## 1 MLM      -1.52   2.18   0.607       0       0
+## 2 LR       -1.52   1.24   0.436       0       0
+## 3 Agg      -1.52   1.24   0.436       0       0
 \end{verbatim}
 
 See? No more warnings, but we see the message as a variable in our results.
@@ -4956,7 +5091,7 @@ For our cluster RCT, we might aggregate as follows:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-116-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-118-1} \end{center}
 
 This shows that site variation leads to greater bias, but only if the coefficient for size is nonzero.
 We also see that all the estimators must be the same if site variation is 0, with the overplotted lines on the top row of the figure.
@@ -5300,7 +5435,7 @@ the relationship of 5 variables.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-124-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-126-1} \end{center}
 
 We ae looking at power for different control and treatment group sizes. The tau is our treatment effect, and so for \(\tau = 0\) we are looking at validity (false rejection of the null) and for the other \(\tau\) power (noticing an effect when it is there).
 Notice that we are seeing elevated rejection rates under the null for small and even moderate sample sizes!
@@ -5522,8 +5657,8 @@ extended to more complicated simulation studies.
 This case study illustrates how methodologists might compare different strategies for estimation, and is
 closest to what we might see in the ``simulation'' section of a stats paper.
 
-\hypertarget{the-data-generating-process}{%
-\section{The data generating process}\label{the-data-generating-process}}
+\hypertarget{the-data-generating-process-1}{%
+\section{The data generating process}\label{the-data-generating-process-1}}
 
 For our data-generation function we will use the scaled \(t\)-distribution so
 the standard deviation will always be 1 but we will have different fatness of
@@ -5836,7 +5971,7 @@ And plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-144-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-146-1} \end{center}
 
 \hypertarget{improving-the-visualization-of-the-results}{%
 \section{Improving the visualization of the results}\label{improving-the-visualization-of-the-results}}
@@ -5855,7 +5990,7 @@ differences are relatively constant given changing sample size.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-145-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-147-1} \end{center}
 
 Better is to rescale using our knowledge of standard errors. If we scale by
 the square root of sample size, we should get horizontal lines. We now
@@ -5876,7 +6011,7 @@ clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-147-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-149-1} \end{center}
 
 Overall, we see the scaled error of the mean it is stable across the
 different distributions. The trimmed mean is a real advantage when the
@@ -5989,7 +6124,7 @@ Let's look at our distribution
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-150-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-152-1} \end{center}
 
 We steal the code from above, modifying it slightly for our new function and
 changing our target parameter from 0 to 1:
@@ -6080,7 +6215,7 @@ And then we plot, making a facet for each outcome of interest:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-154-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-156-1} \end{center}
 
 We see how different estimators have different biases and different
 uncertainties. The bias is negative for our trimmed estimators because we
@@ -6201,7 +6336,7 @@ All our factors, and nearly 5000 explored simulation scenarios, are visible in a
 ## `geom_smooth()` using formula = 'y ~ x'
 \end{verbatim}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-156-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-158-1} \end{center}
 
 Source: Pustejovsky, J. E. (2014). Converting from d to r to z when the design uses extreme groups, dichotomization, or experimental control. Psychological Methods, 19(1), 92-112.
 
@@ -6233,7 +6368,7 @@ This is a nice tool for taking some of the simulation jitter out of an analysis 
   \end{itemize}
 \end{itemize}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-157-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-159-1} \end{center}
 
 Source: Tipton, E., \& Pustejovsky, J. E. (2015). Small-sample adjustments for tests of moderators and model fit using robust variance estimation in meta-regression. \emph{Journal of Educational and Behavioral Statistics, 40}(6), 604-634.
 
@@ -6251,7 +6386,7 @@ For this to work, we need our MCSE to be small enough that our coverage is estim
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/swan_example_setup-1} \end{center}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-158-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-160-1} \end{center}
 
 To see this plot IRL, see Pustejovsky, J. E., \& Swan, D. M. (2015). Four methods for analyzing partial interval recording data, with application to single-case research. \emph{Multivariate Behavioral Research, 50}(3), 365-380.
 
@@ -6659,11 +6794,11 @@ The \texttt{microbenchmark} function runs each expression 100 times (by default)
 \begin{verbatim}
 ## Unit: microseconds
 ##       expr     min       lq     mean   median
-##  Rfunction 518.507 525.6695 593.5698 531.4945
-##     direct 232.335 240.5565 261.5123 245.9760
+##  Rfunction 523.785 533.7075 603.5160 545.6005
+##     direct 234.456 242.9135 265.5523 248.6800
 ##        uq      max neval cld
-##  573.4865 3522.609   100   b
-##  263.9810  520.105   100  a
+##  594.8380 3347.723   100   b
+##  272.0355  516.835   100  a
 \end{verbatim}
 
 The direct function is 2.3 times faster than the built-in R function.
@@ -6941,11 +7076,11 @@ The reason this is important is we are now doing our group aggregation only once
 \begin{verbatim}
 ## Unit: milliseconds
 ##   expr      min       lq     mean   median
-##  noagg 1.317099 1.434244 1.792840 1.463407
-##    agg 3.050497 3.284607 3.490857 3.353867
-##        uq      max neval cld
-##  1.531627 24.11427   100  a 
-##  3.539951 10.61070   100   b
+##  noagg 1.487619 1.556523 1.924981 1.605843
+##    agg 3.419803 3.697933 3.880711 3.789444
+##        uq       max neval cld
+##  1.677409 22.172271   100  a 
+##  3.892687  8.565885   100   b
 \end{verbatim}
 
 And our relative speedup is:
@@ -8516,8 +8651,8 @@ We use these to calculate a mean and covariance structure for generating data:
 ## 2019 0.5425783
 \end{verbatim}
 
-\hypertarget{the-data-generating-process-1}{%
-\section{The data generating process}\label{the-data-generating-process-1}}
+\hypertarget{the-data-generating-process-2}{%
+\section{The data generating process}\label{the-data-generating-process-2}}
 
 We then write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a ``treatment effect'' of scaling the discipline rate by the treatment coefficient for the last two years.
 
@@ -8588,7 +8723,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-222-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-224-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -8833,7 +8968,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-228-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-230-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
