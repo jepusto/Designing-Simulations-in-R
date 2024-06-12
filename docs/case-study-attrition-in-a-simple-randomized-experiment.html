@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Chapter 9 Case study: Attrition in a simple randomized experiment | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
-  <meta name="generator" content="bookdown 0.27 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.37 and GitBook 2.6.7" />
 
   <meta property="og:title" content="Chapter 9 Case study: Attrition in a simple randomized experiment | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2023-11-21" />
+<meta name="date" content="2024-05-29" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,7 +57,7 @@
 
 <style type="text/css">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -121,10 +121,15 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </style>
 
 <style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
 /* Used with Pandoc 2.11+ new --citeproc when CSL is used */
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -482,12 +487,7 @@ div.csl-indent {
 <li><span class="math inline">\(O\)</span>: an indicator for whether the outcome <span class="math inline">\(Y\)</span> is observed</li>
 </ul>
 <p>We will posit that these variables are related as follows:</p>
-<pre><code>## 
-## Attaching package: &#39;ggdag&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:stats&#39;:
-## 
-##     filter</code></pre>
-<p><img src="Designing-Simulations-in-R_files/figure-html/attrition-dag-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p><strong>TODO / NOTE: Dag code broken – need to fix</strong></p>
 <p>Now, let’s lay out a more specific distributional model:
 <span class="math display">\[
 \begin{aligned}
@@ -527,26 +527,27 @@ where <span class="math inline">\((e_0, e_1)\)</span> are bivariate normal with 
 \begin{aligned}
 O &amp;= (1 - Z) R A + Z A \\
 Y^F &amp;= (1 - Z) Y^0 + Z Y^1 \\
-Y &amp;= \begin{cases} Y^F &amp; \text{if} &amp; \quad O = 1 \\ \cdot &amp; \text{if} &amp; \quad O = 0. \end{cases}
+Y &amp;= \begin{cases} Y^F &amp; \text{if} \quad O = 1 \\
+\cdot &amp; \text{if} \quad O = 0. \end{cases}
 \end{aligned}
 \]</span>
 The observed data include the variables <span class="math inline">\(X, C, Z, O\)</span>, and <span class="math inline">\(Y\)</span>.</p>
 <div id="the-data-generating-process" class="section level2 hasAnchor" number="9.1">
 <h2><span class="header-section-number">9.1</span> The data generating process<a href="case-study-attrition-in-a-simple-randomized-experiment.html#the-data-generating-process" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Let’s write a function to generate data based on this model. Here’s a skeleton to get started:</p>
-<div class="sourceCode" id="cb196"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb196-1"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-1" tabindex="-1"></a>sim_attrition_data <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
-<span id="cb196-2"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-2" tabindex="-1"></a>    N,                      <span class="co"># sample size</span></span>
-<span id="cb196-3"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-3" tabindex="-1"></a>    kappa,                  <span class="co"># probability of C</span></span>
-<span id="cb196-4"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-4" tabindex="-1"></a>    alpha_A,                <span class="co"># regression for response under treatment</span></span>
-<span id="cb196-5"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-5" tabindex="-1"></a>    alpha_R,                <span class="co"># regression for response under control</span></span>
-<span id="cb196-6"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-6" tabindex="-1"></a>    beta,                   <span class="co"># regression parameters for Y0</span></span>
-<span id="cb196-7"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-7" tabindex="-1"></a>    delta,                  <span class="co"># regression parameters for treatment response</span></span>
-<span id="cb196-8"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-8" tabindex="-1"></a>    <span class="at">sigma0 =</span> <span class="dv">1</span>, <span class="at">sigma1 =</span> <span class="dv">1</span>, <span class="co"># conditional standard deviation of potential outcomes</span></span>
-<span id="cb196-9"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-9" tabindex="-1"></a>    rho                     <span class="co"># conditional correlation between potential outcomes</span></span>
-<span id="cb196-10"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-10" tabindex="-1"></a>) {</span>
-<span id="cb196-11"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-11" tabindex="-1"></a>  <span class="co"># generate data frame</span></span>
-<span id="cb196-12"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-12" tabindex="-1"></a>  <span class="fu">return</span>(df)</span>
-<span id="cb196-13"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb196-13" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb194"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb194-1"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-1" tabindex="-1"></a>sim_attrition_data <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
+<span id="cb194-2"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-2" tabindex="-1"></a>    N,                      <span class="co"># sample size</span></span>
+<span id="cb194-3"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-3" tabindex="-1"></a>    kappa,                  <span class="co"># probability of C</span></span>
+<span id="cb194-4"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-4" tabindex="-1"></a>    alpha_A,                <span class="co"># regression for response under treatment</span></span>
+<span id="cb194-5"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-5" tabindex="-1"></a>    alpha_R,                <span class="co"># regression for response under control</span></span>
+<span id="cb194-6"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-6" tabindex="-1"></a>    beta,                   <span class="co"># regression parameters for Y0</span></span>
+<span id="cb194-7"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-7" tabindex="-1"></a>    delta,                  <span class="co"># regression parameters for treatment response</span></span>
+<span id="cb194-8"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-8" tabindex="-1"></a>    <span class="at">sigma0 =</span> <span class="dv">1</span>, <span class="at">sigma1 =</span> <span class="dv">1</span>, <span class="co"># conditional standard deviation of potential outcomes</span></span>
+<span id="cb194-9"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-9" tabindex="-1"></a>    rho                     <span class="co"># conditional correlation between potential outcomes</span></span>
+<span id="cb194-10"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-10" tabindex="-1"></a>) {</span>
+<span id="cb194-11"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-11" tabindex="-1"></a>  <span class="co"># generate data frame</span></span>
+<span id="cb194-12"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-12" tabindex="-1"></a>  <span class="fu">return</span>(df)</span>
+<span id="cb194-13"><a href="case-study-attrition-in-a-simple-randomized-experiment.html#cb194-13" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 <div id="estimators" class="section level2 hasAnchor" number="9.2">
 <h2><span class="header-section-number">9.2</span> Estimators<a href="case-study-attrition-in-a-simple-randomized-experiment.html#estimators" class="anchor-section" aria-label="Anchor link to header"></a></h2>
@@ -630,7 +631,7 @@ gitbook.start({
     var script = document.createElement("script");
     script.type = "text/javascript";
     var src = "true";
-    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
     if (location.protocol !== "file:")
       if (/^https?:/.test(src))
         src = src.replace(/^https?:/, '');

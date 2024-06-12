@@ -137,4 +137,10 @@ run_CRT_sim <- function(reps,
 }
 
 
+if ( FALSE ) {
+  
+  dat <- gen_dat_model( 5, 3 )
+  dat
+  
+}
 

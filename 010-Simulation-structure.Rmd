@@ -2,53 +2,56 @@
 
 In the prior chapter we saw a simple simulation evaluation of a $t$-test.
 We next break that simulation down into components, and then in the subsequent chapters we dig into how to think about each component.
-In our methodological work, we try to always follow the same workflow that we outline below when writing simulations.
-We make no claim that this is the only or best way to do things, but it does work for us.
+When writing simulations in our methodological work, we try to always follow the same workflow that we outline below.
+We make no claim that this is the only or best way to do things, but it does work for us, and we, at least, like it!
 
 
 
 
 ## General structure of a simulation
 
-The easiest way to evaluate an estimator is to generate some data from scratch, generating it in such a way that we know what the "right answer" is, and then to analyze our data using our estimators we wish to study.
-We then check to see if the estimators got the right answer. We can write down how close the estimators got, whether the estimators were too high or too low, and so forth.
-We can also use the estimators to conduct a hypothesis test, testing some hypothetical null, and we can write down whether we rejected or did not reject this null.
+The easiest way to compare two estimation procedures is to generate some data from scratch, generating it in such a way that we know what the "right answer" is, and then to analyze our data using the procedures we wish to study.
+For each dataset we generate, we can write down how close the each procedure got to the right answer, whether they ended up with an answer that was too high or too low, and so forth.
+If our procedures include a hypothesis test against some hypothetical null, we can write down whether we rejected or did not reject this null.
  
-If we do this once, we have some idea of whether the estimators worked in that specific example, but we don't know if this is due to random chance.
-To assess general trends, therefore, we repeat this process over and over, keeping track of how well our estimators did in each trial.
+If we do this once, we have some idea of whether the estimators worked in that specific example, but we do not know if this is due to random chance.
+To assess general trends, therefore, we repeat this process over and over, keeping track of how well our estimators did each time.
 We finally aggregate our results, and see if one estimator systematically outperformed the other.
+But that is not quite enough: we might learn, by doing this, that estimator $A$ is better than estimator $B$ in the one context we have just simulated, but we will not know if it is _generally_ superior.
+
+To assess superiority more broadly, we could generate data from a variety of different scenarios, seeing if our estimator is systematically winning across simulation contexts. If we do this in a a structured and thoughtful manner, we can eventually make claims as to the behaviors of our estimators that we are investigating.
+This is the heart of simulation for methodological evaluation.
+
+A simulation study can be thought of as something like a controlled scientific experiment: we want to understand the properties of our estimators, so we test them in a variety of different scenarios to see how they perform.
+Found general trends across these scenarios help us understand general patterns of behavior.
 
 
-If we want to know if an estimator is generally superior to another, we can generate data from a variety of different scenarios, seeing if the estimator is systematically winning across simulation contexts. If we do this in a a structured and thoughtful manner, we can eventually make claims as to the behaviors of our estimators that we are investigating.
+Table: Steps in the Simulation Process {#tbl:simulation}
 
-A simulation study can be thought of as something like a controlled scientific experiment: we want to understand the properties of our estimators, so we put them in a variety of different scenarios to see how they perform. We then look for general trends across these scenarios in order to understand general patterns of behavior.
+|  | Step      | Description |
+|--|-----------|-------------|
+| 1| __Generate__  | Generate a sample of data based on a specified statistical model/process. |
+| 2| __Analyze__   | Analyze data using one or more procedures/workflows. |
+| 3| __Repeat__    | Repeat steps (1) & (2) $R$ times, recording $R$ sets of results. |
+| 4| __Summarize__ | Assess the performance of the procedure across our $R$ repetitions. |
 
-As we saw in our initial example, the logic of simulation is, for a specific and specified scenario scenario:
 
-1. __Generate__ a sample of data based on a specified statistical model/process.
-    
-2. __Analyze__ data using one or more procedures/workflows.
-
-3. __Repeat__ (1) & (2) $R$ times, recording $R$ sets of results.
-
-4. __Summarize__ the performance of the procedure across our $R$ repetitions to assess how well our estimators work in practice. 
-
-We will then repeat the above for different scenarios, so we can see how performance changes as we chance circumstance.
-But first, let's just focus on a single scenario.
+As we saw in our initial example, we can break the the logic of simulation for a specific and specified scenario down into the four steps outlined on Table @tbl:simulation.
+We will then repeat this evaluation across different scenarios, so we can see how performance changes as we chance circumstance.
+But first, we just focus on a single scenario.
 
 
 ## Tidy simulations
 
-In general, we advocate for writing *tidy simulations*, meaning we keep all the components of a simulation separate.
+We advocate for writing *tidy simulations*, meaning we keep all the components of a simulation separate, and tend to store all results and intermediate results as data frames (rectangular data sets).
 The main way to keep things tidy is to follow a **modular approach**, in which each component of the simulation is implemented _as a separate function_ (or potentially a set of several functions).
 
-Writing separate functions for the different components of the simulation will make the code easier to read, test, and debug. 
+Writing separate functions for the different components of the simulation makes the code easier to read, test, and debug. 
 Furthermore, it makes it possible to swap components of the simulation in or out, such as by adding additional estimation methods or trying out a data-generating model that involves different distributional assumptions. 
-In particular, we write separate functions for each step of the simulation, and then wire these functions together at the end.
+In particular, we write separate functions for each of the steps given in Table @tbl:simulation.
 
-At a higher level, we first write code to run a
-specific simulation for a specific scenario. Once that is working, we will
-re-use the code to systematically explore a variety of scenarios so we can
+We first write code to run a specific simulation for a specific scenario.
+Once that is working, we re-use the code to systematically explore a variety of scenarios so we can
 see how things change as scenario changes. 
 
 In code, we can start with the skeletons of:
@@ -56,30 +59,78 @@ In code, we can start with the skeletons of:
 ```{r, echo = TRUE, eval = FALSE}
 
 # Generate
-generate_data <- function(params) {
+generate_data <- function( params ) {
   # stuff
 }
 
 # Analyze
-analyze <- function(data) {
+analyze <- function( data ) {
   # stuff
 }
 
 # Repeat
-one_run <- function() {
-  dat <- generate_data(params)
+one_run <- function( params ) {
+  dat <- generate_data( params )
   analyze(dat)
 }
-results <- rerun(R, one_run())
-results <- bind_rows(results)
+results <- map_df(1:R, ~ one_run( params ))
 
 # Summarize
-assess_performance <- function(results) {
+assess_performance <- function( results ) {
   # stuff
 }
 ```
 
-To repeat, this approach has several advantages:
+We next briefly describe each piece of the above.
+The following four chapters then dig into each piece in more detail.
+
+### The Data Generating Process (DGP)
+
+The data-generating process takes a set of parameter values as input and generates a set of simulated data as output.
+When we generate data, we control the ground truth!
+Generating our own data allows us to know what the answer is (e.g., what the real treatment effect is), so we can later know if our methods are doing the right thing.
+
+### Estimation procedures
+
+The estimation procedures are the statistical procedures under examination.
+For example, an estimation procedure might be to estimate the average growth rate along with a standard error.
+Or it might be to conduct a hypothesis test, like we saw earlier.
+
+Each estimation procedure we examine should take a dataset and produce a set of estimates or results (e.g., point estimates, standard errors, confidence intervals, p-values, etc.).
+You often will have different functions for each estimation procedure you are investigating.
+
+A well written estimation methods should, in principle, work on real data as well as simulated data; the more we can "black box" our methods into a single function call, the easier it will be to separate out the structure of the simulation from the complexity of the methods being evaluated.
+
+### Repetition
+
+There are a variety of ways in R to do something over and over.
+Using `map()`, as above, might look a bit strange with the `~`, but it is currently the most straightforward within the tidyverse.
+Later on, we will illustrate how to use the `simhelpers` package to do this step automatically.
+
+Making a helper method such as `one_run()` makes debugging our simulations a lot, lot easier.
+The `one_run()` method is like a coordinator or dispatcher of our system: it generates the data, calls all the evaluation methods we want to call, combines all the results, and hands them back for recording.
+
+Each iteration of `one_run()` returns a small data frame of results.
+We then stack all these returned results into one large dataframe of simulation results to ready it for the next step, which is assessing performance.
+
+
+### Performance summaries
+
+Performance summaries are the metrics used to assess the performance of a statistical method.
+Interest usually centers on understanding the performance of a method over repeated samples from a data-generating process.
+For example, we might want to know how close our estimator gets to the target parameter, on average.
+Or we might want to know if a confidence interval captures the truth the right proportion of the time.
+To estimate these quantities we repeat steps 2 and 3 many times to get a large number of simulated estimates.
+We then _summarize the distribution_ of the estimates to characterize performance of a method. 
+
+We generally want our analysis method to give a dataframe back because we are going to eventually stack the
+results up across different scenarios to make one long dataframe of results.  Happily the `dplyr`
+package generally gives us dataframes so this will not usually be a problem.
+But each step of the way, we will be generating data frames to keep things tidy.
+
+### Why the tidy approach?
+
+To repeat, the tidy approach we propose has several advantages:
 
   * Easier to check & debug.
 
@@ -89,78 +140,30 @@ To repeat, this approach has several advantages:
 
   * Facilitates creative re-use.
 
-
-
-In fact, the `simhelpers` package will build these skeletons (along with some other useful code to wire the pieces together) via the `create_skeleton()` method.
+To make things even easier, the `simhelpers` package will build skeletons for each component (along with some other useful code to wire the pieces together) via the `create_skeleton()` method.
 
 ```{r eval=FALSE}
 simhelpers::create_skeleton()
 ```
 
-This function will open up a new R script for you contains a template for a simulation study, with sections corresponding to each component.
+The `create_skeleton()` function will open up a new R script for you that contains a template for a simulation study, with sections corresponding to each component.
 Starting with this, you will already be well on the road to writing a tidy simulation.
-
-
-### The Data Generating Process (DGP)
-
-The data-generating process takes a set of parameter values as input and generates a set of simulated data as output.
-When we generate data, we control the ground truth!
-This allows us to know what the answer is (e.g., what the real treatment effect is), so we can later know if our methods are doing the right thing.
-
-### Estimation methods
-
-The estimation methods are the sets of statistical procedures under examination.
-For example, an estimation method might be to estimate the average growth rate along with a standard error.
-Or it might be conduct a hypothesis test, like we saw earlier.
-
-Each estimation methods should take a dataset and produces a set of estimates or results (i.e., point estimates, standard errors, confidence intervals, p-values, etc.).
-You probably should have different functions for each estimation method you are investigating.
-
-A well written estimation methods should, in principle, work on real data as well as simulated data; the more we can "black box" our methods into a single function calls, the easier it will be to separate out the structure of the simulation from the complexity of the methods being evaluated.
-
-### Repetition
-
-There are a variety of ways in R to do something over and over.
-The one above, `rerun` does exactly what it sounds like: repeatedly run a specified line of code a given number of times.
-
-Making a helper method such as `one_run()` makes debugging our simulations a lot, lot easier.
-This `one_run()` method is like the coordinator or dispatcher of our system: it generates the data, calls all the evaluation methods we want to call, combines all the results, and hands them back for recording.
-
-We will usually stack all our returned results into one large dataframe of simulation results to ready it for the next step, which is assessing performance.
-We usually do this with `bind_rows()` or use methods that do it automatically.
-
-
-
-### Performance summaries
-
-Performance summaries are the metrics used to assess the performance of a statistical method.
-Interest usually centers on understanding the performance of a method over repeated samples from a data-generating process.
-For example, we might want to know how close our estimator gets to the target parameter, on average.
-Or we might want to know if a confidence interval captures the truth the right amount of time.
-To estimate these quantities we repeat steps 2 and 3 many times to get a large number of simulated estimates.
-We then _summarize the distribution_ of the estimates to characterize performance of a method. 
-
-Key point: We also want a dataframe back from this process because we are going to eventually stack the
-results up to make one long dataframe of results.  Happily the `dplyr`
-package generally gives us dataframes so will not usually be a problem.
-But each step of the way, we will be generating data frames to keep things tidy.
 
 
 
 ## Multiple Scenarios
 
-The above gives a breakdown for running a simulation for a single context.
+We have walked through, at a high level, a modular approach to run a simulation for a single context.
 In our $t$-test case study, for example, we might ask how well the $t$-test works when we have $n=100$ units and an exponential distribution to our data.
 But we rarely want to examine a single context, but instead want to explore how well a procedure works across a range of contexts.
 
-We again use the principles of modular coding: we write code to do a single scenario (and wrap that in a function), and then call that function for all the scenarios we wish.
-This is a type of _designed experiment_, in which factors such as sample size and true parameter values are systematically varied.
+To do this, we again use the principles of modular coding: we take all our above code for a single scenario and wrap that in a function.
+Once we are sure that function works correctly, we can then call it for all the scenarios we wish.
+
+A multiple-scenario simulation is a type of _designed experiment_, in which factors such as sample size and true parameter values are systematically varied.
 In fact, simulation studies typically follow a  **full factorial design**, in which each level of a factor (something we vary, such as sample size, true treatment effect, or residual variance) is crossed with every other level.
-The experimental design then consists of sets of parameter values (including design parameters, such as sample sizes) that will be considered in the study. 
-We will discuss this after we more fully develop the core concepts listed above (see Chapter @exp_design).
-
-
-
+The experimental design then consists of sets of parameter values (including design parameters, such as sample sizes) that will be considered as possible elements that can impact our estimation procedures performances. 
+We will discuss multiple-scenario simulations in Part III (starting with Chapter @exp_design), after we more fully develop the core concepts listed above.
 
 
 

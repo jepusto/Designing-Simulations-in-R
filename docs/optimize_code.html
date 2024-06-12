@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Chapter 15 Optimizing code (and why you often shouldn’t) | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
-  <meta name="generator" content="bookdown 0.27 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.37 and GitBook 2.6.7" />
 
   <meta property="og:title" content="Chapter 15 Optimizing code (and why you often shouldn’t) | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2023-11-21" />
+<meta name="date" content="2024-05-29" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,7 +57,7 @@
 
 <style type="text/css">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -121,10 +121,15 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </style>
 
 <style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
 /* Used with Pandoc 2.11+ new --citeproc when CSL is used */
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -477,40 +482,44 @@ An alternative approach would be to “hand roll” the ANOVA F statistic and te
 Doing so by hand can set you up to implement modified versions of these tests later on.
 Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.</p>
 <p>Following the formulas on p. 129 of Brown and Forsythe (1974) we have (using data as generated in Chapter <span class="citation">(<a href="#ref-chap_DGP"><strong>chap_DGP?</strong></a>)</span>):</p>
-<div class="sourceCode" id="cb347"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb347-1"><a href="optimize_code.html#cb347-1" tabindex="-1"></a>ANOVA_F <span class="ot">&lt;-</span> <span class="cf">function</span>(sim_data) {</span>
-<span id="cb347-2"><a href="optimize_code.html#cb347-2" tabindex="-1"></a></span>
-<span id="cb347-3"><a href="optimize_code.html#cb347-3" tabindex="-1"></a>  x_bar <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, mean))</span>
-<span id="cb347-4"><a href="optimize_code.html#cb347-4" tabindex="-1"></a>  s_sq <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, var))</span>
-<span id="cb347-5"><a href="optimize_code.html#cb347-5" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">table</span>(sim_data<span class="sc">$</span>group)</span>
-<span id="cb347-6"><a href="optimize_code.html#cb347-6" tabindex="-1"></a>  g <span class="ot">&lt;-</span> <span class="fu">length</span>(x_bar)</span>
-<span id="cb347-7"><a href="optimize_code.html#cb347-7" tabindex="-1"></a></span>
-<span id="cb347-8"><a href="optimize_code.html#cb347-8" tabindex="-1"></a>  df1 <span class="ot">&lt;-</span> g <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb347-9"><a href="optimize_code.html#cb347-9" tabindex="-1"></a>  df2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(n) <span class="sc">-</span> g</span>
-<span id="cb347-10"><a href="optimize_code.html#cb347-10" tabindex="-1"></a></span>
-<span id="cb347-11"><a href="optimize_code.html#cb347-11" tabindex="-1"></a>  msbtw <span class="ot">&lt;-</span> <span class="fu">sum</span>(n <span class="sc">*</span> (x_bar <span class="sc">-</span> <span class="fu">mean</span>(sim_data<span class="sc">$</span>x))<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> df1</span>
-<span id="cb347-12"><a href="optimize_code.html#cb347-12" tabindex="-1"></a>  mswn <span class="ot">&lt;-</span> <span class="fu">sum</span>((n <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> s_sq) <span class="sc">/</span> df2</span>
-<span id="cb347-13"><a href="optimize_code.html#cb347-13" tabindex="-1"></a>  fstat <span class="ot">&lt;-</span> msbtw <span class="sc">/</span> mswn</span>
-<span id="cb347-14"><a href="optimize_code.html#cb347-14" tabindex="-1"></a>  pval <span class="ot">&lt;-</span> <span class="fu">pf</span>(fstat, df1, df2, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb347-15"><a href="optimize_code.html#cb347-15" tabindex="-1"></a></span>
-<span id="cb347-16"><a href="optimize_code.html#cb347-16" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
-<span id="cb347-17"><a href="optimize_code.html#cb347-17" tabindex="-1"></a>}</span>
-<span id="cb347-18"><a href="optimize_code.html#cb347-18" tabindex="-1"></a></span>
-<span id="cb347-19"><a href="optimize_code.html#cb347-19" tabindex="-1"></a><span class="fu">ANOVA_F</span>(sim_data)</span></code></pre></div>
+<div class="sourceCode" id="cb345"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb345-1"><a href="optimize_code.html#cb345-1" tabindex="-1"></a>ANOVA_F <span class="ot">&lt;-</span> <span class="cf">function</span>(sim_data) {</span>
+<span id="cb345-2"><a href="optimize_code.html#cb345-2" tabindex="-1"></a></span>
+<span id="cb345-3"><a href="optimize_code.html#cb345-3" tabindex="-1"></a>  x_bar <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, mean))</span>
+<span id="cb345-4"><a href="optimize_code.html#cb345-4" tabindex="-1"></a>  s_sq <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, var))</span>
+<span id="cb345-5"><a href="optimize_code.html#cb345-5" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">table</span>(sim_data<span class="sc">$</span>group)</span>
+<span id="cb345-6"><a href="optimize_code.html#cb345-6" tabindex="-1"></a>  g <span class="ot">&lt;-</span> <span class="fu">length</span>(x_bar)</span>
+<span id="cb345-7"><a href="optimize_code.html#cb345-7" tabindex="-1"></a></span>
+<span id="cb345-8"><a href="optimize_code.html#cb345-8" tabindex="-1"></a>  df1 <span class="ot">&lt;-</span> g <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb345-9"><a href="optimize_code.html#cb345-9" tabindex="-1"></a>  df2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(n) <span class="sc">-</span> g</span>
+<span id="cb345-10"><a href="optimize_code.html#cb345-10" tabindex="-1"></a></span>
+<span id="cb345-11"><a href="optimize_code.html#cb345-11" tabindex="-1"></a>  msbtw <span class="ot">&lt;-</span> <span class="fu">sum</span>(n <span class="sc">*</span> (x_bar <span class="sc">-</span> <span class="fu">mean</span>(sim_data<span class="sc">$</span>x))<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> df1</span>
+<span id="cb345-12"><a href="optimize_code.html#cb345-12" tabindex="-1"></a>  mswn <span class="ot">&lt;-</span> <span class="fu">sum</span>((n <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> s_sq) <span class="sc">/</span> df2</span>
+<span id="cb345-13"><a href="optimize_code.html#cb345-13" tabindex="-1"></a>  fstat <span class="ot">&lt;-</span> msbtw <span class="sc">/</span> mswn</span>
+<span id="cb345-14"><a href="optimize_code.html#cb345-14" tabindex="-1"></a>  pval <span class="ot">&lt;-</span> <span class="fu">pf</span>(fstat, df1, df2, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb345-15"><a href="optimize_code.html#cb345-15" tabindex="-1"></a></span>
+<span id="cb345-16"><a href="optimize_code.html#cb345-16" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
+<span id="cb345-17"><a href="optimize_code.html#cb345-17" tabindex="-1"></a>}</span>
+<span id="cb345-18"><a href="optimize_code.html#cb345-18" tabindex="-1"></a></span>
+<span id="cb345-19"><a href="optimize_code.html#cb345-19" tabindex="-1"></a><span class="fu">ANOVA_F</span>(sim_data)</span></code></pre></div>
 <pre><code>## [1] 0.009208908</code></pre>
 <p>To see the difference between our version and R’s version, we can use an R package called <code>microbenchmark</code> to test how long the computations take for each version of the function.
 The <code>microbenchmark</code> function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:</p>
-<div class="sourceCode" id="cb349"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb349-1"><a href="optimize_code.html#cb349-1" tabindex="-1"></a><span class="fu">library</span>(microbenchmark)</span>
-<span id="cb349-2"><a href="optimize_code.html#cb349-2" tabindex="-1"></a>timings <span class="ot">&lt;-</span> <span class="fu">microbenchmark</span>(<span class="at">Rfunction =</span> <span class="fu">ANOVA_F_aov</span>(sim_data),</span>
-<span id="cb349-3"><a href="optimize_code.html#cb349-3" tabindex="-1"></a>                          <span class="at">direct    =</span> <span class="fu">ANOVA_F</span>(sim_data))</span>
-<span id="cb349-4"><a href="optimize_code.html#cb349-4" tabindex="-1"></a>timings</span></code></pre></div>
+<div class="sourceCode" id="cb347"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb347-1"><a href="optimize_code.html#cb347-1" tabindex="-1"></a><span class="fu">library</span>(microbenchmark)</span>
+<span id="cb347-2"><a href="optimize_code.html#cb347-2" tabindex="-1"></a>timings <span class="ot">&lt;-</span> <span class="fu">microbenchmark</span>(<span class="at">Rfunction =</span> <span class="fu">ANOVA_F_aov</span>(sim_data),</span>
+<span id="cb347-3"><a href="optimize_code.html#cb347-3" tabindex="-1"></a>                          <span class="at">direct    =</span> <span class="fu">ANOVA_F</span>(sim_data))</span></code></pre></div>
+<pre><code>## Warning in microbenchmark(Rfunction =
+## ANOVA_F_aov(sim_data), direct =
+## ANOVA_F(sim_data)): less accurate nanosecond
+## times to avoid potential integer overflows</code></pre>
+<div class="sourceCode" id="cb349"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb349-1"><a href="optimize_code.html#cb349-1" tabindex="-1"></a>timings</span></code></pre></div>
 <pre><code>## Unit: microseconds
-##       expr     min       lq    mean   median
-##  Rfunction 626.851 671.1435 945.670 719.0735
-##     direct 274.451 291.6125 328.747 308.2295
-##        uq       max neval cld
-##  840.2840 15248.323   100   b
-##  334.5645   758.663   100  a</code></pre>
-<p>The direct function is 2.9 times faster than the built-in R function.</p>
+##       expr     min      lq     mean   median
+##  Rfunction 201.679 209.715 231.7738 217.5665
+##     direct  89.011  93.439 100.4180  97.1495
+##        uq      max neval cld
+##  225.2745 1300.110   100  a 
+##  102.5410  221.277   100   b</code></pre>
+<p>The direct function is 2.3 times faster than the built-in R function.</p>
 <p>This result is not unusual.
 Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
 Here we can skip them by doing the calculations directly.
@@ -682,13 +691,13 @@ They are, however, available in the user-contributed package <code>onewaytests</
 <span id="cb370-4"><a href="optimize_code.html#cb370-4" tabindex="-1"></a>                          <span class="at">agg =</span> <span class="fu">one_run_fast</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq, </span>
 <span id="cb370-5"><a href="optimize_code.html#cb370-5" tabindex="-1"></a>                                             <span class="at">sample_size =</span> sample_size) )</span>
 <span id="cb370-6"><a href="optimize_code.html#cb370-6" tabindex="-1"></a>timings</span></code></pre></div>
-<pre><code>## Unit: milliseconds
-##   expr      min       lq     mean   median
-##  noagg 1.763231 1.891643 2.302217 1.974444
-##    agg 4.204453 4.423042 4.862502 4.611593
-##        uq      max neval cld
-##  2.124518 27.60333   100  a 
-##  4.912702 12.41658   100   b</code></pre>
+<pre><code>## Unit: microseconds
+##   expr      min       lq      mean    median
+##  noagg  579.945  616.722  812.0895  649.1735
+##    agg 1367.063 1406.361 1516.3764 1473.0480
+##        uq       max neval cld
+##   696.590 11418.500   100  a 
+##  1557.098  4243.377   100   b</code></pre>
 <p>And our relative speedup is:</p>
 <div class="sourceCode" id="cb372"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb372-1"><a href="optimize_code.html#cb372-1" tabindex="-1"></a><span class="fu">with</span>(<span class="fu">summary</span>(timings), <span class="fu">round</span>(mean[<span class="dv">1</span>] <span class="sc">/</span> mean[<span class="dv">2</span>], <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## [1] 0.5</code></pre>
@@ -772,7 +781,7 @@ gitbook.start({
     var script = document.createElement("script");
     script.type = "text/javascript";
     var src = "true";
-    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
     if (location.protocol !== "file:")
       if (/^https?:/.test(src))
         src = src.replace(/^https?:/, '');

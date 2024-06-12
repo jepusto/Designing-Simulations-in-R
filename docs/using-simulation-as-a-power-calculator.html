@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Chapter 20 Using simulation as a power calculator | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
-  <meta name="generator" content="bookdown 0.27 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.37 and GitBook 2.6.7" />
 
   <meta property="og:title" content="Chapter 20 Using simulation as a power calculator | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2023-11-21" />
+<meta name="date" content="2024-05-29" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,7 +57,7 @@
 
 <style type="text/css">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -121,10 +121,15 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </style>
 
 <style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
 /* Used with Pandoc 2.11+ new --citeproc when CSL is used */
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -483,7 +488,7 @@ with discipline, so we filtered our historic data to get schools we imagined to 
 <p>We ended up with the following data, with log-transformed discipline rates for each year (we did this to put things on a multiplicative scale, and to make our data more normal given heavy skew in the original). Each row is a potential school in the district.</p>
 <div class="sourceCode" id="cb475"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb475-1"><a href="using-simulation-as-a-power-calculator.html#cb475-1" tabindex="-1"></a>datW <span class="ot">=</span> <span class="fu">read_csv</span>( <span class="st">&quot;data/discipline_data.csv&quot;</span> )</span></code></pre></div>
 <pre><code>## Rows: 27 Columns: 6
-## ── Column specification ────────────────────────────────────────────────────────────────────────────────────────────
+## ── Column specification ──────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr (1): Code
 ## dbl (5): 2015, 2016, 2017, 2018, 2019
@@ -552,15 +557,15 @@ with discipline, so we filtered our historic data to get schools we imagined to 
 <span id="cb484-2"><a href="using-simulation-as-a-power-calculator.html#cb484-2" tabindex="-1"></a>a <span class="ot">=</span> <span class="fu">make_dat_param</span>( <span class="dv">100</span>, <span class="dv">100</span>, <span class="fl">0.5</span> )  </span>
 <span id="cb484-3"><a href="using-simulation-as-a-power-calculator.html#cb484-3" tabindex="-1"></a><span class="fu">head</span>( a, <span class="at">n =</span> <span class="dv">4</span> )</span></code></pre></div>
 <pre><code>##   ID Z pdisc_2015 pdisc_2016 pdisc_2017
-## 1  1 1 0.06881051 0.10758281 0.06382513
-## 2  2 1 0.10945911 0.03779567 0.05328905
-## 3  3 1 0.01649212 0.03527745 0.01868862
-## 4  4 0 0.14944083 0.12577203 0.09451428
+## 1  1 1 0.03118036 0.05594299 0.03283595
+## 2  2 1 0.04209213 0.01716175 0.02388633
+## 3  3 1 0.18736890 0.26266248 0.14379326
+## 4  4 0 0.04389430 0.04571297 0.03378810
 ##   pdisc_2018  pdisc_2019
-## 1 0.02737314 0.012127238
-## 2 0.03669081 0.022538540
-## 3 0.00256124 0.002767943
-## 4 0.04844326 0.022815571</code></pre>
+## 1 0.01051475 0.005732411
+## 2 0.01155785 0.009120705
+## 3 0.04832345 0.027621311
+## 4 0.01101846 0.007154335</code></pre>
 <p>We can group each treatment arm and look at discipline over the years:</p>
 <div class="sourceCode" id="cb486"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb486-1"><a href="using-simulation-as-a-power-calculator.html#cb486-1" tabindex="-1"></a>  aL <span class="ot">=</span> a <span class="sc">%&gt;%</span> </span>
 <span id="cb486-2"><a href="using-simulation-as-a-power-calculator.html#cb486-2" tabindex="-1"></a>        <span class="fu">pivot_longer</span>( pdisc_2015<span class="sc">:</span>pdisc_2019, </span>
@@ -633,13 +638,13 @@ Again, we look at what our evaluation function does:</p>
 <pre><code>## # A tibble: 7 × 5
 ##   model       estimate std.error statistic p.value
 ##   &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;
-## 1 FE          -0.525     0.326     -1.61     0.119
-## 2 log          0.208     0.229      0.909    0.430
-## 3 log_twopost -0.0673    0.291     -0.232    0.832
-## 4 ratio       -0.00850   0.119     -0.0714   0.945
-## 5 ratio_twop… -0.203     0.141     -1.44     0.201
-## 6 raw          0.106     0.163      0.652    0.539
-## 7 simple       0.00730   0.00625    1.17     0.327</code></pre>
+## 1 FE          -0.644      0.325     -1.98   0.0576
+## 2 log         -0.841      0.478     -1.76   0.176 
+## 3 log_twopost -1.22       0.437     -2.80   0.0680
+## 4 ratio       -0.126      0.136     -0.923  0.392 
+## 5 ratio_twop… -0.269      0.139     -1.93   0.102 
+## 6 raw         -0.650      0.300     -2.17   0.0733
+## 7 simple      -0.00983    0.0133    -0.742  0.512</code></pre>
 <p>We have a nice set of estimates, one for each model.</p>
 </div>
 <div id="running-the-simulation-1" class="section level2 hasAnchor" number="20.3">
@@ -1047,7 +1052,7 @@ gitbook.start({
     var script = document.createElement("script");
     script.type = "text/javascript";
     var src = "true";
-    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
     if (location.protocol !== "file:")
       if (/^https?:/.test(src))
         src = src.replace(/^https?:/, '');

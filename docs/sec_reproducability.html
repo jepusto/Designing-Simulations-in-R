@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Chapter 14 Ensuring reproducibility | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
-  <meta name="generator" content="bookdown 0.27 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.37 and GitBook 2.6.7" />
 
   <meta property="og:title" content="Chapter 14 Ensuring reproducibility | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2023-11-21" />
+<meta name="date" content="2024-05-29" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,7 +57,7 @@
 
 <style type="text/css">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -121,10 +121,15 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </style>
 
 <style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+<style type="text/css">
 /* Used with Pandoc 2.11+ new --citeproc when CSL is used */
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -464,13 +469,13 @@ div.csl-indent {
 <h1><span class="header-section-number">Chapter 14</span> Ensuring reproducibility<a href="sec_reproducability.html#sec_reproducability" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <p>In the prior section we built a simulation driver.
 Because this function involves generating random numbers, re-running it with the exact same input parameters will still produce different results:</p>
-<div class="sourceCode" id="cb330"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb330-1"><a href="sec_reproducability.html#cb330-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb328"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb328-1"><a href="sec_reproducability.html#cb328-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
 <pre><code>##         criterion         est        MCSE
 ## 1      alpha bias -0.03322927 0.031758861
 ## 2      alpha RMSE  0.10090497 0.008743501
 ## 3 V relative bias  0.48077615 0.114109836
 ## 4        coverage  0.80000000 0.068920244</code></pre>
-<div class="sourceCode" id="cb332"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb332-1"><a href="sec_reproducability.html#cb332-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb330"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb330-1"><a href="sec_reproducability.html#cb330-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
 <pre><code>##         criterion         est        MCSE
 ## 1      alpha bias 0.004056121 0.015203417
 ## 2      alpha RMSE 0.045790250 0.002703622
@@ -483,15 +488,15 @@ Given that number, it will generate the next, and so on.
 The numbers we get back are a part of this chain of (very large) numbers that, ideally, cycles through an extremely long list of numbers in a haphazard and random looking fashion.</p>
 <p>This is what the <code>seed</code> argument that we have glossed over before is all about.
 If we set the same seed, we get the same results:</p>
-<div class="sourceCode" id="cb334"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb334-1"><a href="sec_reproducability.html#cb334-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>,</span>
-<span id="cb334-2"><a href="sec_reproducability.html#cb334-2" tabindex="-1"></a>              <span class="at">seed =</span> <span class="dv">6</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb332"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb332-1"><a href="sec_reproducability.html#cb332-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>,</span>
+<span id="cb332-2"><a href="sec_reproducability.html#cb332-2" tabindex="-1"></a>              <span class="at">seed =</span> <span class="dv">6</span>)</span></code></pre></div>
 <pre><code>##         criterion         est       MCSE
 ## 1      alpha bias -0.02053560 0.02585963
 ## 2      alpha RMSE  0.08025083 0.01344827
 ## 3 V relative bias  0.64909209 1.43035647
 ## 4        coverage  0.90000000 0.06892024</code></pre>
-<div class="sourceCode" id="cb336"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb336-1"><a href="sec_reproducability.html#cb336-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>, </span>
-<span id="cb336-2"><a href="sec_reproducability.html#cb336-2" tabindex="-1"></a>              <span class="at">seed =</span> <span class="dv">6</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb334"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb334-1"><a href="sec_reproducability.html#cb334-1" tabindex="-1"></a><span class="fu">run_alpha_sim</span>(<span class="at">iterations =</span> <span class="dv">10</span>, <span class="at">n =</span> <span class="dv">50</span>, <span class="at">p =</span> <span class="dv">6</span>, <span class="at">alpha =</span> <span class="fl">0.73</span>, <span class="at">df =</span> <span class="dv">5</span>, </span>
+<span id="cb334-2"><a href="sec_reproducability.html#cb334-2" tabindex="-1"></a>              <span class="at">seed =</span> <span class="dv">6</span>)</span></code></pre></div>
 <pre><code>##         criterion         est       MCSE
 ## 1      alpha bias -0.02053560 0.02585963
 ## 2      alpha RMSE  0.08025083 0.01344827
@@ -504,16 +509,16 @@ Let’s look more at how this works.</p>
 <p>In R, we can start a sequence of <strong>deterministic</strong> but <strong>random-seeming</strong> numbers by setting a “seed”.
 This means all the random numbers that come after it will be the same.</p>
 <p>Compare this:</p>
-<div class="sourceCode" id="cb338"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb338-1"><a href="sec_reproducability.html#cb338-1" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb336"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb336-1"><a href="sec_reproducability.html#cb336-1" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
 <pre><code>## [1] 1.193539 5.338936 6.294274</code></pre>
-<div class="sourceCode" id="cb340"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb340-1"><a href="sec_reproducability.html#cb340-1" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb338"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb338-1"><a href="sec_reproducability.html#cb338-1" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
 <pre><code>## [1] 0.7189536 6.3697718 8.2913988</code></pre>
 <p>To this:</p>
+<div class="sourceCode" id="cb340"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb340-1"><a href="sec_reproducability.html#cb340-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20210527</span>)</span>
+<span id="cb340-2"><a href="sec_reproducability.html#cb340-2" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
+<pre><code>## [1] 1.643698 6.229613 3.249164</code></pre>
 <div class="sourceCode" id="cb342"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb342-1"><a href="sec_reproducability.html#cb342-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20210527</span>)</span>
 <span id="cb342-2"><a href="sec_reproducability.html#cb342-2" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
-<pre><code>## [1] 1.643698 6.229613 3.249164</code></pre>
-<div class="sourceCode" id="cb344"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb344-1"><a href="sec_reproducability.html#cb344-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">20210527</span>)</span>
-<span id="cb344-2"><a href="sec_reproducability.html#cb344-2" tabindex="-1"></a><span class="fu">rchisq</span>(<span class="dv">3</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
 <pre><code>## [1] 1.643698 6.229613 3.249164</code></pre>
 <p>By setting the seed the second time we reset our sequence of random numbers.
 Similarly, to ensure reproducibility in our simulation, we will add an option to set the seed value of the random number generator.</p>
@@ -527,19 +532,19 @@ These other functions, like <code>rnorm()</code>, etc., all call this low-level 
 If we leave it NULL, we ignore it and just continue generating random numbers from wherever we are in the system.
 If we specify a seed, however, we set it at the beginning of the scenario, and then all the numbers that follow will be in sequence.
 Our code will typically look like this:</p>
-<div class="sourceCode" id="cb346"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb346-1"><a href="sec_reproducability.html#cb346-1" tabindex="-1"></a>run_alpha_sim <span class="ot">&lt;-</span> <span class="cf">function</span>(iterations, n, p, alpha, df, <span class="at">coverage =</span> <span class="fl">0.95</span>, <span class="at">seed =</span> <span class="cn">NULL</span>) {</span>
-<span id="cb346-2"><a href="sec_reproducability.html#cb346-2" tabindex="-1"></a>  </span>
-<span id="cb346-3"><a href="sec_reproducability.html#cb346-3" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(seed)) <span class="fu">set.seed</span>(seed)</span>
-<span id="cb346-4"><a href="sec_reproducability.html#cb346-4" tabindex="-1"></a></span>
-<span id="cb346-5"><a href="sec_reproducability.html#cb346-5" tabindex="-1"></a>  results <span class="ot">&lt;-</span> </span>
-<span id="cb346-6"><a href="sec_reproducability.html#cb346-6" tabindex="-1"></a>    <span class="fu">replicate</span>(<span class="at">n =</span> iterations, {</span>
-<span id="cb346-7"><a href="sec_reproducability.html#cb346-7" tabindex="-1"></a>      dat <span class="ot">&lt;-</span> <span class="fu">r_mvt_items</span>(<span class="at">n =</span> n, <span class="at">p =</span> p, <span class="at">alpha =</span> alpha, <span class="at">df =</span> df)</span>
-<span id="cb346-8"><a href="sec_reproducability.html#cb346-8" tabindex="-1"></a>      <span class="fu">estimate_alpha</span>(dat, <span class="at">coverage =</span> coverage)</span>
-<span id="cb346-9"><a href="sec_reproducability.html#cb346-9" tabindex="-1"></a>    }, <span class="at">simplify =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb346-10"><a href="sec_reproducability.html#cb346-10" tabindex="-1"></a>    <span class="fu">bind_rows</span>()</span>
-<span id="cb346-11"><a href="sec_reproducability.html#cb346-11" tabindex="-1"></a>  </span>
-<span id="cb346-12"><a href="sec_reproducability.html#cb346-12" tabindex="-1"></a>  <span class="fu">alpha_performance</span>(results, <span class="at">alpha =</span> alpha, <span class="at">coverage =</span> coverage)</span>
-<span id="cb346-13"><a href="sec_reproducability.html#cb346-13" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb344"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb344-1"><a href="sec_reproducability.html#cb344-1" tabindex="-1"></a>run_alpha_sim <span class="ot">&lt;-</span> <span class="cf">function</span>(iterations, n, p, alpha, df, <span class="at">coverage =</span> <span class="fl">0.95</span>, <span class="at">seed =</span> <span class="cn">NULL</span>) {</span>
+<span id="cb344-2"><a href="sec_reproducability.html#cb344-2" tabindex="-1"></a>  </span>
+<span id="cb344-3"><a href="sec_reproducability.html#cb344-3" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(seed)) <span class="fu">set.seed</span>(seed)</span>
+<span id="cb344-4"><a href="sec_reproducability.html#cb344-4" tabindex="-1"></a></span>
+<span id="cb344-5"><a href="sec_reproducability.html#cb344-5" tabindex="-1"></a>  results <span class="ot">&lt;-</span> </span>
+<span id="cb344-6"><a href="sec_reproducability.html#cb344-6" tabindex="-1"></a>    <span class="fu">replicate</span>(<span class="at">n =</span> iterations, {</span>
+<span id="cb344-7"><a href="sec_reproducability.html#cb344-7" tabindex="-1"></a>      dat <span class="ot">&lt;-</span> <span class="fu">r_mvt_items</span>(<span class="at">n =</span> n, <span class="at">p =</span> p, <span class="at">alpha =</span> alpha, <span class="at">df =</span> df)</span>
+<span id="cb344-8"><a href="sec_reproducability.html#cb344-8" tabindex="-1"></a>      <span class="fu">estimate_alpha</span>(dat, <span class="at">coverage =</span> coverage)</span>
+<span id="cb344-9"><a href="sec_reproducability.html#cb344-9" tabindex="-1"></a>    }, <span class="at">simplify =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb344-10"><a href="sec_reproducability.html#cb344-10" tabindex="-1"></a>    <span class="fu">bind_rows</span>()</span>
+<span id="cb344-11"><a href="sec_reproducability.html#cb344-11" tabindex="-1"></a>  </span>
+<span id="cb344-12"><a href="sec_reproducability.html#cb344-12" tabindex="-1"></a>  <span class="fu">alpha_performance</span>(results, <span class="at">alpha =</span> alpha, <span class="at">coverage =</span> coverage)</span>
+<span id="cb344-13"><a href="sec_reproducability.html#cb344-13" tabindex="-1"></a>}</span></code></pre></div>
 <p>Using our seed, we get identical results, as we saw in the intro, above.</p>
 </div>
 <div id="reasons-for-setting-the-seed" class="section level2 hasAnchor" number="14.3">
@@ -625,7 +630,7 @@ gitbook.start({
     var script = document.createElement("script");
     script.type = "text/javascript";
     var src = "true";
-    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
     if (location.protocol !== "file:")
       if (/^https?:/.test(src))
         src = src.replace(/^https?:/, '');

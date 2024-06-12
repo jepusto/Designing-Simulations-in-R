@@ -45,7 +45,7 @@ estimate <- function(data) {
 }
 ```
 
-The function takes a set of data as input, fits a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and produces as output these estimates.
+The function takes a data set as input, fits a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and produces as output these estimates.
 In principle, you should be able to run your function on real data as well as simulated.
 
 The estimates could be point-estimates of parameters, standard errors, confidence intervals, etc.
@@ -53,9 +53,8 @@ Depending on the research question, this function might involve a combination of
 Also depending on the research question, we might need to create _several_ functions that implement different estimation procedures to be compared. 
 
 In Chapter @case_ANOVA, for example, we saw different functions for some of the methods Brown and Forsythe considered for heteroskedastic ANOVA.
-We re-print them here, taking full advantage of our digital-bookness:
 
-```{r}
+```{r c6_dgp_functions, include=FALSE}
 ANOVA_F <- function(sim_data) {
 
   x_bar <- with(sim_data, tapply(x, group, mean))
@@ -101,36 +100,25 @@ Welch_F <- function(sim_data) {
 
 
 
-## Checking the estimation function
+## Validating Estimation Procedures
 
-Just as with the data-generating function, it is important to verify the accuracy of the estimation functions. For the ANOVA-F test, this can be done simply by checking the result of our `ANOVA_F` against the built-in `oneway.test` function. Let's do that with a fresh set of data:
+Just as with the data-generating function, it is important to verify the accuracy of the estimation functions.
+For our Welch test, we can actually check our results against the built-in `oneway.test` function. Let's do that with a fresh set of data:
 
 ```{r}
 sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
                           sample_size = sample_size)
-aov_results <- oneway.test(x ~ factor(group), data = sim_data, 
-                           var.equal = TRUE)
-aov_results
 
-F_results <- ANOVA_F(sim_data)
-all.equal(aov_results$p.value, F_results)
-```
-
-We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some weird floating point errors due to rounding in R.
-
-We can follow the same approach to check the results of the Welch test because it is also implemented in `oneway.test`:
-
-```{r}
 aov_results <- oneway.test(x ~ factor(group),
                            data = sim_data, 
                            var.equal = FALSE)
 aov_results
 Welch_results <- Welch_F(sim_data)
 all.equal(aov_results$p.value, Welch_results)
-
 ```
 
-See @sec_comp_efficiency for a bit more on checking functions, and a side-note about transparency in the writing of papers.
+We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some weird floating point errors due to rounding.
+
 
 
 
@@ -139,20 +127,21 @@ See @sec_comp_efficiency for a bit more on checking functions, and a side-note a
 If your estimation procedure truly is new, how would you check it?
 Well, one obvious answer is simulation!
 
-In principle, for large samples and data generated under the assumptions required by your new procedure, you should have a fairly good sense that it should work and how it should work.
+In principle, for large samples and data generated under the assumptions required by your new procedure, you should have a fairly good sense that your estimation procedures should work.
 It is often the case that as you design your simulation, and then start analyzing the results, you will find your estimators are really not working as planned.
 
-This will usually be due to (at least) three factors: you didn't implement your method correctly, your method is not yet a good idea in the first place, and you don't understand something important about how your method works.
-You can then debug your code, revise your method, and do some serious thinking to eventually end up with a deeper understanding of method that is a better idea in general, and correctly implemented in all likelihood.
+Such surprises will usually be due to (at least) three factors: you did not implement your method correctly, your method is not yet a good idea in the first place, or you do not yet understand something important about how your method works.
+When faced with poor performance you thus will debug your code, revise your method, and do some serious thinking.
+Ideally this will eventually lead you to a deeper understanding of a method that is a better idea in general, and correctly implemented in all likelihood.
 
-For example, in one research project Luke and other co-authors was working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
+For example, in one research project Luke and other co-authors were working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
 The idea is to group units based on a covariate that predicts compliance status, and then estimate within each group; hopefully this would improve overall estimation.
 
 In the first simulation, the estimates were full of NAs and odd results because we failed to properly account for what happens when the number of compliers was estimated to be zero.
 That was table stakes: after repairing that, we still found odd behavior and serious and unexpected bias, which turned out to be due to failing to implement the averaging of the groups step correctly.
 We fixed the estimator again and re-ran, and found that even when we had a variable that was almost perfectly predictive of compliance, gains were still surprisingly minimal.
-Eventually we understood that the groups with very few compliers were will so unstable that they ruined the overall estimate.
-These results inspired us to introduce other estimators that dropped or down-weighted these strata, which gave our paper a deeper purpose and contribution.
+Eventually we understood that the groups with very few compliers were actually so unstable that they ruined the overall estimate.
+These results inspired us to introduce other estimators that dropped or down-weighted such strata, which gave our paper a deeper purpose and contribution.
 
 Simulation is an iterative process.
 It is to help you, the researcher, learn about your estimators so you can find a way forward with your work.
@@ -161,15 +150,15 @@ But do not expect it to be a single, well-defined, trajectory.
 
 
 
-## Multiple estimation procedures
+## Including Multiple estimation procedures
 
 In @chap_DGP (@case_cluster) we introduced a case study of evaluating different procedures for estimating treatment impacts in a cluster randomized trial.
-As a point of design, we recommend writing different functions for each estimation method one is planning on evaluating. This makes it easier to plug into play different methods as desired, and also helps generate a code base that is flexible and useful for other purposes.
+As a point of design, we generally recommend writing different functions for each estimation method one is planning on evaluating. This makes it easier to plug into play different methods as desired, and also helps generate a code base that is flexible and useful for other purposes.
  It also, continuing our usual mantra, makes debugging easier: you can focus attention on one thing at a time, and worry less about how errors in one area might propagate to others.
  
 For the cluster RCT context, we use two libraries, the `lme4` package (for multilevel modeling), the `arm` package (which gives us nice access to standard errors, with `se.fixef()`), and `lmerTest` (which gives us $p$-values for multilevel modeling).
 We also need the `estimatr` package to get robust SEs with `lm_robust`.
-This use of different packages for different estimators is quite typical: in many simulations,  many of the estimation approaches being considered are usually taken from the literature, and if you're lucky this means you can simply use a package that implements those methods.
+This use of different packages for different estimators is quite typical: in many simulations,  many of the estimation approaches being considered are usually taken from the literature, and if you are lucky this means you can simply use a package that implements those methods.
 
 We load our libraries at the top of our code:
 ```{r, warning=FALSE, message=FALSE}
@@ -229,34 +218,19 @@ analysis_agg <- function( dat ) {
 
 Note the `stopifnot` command: putting *assert statements* in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors in your code.
 For example, R likes to recycle vectors to make them the right length; if you gave it a wrong length in error, this can be a brutal error to discover.
-These statements halt your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, showing up in odd results that you don't understand later on.
+The `stopifnot` statements halt your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, showing up in odd results that you don't understand later on.
 See Section @about_stopifnot for more.
 
-Finally, we write a single function that puts all these together:
-  
-```{r, message = FALSE}
-analyze_data = function( dat ) {
-  MLM = analysis_MLM( dat )
-  LR = analysis_OLS( dat )
-  Agg = analysis_agg( dat )
-  
-  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
-             .id = "method" )
-}
-
-```
-
-When we pass a dataset to it, we get a nice table of results that we can evaluate:
+All of our methods give output in the similar format:
 
 ```{r}
-analyze_data( dat )
+analysis_MLM( dat )
+analysis_OLS( dat )
+analysis_agg( dat )
 ```
-
-Each method for analysis is a single line.  We record estimated impact, estimated standard error, and a nominal p-value.
-Note how the `bind_rows()` method can take naming on the fly, and give us a column of `method`, which will be very useful to keep track of what estimated what.
-We intentionally wrap up our results with a data frame to make later processing of data with the tidyverse package much easier.
-
-
+This will allow us to make our simulation, for each iteration, call each method in turn on the same dataset, stack the results into a small table, and return that result.
+This will in turn get stacked to make one giant table of results, which makes evaluating performance quite easy.
+We will see this in the next chapter.
 
 
 ## Exercises
@@ -264,11 +238,9 @@ We intentionally wrap up our results with a data frame to make later processing 
 
 ### More Welch and adding the BFF test
 
-Let's continue to explore and tweak the simulation code we've developed to replicate the results of Brown and Forsythe (1974).
-Below is the key functions for the data-generating process (taken from the prior chapter).
-The estimation procedures are above.
+Let's continue to explore and tweak the simulation code we have developed to replicate the results of Brown and Forsythe (1974).
 
-```{r}
+```{r, include=FALSE}
 generate_data <- function(mu, sigma_sq, sample_size) {
 
   N <- sum(sample_size) 
@@ -286,28 +258,23 @@ generate_data <- function(mu, sigma_sq, sample_size) {
 ```
 
 
-
-
 1. Write a function that implements the Brown-Forsythe F\*-test (the BFF\* test!) as described on p. 130 of Brown and Forsythe (1974).
 Call it on a sample dataset to check it.
-
-2. Now incorporate the function into the `one_run()` function from the previous question, and use it to estimate rejection rates of the BFF\* test for the parameter values in the fifth line of Table 1 of Brown and Forsythe (1974).
 
 ```{r}
 BF_F <- function(x_bar, s_sq, n, g) {
   
   # fill in the guts here
   
-  return(pval = pval)
+  return(pval)
 }
-
-# Further R code here
 ```
 
+2. Try calling your `BF_F` function on a variety of datasets of different sizes and shapes, to make sure it works.  What kinds of datasets should you test out?
 
-### More estimators for the CRT
+### More estimators for Cluster Randomized Trials
 
-3. Sometimes you might want to consider two versions of an estimator. For example, in our cluster RCT code above we are using robust standard errors for the linear model estimator. Say we also want to include naive standard error estimates that we get out of the `lm` call.
+3. Sometimes you might want to consider two versions of an estimator. For example, in our cluster RCT code we used robust standard errors for the linear model estimator. Say we also want to include naive standard error estimates that we get out of the `lm` call.
 
 Extend the `OLS` call to be
 ```
@@ -315,7 +282,7 @@ analysis_OLS <- function( dat, robustSE = TRUE ) {
 ```
 and have the code inside calculate SEs based on the flag. Then modify the `analyze_data()` to include both approaches (you will have to call `analysis_OLS` twice).
 
-Note that, efficiency-wise, this might not be ideal, but clarity-wise it might be considered helpful. Articulate two reasons for this design choice, and articulate two reasons for instead having the `analysis_OLS` method generate both standard errors internally in a single call.
+4. Efficiency-wise, estimating the OLS twice might not be ideal, but clarity-wise it might be considered helpful. Articulate two reasons for the design choice of implementing the two OLS calls separately, and articulate two reasons for instead having the `analysis_OLS` method generate both standard errors internally in a single call.
 
 
 

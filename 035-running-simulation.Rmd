@@ -1,0 +1,203 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r include = FALSE}
+library(tidyverse)
+options(list(dplyr.summarise.inform = FALSE))
+
+### Code from the prior chapter
+source( "case_study_code/clustered_data_simulation.R" )
+
+dat <- gen_dat_model( n=5, J=3, p=0.5, 
+                      gamma_0=0, gamma_1=0.2, gamma_2=0.2,
+                      sigma2_u = 0.4, sigma2_e = 1,
+                      alpha = 0.5 )
+
+```
+
+
+# Running the Simulation
+
+In the prior two chapters we saw how to write functions that generate data according to a specified model (and parameters) and functions that implement estimation procedures on simulated data.
+We next put those two together and repeat a bunch of times to obtain a lot of results such as point estimates, estimated standard errors and/or confidence intervals.
+
+We use two primary ways of doing this in this textbook.
+The first is to write a function that does a single step of a simulation, and then use the `map()` function to run that single step multiple times.
+
+For our Cluster RCT case study, for example, we would write the following that takes our simulation parameters and runs a single trial of our simulation:
+```{r}
+one_run <- function( n_bar = 30, J=20, 
+                     gamma_1 = 0.3, gamma_2 = 0.5,
+                     sigma2_u = 0.20, sigma2_e = 0.80,
+                     alpha = 0.75 ) {
+  
+  dat <- gen_dat_model( n_bar = n_bar, J=J, 
+                        gamma_1 = gamma_1, gamma_2 = gamma_2,
+                        sigma2_u = sigma2_u, sigma2_e = sigma2_e,
+                        alpha = alpha )
+  MLM = analysis_MLM( dat )
+  LR = analysis_OLS( dat )
+  Agg = analysis_agg( dat )
+  
+  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
+             .id = "method" )
+}
+```
+
+We have added a bunch of defaults to our function, so we can easily run it without remembering all the things we can change.
+
+When we call it, we get a nice table of results that we can evaluate:
+
+```{r, messages=FALSE}
+one_run( n_bar = 30, J = 20, alpha=0.5 )
+```
+The results for each method is a single line.
+We record estimated impact, estimated standard error, and a nominal $p$-value.
+Note how the `bind_rows()` method can take naming on the fly, and give us a column of `method`, which will be very useful for keeping track of what estimated what.
+We intentionally wrap up our results with a data frame to make later processing of data with the tidyverse package much easier.
+
+We then use the `map()` function to run this function multiple times:
+
+```{r secret_run_cluster_rand_sim, include=FALSE}
+R <- 1000
+ATE <- 0.30
+
+if ( !file.exists("results/cluster_RCT_simulation.rds") ) {
+  tictoc::tic()  # Start the clock!
+  set.seed( 40404 )
+  runs <- 
+    map_df( 1:R, ~one_run( n_bar = 30, J=20, gamma_1 = ATE ) ) 
+  
+  tictoc::toc()
+  
+  saveRDS( runs, file = "results/cluster_RCT_simulation.rds" ) 
+} else {
+  runs = readRDS( file = "results/cluster_RCT_simulation.rds" ) 
+}
+```
+
+
+```{r cluster_rand_sim, eval=FALSE}
+set.seed( 40404 )
+R = 1000
+ATE = 0.30
+runs <- 
+  map_df( 1:R, ~one_run( n_bar = 30, J=20, gamma_1 = ATE ),
+          .id="runID" ) 
+
+saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
+```
+
+What the `map()` function is doing is first making a list from 1 to R, and then for each element in that list, it is calling `one_run()` with the parameters `n_bar = 30, J=20`.
+The `~` is a shorthand way of writing a function that takes one argument, and then calls `one_run()` with that argument; the argument is the iteration number (1, 2, 3, ..., R), but we are ignoring it.  The `.id = "runID"` argument is a way of keeping track of which iteration number produced which result.
+The `_df` at the end of `map_df()` is a way of telling `map()` to take the results of each iteration and bind them together into a single data frame.
+
+Once our simulation is complete, we save our results to a file for future use; this speeds up our lives since we will not have to constantly re-run our simulation each time we want to explore the results.
+
+We have arrived!  We now have the individual results of all our methods applied to each of 1000 generated datasets.
+The next step is to evaluate how well the estimators did.
+Regarding our point estimate, for example, we have these primary questions:
+
+ - Is it biased? (bias)
+ - Is it precise? (standard error)
+ - Does it predict well? (RMSE)
+ 
+In the next chapter, we systematically go through answering these questions for our initial scenario.
+
+
+## Writing simulations quick with the simhelpers package
+
+The `map` approach is a bit strange, with building a secret function on the fly with `~`, and also having the copy over all the parameters we pass from `one_run()` to `gen_dat_model()`.
+The `simhelpers` package provides a shortcut that makes this step easier.
+
+To do it, we first need to write a single estimation procedure function that puts all of our estimators together:
+  
+```{r, message = FALSE}
+analyze_data = function( dat ) {
+  MLM = analysis_MLM( dat )
+  LR = analysis_OLS( dat )
+  Agg = analysis_agg( dat )
+  
+  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
+             .id = "method" )
+}
+
+```
+
+This is simply the `one_run()` method from above, but without the data generating part.
+When we pass a dataset to it, we get a nice table of results that we can evaluate, as we did before.
+
+```{r, messages=FALSE}
+dat = gen_dat_model( n=30, J = 20, gamma_1 = 0.30 )
+analyze_data( dat )
+```
+
+We can now use `simhelpers` to write us a new function for the entire simulation:
+```{r, messages=FALSE}
+library(simhelpers)
+sim_function <- bundle_sim( gen_dat_model, analyze_data )
+```
+
+We can then use it as so:
+```{r, messages=FALSE}
+sim_function( 2, n_bar = 30, J = 20, gamma_1 = ATE )
+```
+
+The `bundle_sim()` command takes our DGP function and our estimation procedures function and gives us back a function, which we have called `sim_function`, that will run a simulation using whatever parameters we give it.
+The `bundle_sim()` command examines `gen_dat_model` function, figures out what parameters it needs, and makes sure that the newly created function is able to take those parameters from the user.
+
+To use it for our simulation, we would then write
+```{r, eval=FALSE}
+rns <- sim_function( R, n_bar = 30, J = 20, gamma_1 = ATE )
+saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
+```
+
+This is a bit more elegant than the `map()` approach, and is especially useful when we have a lot of parameters to pass around.
+
+
+## Adding Checks and Balances
+
+In the extensions of the prior DGP chapter, we discussed indexing our DGP by the ICC instead of the two variance components.
+We can do this, and also translate some of the more obscure model parameters to easier to interpret parameters from within our simulation driver as follows:
+
+```{r revised_CRT, eval=FALSE}
+one_run <- function( n_bar = 30, J=20, 
+                     ATE = 0.3, size_coef = 0.5,
+                     ICC = 0.4,
+                     alpha = 0.75 ) {
+    stopifnot( ICC >= 0 && ICC < 1 )
+
+  dat <- gen_dat_model( n_bar = n_bar, J=J, 
+                        gamma_1 = ATE, gamma_2 = size_coef,
+                        sigma2_u = ICC, sigma2_e = 1-ICC,
+                        alpha = alpha )
+  MLM = analysis_MLM( dat )
+  LR = analysis_OLS( dat )
+  Agg = analysis_agg( dat )
+  
+  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
+             .id = "method" )
+}
+```
+
+Note the `stopifnot`: it is wise to ensure our parameter transforms are all reasonable, so we do not get unexplained errors or strange results later on.
+It is best if your code fails as soon as possible!  Otherwise debugging can be quite hard.
+
+In our modified `one_run()` we are transforming our ICC parameter into specific other parameters that are used in our actual model to maintain our effect size interpretation of our simulation.
+We have not even modified our `gen_dat_model()` DGP method: we are just specifying the constellation of parameters as a function of the parameters we want to directly control in the simulation.
+
+Controlling how we use the foundational elements such as our data generating code is a key tool for making the higher level simulations sensible and more easily interpretable.
+Here we have put our entire simulation into effect size units, and are now providing "knobs" to the simulation that are directly interpretable.
+
+
+## Exercises
+
+
+1. In the prior chapter's exercises, you made a new `BF_F` function for the Welch simulation. Now incorporate the `BF_F` function into the `one_run()` function, and use your revised function to generate simulation results for this additional estimator.
+
+
+
+
