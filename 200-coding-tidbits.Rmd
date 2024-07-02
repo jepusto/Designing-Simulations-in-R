@@ -1,0 +1,161 @@
+```{r, include=FALSE}
+library( tidyverse )
+library( blkvar )
+```
+
+# (APPENDIX) Appendix {-} 
+
+# Coding tidbits {#on-functions}
+
+This chapter is not about simulation, but does have a few tips and tricks regarding coding that are worth attending to.
+
+
+## Other ways of repeating yourself {#repeating-oneself}
+
+There are several ways to call a bit of code (e.g., `one_run()` over and over).
+We have seen `map()` in the main part of the textbook.
+
+In the past, there was a tidyverse method called `rerun()`, but it is currently out of favor.
+Originally, `rerun()` did exactly that: you gave it a number and a block of code, and it would rerun the block of code that many times, giving you the results as a list.
+
+Another, more classic, way to repeat oneself is to use an R function called `replicate`; `rerun()` and `replicate()` are near equivalents.
+`replicate()` does what its name suggests---it replicates the result of an expression a specified number of times. The first argument is the number of times to replicate and the next argument is an expression (a short piece of code to run). A further argument, `simplify` allows you to control how the results are structured. Setting `simplify = FALSE` returns the output as a list (just like `rerun()`.
+
+
+## Default arguments for functions {#default-arguments}
+
+To generate code both easy to use and configure, use default arguments.
+For example,
+
+```{r demo_default_args}
+my_function = function( a = 10, b = 20 ) {
+     100 * a + b
+}
+
+my_function()
+my_function( 5 )
+my_function( b = 5 )
+my_function( b = 5, a = 1 )
+```
+
+We can still call `my_function()` when we don't know what the arguments are, but then when we know more about the function, we can specify things of interest.
+Lots of R commands work exactly this way, and for good reason.
+
+Especially for code to generate random datasets, default arguments can be a lifesaver as you can then call the method before you know exactly what everything means.
+
+For example, consider the `blkvar` package that has some code to generate blocked randomized datasets.
+We might locate a promising method, and type it in:
+
+```{r, error=TRUE}
+library( blkvar )
+generate_blocked_data()
+```
+
+That didn't work, but let's provide some block sizes and see what happens:
+
+```{r}
+generate_blocked_data( n_k = c( 3, 2 ) )
+```
+
+Nice!  We see that we have a block ID and the control and treatment potential outcomes.  We also don't see a random assignment variable, so that tells us we probably need some other methods as well.
+But we can play with this as it stands right away.
+
+Next we can see that there are many things we might tune:
+```{r}
+args( generate_blocked_data )
+```
+
+The documentation will tell us more, but if we just need some sample data, we can quickly assess our method before having to do much reading and understanding.
+Only once we have identified what we need do we have to turn to the documentation itself.
+
+
+## Testing and debugging code in your scripts
+
+If you have an extended script with a list of functions, you might have a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
+
+```{r}
+if ( FALSE ) {
+  res <- my_function( 10, 20, 30 )
+  res
+  # Some notes as to what I want to see.
+  
+  sd( res )
+  # This should be around 20
+}
+```
+
+You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
+If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
+
+
+
+## Keep multiple files of code
+
+
+Simulations have two general phases: generate your results and analyze your results.
+The ending of the first phase should be to save the generated results.
+The beginning of the second phase should then be to load the results from a file and analyze them.
+These phases can be in a seperate '.R' files
+This allows for easily changing how one analyzes an experiment
+without re-running the entire thing.
+
+
+## The source command and keeping things organized
+Once you have your multifactor simulation, if it is a particularly complex one, you will likely have three general collections of code:
+
+ * Code for generating data
+ * Code for analyzing data
+ * Code for running a single simulation scenario
+
+If each of these pieces is large and complex, you might consider putting them in three different `.R` files.
+Then, in your primary simulation, you would source these files.
+E.g.,
+
+```{r demo_source_multiple, eval=FALSE}
+source( "pack_data_generators.R" )
+source( "pack_estimators.R" )
+source( "pack_simulation_support.R" )
+```
+
+You might also have `pack_simulation_support.R` source the other two files, and then source the single simulation support file in your primay file.
+
+One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, like described above), testing each of your components.
+Then, when you are not focused on that component, you don't have to look at that testing code.
+
+Another good reason for this type of modular organizing is you can then have a variety of data generators, forming a library of options.
+You can then easily create different simulations that use different pieces, in a larger project.
+
+For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
+Our data generation code file then had several methods:
+
+```
+> ls()
+[1] "describe_sim_data"  "make_dat"           "make.dat.1side"     
+[4] "make.dat.1side.old" "make.dat.orig"      "make.dat.simple"
+[7] "make.dat.tuned"     "rand.exp"           "summarize_sim_data"
+```
+
+The describe and summarize methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
+We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
+
+Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that file and use those estimators on our actual data.
+This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
+Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
+
+Modular programming is key.
+
+
+## Debugging with browser
+
+Consider the code taken from a simulation:
+
+```{r demo_browser, eval=FALSE}
+    if ( any( is.na( rs$estimate ) ) ) {
+        browser()
+    }
+```
+
+The `browser()` command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
+Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.
+
