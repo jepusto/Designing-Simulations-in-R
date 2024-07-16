@@ -504,12 +504,12 @@ This can protect you if your simulation occasionally crashes, or if you want to 
 <div id="saving-simulations-in-general" class="section level2 hasAnchor" number="19.1">
 <h2><span class="header-section-number">19.1</span> Saving simulations in general<a href="saving-files.html#saving-simulations-in-general" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Once your simulation has completed, you can save it like so:</p>
-<div class="sourceCode" id="cb472"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb472-1"><a href="saving-files.html#cb472-1" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;results&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span> )</span>
-<span id="cb472-2"><a href="saving-files.html#cb472-2" tabindex="-1"></a><span class="fu">write_csv</span>( res, <span class="st">&quot;results/simulation_CRT.csv&quot;</span> )</span></code></pre></div>
+<div class="sourceCode" id="cb470"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb470-1"><a href="saving-files.html#cb470-1" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;results&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span> )</span>
+<span id="cb470-2"><a href="saving-files.html#cb470-2" tabindex="-1"></a><span class="fu">write_csv</span>( res, <span class="st">&quot;results/simulation_CRT.csv&quot;</span> )</span></code></pre></div>
 <p><code>write_csv()</code> is a tidyverse file-writing command; see “R for Data Science”
 textbook, 11.5.</p>
 <p>You can then load it, just before analysis, as so:</p>
-<div class="sourceCode" id="cb473"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb473-1"><a href="saving-files.html#cb473-1" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">read_csv</span>( <span class="st">&quot;results/simulation_CRT.csv&quot;</span> )</span></code></pre></div>
+<div class="sourceCode" id="cb471"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb471-1"><a href="saving-files.html#cb471-1" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">read_csv</span>( <span class="st">&quot;results/simulation_CRT.csv&quot;</span> )</span></code></pre></div>
 <p>There are two general tools for saving. The <code>read/write_csv</code> methods save your file in a way where you can open it with a spreadsheet program and look at it.
 But your results should be in a vanilla format (non-fancy data frame without list columns).</p>
 <p>Alternatively, you can use the <code>saveRDS()</code> and <code>readRDS()</code> methods; these save objects to a file such that when you load them, they are as you left them.
@@ -523,35 +523,35 @@ With clever design, you can even then selectively delete files to rerun only par
 This is the script that runs the simulation.
 Note the sourcing of other scripts that have all the relevant functions; these are not important here.
 Due to modular programming, we can see what this script does, even without those detail.</p>
-<div class="sourceCode" id="cb474"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb474-1"><a href="saving-files.html#cb474-1" tabindex="-1"></a><span class="fu">source</span>( <span class="st">&quot;pack_simulation_functions.R&quot;</span> )</span>
-<span id="cb474-2"><a href="saving-files.html#cb474-2" tabindex="-1"></a></span>
-<span id="cb474-3"><a href="saving-files.html#cb474-3" tabindex="-1"></a><span class="cf">if</span> ( <span class="sc">!</span><span class="fu">file.exists</span>(<span class="st">&quot;results/frags&quot;</span> ) ) {</span>
-<span id="cb474-4"><a href="saving-files.html#cb474-4" tabindex="-1"></a>    <span class="fu">dir.create</span>(<span class="st">&quot;results/frags&quot;</span>)</span>
-<span id="cb474-5"><a href="saving-files.html#cb474-5" tabindex="-1"></a>}</span>
-<span id="cb474-6"><a href="saving-files.html#cb474-6" tabindex="-1"></a></span>
-<span id="cb474-7"><a href="saving-files.html#cb474-7" tabindex="-1"></a><span class="co"># Number of simulation replicates per scenario</span></span>
-<span id="cb474-8"><a href="saving-files.html#cb474-8" tabindex="-1"></a>R <span class="ot">=</span> <span class="dv">1000</span></span>
-<span id="cb474-9"><a href="saving-files.html#cb474-9" tabindex="-1"></a></span>
-<span id="cb474-10"><a href="saving-files.html#cb474-10" tabindex="-1"></a><span class="co"># Do simulation breaking up R into this many chunks</span></span>
-<span id="cb474-11"><a href="saving-files.html#cb474-11" tabindex="-1"></a>M_CHUNK <span class="ot">=</span> <span class="dv">10</span></span>
-<span id="cb474-12"><a href="saving-files.html#cb474-12" tabindex="-1"></a></span>
-<span id="cb474-13"><a href="saving-files.html#cb474-13" tabindex="-1"></a><span class="do">###### Set up the multifactor simulation #######</span></span>
-<span id="cb474-14"><a href="saving-files.html#cb474-14" tabindex="-1"></a></span>
-<span id="cb474-15"><a href="saving-files.html#cb474-15" tabindex="-1"></a><span class="co"># chunkNo is a hack to make a bunch of smaller chunks for doing parallel more</span></span>
-<span id="cb474-16"><a href="saving-files.html#cb474-16" tabindex="-1"></a><span class="co"># efficiently.</span></span>
-<span id="cb474-17"><a href="saving-files.html#cb474-17" tabindex="-1"></a>factors <span class="ot">=</span> <span class="fu">expand_grid</span>( <span class="at">chunkNo =</span> <span class="dv">1</span><span class="sc">:</span>M_CHUNK,</span>
-<span id="cb474-18"><a href="saving-files.html#cb474-18" tabindex="-1"></a>                       <span class="at">N =</span> <span class="fu">c</span>( <span class="dv">500</span>, <span class="dv">1000</span>, <span class="dv">2000</span> ),</span>
-<span id="cb474-19"><a href="saving-files.html#cb474-19" tabindex="-1"></a>                       <span class="at">pi_c =</span> <span class="fu">c</span>( <span class="fl">0.05</span>, <span class="fl">0.075</span>, <span class="fl">0.10</span> ),</span>
-<span id="cb474-20"><a href="saving-files.html#cb474-20" tabindex="-1"></a>                       <span class="at">nt_shift =</span> <span class="fu">c</span>( <span class="sc">-</span><span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span> ),</span>
-<span id="cb474-21"><a href="saving-files.html#cb474-21" tabindex="-1"></a>                       <span class="at">pred_comp =</span> <span class="fu">c</span>( <span class="st">&quot;yes&quot;</span>, <span class="st">&quot;no&quot;</span> ),</span>
-<span id="cb474-22"><a href="saving-files.html#cb474-22" tabindex="-1"></a>                       <span class="at">pred_Y =</span> <span class="fu">c</span>( <span class="st">&quot;yes&quot;</span>, <span class="st">&quot;no&quot;</span> ),</span>
-<span id="cb474-23"><a href="saving-files.html#cb474-23" tabindex="-1"></a>                       <span class="at">het_tx =</span> <span class="fu">c</span>( <span class="st">&quot;yes&quot;</span>, <span class="st">&quot;no&quot;</span> ),</span>
-<span id="cb474-24"><a href="saving-files.html#cb474-24" tabindex="-1"></a>                       <span class="at">sd0 =</span> <span class="dv">1</span></span>
-<span id="cb474-25"><a href="saving-files.html#cb474-25" tabindex="-1"></a>                       )</span>
-<span id="cb474-26"><a href="saving-files.html#cb474-26" tabindex="-1"></a>factors <span class="ot">&lt;-</span> factors <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(</span>
-<span id="cb474-27"><a href="saving-files.html#cb474-27" tabindex="-1"></a>    <span class="at">reps =</span> R <span class="sc">/</span> M_CHUNK,</span>
-<span id="cb474-28"><a href="saving-files.html#cb474-28" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">16200320</span> <span class="sc">+</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()</span>
-<span id="cb474-29"><a href="saving-files.html#cb474-29" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb472"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb472-1"><a href="saving-files.html#cb472-1" tabindex="-1"></a><span class="fu">source</span>( <span class="st">&quot;pack_simulation_functions.R&quot;</span> )</span>
+<span id="cb472-2"><a href="saving-files.html#cb472-2" tabindex="-1"></a></span>
+<span id="cb472-3"><a href="saving-files.html#cb472-3" tabindex="-1"></a><span class="cf">if</span> ( <span class="sc">!</span><span class="fu">file.exists</span>(<span class="st">&quot;results/frags&quot;</span> ) ) {</span>
+<span id="cb472-4"><a href="saving-files.html#cb472-4" tabindex="-1"></a>    <span class="fu">dir.create</span>(<span class="st">&quot;results/frags&quot;</span>)</span>
+<span id="cb472-5"><a href="saving-files.html#cb472-5" tabindex="-1"></a>}</span>
+<span id="cb472-6"><a href="saving-files.html#cb472-6" tabindex="-1"></a></span>
+<span id="cb472-7"><a href="saving-files.html#cb472-7" tabindex="-1"></a><span class="co"># Number of simulation replicates per scenario</span></span>
+<span id="cb472-8"><a href="saving-files.html#cb472-8" tabindex="-1"></a>R <span class="ot">=</span> <span class="dv">1000</span></span>
+<span id="cb472-9"><a href="saving-files.html#cb472-9" tabindex="-1"></a></span>
+<span id="cb472-10"><a href="saving-files.html#cb472-10" tabindex="-1"></a><span class="co"># Do simulation breaking up R into this many chunks</span></span>
+<span id="cb472-11"><a href="saving-files.html#cb472-11" tabindex="-1"></a>M_CHUNK <span class="ot">=</span> <span class="dv">10</span></span>
+<span id="cb472-12"><a href="saving-files.html#cb472-12" tabindex="-1"></a></span>
+<span id="cb472-13"><a href="saving-files.html#cb472-13" tabindex="-1"></a><span class="do">###### Set up the multifactor simulation #######</span></span>
+<span id="cb472-14"><a href="saving-files.html#cb472-14" tabindex="-1"></a></span>
+<span id="cb472-15"><a href="saving-files.html#cb472-15" tabindex="-1"></a><span class="co"># chunkNo is a hack to make a bunch of smaller chunks for doing parallel more</span></span>
+<span id="cb472-16"><a href="saving-files.html#cb472-16" tabindex="-1"></a><span class="co"># efficiently.</span></span>
+<span id="cb472-17"><a href="saving-files.html#cb472-17" tabindex="-1"></a>factors <span class="ot">=</span> <span class="fu">expand_grid</span>( <span class="at">chunkNo =</span> <span class="dv">1</span><span class="sc">:</span>M_CHUNK,</span>
+<span id="cb472-18"><a href="saving-files.html#cb472-18" tabindex="-1"></a>                       <span class="at">N =</span> <span class="fu">c</span>( <span class="dv">500</span>, <span class="dv">1000</span>, <span class="dv">2000</span> ),</span>
+<span id="cb472-19"><a href="saving-files.html#cb472-19" tabindex="-1"></a>                       <span class="at">pi_c =</span> <span class="fu">c</span>( <span class="fl">0.05</span>, <span class="fl">0.075</span>, <span class="fl">0.10</span> ),</span>
+<span id="cb472-20"><a href="saving-files.html#cb472-20" tabindex="-1"></a>                       <span class="at">nt_shift =</span> <span class="fu">c</span>( <span class="sc">-</span><span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span> ),</span>
+<span id="cb472-21"><a href="saving-files.html#cb472-21" tabindex="-1"></a>                       <span class="at">pred_comp =</span> <span class="fu">c</span>( <span class="st">&quot;yes&quot;</span>, <span class="st">&quot;no&quot;</span> ),</span>
+<span id="cb472-22"><a href="saving-files.html#cb472-22" tabindex="-1"></a>                       <span class="at">pred_Y =</span> <span class="fu">c</span>( <span class="st">&quot;yes&quot;</span>, <span class="st">&quot;no&quot;</span> ),</span>
+<span id="cb472-23"><a href="saving-files.html#cb472-23" tabindex="-1"></a>                       <span class="at">het_tx =</span> <span class="fu">c</span>( <span class="st">&quot;yes&quot;</span>, <span class="st">&quot;no&quot;</span> ),</span>
+<span id="cb472-24"><a href="saving-files.html#cb472-24" tabindex="-1"></a>                       <span class="at">sd0 =</span> <span class="dv">1</span></span>
+<span id="cb472-25"><a href="saving-files.html#cb472-25" tabindex="-1"></a>                       )</span>
+<span id="cb472-26"><a href="saving-files.html#cb472-26" tabindex="-1"></a>factors <span class="ot">&lt;-</span> factors <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(</span>
+<span id="cb472-27"><a href="saving-files.html#cb472-27" tabindex="-1"></a>    <span class="at">reps =</span> R <span class="sc">/</span> M_CHUNK,</span>
+<span id="cb472-28"><a href="saving-files.html#cb472-28" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">16200320</span> <span class="sc">+</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()</span>
+<span id="cb472-29"><a href="saving-files.html#cb472-29" tabindex="-1"></a>)</span></code></pre></div>
 <p>This generates a data frame of all our factor combinations.
 This is our list of “tasks” (each row of factors).
 These tasks have repeats: the “chunks” means we do a portion of each scenario, as specified by our simulation factors, as a process.
@@ -560,18 +560,18 @@ This would allow for greater parallelization (e.g., if we had more cores), and a
 With each row, once we have run it, we save it to disk.
 This means if we kill our simulation half-way through, most of the work would be saved.
 Our function is then going to either do the simulation (and save the result to disk immediately), or, if it can find the file with the results from a previous run, load those results from disk:</p>
-<div class="sourceCode" id="cb475"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb475-1"><a href="saving-files.html#cb475-1" tabindex="-1"></a>safe_run_sim <span class="ot">=</span> <span class="fu">safely</span>( run_sim )</span>
-<span id="cb475-2"><a href="saving-files.html#cb475-2" tabindex="-1"></a>file_saving_sim <span class="ot">=</span> <span class="cf">function</span>( chunkNo, seed, ... ) {</span>
-<span id="cb475-3"><a href="saving-files.html#cb475-3" tabindex="-1"></a>    fname <span class="ot">=</span> <span class="fu">paste0</span>( <span class="st">&quot;results/frags/fragment_&quot;</span>, chunkNo, <span class="st">&quot;_&quot;</span>, seed, <span class="st">&quot;.rds&quot;</span> )</span>
-<span id="cb475-4"><a href="saving-files.html#cb475-4" tabindex="-1"></a>    res <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb475-5"><a href="saving-files.html#cb475-5" tabindex="-1"></a>    <span class="cf">if</span> ( <span class="sc">!</span><span class="fu">file.exists</span>(fname) ) {</span>
-<span id="cb475-6"><a href="saving-files.html#cb475-6" tabindex="-1"></a>        res <span class="ot">=</span> <span class="fu">safe_run_sim</span>( <span class="at">chunkNo=</span>chunkNo, <span class="at">seed=</span>seed, ... )</span>
-<span id="cb475-7"><a href="saving-files.html#cb475-7" tabindex="-1"></a>        <span class="fu">saveRDS</span>(res, <span class="at">file =</span> fname )</span>
-<span id="cb475-8"><a href="saving-files.html#cb475-8" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
-<span id="cb475-9"><a href="saving-files.html#cb475-9" tabindex="-1"></a>        res <span class="ot">=</span> <span class="fu">readRDS</span>( <span class="at">file=</span>fname )</span>
-<span id="cb475-10"><a href="saving-files.html#cb475-10" tabindex="-1"></a>    }</span>
-<span id="cb475-11"><a href="saving-files.html#cb475-11" tabindex="-1"></a>    <span class="fu">return</span>( res )</span>
-<span id="cb475-12"><a href="saving-files.html#cb475-12" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb473"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb473-1"><a href="saving-files.html#cb473-1" tabindex="-1"></a>safe_run_sim <span class="ot">=</span> <span class="fu">safely</span>( run_sim )</span>
+<span id="cb473-2"><a href="saving-files.html#cb473-2" tabindex="-1"></a>file_saving_sim <span class="ot">=</span> <span class="cf">function</span>( chunkNo, seed, ... ) {</span>
+<span id="cb473-3"><a href="saving-files.html#cb473-3" tabindex="-1"></a>    fname <span class="ot">=</span> <span class="fu">paste0</span>( <span class="st">&quot;results/frags/fragment_&quot;</span>, chunkNo, <span class="st">&quot;_&quot;</span>, seed, <span class="st">&quot;.rds&quot;</span> )</span>
+<span id="cb473-4"><a href="saving-files.html#cb473-4" tabindex="-1"></a>    res <span class="ot">=</span> <span class="cn">NA</span></span>
+<span id="cb473-5"><a href="saving-files.html#cb473-5" tabindex="-1"></a>    <span class="cf">if</span> ( <span class="sc">!</span><span class="fu">file.exists</span>(fname) ) {</span>
+<span id="cb473-6"><a href="saving-files.html#cb473-6" tabindex="-1"></a>        res <span class="ot">=</span> <span class="fu">safe_run_sim</span>( <span class="at">chunkNo=</span>chunkNo, <span class="at">seed=</span>seed, ... )</span>
+<span id="cb473-7"><a href="saving-files.html#cb473-7" tabindex="-1"></a>        <span class="fu">saveRDS</span>(res, <span class="at">file =</span> fname )</span>
+<span id="cb473-8"><a href="saving-files.html#cb473-8" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb473-9"><a href="saving-files.html#cb473-9" tabindex="-1"></a>        res <span class="ot">=</span> <span class="fu">readRDS</span>( <span class="at">file=</span>fname )</span>
+<span id="cb473-10"><a href="saving-files.html#cb473-10" tabindex="-1"></a>    }</span>
+<span id="cb473-11"><a href="saving-files.html#cb473-11" tabindex="-1"></a>    <span class="fu">return</span>( res )</span>
+<span id="cb473-12"><a href="saving-files.html#cb473-12" tabindex="-1"></a>}</span></code></pre></div>
 <p>Note how we wrap our core <code>run_sim</code> method in <code>safely</code>; it was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.</p>
 <p>We next run the simulation.
 We shuffle the rows of our task list so that which process gets what task is randomized.
@@ -581,42 +581,42 @@ This makes debugging easier: when running in parallel, stuff printed to the cons
 Plus it would be all mixed up since multiple processes are working simultaneously.</p>
 <p>This overall structure allows the researcher to delete one of the “fragment” files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
 This means the researcher can insert a <code>browser()</code> command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.</p>
-<div class="sourceCode" id="cb476"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb476-1"><a href="saving-files.html#cb476-1" tabindex="-1"></a><span class="co"># Shuffle the rows so we run in random order to load balance.</span></span>
-<span id="cb476-2"><a href="saving-files.html#cb476-2" tabindex="-1"></a>factors <span class="ot">=</span> <span class="fu">sample_n</span>(factors, <span class="fu">nrow</span>(factors) )</span>
-<span id="cb476-3"><a href="saving-files.html#cb476-3" tabindex="-1"></a></span>
-<span id="cb476-4"><a href="saving-files.html#cb476-4" tabindex="-1"></a><span class="cf">if</span> ( <span class="cn">TRUE</span> ) {</span>
-<span id="cb476-5"><a href="saving-files.html#cb476-5" tabindex="-1"></a>    <span class="co"># Run in parallel</span></span>
-<span id="cb476-6"><a href="saving-files.html#cb476-6" tabindex="-1"></a>    parallel<span class="sc">::</span><span class="fu">detectCores</span>()</span>
-<span id="cb476-7"><a href="saving-files.html#cb476-7" tabindex="-1"></a>    </span>
-<span id="cb476-8"><a href="saving-files.html#cb476-8" tabindex="-1"></a>    <span class="fu">library</span>(future)</span>
-<span id="cb476-9"><a href="saving-files.html#cb476-9" tabindex="-1"></a>    <span class="fu">library</span>(furrr)</span>
-<span id="cb476-10"><a href="saving-files.html#cb476-10" tabindex="-1"></a>    </span>
-<span id="cb476-11"><a href="saving-files.html#cb476-11" tabindex="-1"></a>    <span class="co">#plan(multiprocess) # choose an appropriate plan from future package</span></span>
-<span id="cb476-12"><a href="saving-files.html#cb476-12" tabindex="-1"></a>    <span class="co">#plan(multicore)</span></span>
-<span id="cb476-13"><a href="saving-files.html#cb476-13" tabindex="-1"></a>    <span class="fu">plan</span>(multisession, <span class="at">workers =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>() <span class="sc">-</span> <span class="dv">2</span> )</span>
-<span id="cb476-14"><a href="saving-files.html#cb476-14" tabindex="-1"></a>    </span>
-<span id="cb476-15"><a href="saving-files.html#cb476-15" tabindex="-1"></a>    factors<span class="sc">$</span>res <span class="ot">&lt;-</span> <span class="fu">future_pmap</span>(factors, <span class="at">.f =</span> file_saving_sim,</span>
-<span id="cb476-16"><a href="saving-files.html#cb476-16" tabindex="-1"></a>                          <span class="at">.options =</span> <span class="fu">furrr_options</span>(<span class="at">seed =</span> <span class="cn">NULL</span>),</span>
-<span id="cb476-17"><a href="saving-files.html#cb476-17" tabindex="-1"></a>                          <span class="at">.progress =</span> <span class="cn">TRUE</span> )</span>
-<span id="cb476-18"><a href="saving-files.html#cb476-18" tabindex="-1"></a>    </span>
-<span id="cb476-19"><a href="saving-files.html#cb476-19" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb476-20"><a href="saving-files.html#cb476-20" tabindex="-1"></a>  <span class="co"># Run not in parallel, used for debugging</span></span>
-<span id="cb476-21"><a href="saving-files.html#cb476-21" tabindex="-1"></a>  factors<span class="sc">$</span>res <span class="ot">&lt;-</span> <span class="fu">pmap</span>(factors, <span class="at">.f =</span> file_saving_sim )</span>
-<span id="cb476-22"><a href="saving-files.html#cb476-22" tabindex="-1"></a>}</span>
-<span id="cb476-23"><a href="saving-files.html#cb476-23" tabindex="-1"></a></span>
-<span id="cb476-24"><a href="saving-files.html#cb476-24" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span></code></pre></div>
+<div class="sourceCode" id="cb474"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb474-1"><a href="saving-files.html#cb474-1" tabindex="-1"></a><span class="co"># Shuffle the rows so we run in random order to load balance.</span></span>
+<span id="cb474-2"><a href="saving-files.html#cb474-2" tabindex="-1"></a>factors <span class="ot">=</span> <span class="fu">sample_n</span>(factors, <span class="fu">nrow</span>(factors) )</span>
+<span id="cb474-3"><a href="saving-files.html#cb474-3" tabindex="-1"></a></span>
+<span id="cb474-4"><a href="saving-files.html#cb474-4" tabindex="-1"></a><span class="cf">if</span> ( <span class="cn">TRUE</span> ) {</span>
+<span id="cb474-5"><a href="saving-files.html#cb474-5" tabindex="-1"></a>    <span class="co"># Run in parallel</span></span>
+<span id="cb474-6"><a href="saving-files.html#cb474-6" tabindex="-1"></a>    parallel<span class="sc">::</span><span class="fu">detectCores</span>()</span>
+<span id="cb474-7"><a href="saving-files.html#cb474-7" tabindex="-1"></a>    </span>
+<span id="cb474-8"><a href="saving-files.html#cb474-8" tabindex="-1"></a>    <span class="fu">library</span>(future)</span>
+<span id="cb474-9"><a href="saving-files.html#cb474-9" tabindex="-1"></a>    <span class="fu">library</span>(furrr)</span>
+<span id="cb474-10"><a href="saving-files.html#cb474-10" tabindex="-1"></a>    </span>
+<span id="cb474-11"><a href="saving-files.html#cb474-11" tabindex="-1"></a>    <span class="co">#plan(multiprocess) # choose an appropriate plan from future package</span></span>
+<span id="cb474-12"><a href="saving-files.html#cb474-12" tabindex="-1"></a>    <span class="co">#plan(multicore)</span></span>
+<span id="cb474-13"><a href="saving-files.html#cb474-13" tabindex="-1"></a>    <span class="fu">plan</span>(multisession, <span class="at">workers =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>() <span class="sc">-</span> <span class="dv">2</span> )</span>
+<span id="cb474-14"><a href="saving-files.html#cb474-14" tabindex="-1"></a>    </span>
+<span id="cb474-15"><a href="saving-files.html#cb474-15" tabindex="-1"></a>    factors<span class="sc">$</span>res <span class="ot">&lt;-</span> <span class="fu">future_pmap</span>(factors, <span class="at">.f =</span> file_saving_sim,</span>
+<span id="cb474-16"><a href="saving-files.html#cb474-16" tabindex="-1"></a>                          <span class="at">.options =</span> <span class="fu">furrr_options</span>(<span class="at">seed =</span> <span class="cn">NULL</span>),</span>
+<span id="cb474-17"><a href="saving-files.html#cb474-17" tabindex="-1"></a>                          <span class="at">.progress =</span> <span class="cn">TRUE</span> )</span>
+<span id="cb474-18"><a href="saving-files.html#cb474-18" tabindex="-1"></a>    </span>
+<span id="cb474-19"><a href="saving-files.html#cb474-19" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb474-20"><a href="saving-files.html#cb474-20" tabindex="-1"></a>  <span class="co"># Run not in parallel, used for debugging</span></span>
+<span id="cb474-21"><a href="saving-files.html#cb474-21" tabindex="-1"></a>  factors<span class="sc">$</span>res <span class="ot">&lt;-</span> <span class="fu">pmap</span>(factors, <span class="at">.f =</span> file_saving_sim )</span>
+<span id="cb474-22"><a href="saving-files.html#cb474-22" tabindex="-1"></a>}</span>
+<span id="cb474-23"><a href="saving-files.html#cb474-23" tabindex="-1"></a></span>
+<span id="cb474-24"><a href="saving-files.html#cb474-24" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span></code></pre></div>
 <p>Our method cleverly loads files in, or generates them, for each chunk.
 The seed setting ensures reproducibility.
 Once we are done, we need to clean up our results:</p>
-<div class="sourceCode" id="cb477"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb477-1"><a href="saving-files.html#cb477-1" tabindex="-1"></a>sim_results <span class="ot">&lt;-</span> </span>
-<span id="cb477-2"><a href="saving-files.html#cb477-2" tabindex="-1"></a>    factors <span class="sc">%&gt;%</span> </span>
-<span id="cb477-3"><a href="saving-files.html#cb477-3" tabindex="-1"></a>    <span class="fu">unnest</span>(<span class="at">cols =</span> res)</span>
-<span id="cb477-4"><a href="saving-files.html#cb477-4" tabindex="-1"></a></span>
-<span id="cb477-5"><a href="saving-files.html#cb477-5" tabindex="-1"></a><span class="co"># Cut apart the results and error messages</span></span>
-<span id="cb477-6"><a href="saving-files.html#cb477-6" tabindex="-1"></a>sim_results<span class="sc">$</span>sr <span class="ot">=</span> <span class="fu">rep</span>( <span class="fu">c</span>(<span class="st">&quot;res&quot;</span>,<span class="st">&quot;err&quot;</span>), <span class="fu">nrow</span>(sim_results)<span class="sc">/</span><span class="dv">2</span>)</span>
-<span id="cb477-7"><a href="saving-files.html#cb477-7" tabindex="-1"></a>sim_results <span class="ot">=</span> <span class="fu">pivot_wider</span>( sim_results, <span class="at">names_from =</span> sr, <span class="at">values_from =</span> res )</span>
-<span id="cb477-8"><a href="saving-files.html#cb477-8" tabindex="-1"></a></span>
-<span id="cb477-9"><a href="saving-files.html#cb477-9" tabindex="-1"></a><span class="fu">saveRDS</span>( sim_results, <span class="at">file=</span><span class="st">&quot;results/simulation_results.rds&quot;</span> )</span></code></pre></div>
+<div class="sourceCode" id="cb475"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb475-1"><a href="saving-files.html#cb475-1" tabindex="-1"></a>sim_results <span class="ot">&lt;-</span> </span>
+<span id="cb475-2"><a href="saving-files.html#cb475-2" tabindex="-1"></a>    factors <span class="sc">%&gt;%</span> </span>
+<span id="cb475-3"><a href="saving-files.html#cb475-3" tabindex="-1"></a>    <span class="fu">unnest</span>(<span class="at">cols =</span> res)</span>
+<span id="cb475-4"><a href="saving-files.html#cb475-4" tabindex="-1"></a></span>
+<span id="cb475-5"><a href="saving-files.html#cb475-5" tabindex="-1"></a><span class="co"># Cut apart the results and error messages</span></span>
+<span id="cb475-6"><a href="saving-files.html#cb475-6" tabindex="-1"></a>sim_results<span class="sc">$</span>sr <span class="ot">=</span> <span class="fu">rep</span>( <span class="fu">c</span>(<span class="st">&quot;res&quot;</span>,<span class="st">&quot;err&quot;</span>), <span class="fu">nrow</span>(sim_results)<span class="sc">/</span><span class="dv">2</span>)</span>
+<span id="cb475-7"><a href="saving-files.html#cb475-7" tabindex="-1"></a>sim_results <span class="ot">=</span> <span class="fu">pivot_wider</span>( sim_results, <span class="at">names_from =</span> sr, <span class="at">values_from =</span> res )</span>
+<span id="cb475-8"><a href="saving-files.html#cb475-8" tabindex="-1"></a></span>
+<span id="cb475-9"><a href="saving-files.html#cb475-9" tabindex="-1"></a><span class="fu">saveRDS</span>( sim_results, <span class="at">file=</span><span class="st">&quot;results/simulation_results.rds&quot;</span> )</span></code></pre></div>
 </div>
 <div id="dynamically-making-directories" class="section level2 hasAnchor" number="19.3">
 <h2><span class="header-section-number">19.3</span> Dynamically making directories<a href="saving-files.html#dynamically-making-directories" class="anchor-section" aria-label="Anchor link to header"></a></h2>
@@ -625,13 +625,13 @@ But where?
 It is nice to dynamically generate a directory for your files on fly.
 One way to do this is to write a function that will make any needed directory, if it doesn’t exist, and then put your file in that spot.
 For example, you might have your own version of <code>write_csv</code> as:</p>
-<div class="sourceCode" id="cb478"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb478-1"><a href="saving-files.html#cb478-1" tabindex="-1"></a>my_write_csv <span class="ot">&lt;-</span> <span class="cf">function</span>( data, path, file ) {</span>
-<span id="cb478-2"><a href="saving-files.html#cb478-2" tabindex="-1"></a>  </span>
-<span id="cb478-3"><a href="saving-files.html#cb478-3" tabindex="-1"></a>  <span class="cf">if</span> ( <span class="sc">!</span><span class="fu">dir.exists</span>( here<span class="sc">::</span><span class="fu">here</span>( path ) ) ) {</span>
-<span id="cb478-4"><a href="saving-files.html#cb478-4" tabindex="-1"></a>    <span class="fu">dir.create</span>( here<span class="sc">::</span><span class="fu">here</span>( path ), <span class="at">recursive=</span><span class="cn">TRUE</span> ) </span>
-<span id="cb478-5"><a href="saving-files.html#cb478-5" tabindex="-1"></a>  }</span>
-<span id="cb478-6"><a href="saving-files.html#cb478-6" tabindex="-1"></a>  <span class="fu">write_csv</span>( data, <span class="fu">paste0</span>( path, file ) )</span>
-<span id="cb478-7"><a href="saving-files.html#cb478-7" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb476"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb476-1"><a href="saving-files.html#cb476-1" tabindex="-1"></a>my_write_csv <span class="ot">&lt;-</span> <span class="cf">function</span>( data, path, file ) {</span>
+<span id="cb476-2"><a href="saving-files.html#cb476-2" tabindex="-1"></a>  </span>
+<span id="cb476-3"><a href="saving-files.html#cb476-3" tabindex="-1"></a>  <span class="cf">if</span> ( <span class="sc">!</span><span class="fu">dir.exists</span>( here<span class="sc">::</span><span class="fu">here</span>( path ) ) ) {</span>
+<span id="cb476-4"><a href="saving-files.html#cb476-4" tabindex="-1"></a>    <span class="fu">dir.create</span>( here<span class="sc">::</span><span class="fu">here</span>( path ), <span class="at">recursive=</span><span class="cn">TRUE</span> ) </span>
+<span id="cb476-5"><a href="saving-files.html#cb476-5" tabindex="-1"></a>  }</span>
+<span id="cb476-6"><a href="saving-files.html#cb476-6" tabindex="-1"></a>  <span class="fu">write_csv</span>( data, <span class="fu">paste0</span>( path, file ) )</span>
+<span id="cb476-7"><a href="saving-files.html#cb476-7" tabindex="-1"></a>}</span></code></pre></div>
 <p>This will look for a path (starting from your R Project, by taking advantage of the <code>here</code> package), and put your data file in that spot.
 If the spot doesn’t exist, it will make it for you.</p>
 </div>
@@ -639,20 +639,20 @@ If the spot doesn’t exist, it will make it for you.</p>
 <h2><span class="header-section-number">19.4</span> Loading and combining files of simulation results<a href="saving-files.html#loading-and-combining-files-of-simulation-results" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
 This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.</p>
-<div class="sourceCode" id="cb479"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb479-1"><a href="saving-files.html#cb479-1" tabindex="-1"></a>load.all.sims <span class="ot">=</span> <span class="cf">function</span>( <span class="at">filehead=</span><span class="st">&quot;results/&quot;</span> ) {</span>
-<span id="cb479-2"><a href="saving-files.html#cb479-2" tabindex="-1"></a>  </span>
-<span id="cb479-3"><a href="saving-files.html#cb479-3" tabindex="-1"></a>  files <span class="ot">=</span> <span class="fu">list.files</span>( filehead, <span class="at">full.names=</span><span class="cn">TRUE</span>)</span>
-<span id="cb479-4"><a href="saving-files.html#cb479-4" tabindex="-1"></a>  </span>
-<span id="cb479-5"><a href="saving-files.html#cb479-5" tabindex="-1"></a>  res <span class="ot">=</span> <span class="fu">map_df</span>( files, <span class="cf">function</span>( fname ) {</span>
-<span id="cb479-6"><a href="saving-files.html#cb479-6" tabindex="-1"></a>    <span class="fu">cat</span>( <span class="st">&quot;Reading results from &quot;</span>, fname, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span> )</span>
-<span id="cb479-7"><a href="saving-files.html#cb479-7" tabindex="-1"></a>    rs <span class="ot">=</span> <span class="fu">readRDS</span>( <span class="at">file =</span> fname )</span>
-<span id="cb479-8"><a href="saving-files.html#cb479-8" tabindex="-1"></a>    rs<span class="sc">$</span>filename <span class="ot">=</span> fname</span>
-<span id="cb479-9"><a href="saving-files.html#cb479-9" tabindex="-1"></a>    rs</span>
-<span id="cb479-10"><a href="saving-files.html#cb479-10" tabindex="-1"></a>  })</span>
-<span id="cb479-11"><a href="saving-files.html#cb479-11" tabindex="-1"></a>  res</span>
-<span id="cb479-12"><a href="saving-files.html#cb479-12" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb477"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb477-1"><a href="saving-files.html#cb477-1" tabindex="-1"></a>load.all.sims <span class="ot">=</span> <span class="cf">function</span>( <span class="at">filehead=</span><span class="st">&quot;results/&quot;</span> ) {</span>
+<span id="cb477-2"><a href="saving-files.html#cb477-2" tabindex="-1"></a>  </span>
+<span id="cb477-3"><a href="saving-files.html#cb477-3" tabindex="-1"></a>  files <span class="ot">=</span> <span class="fu">list.files</span>( filehead, <span class="at">full.names=</span><span class="cn">TRUE</span>)</span>
+<span id="cb477-4"><a href="saving-files.html#cb477-4" tabindex="-1"></a>  </span>
+<span id="cb477-5"><a href="saving-files.html#cb477-5" tabindex="-1"></a>  res <span class="ot">=</span> <span class="fu">map_df</span>( files, <span class="cf">function</span>( fname ) {</span>
+<span id="cb477-6"><a href="saving-files.html#cb477-6" tabindex="-1"></a>    <span class="fu">cat</span>( <span class="st">&quot;Reading results from &quot;</span>, fname, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span> )</span>
+<span id="cb477-7"><a href="saving-files.html#cb477-7" tabindex="-1"></a>    rs <span class="ot">=</span> <span class="fu">readRDS</span>( <span class="at">file =</span> fname )</span>
+<span id="cb477-8"><a href="saving-files.html#cb477-8" tabindex="-1"></a>    rs<span class="sc">$</span>filename <span class="ot">=</span> fname</span>
+<span id="cb477-9"><a href="saving-files.html#cb477-9" tabindex="-1"></a>    rs</span>
+<span id="cb477-10"><a href="saving-files.html#cb477-10" tabindex="-1"></a>  })</span>
+<span id="cb477-11"><a href="saving-files.html#cb477-11" tabindex="-1"></a>  res</span>
+<span id="cb477-12"><a href="saving-files.html#cb477-12" tabindex="-1"></a>}</span></code></pre></div>
 <p>You would use as so:</p>
-<div class="sourceCode" id="cb480"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb480-1"><a href="saving-files.html#cb480-1" tabindex="-1"></a>results <span class="ot">=</span> <span class="fu">load.all.sims</span>( <span class="at">filehead=</span><span class="st">&quot;raw_results/&quot;</span> )</span></code></pre></div>
+<div class="sourceCode" id="cb478"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb478-1"><a href="saving-files.html#cb478-1" tabindex="-1"></a>results <span class="ot">=</span> <span class="fu">load.all.sims</span>( <span class="at">filehead=</span><span class="st">&quot;raw_results/&quot;</span> )</span></code></pre></div>
 
 </div>
 </div>

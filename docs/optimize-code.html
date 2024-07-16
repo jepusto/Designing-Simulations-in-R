@@ -535,20 +535,16 @@ Also, although hand-building a method does take more work to program, it can res
 The <code>microbenchmark</code> function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:</p>
 <div class="sourceCode" id="cb395"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb395-1"><a href="optimize-code.html#cb395-1" tabindex="-1"></a><span class="fu">library</span>(microbenchmark)</span>
 <span id="cb395-2"><a href="optimize-code.html#cb395-2" tabindex="-1"></a>timings <span class="ot">&lt;-</span> <span class="fu">microbenchmark</span>(<span class="at">Rfunction =</span> <span class="fu">ANOVA_F_aov</span>(sim_data),</span>
-<span id="cb395-3"><a href="optimize-code.html#cb395-3" tabindex="-1"></a>                          <span class="at">direct    =</span> <span class="fu">ANOVA_F</span>(sim_data))</span></code></pre></div>
-<pre><code>## Warning in microbenchmark(Rfunction =
-## ANOVA_F_aov(sim_data), direct =
-## ANOVA_F(sim_data)): less accurate nanosecond
-## times to avoid potential integer overflows</code></pre>
-<div class="sourceCode" id="cb397"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb397-1"><a href="optimize-code.html#cb397-1" tabindex="-1"></a>timings</span></code></pre></div>
+<span id="cb395-3"><a href="optimize-code.html#cb395-3" tabindex="-1"></a>                          <span class="at">direct    =</span> <span class="fu">ANOVA_F</span>(sim_data))</span>
+<span id="cb395-4"><a href="optimize-code.html#cb395-4" tabindex="-1"></a>timings</span></code></pre></div>
 <pre><code>## Unit: microseconds
-##       expr     min       lq      mean   median
-##  Rfunction 200.408 206.4555 221.90799 208.7105
-##     direct  88.970  91.7580  95.87317  94.9970
-##        uq      max neval
-##  211.3140 1304.825   100
-##   96.9445  194.340   100</code></pre>
-<p>The direct function is 2.3 times faster than the built-in R function.</p>
+##       expr   min     lq    mean median     uq
+##  Rfunction 416.3 452.15 521.296 470.25 490.70
+##     direct 166.1 183.45 211.104 200.70 209.95
+##     max neval
+##  2593.4   100
+##   435.6   100</code></pre>
+<p>The direct function is 2.5 times faster than the built-in R function.</p>
 <p>This result is not unusual.
 Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
 Here we can skip them by doing the calculations directly.
@@ -559,24 +555,24 @@ Optimize only if you need to!</p>
 <h2><span class="header-section-number">17.2</span> Computational efficiency versus simplicity<a href="optimize-code.html#sec_comp_efficiency" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>An alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates <em>multiple</em> sets of simulated data all at once.</p>
 <p>For example, for our ANOVA example we could specify that we want <code>R</code> replications of the study and have the function spit out a matrix with <code>R</code> columns, one for each simulated dataset:</p>
-<div class="sourceCode" id="cb399"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb399-1"><a href="optimize-code.html#cb399-1" tabindex="-1"></a>generate_data_matrix <span class="ot">&lt;-</span> <span class="cf">function</span>(mu, sigma_sq, sample_size, R) {</span>
-<span id="cb399-2"><a href="optimize-code.html#cb399-2" tabindex="-1"></a></span>
-<span id="cb399-3"><a href="optimize-code.html#cb399-3" tabindex="-1"></a>  N <span class="ot">&lt;-</span> <span class="fu">sum</span>(sample_size) </span>
-<span id="cb399-4"><a href="optimize-code.html#cb399-4" tabindex="-1"></a>  g <span class="ot">&lt;-</span> <span class="fu">length</span>(sample_size) </span>
-<span id="cb399-5"><a href="optimize-code.html#cb399-5" tabindex="-1"></a>  </span>
-<span id="cb399-6"><a href="optimize-code.html#cb399-6" tabindex="-1"></a>  group <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>g, <span class="at">times =</span> sample_size) </span>
-<span id="cb399-7"><a href="optimize-code.html#cb399-7" tabindex="-1"></a>  mu_long <span class="ot">&lt;-</span> <span class="fu">rep</span>(mu, <span class="at">times =</span> sample_size)</span>
-<span id="cb399-8"><a href="optimize-code.html#cb399-8" tabindex="-1"></a>  sigma_long <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="fu">sqrt</span>(sigma_sq), <span class="at">times =</span> sample_size) </span>
-<span id="cb399-9"><a href="optimize-code.html#cb399-9" tabindex="-1"></a></span>
-<span id="cb399-10"><a href="optimize-code.html#cb399-10" tabindex="-1"></a>  x_mat <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(N <span class="sc">*</span> R, <span class="at">mean =</span> mu_long, <span class="at">sd =</span> sigma_long),</span>
-<span id="cb399-11"><a href="optimize-code.html#cb399-11" tabindex="-1"></a>                  <span class="at">nrow =</span> N, <span class="at">ncol =</span> R)</span>
-<span id="cb399-12"><a href="optimize-code.html#cb399-12" tabindex="-1"></a>  sim_data <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">group =</span> group, <span class="at">x_mat =</span> x_mat)</span>
-<span id="cb399-13"><a href="optimize-code.html#cb399-13" tabindex="-1"></a>    </span>
-<span id="cb399-14"><a href="optimize-code.html#cb399-14" tabindex="-1"></a>  <span class="fu">return</span>(sim_data)</span>
-<span id="cb399-15"><a href="optimize-code.html#cb399-15" tabindex="-1"></a>}</span>
-<span id="cb399-16"><a href="optimize-code.html#cb399-16" tabindex="-1"></a></span>
-<span id="cb399-17"><a href="optimize-code.html#cb399-17" tabindex="-1"></a><span class="fu">generate_data_matrix</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq,</span>
-<span id="cb399-18"><a href="optimize-code.html#cb399-18" tabindex="-1"></a>                     <span class="at">sample_size =</span> sample_size, <span class="at">R =</span> <span class="dv">4</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb397"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb397-1"><a href="optimize-code.html#cb397-1" tabindex="-1"></a>generate_data_matrix <span class="ot">&lt;-</span> <span class="cf">function</span>(mu, sigma_sq, sample_size, R) {</span>
+<span id="cb397-2"><a href="optimize-code.html#cb397-2" tabindex="-1"></a></span>
+<span id="cb397-3"><a href="optimize-code.html#cb397-3" tabindex="-1"></a>  N <span class="ot">&lt;-</span> <span class="fu">sum</span>(sample_size) </span>
+<span id="cb397-4"><a href="optimize-code.html#cb397-4" tabindex="-1"></a>  g <span class="ot">&lt;-</span> <span class="fu">length</span>(sample_size) </span>
+<span id="cb397-5"><a href="optimize-code.html#cb397-5" tabindex="-1"></a>  </span>
+<span id="cb397-6"><a href="optimize-code.html#cb397-6" tabindex="-1"></a>  group <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span>g, <span class="at">times =</span> sample_size) </span>
+<span id="cb397-7"><a href="optimize-code.html#cb397-7" tabindex="-1"></a>  mu_long <span class="ot">&lt;-</span> <span class="fu">rep</span>(mu, <span class="at">times =</span> sample_size)</span>
+<span id="cb397-8"><a href="optimize-code.html#cb397-8" tabindex="-1"></a>  sigma_long <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="fu">sqrt</span>(sigma_sq), <span class="at">times =</span> sample_size) </span>
+<span id="cb397-9"><a href="optimize-code.html#cb397-9" tabindex="-1"></a></span>
+<span id="cb397-10"><a href="optimize-code.html#cb397-10" tabindex="-1"></a>  x_mat <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(N <span class="sc">*</span> R, <span class="at">mean =</span> mu_long, <span class="at">sd =</span> sigma_long),</span>
+<span id="cb397-11"><a href="optimize-code.html#cb397-11" tabindex="-1"></a>                  <span class="at">nrow =</span> N, <span class="at">ncol =</span> R)</span>
+<span id="cb397-12"><a href="optimize-code.html#cb397-12" tabindex="-1"></a>  sim_data <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">group =</span> group, <span class="at">x_mat =</span> x_mat)</span>
+<span id="cb397-13"><a href="optimize-code.html#cb397-13" tabindex="-1"></a>    </span>
+<span id="cb397-14"><a href="optimize-code.html#cb397-14" tabindex="-1"></a>  <span class="fu">return</span>(sim_data)</span>
+<span id="cb397-15"><a href="optimize-code.html#cb397-15" tabindex="-1"></a>}</span>
+<span id="cb397-16"><a href="optimize-code.html#cb397-16" tabindex="-1"></a></span>
+<span id="cb397-17"><a href="optimize-code.html#cb397-17" tabindex="-1"></a><span class="fu">generate_data_matrix</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq,</span>
+<span id="cb397-18"><a href="optimize-code.html#cb397-18" tabindex="-1"></a>                     <span class="at">sample_size =</span> sample_size, <span class="at">R =</span> <span class="dv">4</span>)</span></code></pre></div>
 <pre><code>## $group
 ##  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
 ## 
@@ -607,23 +603,23 @@ On balance, we recommend the simpler approach of writing a function that generat
 It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
 All that said, there is some glaring redundancy in the two functions used for the ANOVA simulation.
 Both <code>ANOVA_F</code> and <code>Welch_F</code> start by taking the simulated data and calculating summary statistics for each group, using the following code:</p>
-<div class="sourceCode" id="cb401"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb401-1"><a href="optimize-code.html#cb401-1" tabindex="-1"></a>x_bar <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, mean))</span>
-<span id="cb401-2"><a href="optimize-code.html#cb401-2" tabindex="-1"></a>s_sq <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, var))</span>
-<span id="cb401-3"><a href="optimize-code.html#cb401-3" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">table</span>(sim_data<span class="sc">$</span>group)</span>
-<span id="cb401-4"><a href="optimize-code.html#cb401-4" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="fu">length</span>(x_bar)</span></code></pre></div>
+<div class="sourceCode" id="cb399"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb399-1"><a href="optimize-code.html#cb399-1" tabindex="-1"></a>x_bar <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, mean))</span>
+<span id="cb399-2"><a href="optimize-code.html#cb399-2" tabindex="-1"></a>s_sq <span class="ot">&lt;-</span> <span class="fu">with</span>(sim_data, <span class="fu">tapply</span>(x, group, var))</span>
+<span id="cb399-3"><a href="optimize-code.html#cb399-3" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">table</span>(sim_data<span class="sc">$</span>group)</span>
+<span id="cb399-4"><a href="optimize-code.html#cb399-4" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="fu">length</span>(x_bar)</span></code></pre></div>
 <p>In the interest of not repeating ourselves, it would better to pull this code out as a separate function and then re-write the <code>ANOVA_F</code> and <code>Welch_F</code> functions to take the summary statistics as input. Here is a function that takes simulated data and returns a list of summary statistics:</p>
-<div class="sourceCode" id="cb402"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb402-1"><a href="optimize-code.html#cb402-1" tabindex="-1"></a>summarize_data <span class="ot">&lt;-</span> <span class="cf">function</span>(sim_data) {</span>
-<span id="cb402-2"><a href="optimize-code.html#cb402-2" tabindex="-1"></a>  </span>
-<span id="cb402-3"><a href="optimize-code.html#cb402-3" tabindex="-1"></a>  res <span class="ot">&lt;-</span> sim_data <span class="sc">%&gt;%</span> </span>
-<span id="cb402-4"><a href="optimize-code.html#cb402-4" tabindex="-1"></a>    <span class="fu">group_by</span>( group ) <span class="sc">%&gt;%</span></span>
-<span id="cb402-5"><a href="optimize-code.html#cb402-5" tabindex="-1"></a>    <span class="fu">summarise</span>( <span class="at">x_bar =</span> <span class="fu">mean</span>( x ),</span>
-<span id="cb402-6"><a href="optimize-code.html#cb402-6" tabindex="-1"></a>               <span class="at">s_sq =</span> <span class="fu">var</span>( x ),</span>
-<span id="cb402-7"><a href="optimize-code.html#cb402-7" tabindex="-1"></a>               <span class="at">n =</span> <span class="fu">n</span>() )</span>
-<span id="cb402-8"><a href="optimize-code.html#cb402-8" tabindex="-1"></a>  res</span>
-<span id="cb402-9"><a href="optimize-code.html#cb402-9" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb400"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb400-1"><a href="optimize-code.html#cb400-1" tabindex="-1"></a>summarize_data <span class="ot">&lt;-</span> <span class="cf">function</span>(sim_data) {</span>
+<span id="cb400-2"><a href="optimize-code.html#cb400-2" tabindex="-1"></a>  </span>
+<span id="cb400-3"><a href="optimize-code.html#cb400-3" tabindex="-1"></a>  res <span class="ot">&lt;-</span> sim_data <span class="sc">%&gt;%</span> </span>
+<span id="cb400-4"><a href="optimize-code.html#cb400-4" tabindex="-1"></a>    <span class="fu">group_by</span>( group ) <span class="sc">%&gt;%</span></span>
+<span id="cb400-5"><a href="optimize-code.html#cb400-5" tabindex="-1"></a>    <span class="fu">summarise</span>( <span class="at">x_bar =</span> <span class="fu">mean</span>( x ),</span>
+<span id="cb400-6"><a href="optimize-code.html#cb400-6" tabindex="-1"></a>               <span class="at">s_sq =</span> <span class="fu">var</span>( x ),</span>
+<span id="cb400-7"><a href="optimize-code.html#cb400-7" tabindex="-1"></a>               <span class="at">n =</span> <span class="fu">n</span>() )</span>
+<span id="cb400-8"><a href="optimize-code.html#cb400-8" tabindex="-1"></a>  res</span>
+<span id="cb400-9"><a href="optimize-code.html#cb400-9" tabindex="-1"></a>}</span></code></pre></div>
 <p>We just packaged the code from above, and puts our results in a nice table (and thus pivoted to using tidyverse to calculate these things):</p>
-<div class="sourceCode" id="cb403"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb403-1"><a href="optimize-code.html#cb403-1" tabindex="-1"></a>sim_data <span class="ot">=</span> <span class="fu">generate_data</span>(<span class="at">mu=</span>mu, <span class="at">sigma_sq=</span>sigma_sq, <span class="at">sample_size=</span>sample_size)</span>
-<span id="cb403-2"><a href="optimize-code.html#cb403-2" tabindex="-1"></a><span class="fu">summarize_data</span>(sim_data)</span></code></pre></div>
+<div class="sourceCode" id="cb401"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb401-1"><a href="optimize-code.html#cb401-1" tabindex="-1"></a>sim_data <span class="ot">=</span> <span class="fu">generate_data</span>(<span class="at">mu=</span>mu, <span class="at">sigma_sq=</span>sigma_sq, <span class="at">sample_size=</span>sample_size)</span>
+<span id="cb401-2"><a href="optimize-code.html#cb401-2" tabindex="-1"></a><span class="fu">summarize_data</span>(sim_data)</span></code></pre></div>
 <pre><code>## # A tibble: 4 × 4
 ##   group x_bar  s_sq     n
 ##   &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt;
@@ -632,104 +628,104 @@ Both <code>ANOVA_F</code> and <code>Welch_F</code> start by taking the simulated
 ## 3     3  4.40 0.626     2
 ## 4     4  6.58 0.485     4</code></pre>
 <p>Now we can re-write both <span class="math inline">\(F\)</span>-test functions to use the output of this function:</p>
-<div class="sourceCode" id="cb405"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb405-1"><a href="optimize-code.html#cb405-1" tabindex="-1"></a>ANOVA_F_agg <span class="ot">&lt;-</span> <span class="cf">function</span>(x_bar, s_sq, n) {</span>
-<span id="cb405-2"><a href="optimize-code.html#cb405-2" tabindex="-1"></a>  g <span class="ot">=</span> <span class="fu">length</span>(x_bar)</span>
-<span id="cb405-3"><a href="optimize-code.html#cb405-3" tabindex="-1"></a>  df1 <span class="ot">&lt;-</span> g <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb405-4"><a href="optimize-code.html#cb405-4" tabindex="-1"></a>  df2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(n) <span class="sc">-</span> g</span>
-<span id="cb405-5"><a href="optimize-code.html#cb405-5" tabindex="-1"></a>  </span>
-<span id="cb405-6"><a href="optimize-code.html#cb405-6" tabindex="-1"></a>  msbtw <span class="ot">&lt;-</span> <span class="fu">sum</span>(n <span class="sc">*</span> (x_bar <span class="sc">-</span> <span class="fu">weighted.mean</span>(x_bar, <span class="at">w =</span> n))<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> df1</span>
-<span id="cb405-7"><a href="optimize-code.html#cb405-7" tabindex="-1"></a>  mswn <span class="ot">&lt;-</span> <span class="fu">sum</span>((n <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> s_sq) <span class="sc">/</span> df2</span>
-<span id="cb405-8"><a href="optimize-code.html#cb405-8" tabindex="-1"></a>  fstat <span class="ot">&lt;-</span> msbtw <span class="sc">/</span> mswn</span>
-<span id="cb405-9"><a href="optimize-code.html#cb405-9" tabindex="-1"></a>  pval <span class="ot">&lt;-</span> <span class="fu">pf</span>(fstat, df1, df2, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb405-10"><a href="optimize-code.html#cb405-10" tabindex="-1"></a> </span>
-<span id="cb405-11"><a href="optimize-code.html#cb405-11" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
-<span id="cb405-12"><a href="optimize-code.html#cb405-12" tabindex="-1"></a>}</span>
-<span id="cb405-13"><a href="optimize-code.html#cb405-13" tabindex="-1"></a></span>
-<span id="cb405-14"><a href="optimize-code.html#cb405-14" tabindex="-1"></a>summary_stats <span class="ot">&lt;-</span> <span class="fu">summarize_data</span>(sim_data)</span>
-<span id="cb405-15"><a href="optimize-code.html#cb405-15" tabindex="-1"></a><span class="fu">with</span>(summary_stats, <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span></code></pre></div>
+<div class="sourceCode" id="cb403"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb403-1"><a href="optimize-code.html#cb403-1" tabindex="-1"></a>ANOVA_F_agg <span class="ot">&lt;-</span> <span class="cf">function</span>(x_bar, s_sq, n) {</span>
+<span id="cb403-2"><a href="optimize-code.html#cb403-2" tabindex="-1"></a>  g <span class="ot">=</span> <span class="fu">length</span>(x_bar)</span>
+<span id="cb403-3"><a href="optimize-code.html#cb403-3" tabindex="-1"></a>  df1 <span class="ot">&lt;-</span> g <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb403-4"><a href="optimize-code.html#cb403-4" tabindex="-1"></a>  df2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(n) <span class="sc">-</span> g</span>
+<span id="cb403-5"><a href="optimize-code.html#cb403-5" tabindex="-1"></a>  </span>
+<span id="cb403-6"><a href="optimize-code.html#cb403-6" tabindex="-1"></a>  msbtw <span class="ot">&lt;-</span> <span class="fu">sum</span>(n <span class="sc">*</span> (x_bar <span class="sc">-</span> <span class="fu">weighted.mean</span>(x_bar, <span class="at">w =</span> n))<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> df1</span>
+<span id="cb403-7"><a href="optimize-code.html#cb403-7" tabindex="-1"></a>  mswn <span class="ot">&lt;-</span> <span class="fu">sum</span>((n <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> s_sq) <span class="sc">/</span> df2</span>
+<span id="cb403-8"><a href="optimize-code.html#cb403-8" tabindex="-1"></a>  fstat <span class="ot">&lt;-</span> msbtw <span class="sc">/</span> mswn</span>
+<span id="cb403-9"><a href="optimize-code.html#cb403-9" tabindex="-1"></a>  pval <span class="ot">&lt;-</span> <span class="fu">pf</span>(fstat, df1, df2, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb403-10"><a href="optimize-code.html#cb403-10" tabindex="-1"></a> </span>
+<span id="cb403-11"><a href="optimize-code.html#cb403-11" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
+<span id="cb403-12"><a href="optimize-code.html#cb403-12" tabindex="-1"></a>}</span>
+<span id="cb403-13"><a href="optimize-code.html#cb403-13" tabindex="-1"></a></span>
+<span id="cb403-14"><a href="optimize-code.html#cb403-14" tabindex="-1"></a>summary_stats <span class="ot">&lt;-</span> <span class="fu">summarize_data</span>(sim_data)</span>
+<span id="cb403-15"><a href="optimize-code.html#cb403-15" tabindex="-1"></a><span class="fu">with</span>(summary_stats, <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span></code></pre></div>
 <pre><code>## [1] 0.0003129849</code></pre>
-<div class="sourceCode" id="cb407"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb407-1"><a href="optimize-code.html#cb407-1" tabindex="-1"></a>Welch_F_agg <span class="ot">&lt;-</span> <span class="cf">function</span>(x_bar, s_sq, n) {</span>
-<span id="cb407-2"><a href="optimize-code.html#cb407-2" tabindex="-1"></a>  g <span class="ot">=</span> <span class="fu">length</span>(x_bar)</span>
-<span id="cb407-3"><a href="optimize-code.html#cb407-3" tabindex="-1"></a>  w <span class="ot">&lt;-</span> n <span class="sc">/</span> s_sq</span>
-<span id="cb407-4"><a href="optimize-code.html#cb407-4" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">sum</span>(w)</span>
-<span id="cb407-5"><a href="optimize-code.html#cb407-5" tabindex="-1"></a>  x_tilde <span class="ot">&lt;-</span> <span class="fu">sum</span>(w <span class="sc">*</span> x_bar) <span class="sc">/</span> u</span>
-<span id="cb407-6"><a href="optimize-code.html#cb407-6" tabindex="-1"></a>  msbtw <span class="ot">&lt;-</span> <span class="fu">sum</span>(w <span class="sc">*</span> (x_bar <span class="sc">-</span> x_tilde)<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> (g <span class="sc">-</span> <span class="dv">1</span>)</span>
-<span id="cb407-7"><a href="optimize-code.html#cb407-7" tabindex="-1"></a></span>
-<span id="cb407-8"><a href="optimize-code.html#cb407-8" tabindex="-1"></a>  G <span class="ot">&lt;-</span> <span class="fu">sum</span>((<span class="dv">1</span> <span class="sc">-</span> w <span class="sc">/</span> u)<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (n <span class="sc">-</span> <span class="dv">1</span>))</span>
-<span id="cb407-9"><a href="optimize-code.html#cb407-9" tabindex="-1"></a>  denom <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span>  G <span class="sc">*</span> <span class="dv">2</span> <span class="sc">*</span> (g <span class="sc">-</span> <span class="dv">2</span>) <span class="sc">/</span> (g<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="dv">1</span>)</span>
-<span id="cb407-10"><a href="optimize-code.html#cb407-10" tabindex="-1"></a>  W <span class="ot">&lt;-</span> msbtw <span class="sc">/</span> denom</span>
-<span id="cb407-11"><a href="optimize-code.html#cb407-11" tabindex="-1"></a>  f <span class="ot">&lt;-</span> (g<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">/</span> (<span class="dv">3</span> <span class="sc">*</span> G)</span>
-<span id="cb407-12"><a href="optimize-code.html#cb407-12" tabindex="-1"></a></span>
-<span id="cb407-13"><a href="optimize-code.html#cb407-13" tabindex="-1"></a>  pval <span class="ot">&lt;-</span> <span class="fu">pf</span>(W, <span class="at">df1 =</span> g <span class="sc">-</span> <span class="dv">1</span>, <span class="at">df2 =</span> f, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb407-14"><a href="optimize-code.html#cb407-14" tabindex="-1"></a></span>
-<span id="cb407-15"><a href="optimize-code.html#cb407-15" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
-<span id="cb407-16"><a href="optimize-code.html#cb407-16" tabindex="-1"></a>}</span>
-<span id="cb407-17"><a href="optimize-code.html#cb407-17" tabindex="-1"></a></span>
-<span id="cb407-18"><a href="optimize-code.html#cb407-18" tabindex="-1"></a><span class="fu">with</span>(summary_stats, <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span></code></pre></div>
+<div class="sourceCode" id="cb405"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb405-1"><a href="optimize-code.html#cb405-1" tabindex="-1"></a>Welch_F_agg <span class="ot">&lt;-</span> <span class="cf">function</span>(x_bar, s_sq, n) {</span>
+<span id="cb405-2"><a href="optimize-code.html#cb405-2" tabindex="-1"></a>  g <span class="ot">=</span> <span class="fu">length</span>(x_bar)</span>
+<span id="cb405-3"><a href="optimize-code.html#cb405-3" tabindex="-1"></a>  w <span class="ot">&lt;-</span> n <span class="sc">/</span> s_sq</span>
+<span id="cb405-4"><a href="optimize-code.html#cb405-4" tabindex="-1"></a>  u <span class="ot">&lt;-</span> <span class="fu">sum</span>(w)</span>
+<span id="cb405-5"><a href="optimize-code.html#cb405-5" tabindex="-1"></a>  x_tilde <span class="ot">&lt;-</span> <span class="fu">sum</span>(w <span class="sc">*</span> x_bar) <span class="sc">/</span> u</span>
+<span id="cb405-6"><a href="optimize-code.html#cb405-6" tabindex="-1"></a>  msbtw <span class="ot">&lt;-</span> <span class="fu">sum</span>(w <span class="sc">*</span> (x_bar <span class="sc">-</span> x_tilde)<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> (g <span class="sc">-</span> <span class="dv">1</span>)</span>
+<span id="cb405-7"><a href="optimize-code.html#cb405-7" tabindex="-1"></a></span>
+<span id="cb405-8"><a href="optimize-code.html#cb405-8" tabindex="-1"></a>  G <span class="ot">&lt;-</span> <span class="fu">sum</span>((<span class="dv">1</span> <span class="sc">-</span> w <span class="sc">/</span> u)<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (n <span class="sc">-</span> <span class="dv">1</span>))</span>
+<span id="cb405-9"><a href="optimize-code.html#cb405-9" tabindex="-1"></a>  denom <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span>  G <span class="sc">*</span> <span class="dv">2</span> <span class="sc">*</span> (g <span class="sc">-</span> <span class="dv">2</span>) <span class="sc">/</span> (g<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="dv">1</span>)</span>
+<span id="cb405-10"><a href="optimize-code.html#cb405-10" tabindex="-1"></a>  W <span class="ot">&lt;-</span> msbtw <span class="sc">/</span> denom</span>
+<span id="cb405-11"><a href="optimize-code.html#cb405-11" tabindex="-1"></a>  f <span class="ot">&lt;-</span> (g<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">/</span> (<span class="dv">3</span> <span class="sc">*</span> G)</span>
+<span id="cb405-12"><a href="optimize-code.html#cb405-12" tabindex="-1"></a></span>
+<span id="cb405-13"><a href="optimize-code.html#cb405-13" tabindex="-1"></a>  pval <span class="ot">&lt;-</span> <span class="fu">pf</span>(W, <span class="at">df1 =</span> g <span class="sc">-</span> <span class="dv">1</span>, <span class="at">df2 =</span> f, <span class="at">lower.tail =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb405-14"><a href="optimize-code.html#cb405-14" tabindex="-1"></a></span>
+<span id="cb405-15"><a href="optimize-code.html#cb405-15" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
+<span id="cb405-16"><a href="optimize-code.html#cb405-16" tabindex="-1"></a>}</span>
+<span id="cb405-17"><a href="optimize-code.html#cb405-17" tabindex="-1"></a></span>
+<span id="cb405-18"><a href="optimize-code.html#cb405-18" tabindex="-1"></a><span class="fu">with</span>(summary_stats, <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span></code></pre></div>
 <pre><code>## [1] 0.0003129849</code></pre>
 <p>The results are the same as before.</p>
 <p>We should always test any optimized code against something we know is stable, since optimization is an easy way to get bad bugs.
 Here we check against R’s implementation:</p>
-<div class="sourceCode" id="cb409"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb409-1"><a href="optimize-code.html#cb409-1" tabindex="-1"></a>summary_stats <span class="ot">&lt;-</span> <span class="fu">summarize_data</span>(sim_data)</span>
-<span id="cb409-2"><a href="optimize-code.html#cb409-2" tabindex="-1"></a>F_results <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats,</span>
-<span id="cb409-3"><a href="optimize-code.html#cb409-3" tabindex="-1"></a>                  <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
-<span id="cb409-4"><a href="optimize-code.html#cb409-4" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group), <span class="at">data =</span> sim_data, </span>
-<span id="cb409-5"><a href="optimize-code.html#cb409-5" tabindex="-1"></a>                           <span class="at">var.equal =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb409-6"><a href="optimize-code.html#cb409-6" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, F_results)</span></code></pre></div>
+<div class="sourceCode" id="cb407"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb407-1"><a href="optimize-code.html#cb407-1" tabindex="-1"></a>summary_stats <span class="ot">&lt;-</span> <span class="fu">summarize_data</span>(sim_data)</span>
+<span id="cb407-2"><a href="optimize-code.html#cb407-2" tabindex="-1"></a>F_results <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats,</span>
+<span id="cb407-3"><a href="optimize-code.html#cb407-3" tabindex="-1"></a>                  <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
+<span id="cb407-4"><a href="optimize-code.html#cb407-4" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group), <span class="at">data =</span> sim_data, </span>
+<span id="cb407-5"><a href="optimize-code.html#cb407-5" tabindex="-1"></a>                           <span class="at">var.equal =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb407-6"><a href="optimize-code.html#cb407-6" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, F_results)</span></code></pre></div>
 <pre><code>## [1] TRUE</code></pre>
-<div class="sourceCode" id="cb411"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb411-1"><a href="optimize-code.html#cb411-1" tabindex="-1"></a>W_results <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats,</span>
-<span id="cb411-2"><a href="optimize-code.html#cb411-2" tabindex="-1"></a>                  <span class="fu">Welch_F_agg</span>( <span class="at">x_bar =</span> x_bar,</span>
-<span id="cb411-3"><a href="optimize-code.html#cb411-3" tabindex="-1"></a>                               <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
-<span id="cb411-4"><a href="optimize-code.html#cb411-4" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group),</span>
-<span id="cb411-5"><a href="optimize-code.html#cb411-5" tabindex="-1"></a>                           <span class="at">data =</span> sim_data, </span>
-<span id="cb411-6"><a href="optimize-code.html#cb411-6" tabindex="-1"></a>                           <span class="at">var.equal =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb411-7"><a href="optimize-code.html#cb411-7" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, W_results)</span></code></pre></div>
+<div class="sourceCode" id="cb409"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb409-1"><a href="optimize-code.html#cb409-1" tabindex="-1"></a>W_results <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats,</span>
+<span id="cb409-2"><a href="optimize-code.html#cb409-2" tabindex="-1"></a>                  <span class="fu">Welch_F_agg</span>( <span class="at">x_bar =</span> x_bar,</span>
+<span id="cb409-3"><a href="optimize-code.html#cb409-3" tabindex="-1"></a>                               <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
+<span id="cb409-4"><a href="optimize-code.html#cb409-4" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group),</span>
+<span id="cb409-5"><a href="optimize-code.html#cb409-5" tabindex="-1"></a>                           <span class="at">data =</span> sim_data, </span>
+<span id="cb409-6"><a href="optimize-code.html#cb409-6" tabindex="-1"></a>                           <span class="at">var.equal =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb409-7"><a href="optimize-code.html#cb409-7" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, W_results)</span></code></pre></div>
 <pre><code>## [1] TRUE</code></pre>
 <p>Here we are able to check against a known baseline.
 Checking estimation functions can be a bit more difficult for procedures that are not already implemented in R. For example, the two other procedures examined by Brown and Forsythe, the James’ test and Brown and Forsythe’s <span class="math inline">\(F*\)</span> test, are not available in base R.
 They are, however, available in the user-contributed package <code>onewaytests</code>, found by searching for “Brown-Forsythe” at <a href="http://rseek.org/" class="uri">http://rseek.org/</a>. We could benchmark our calculations against this package, but of course there is some risk that the package might not be correct. Another route is to verify your results on numerical examples reported in authoritative papers, on the assumption that there’s less risk of an error there. In the original paper that proposed the test, Welch (1951) provides a worked numerical example of the procedure. He reports the following summary statistics:</p>
-<div class="sourceCode" id="cb413"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb413-1"><a href="optimize-code.html#cb413-1" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="dv">3</span></span>
-<span id="cb413-2"><a href="optimize-code.html#cb413-2" tabindex="-1"></a>x_bar <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">27.8</span>, <span class="fl">24.1</span>, <span class="fl">22.2</span>)</span>
-<span id="cb413-3"><a href="optimize-code.html#cb413-3" tabindex="-1"></a>s_sq <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">60.1</span>, <span class="fl">6.3</span>, <span class="fl">15.4</span>)</span>
-<span id="cb413-4"><a href="optimize-code.html#cb413-4" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb411"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb411-1"><a href="optimize-code.html#cb411-1" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="dv">3</span></span>
+<span id="cb411-2"><a href="optimize-code.html#cb411-2" tabindex="-1"></a>x_bar <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">27.8</span>, <span class="fl">24.1</span>, <span class="fl">22.2</span>)</span>
+<span id="cb411-3"><a href="optimize-code.html#cb411-3" tabindex="-1"></a>s_sq <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">60.1</span>, <span class="fl">6.3</span>, <span class="fl">15.4</span>)</span>
+<span id="cb411-4"><a href="optimize-code.html#cb411-4" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>)</span></code></pre></div>
 <p>He also reports <span class="math inline">\(W = 3.35\)</span> and <span class="math inline">\(f = 22.6\)</span>. Replicating the calculations with our <code>Welch_F_agg</code> function:</p>
-<div class="sourceCode" id="cb414"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb414-1"><a href="optimize-code.html#cb414-1" tabindex="-1"></a><span class="fu">Welch_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n)</span></code></pre></div>
+<div class="sourceCode" id="cb412"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb412-1"><a href="optimize-code.html#cb412-1" tabindex="-1"></a><span class="fu">Welch_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n)</span></code></pre></div>
 <pre><code>## [1] 0.05479049</code></pre>
 <p>We get slightly different results! But we know that our function is correct—or at least consistent with <code>oneway.test</code>—so what’s going on? It turns out that there was an error in some of Welch’s intermediate calculations, which can only be spotted because he reported all of his work in the paper.</p>
 <p>We then put all these pieces in our revised <code>one_run()</code> method as so:</p>
-<div class="sourceCode" id="cb416"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb416-1"><a href="optimize-code.html#cb416-1" tabindex="-1"></a>one_run_fast <span class="ot">&lt;-</span> <span class="cf">function</span>( mu, sigma_sq, sample_size ) {</span>
-<span id="cb416-2"><a href="optimize-code.html#cb416-2" tabindex="-1"></a>  sim_data <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq,</span>
-<span id="cb416-3"><a href="optimize-code.html#cb416-3" tabindex="-1"></a>                            <span class="at">sample_size =</span> sample_size)</span>
-<span id="cb416-4"><a href="optimize-code.html#cb416-4" tabindex="-1"></a>  summary_stats <span class="ot">&lt;-</span> <span class="fu">summarize_data</span>(sim_data)</span>
-<span id="cb416-5"><a href="optimize-code.html#cb416-5" tabindex="-1"></a>  anova_p <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats, </span>
-<span id="cb416-6"><a href="optimize-code.html#cb416-6" tabindex="-1"></a>                  <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar,<span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
-<span id="cb416-7"><a href="optimize-code.html#cb416-7" tabindex="-1"></a>  Welch_p <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats, </span>
-<span id="cb416-8"><a href="optimize-code.html#cb416-8" tabindex="-1"></a>                  <span class="fu">Welch_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
-<span id="cb416-9"><a href="optimize-code.html#cb416-9" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">ANOVA =</span> anova_p, <span class="at">Welch =</span> Welch_p)</span>
-<span id="cb416-10"><a href="optimize-code.html#cb416-10" tabindex="-1"></a>}</span>
-<span id="cb416-11"><a href="optimize-code.html#cb416-11" tabindex="-1"></a></span>
-<span id="cb416-12"><a href="optimize-code.html#cb416-12" tabindex="-1"></a><span class="fu">one_run_fast</span>( <span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq,</span>
-<span id="cb416-13"><a href="optimize-code.html#cb416-13" tabindex="-1"></a>              <span class="at">sample_size =</span> sample_size )</span></code></pre></div>
+<div class="sourceCode" id="cb414"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb414-1"><a href="optimize-code.html#cb414-1" tabindex="-1"></a>one_run_fast <span class="ot">&lt;-</span> <span class="cf">function</span>( mu, sigma_sq, sample_size ) {</span>
+<span id="cb414-2"><a href="optimize-code.html#cb414-2" tabindex="-1"></a>  sim_data <span class="ot">&lt;-</span> <span class="fu">generate_data</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq,</span>
+<span id="cb414-3"><a href="optimize-code.html#cb414-3" tabindex="-1"></a>                            <span class="at">sample_size =</span> sample_size)</span>
+<span id="cb414-4"><a href="optimize-code.html#cb414-4" tabindex="-1"></a>  summary_stats <span class="ot">&lt;-</span> <span class="fu">summarize_data</span>(sim_data)</span>
+<span id="cb414-5"><a href="optimize-code.html#cb414-5" tabindex="-1"></a>  anova_p <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats, </span>
+<span id="cb414-6"><a href="optimize-code.html#cb414-6" tabindex="-1"></a>                  <span class="fu">ANOVA_F_agg</span>(<span class="at">x_bar =</span> x_bar,<span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
+<span id="cb414-7"><a href="optimize-code.html#cb414-7" tabindex="-1"></a>  Welch_p <span class="ot">&lt;-</span> <span class="fu">with</span>(summary_stats, </span>
+<span id="cb414-8"><a href="optimize-code.html#cb414-8" tabindex="-1"></a>                  <span class="fu">Welch_F_agg</span>(<span class="at">x_bar =</span> x_bar, <span class="at">s_sq =</span> s_sq, <span class="at">n =</span> n))</span>
+<span id="cb414-9"><a href="optimize-code.html#cb414-9" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">ANOVA =</span> anova_p, <span class="at">Welch =</span> Welch_p)</span>
+<span id="cb414-10"><a href="optimize-code.html#cb414-10" tabindex="-1"></a>}</span>
+<span id="cb414-11"><a href="optimize-code.html#cb414-11" tabindex="-1"></a></span>
+<span id="cb414-12"><a href="optimize-code.html#cb414-12" tabindex="-1"></a><span class="fu">one_run_fast</span>( <span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq,</span>
+<span id="cb414-13"><a href="optimize-code.html#cb414-13" tabindex="-1"></a>              <span class="at">sample_size =</span> sample_size )</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 2
 ##      ANOVA  Welch
 ##      &lt;dbl&gt;  &lt;dbl&gt;
 ## 1 0.000982 0.0209</code></pre>
 <p>The reason this is important is we are now doing our group aggregation only once, rather than once per method. We can use our microbenchmark to see our speedup:</p>
-<div class="sourceCode" id="cb418"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb418-1"><a href="optimize-code.html#cb418-1" tabindex="-1"></a><span class="fu">library</span>(microbenchmark)</span>
-<span id="cb418-2"><a href="optimize-code.html#cb418-2" tabindex="-1"></a>timings <span class="ot">&lt;-</span> <span class="fu">microbenchmark</span>(<span class="at">noagg =</span> <span class="fu">one_run</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq, </span>
-<span id="cb418-3"><a href="optimize-code.html#cb418-3" tabindex="-1"></a>                                          <span class="at">sample_size =</span> sample_size),</span>
-<span id="cb418-4"><a href="optimize-code.html#cb418-4" tabindex="-1"></a>                          <span class="at">agg =</span> <span class="fu">one_run_fast</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq, </span>
-<span id="cb418-5"><a href="optimize-code.html#cb418-5" tabindex="-1"></a>                                             <span class="at">sample_size =</span> sample_size) )</span>
-<span id="cb418-6"><a href="optimize-code.html#cb418-6" tabindex="-1"></a>timings</span></code></pre></div>
-<pre><code>## Unit: microseconds
-##   expr      min       lq      mean    median
-##  noagg  576.214  595.566  757.3262  627.1155
-##    agg 1405.521 1422.987 1580.4746 1471.5515
-##         uq       max neval
-##   653.3965 11501.320   100
-##  1526.4095  6353.278   100</code></pre>
+<div class="sourceCode" id="cb416"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb416-1"><a href="optimize-code.html#cb416-1" tabindex="-1"></a><span class="fu">library</span>(microbenchmark)</span>
+<span id="cb416-2"><a href="optimize-code.html#cb416-2" tabindex="-1"></a>timings <span class="ot">&lt;-</span> <span class="fu">microbenchmark</span>(<span class="at">noagg =</span> <span class="fu">one_run</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq, </span>
+<span id="cb416-3"><a href="optimize-code.html#cb416-3" tabindex="-1"></a>                                          <span class="at">sample_size =</span> sample_size),</span>
+<span id="cb416-4"><a href="optimize-code.html#cb416-4" tabindex="-1"></a>                          <span class="at">agg =</span> <span class="fu">one_run_fast</span>(<span class="at">mu =</span> mu, <span class="at">sigma_sq =</span> sigma_sq, </span>
+<span id="cb416-5"><a href="optimize-code.html#cb416-5" tabindex="-1"></a>                                             <span class="at">sample_size =</span> sample_size) )</span>
+<span id="cb416-6"><a href="optimize-code.html#cb416-6" tabindex="-1"></a>timings</span></code></pre></div>
+<pre><code>## Unit: milliseconds
+##   expr    min      lq     mean  median     uq
+##  noagg 1.2941 1.34085 1.780549 1.39525 1.5645
+##    agg 2.9807 3.05655 3.616659 3.21345 3.6093
+##      max neval
+##  19.6928   100
+##   8.2278   100</code></pre>
 <p>And our relative speedup is:</p>
-<div class="sourceCode" id="cb420"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb420-1"><a href="optimize-code.html#cb420-1" tabindex="-1"></a><span class="fu">with</span>(<span class="fu">summary</span>(timings), <span class="fu">round</span>(mean[<span class="dv">1</span>] <span class="sc">/</span> mean[<span class="dv">2</span>], <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb418"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb418-1"><a href="optimize-code.html#cb418-1" tabindex="-1"></a><span class="fu">with</span>(<span class="fu">summary</span>(timings), <span class="fu">round</span>(mean[<span class="dv">1</span>] <span class="sc">/</span> mean[<span class="dv">2</span>], <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## [1] 0.5</code></pre>
 <p>To recap, there are two advantages of this kind of coding:</p>
 <ol style="list-style-type: decimal">
