@@ -1,22 +1,22 @@
 
 # An initial simulation {#t-test-simulation}
 
-We will begin with a concrete example of a small simulation study.
+We will begin our approach to simulation with a small, concrete example.
 This example illustrates how simulation involves replicating the data-generating and data-analysis processes, followed by aggregating the results across replications. 
 It thus encapsulates the entirety of Monte Carlo simulation, touching on all the main components involved.
 In subsequent chapters we will look at each of these components in greater detail, layering on further abstractions and complexity. 
-But first, let's look at a simulation of a very simple statistical problem. 
+But first, let us look at a simulation of a very simple statistical problem. 
  
 The one-sample $t$-test is one of the most basic methods in the statistics literature. 
 It tests a null hypothesis that a population mean of some variable is equal to a specific value by comparing the hypothesized value to a sample average.
 If the sample average is discrepant (very different) from the null value, then the hypothesis is rejected.
 The test can also be used to generate a confidence interval for the population mean.
 If the sample consists of independent observations and the variable is normally distributed in the population, then the confidence interval will have exact coverage, in the sense that 95% intervals will include the population mean in 95 out of 100 tries.
-But what if the population variable is not normally distributed, but is instead a frequency count following a geometric distribution? 
+But what if the population variable is not normally distributed?
 
-In this example, we will look at the coverage of 95% confidence intervals for the population mean when the method's normality assumption is violated.
+To find out, let us look at the coverage of the $t$-test's 95% confidence interval for the population mean when the method's normality assumption is violated.
 *Coverage* is the chance of a confidence interval capturing the true parameter value.
-To do this, we will simulate many samples from a non-normal population with a specified mean, calculate a confidence interval based on each sample, and see how many of the confidence intervals cover the population mean.
+To examine coverage, we will simulate many samples from a non-normal population with a specified mean, calculate a confidence interval based on each sample, and see how many of the confidence intervals cover the known true population mean.
 
 ```{r  setup, include=FALSE}
 library( tidyverse )
@@ -39,8 +39,8 @@ tt
 tt$conf.int
 ```
 
-We generated data with a true(population) mean of 4.  Did we capture it?  To check, we can use the `findInterval()` function, which checks to see where the first number lies relative to the range given in the second argument. 
-Here is an illustration of the syntax.
+We generated data with a true (population) mean of 4.  Did we capture it?  To check, we can use the `findInterval()` function, which checks to see where the first number lies relative to the range given in the second argument. 
+Here is an illustration of the syntax:
 ```{r}
 findInterval( 1, c(20, 30) )
 findInterval( 25, c(20, 30) )
@@ -65,13 +65,14 @@ tt$conf.int
 findInterval( 4, tt$conf.int ) == 1
 ```
 
-This code captures the basic form of a single simulation trial: make the data, analyze the data, decide how well we did.
-Before jumping into coding a simulation, it is wise to understand the procedure we plan on simulating.
-Mucking around with one (fake) dataset has left us in good position to start formalizing the simulation.
+The above code captures the basic form of a single simulation trial: make the data, analyze the data, decide how well we did.
+In general, mucking about to figure out what a single iteration might look like, as we just did, helps us figure out the procedure we plan on simulating.
+It also allows us to test and develop our code in an interactive, exploratory fashion; consider how we played with `findInterval()` to figure out how to use it to determine whether our confidence interval captured the truth.
+Once we have gotten a working iteration down, we are in a good position to start writing our actual simulation, which is what we will do next.
 
 ## Simulating a single scenario
 
-Now let's look at coverage of the confidence interval by repeating the data-generating and data-analysis processes many, many times.
+We next estimate the coverage of the confidence interval by repeating the data-generating and data-analysis processes many, many times.
 R's `replicate()` function is a handy way to repeatedly call a line of code. 
 Its first input argument is `n`, the number of times to repeat the calculation, followed by `expr`, which is one or more lines of code to be called. 
 We can use `replicate` to repeat our simulation process 1000 times in a row, each time generating a new sample of 10 observations from a normal distribution with mean of 4 and a standard deviation of 2. 
@@ -95,9 +96,10 @@ mean( rps == 1 )
 We got about 95% coverage, which is good news. In `r table(rps)[[1]]` out of the 1000 replications, the interval was too high (so the population mean was below the interval) and in `r table(rps)[[3]]` out of the 1000 replications, the interval was too low (so the population mean was above the interval). 
 
 It is important to recognize that this set of simulations results, and our coverage rate of `r 100 * mean( rps == 1 )`%, itself has some uncertainty in it. 
-Because we only repeated the simulation 1000 times, what we really have is a _sample_ of 1000 independent replications, out of an infinite number of possible simulation runs. 
-This source of uncertainty is called _Monte Carlo error_.
-We can assess the Monte Carlo error in our simulation results using standard statistical procedures for independent and identically distributed data. 
+Because we only repeated the simulation 1000 times, what we really have is a _sample_ of 1000 independent replications, out of an infinite number of possible simulation runs.
+Our coverage of `r round(100*mean(rps==1),digits=1)`% is an _estimate_ of what the true coverage would be, if we ran more and more replications.
+The source of uncertainty of our estimate is called _Monte Carlo simulation error (MCSE)_.
+We can actually assess the Monte Carlo simulation error in our simulation results using standard statistical procedures for independent and identically distributed data. 
 Here we use a proportion test to check whether the estimated coverage rate is consistent with a true coverage rate of 95%:
 ```{r}
 covered <- as.numeric( rps == 1 )
@@ -110,7 +112,7 @@ In other words, all we have found is that the confidence intervals follow theory
 
 ## A non-normal population distribution 
 
-Now let's look at a scenario where the population variable follows a geometric distribution to see what happens when the normality assumption is violated.
+We next look at a scenario where the population variable follows a geometric distribution to see what happens when the normality assumption is violated.
 The geometric distribution is usually written in terms of a probability parameter $p$, so that the distribution has a mean of $(1 - p) / p$. 
 We will use a geometric distribution with a mean of 4 by setting $p = 1/5$.
 Here is the population distribution of the variable:
@@ -133,7 +135,7 @@ rps <- replicate( 1000, {
 table( rps )
 ```
 Our confidence interval is often entirely too low (such that the population mean is above the interval) and very rarely does our interval fall fully above the population mean.
-Furthermore, our coverage rate is not 95% as it should be:
+Furthermore, our coverage rate is not the desired 95%:
 ```{r}
 mean( rps == 1 )
 ```
@@ -146,6 +148,7 @@ prop.test( sum(covered), length(covered), p = 0.95)
 ```
 
 Our coverage is _too low_; the confidence interval based on the $t$-test misses the the true value more often than it should.
+We have learned that the $t$-test can fail when given non-normal (skewed) data.
 
 ## Simulating across different scenarios
 
@@ -155,7 +158,7 @@ But how big does it have to get?
 One way to examine this question is to expand the simulation to look at several different scenarios involving different sample sizes.
 We can think of this as a one-factor experiment, where we manipulate sample size and use simulation to estimate how confidence interval coverage rates change.
 
-To implement such an experiment, we will write our own function that executes the full simulation process:
+To implement such an experiment, we first write our own function that executes the full simulation process for a given sample size:
 ```{r}
 
 ttest_CI_experiment = function( n ) {
@@ -171,13 +174,13 @@ ttest_CI_experiment = function( n ) {
   return(coverage)
 }
 ```
-The code inside the body of the function is identical to what we've used above, but we've turned the sample size into a function argument, called `n`, because we want to be able to run the code for several different sample sizes. 
+The code inside the body of the function is identical to what we have used above, with the sample size as a function argument, `n` to enable us to easily run the code for different sample sizes. 
 With our function in hand, we can now run the simulation for a single scenario just by calling it:
 ```{r}
 ttest_CI_experiment(n = 10)
 ```
 Even though the sample size is still `n = 10`, the simulated coverage rate is a little bit different from what we found previously. 
-That's because there's some Monte Carlo error in each simulated coverage rate.
+That is because there is some Monte Carlo error in each simulated coverage rate.
 
 Our task is now to use this function for several different values of $n$. We could just do this by copy-pasting and changing the value of `n`:
 ```{r}
@@ -188,10 +191,10 @@ ttest_CI_experiment(n = 30)
 However, this will quickly get cumbersome if we want to evaluate many different sample sizes. 
 A better approach is to use a mapping function from the `purrr` package.[^apply]
 The `map_dbl()` function takes a list of values and calls a function for each value in the list.[^mapping]
-This accomplishes the same thing as using a `for` loop to iterate through a list of items, but is more succinct.
-We'll first create a list of sample sizes to test out:
+This accomplishes the same thing as using a `for` loop to iterate through a list of items (if you happen to be familiar with these), but is more succinct.
+We first create a list of sample sizes to test out:
 ```{r}
-ns <- c(10, 20, 30, 40, 60, 80, 100, 120, 140, 160, 180, 200)
+ns <- c(10, 20, 30, 40, 60, 80, 100, 120, 160, 200, 300)
 ```
 Now we can use `map_dbl()` to evaluate the coverage rate for each sample size:
 ```{r  runtexp, cache=TRUE}
@@ -201,8 +204,8 @@ coverage_est <- map_dbl( ns, ttest_CI_experiment)
 [^apply]: Alternately, readers familiar with the `*apply()` family of functions from Base R might prefer to use `lapply()` or `sapply()`, which do essentially the same thing as `purrr::map_dbl()`. 
 [^mapping]: [Section 21.5 of R for Data Science (1st edition)](https://r4ds.had.co.nz/iteration.html#the-map-functions) provides an introduction to mapping.
 
-It's helpful to depict simulation results graphically.
-To do so, we will store the simulation results in a dataset and then create a line plot using a log scale for the horizontal axis:
+We advocate for depicting simulation results graphically.
+To do so, we store the simulation results in a dataset and then create a line plot using a log scale for the horizontal axis:
 ```{r ttest_result_figure, fig.width=8, fig.height=4}
 res <- data.frame( 
   n = ns, 
@@ -210,7 +213,8 @@ res <- data.frame(
 )
 
 ggplot( res, aes( x = n, y = coverage ) ) +
-  geom_hline( yintercept=95, col="red" ) +   # reference line for nominal coverage rate
+  geom_hline( yintercept=95, col="red" ) +  
+  # A reference line for nominal coverage rate
   geom_line() + 
   geom_point( size = 4 ) +
   scale_x_log10( breaks = ns, minor_breaks = NULL) +
@@ -232,36 +236,43 @@ So far, we have executed a simple simulation to assess how well a statistical me
 In our example, we found that coverage is below what it should be for small sample sizes, but improves for sample sizes in the 100's.
 
 This example captures all the major steps of a simulation study, which we outlined at the start of Chapter \@ref(introduction). 
-We generated some hypothetical data according to a fully-specified data-generating process: either a normal distribution or a geometric distribution with a mean of 4.
-We applied a defined data-analysis procedure to the simulated data: a confidence interval based on the $t$ distribution. 
+We generated some hypothetical data according to a fully-specified data-generating process: we did both a normal distribution and a geometric distribution, each with a mean of 4.
+We applied a defined data-analysis procedure to the simulated data: we used a confidence interval based on the $t$ distribution. 
 We assessed how well the procedure worked across replications of the data-generating and data-analysis processes, in this case focusing on the coverage rate of the confidence interval.
 After creating a function to implement this whole process for a single scenario, we investigated how the performance of the confidence interval changed depending on sample size. 
 
 In simulations of more complex models and data-analysis methods, some or all of the steps in the process might have more moving pieces or entail more complex calculations. 
-For instance, in the confidence interval simulation, we might want to compare the performance of several different approaches to calculating a confidence interval.
+For instance, we might want to compare the performance of different approaches to calculating a confidence interval.
 We might also want to examine how coverage rates are affected by other aspects of the data-generating process, such as looking at different population mean values for the geometric distribution---or even entirely different distributions. 
 With such additional layers of complexity, we will need to think systematically about each of the component parts of the simulation.
 In the next chapter, we introduce an abstract, general framework for simulations that is helpful for guiding simulation design and managing all the considerations involved.
 
 ## Exercises
 
-1. The simulation function we developed in this chapter uses 1000 replications of the data-generating and data-analysis process, which leads to some Monte Carlo error in the simulation results. Modify the `ttest_CI_experiment()` function to make the number of replications an input argument, then re-run the simulation and re-create the graph of the results. What do your results indicate about when sample size is large enough to obtain nominal coverage?
+1. The simulation function we developed in this chapter uses 1000 replications of the data-generating and data-analysis process, which leads to some Monte Carlo error in the simulation results. Modify the `ttest_CI_experiment()` function to make the number of replications an input argument, then re-run the simulation and re-create the graph of the results with $R=10,000$ or even $R=100,000$.  Is the graph more regular than the one in the text, above?
+Use your improved results to determine what sample size is large enough to give coverage of at least 94% (so only 1% off of desired).
 
-2. Repeat the one-factor simulation, but using $p = 1/10$ so that the population mean is $(1 - p) / p = 9$. How do the coverage rates change?
+2. Repeat the one-factor simulation, but use $p = 1/10$ so that the population mean is $(1 - p) / p = 9$. How do the coverage rates change?
 
-3. Modify the `ttest_CI_experiment()` function so that it returns a `data.frame` with the estimated coverage rate and the lower and upper end-points of a 95% confidence interval for the true coverage rate (you can use `prop.test()` to obtain this). Re-run the simulations with the modified function and create a graph that depicts the coverage rates and the 95% confidence intervals. (Hint: use the `ggplot2` function `geom_pointrange()` to represent the confidence intervals.)
+3. Modify the `ttest_CI_experiment()` function so that it returns a `data.frame` with the estimated coverage rate and the lower and upper end-points of a 95% confidence interval for the true coverage rate (you can use `prop.test()` to obtain this, treating your $R$ simulation replicates of the 0/1 indicator of capturing the truth as a random sample).
+Re-run the simulations with the modified function, obtaining a data frame with each row being a simulation scenario with columns of sample size, estimate of coverage, low end of the estimate's confidence interval, and high end of the interval.
+Use these data to create a graph that depicts the coverage rates and the 95% confidence intervals, to get a visual that includes monte carlo simulation error.
+We recommend using the `ggplot2` function `geom_pointrange()` to represent the confidence intervals.
 
 
-## Challenges
+**More challenging problems**
 
 4. Here is a modified version of the `ttest_CI_experiment()` function that creates a data frame with lower and upper end-points of the simulated confidence intervals:
     ```{r}
     lotsa_CIs_experiment = function( n ) {
       
       lotsa_CIs <- replicate( 1000, {
-        dat <- rgeom( n = n, prob = 1/5)                            # simulate data
-        tt <- t.test( dat )                                         # analyze data
-        data.frame(lower = tt$conf.int[1], upper = tt.conf.int[2])  # return CI
+        # simulate data
+        dat <- rgeom( n = n, prob = 1/5)                            
+        # analyze data
+        tt <- t.test( dat )                                       
+        # return CI
+        data.frame(lower = tt$conf.int[1], upper = tt.conf.int[2])
       })
     
       # summarize results
@@ -287,3 +298,8 @@ In the next chapter, we introduce an abstract, general framework for simulations
 
 
 6. Using the modified function from the previous problem, implement a two-factor simulation study for several different values of `n` and several different population means.
+One way to do this is to run a few simulations with different population means, storing them in a series of datasets, `res1`, `res2`, `res3`, etc.
+Then use `bind_rows( size1 = res1, ..., .id = "mean" )` to combine the datasets into a single dataset.
+Make a plot of your results, with `n` on the x-axis, coverage on the $y$-axis, and different lines for different population means.
+
+
