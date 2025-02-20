@@ -1,6 +1,3 @@
-
-```{r case_study_addendum, include=FALSE, eval=FALSE}
-
 # Not sure what this block of code is for?
 
 generate_data <- function(mu, sigma_sq, sample_size) {
@@ -58,5 +55,3 @@ purrr::rerun( 1000, {
   dd = ANOVA_F_aov(dat)
 })
 tictoc::toc()
-
-```
