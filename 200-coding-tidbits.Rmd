@@ -3,23 +3,114 @@ library( tidyverse )
 library( blkvar )
 ```
 
-# (APPENDIX) Appendices {-} 
+# (APPENDIX) Appendices {-}
 
-# Coding tidbits {#on-functions}
+# Coding tidbits {#coding-tidbits}
 
 This chapter is not about simulation, but does have a few tips and tricks regarding coding that are worth attending to.
 
 
-## Other ways of repeating yourself {#repeating-oneself}
+## How to repeat yourself {#repeating-oneself}
 
-There are several ways to call a bit of code (e.g., `one_run()` over and over).
-We have seen `map()` in the main part of the textbook.
+At the heart of simulation is replication: we want to do the same task over and over. In this book we have showcased a variety of tools to do it. In this section we give a formal presentation of these tools.
+
+### Using `replicate()`
+
+The `replicate( n, expr, simplify )` method is a base-R method, where you give it a number `n` and an expression `expr` to run that many times. You can set `simplify = FALSE` to get the results as a list, and if you set `simplify = TRUE` then R will try to simplify your results by, as a default, putting it into an array.
+
+For simple tasks where your expression gives you a single number, replicate will give you a list of numbers:
+```{r}
+replicate( 5, mean( rpois( 3, lambda = 1 ) ) )
+```
+
+If you do not simplify, you then will need to massage your results:
+
+```{r}
+one_run <- function() {
+  dd = rpois( 3, lambda = 1 )
+  tibble( mean = mean( dd ), sd = sd( dd ) )
+}
+rps <- replicate( 2, one_run(), simplify = FALSE )
+rps
+```
+In particular, you will probably stack all your tibbles to make one large dataset:
+```{r}
+rps <- bind_rows( rps )
+rps
+```
+
+Note that you give replicate a full piece of code that would run on its own.  You can even give a whole block of code in curly braces.
+This is exactly the same code as before:
+
+```{r}
+rps <- replicate( 2, {
+  dd = rpois( 3, lambda = 1 )
+  tibble( mean = mean( dd ), sd = sd( dd ) )
+}, simplify = FALSE ) %>%
+  bind_rows()
+```
+
+
+The `replicate()` method is good for simple tasks, but for more general use, you will probably want to use `map()`.
+
+### Using `map()`
+
+The tidyverse way of repeating oneself is the `map()` method.  The nice thing about `map()` is you map over a list of values, and thus can call a function repeatedly, but with a shifting set of inputs.
+
+```{r}
+one_run_v2 <- function( N ) {
+  dd = rpois( N, lambda = 1 )
+  tibble( mean = mean( dd ), sd = sd( dd ) )
+}
+n_list = c(2, 5)
+rps <- map( n_list, one_run_v2 )
+rps
+```
+You again would want to stack your results:
+```{r}
+bind_rows(rps)
+```
+We have a small issue here, however, which is we lost what we _gave_ `map()` for each call.
+If we know we only get one row back from each call, we can add the column directly:
+```{r}
+rps$n = n_list
+```
+
+A better approach is to _name_ your list of input parameters, and then your `map` function can add those names for you as a new column when you stack:
+```{r}
+n_list %>%
+  set_names() %>%
+  map( one_run_v2 ) %>%
+  bind_rows( .id = "n" )
+```
+An advantage here is if you are returning multiple rows (e.g., one row for each estimator tested in a more complex simulation), all the rows will get named correctly and automatically.
+
+In older tidyverse worlds, you will see methods such as `map_dbl()` or `map_dfr()`.  These will automatically massage your output into the target type.  `map_dfr()` will automatically bind rows, and `map_dbl()` will try to simplify the output into a list of doubles.  Modern tidyverse no longer likes this, which we find somewhat sad.
+
+To read more about `map()`, check out out [Section 21.5 of R for Data Science (1st edition)](https://r4ds.had.co.nz/iteration.html#the-map-functions), which provides a more thourough introduction to mapping.
+
+### map with no inputs
+
+If you do not have parameters, but still want to use `map()`, you can.  E.g.,
+
+```{r}
+map_dfr( 1:3, \(.) one_run() )
+```
+The weird "\(.)" is a shorthand for a function that takes one argument and then calls `one_run()` with no arguments.  We are using the 1:3 notation to just make a list of the right length (3 replicates, in this case) to map over.  A lot of fuss!  Just use `replicate()`
+
+To make all of this more clear, consider passing arguments that you manipulate on the fly:
+```{r anony_rep_2}
+map_dfr( n_list, \(x) one_run_v2( x*x ) )
+```
+Anonymous functions, as these are called, can be useful to connect your pieces of simulation together.
+
+### Other approaches for repetition
 
 In the past, there was a tidyverse method called `rerun()`, but it is currently out of favor.
 Originally, `rerun()` did exactly that: you gave it a number and a block of code, and it would rerun the block of code that many times, giving you the results as a list.
+`rerun()` and `replicate()` are near equivalents.
+As we saw, `replicate()` does what its name suggests---it replicates the result of an expression a specified number of times. Setting `simplify = FALSE` returns the output as a list (just like `rerun()`.
 
-Another, more classic, way to repeat oneself is to use an R function called `replicate`; `rerun()` and `replicate()` are near equivalents.
-`replicate()` does what its name suggests---it replicates the result of an expression a specified number of times. The first argument is the number of times to replicate and the next argument is an expression (a short piece of code to run). A further argument, `simplify` allows you to control how the results are structured. Setting `simplify = FALSE` returns the output as a list (just like `rerun()`.
 
 
 ## Default arguments for functions {#default-arguments}
