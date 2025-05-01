@@ -120,6 +120,7 @@
 \newcommand\awk{{{\color{red} {$\leftarrow$ Awkward phrasing}}\qquad}}
 \newcommand\cmntMp[1]{{\color{red} $\leftarrow$ {\em #1 -Miratrix} \qquad}}
 
+\usepackage{subfig}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}
@@ -152,7 +153,7 @@
 \title{Designing Monte Carlo Simulations in R}
 \author{Luke W. Miratrix and James E. Pustejovsky
 (Equal authors)}
-\date{2025-01-15}
+\date{2025-03-18}
 
 \begin{document}
 \maketitle
@@ -517,7 +518,7 @@ For example, the \texttt{rnorm()} function takes as input a number \texttt{n} an
 \end{Shaded}
 
 \begin{verbatim}
-## [1]  1.4390898  0.9653624 -1.6156558
+## [1] -1.7372203  1.9057092 -0.7121786
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -529,7 +530,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.4062170 -0.2150666 -1.1485392
+## [1] -0.05632604  1.03322514 -1.10335909
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let the user specify the mean and standard deviation of the distribution from which numbers are drawn:
@@ -541,7 +542,7 @@ The \texttt{rnorm()} function also has further input arguments that let the user
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 10.13194 10.09004 10.09686
+## [1] 10.734061  9.756171 10.136555
 \end{verbatim}
 
 \subsection{Rolling your own}\label{rolling-your-own}
@@ -588,7 +589,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 1.11155e-74
+## [1] 1.380295e-76
 \end{verbatim}
 
 \begin{Shaded}
@@ -598,7 +599,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.9076779
+## [1] 0.5815231
 \end{verbatim}
 
 \begin{Shaded}
@@ -608,7 +609,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.1865552
+## [1] 0.1006372
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated sample of data. The function produces a different answer each time because its instructions involve generating random numbers each time it is called.
@@ -945,13 +946,13 @@ Adapting a good example is usually much easier than starting from a blank screen
 
 We will begin our approach to simulation with a small, concrete example.
 This example illustrates how simulation involves replicating the data-generating and data-analysis processes, followed by aggregating the results across replications.
-It thus encapsulates the entirety of Monte Carlo simulation, touching on all the main components involved.
-In subsequent chapters we will look at each of these components in greater detail, layering on further abstractions and complexity.
+Our little example encapsulates the bulk of our approach to Monte Carlo simulation, touching on all the main components involved.
+In subsequent chapters we will look at each of these components in greater detail.
 But first, let us look at a simulation of a very simple statistical problem.
 
 The one-sample \(t\)-test is one of the most basic methods in the statistics literature.
-It tests a null hypothesis that a population mean of some variable is equal to a specific value by comparing the hypothesized value to a sample average.
-If the sample average is discrepant (very different) from the null value, then the hypothesis is rejected.
+It tests a null hypothesis that a population mean of some variable is equal to a specific value by comparing the mean of a sample of data to a hypothesized value.
+If the sample average is discrepant (very different) from the null value, relative to how uncertain we are about our estimate, then the hypothesis is rejected.
 The test can also be used to generate a confidence interval for the population mean.
 If the sample consists of independent observations and the variable is normally distributed in the population, then the confidence interval will have exact coverage, in the sense that 95\% intervals will include the population mean in 95 out of 100 tries.
 But what if the population variable is not normally distributed?
@@ -1034,7 +1035,8 @@ Here is an illustration of the syntax:
 ## [1] 2
 \end{verbatim}
 
-If \texttt{findInterval()} returns a \texttt{1}, that means the confidence interval covers the population mean.
+If \texttt{findInterval()} returns a \texttt{1}, our value is in the interval.
+We apply it to our estimated CI:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -1046,7 +1048,7 @@ If \texttt{findInterval()} returns a \texttt{1}, that means the confidence inter
 ## [1] 1
 \end{verbatim}
 
-In this instance, \texttt{findInterval()} is equal to \texttt{1}, which means we got it!
+In this instance, \texttt{findInterval()} is equal to \texttt{1}, which means our CI captured the true population mean of 4.
 
 Here is the full code for simulating data, computing the data-analysis procedure, and evaluating the result:
 
@@ -1059,18 +1061,6 @@ Here is the full code for simulating data, computing the data-analysis procedure
 \NormalTok{tt }\OtherTok{\textless{}{-}} \FunctionTok{t.test}\NormalTok{( dat )}
 
 \CommentTok{\# evaluate the results}
-\NormalTok{tt}\SpecialCharTok{$}\NormalTok{conf.int}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 1.810723 5.157441
-## attr(,"conf.level")
-## [1] 0.95
-\end{verbatim}
-
-\begin{Shaded}
-\begin{Highlighting}[]
 \FunctionTok{findInterval}\NormalTok{( }\DecValTok{4}\NormalTok{, tt}\SpecialCharTok{$}\NormalTok{conf.int ) }\SpecialCharTok{==} \DecValTok{1}
 \end{Highlighting}
 \end{Shaded}
@@ -1082,11 +1072,11 @@ Here is the full code for simulating data, computing the data-analysis procedure
 The above code captures the basic form of a single simulation trial: make the data, analyze the data, decide how well we did.
 In general, mucking about to figure out what a single iteration might look like, as we just did, helps us figure out the procedure we plan on simulating.
 It also allows us to test and develop our code in an interactive, exploratory fashion; consider how we played with \texttt{findInterval()} to figure out how to use it to determine whether our confidence interval captured the truth.
-Once we have gotten a working iteration down, we are in a good position to start writing our actual simulation, which is what we will do next.
+Once we have gotten a working iteration down, we are in a good position to start writing our actual simulation.
 
 \section{Simulating a single scenario}\label{simulating-a-single-scenario}
 
-We next estimate the coverage of the confidence interval by repeating the data-generating and data-analysis processes many, many times.
+We can estimate the coverage of the confidence interval by repeating the above data-generating and data-analysis processes many, many times.
 R's \texttt{replicate()} function is a handy way to repeatedly call a line of code.
 Its first input argument is \texttt{n}, the number of times to repeat the calculation, followed by \texttt{expr}, which is one or more lines of code to be called.
 We can use \texttt{replicate} to repeat our simulation process 1000 times in a row, each time generating a new sample of 10 observations from a normal distribution with mean of 4 and a standard deviation of 2.
@@ -1167,7 +1157,7 @@ Here we use a proportion test to check whether the estimated coverage rate is co
 The test indicates that our estimate is consistent with the possibility that the true coverage rate is 95\%, just as it should be.
 Things working out should hardly be surprising.
 Mathematical theory tells us that the \(t\)-test is exact for normally distributed population variables, and we generated data from a normal distribution.
-In other words, all we have found is that the confidence intervals follow theory when the assumptions of the method are met.
+In other words, all we have found so far is that the confidence intervals follow theory when the assumptions of the method are met.
 
 \section{A non-normal population distribution}\label{a-non-normal-population-distribution}
 
@@ -1185,7 +1175,7 @@ Now let's revise our previous simulation code to use the geometric distribution:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{rps }\OtherTok{\textless{}{-}} \FunctionTok{replicate}\NormalTok{( }\DecValTok{1000}\NormalTok{, \{}
-\NormalTok{  dat }\OtherTok{\textless{}{-}} \FunctionTok{rgeom}\NormalTok{( }\AttributeTok{n =} \DecValTok{10}\NormalTok{, }\AttributeTok{prob =} \DecValTok{1}\SpecialCharTok{/}\DecValTok{5}\NormalTok{)}
+\NormalTok{  dat }\OtherTok{\textless{}{-}} \FunctionTok{rgeom}\NormalTok{( }\AttributeTok{n =} \DecValTok{10}\NormalTok{, }\AttributeTok{prob =} \DecValTok{1}\SpecialCharTok{/}\DecValTok{5}\NormalTok{ )}
 \NormalTok{  tt }\OtherTok{\textless{}{-}} \FunctionTok{t.test}\NormalTok{( dat )}
   \FunctionTok{findInterval}\NormalTok{( }\DecValTok{4}\NormalTok{, tt}\SpecialCharTok{$}\NormalTok{conf.int )}
 \NormalTok{\})}
@@ -1256,9 +1246,9 @@ To implement such an experiment, we first write our own function that executes t
 \NormalTok{ttest\_CI\_experiment }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( n ) \{}
   
 \NormalTok{  rps }\OtherTok{\textless{}{-}} \FunctionTok{replicate}\NormalTok{( }\DecValTok{1000}\NormalTok{, \{}
-\NormalTok{    dat }\OtherTok{\textless{}{-}} \FunctionTok{rgeom}\NormalTok{( }\AttributeTok{n =}\NormalTok{ n, }\AttributeTok{prob =} \DecValTok{1}\SpecialCharTok{/}\DecValTok{5}\NormalTok{) }\CommentTok{\# simulate data}
-\NormalTok{    tt }\OtherTok{\textless{}{-}} \FunctionTok{t.test}\NormalTok{( dat )              }\CommentTok{\# analyze data}
-    \FunctionTok{findInterval}\NormalTok{( }\DecValTok{4}\NormalTok{, tt}\SpecialCharTok{$}\NormalTok{conf.int )   }\CommentTok{\# evaluate coverage}
+\NormalTok{    dat }\OtherTok{\textless{}{-}} \FunctionTok{rgeom}\NormalTok{( }\AttributeTok{n =}\NormalTok{ n, }\AttributeTok{prob =} \DecValTok{1}\SpecialCharTok{/}\DecValTok{5}\NormalTok{ ) }\CommentTok{\# simulate data}
+\NormalTok{    tt }\OtherTok{\textless{}{-}} \FunctionTok{t.test}\NormalTok{( dat )               }\CommentTok{\# analyze data}
+    \FunctionTok{findInterval}\NormalTok{( }\DecValTok{4}\NormalTok{, tt}\SpecialCharTok{$}\NormalTok{conf.int )    }\CommentTok{\# evaluate coverage}
 \NormalTok{  \})}
 
 \NormalTok{  coverage }\OtherTok{\textless{}{-}} \FunctionTok{mean}\NormalTok{( rps }\SpecialCharTok{==} \DecValTok{1}\NormalTok{ )       }\CommentTok{\# summarize results}
@@ -1268,7 +1258,7 @@ To implement such an experiment, we first write our own function that executes t
 \end{Highlighting}
 \end{Shaded}
 
-The code inside the body of the function is identical to what we have used above, with the sample size as a function argument, \texttt{n} to enable us to easily run the code for different sample sizes.
+The code inside the body of the function is identical to what we have used above, with the sample size as a function argument, \texttt{n}, which enables us to easily run the code for different sample sizes.
 With our function in hand, we can now run the simulation for a single scenario just by calling it:
 
 \begin{Shaded}
@@ -1318,9 +1308,11 @@ Our task is now to use this function for several different values of \(n\). We c
 
 However, this will quickly get cumbersome if we want to evaluate many different sample sizes.
 A better approach is to use a mapping function from the \texttt{purrr} package.\footnote{Alternately, readers familiar with the \texttt{*apply()} family of functions from Base R might prefer to use \texttt{lapply()} or \texttt{sapply()}, which do essentially the same thing as \texttt{purrr::map\_dbl()}.}
-The \texttt{map\_dbl()} function takes a list of values and calls a function for each value in the list.\footnote{\href{https://r4ds.had.co.nz/iteration.html\#the-map-functions}{Section 21.5 of R for Data Science (1st edition)} provides an introduction to mapping.}
+The \texttt{map\_dbl()} function takes a list of values and calls a function for each value in the list.
 This accomplishes the same thing as using a \texttt{for} loop to iterate through a list of items (if you happen to be familiar with these), but is more succinct.
-We first create a list of sample sizes to test out:
+See Appendix chapter \ref{repeating-oneself} for more on \texttt{map()}.\footnote{You can also check out \href{https://r4ds.had.co.nz/iteration.html\#the-map-functions}{Section 21.5 of R for Data Science (1st edition)}, which provides an introduction to mapping.}
+
+To proceed, we first create a list of sample sizes to test out:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -1336,12 +1328,14 @@ Now we can use \texttt{map\_dbl()} to evaluate the coverage rate for each sample
 \end{Highlighting}
 \end{Shaded}
 
+Our code will run our experiment for each value in \texttt{ns}, and then return a vector of the estimated coverage rates for each of our sample sizes.
+
 We advocate for depicting simulation results graphically.
 To do so, we store the simulation results in a dataset and then create a line plot using a log scale for the horizontal axis:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{( }
+\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{tibble}\NormalTok{( }
   \AttributeTok{n =}\NormalTok{ ns, }
   \AttributeTok{coverage =} \DecValTok{100} \SpecialCharTok{*}\NormalTok{ coverage\_est }
 \NormalTok{)}
@@ -1372,10 +1366,10 @@ Although the general trend is pretty clear, the graph is still a bit messy becau
 So far, we have executed a simple simulation to assess how well a statistical method works in a given circumstance, then expanded the simulation by running a single-factor experiment in which we varied the sample size to see how the method's performance changes.
 In our example, we found that coverage is below what it should be for small sample sizes, but improves for sample sizes in the 100's.
 
-This example captures all the major steps of a simulation study, which we outlined at the start of Chapter \ref{introduction}.
+This example captures all the major steps of a simulation study, which we outlined at the start of Chapter \citep{introduction}.
 We generated some hypothetical data according to a fully-specified data-generating process: we did both a normal distribution and a geometric distribution, each with a mean of 4.
 We applied a defined data-analysis procedure to the simulated data: we used a confidence interval based on the \(t\) distribution.
-We assessed how well the procedure worked across replications of the data-generating and data-analysis processes, in this case focusing on the coverage rate of the confidence interval.
+We assessed how well the procedure worked across replications of the data-generating and data-analysis processes: in this case we focused on the coverage rate of the confidence interval.
 After creating a function to implement this whole process for a single scenario, we investigated how the performance of the confidence interval changed depending on sample size.
 
 In simulations of more complex models and data-analysis methods, some or all of the steps in the process might have more moving pieces or entail more complex calculations.
@@ -1393,20 +1387,15 @@ In the next chapter, we introduce an abstract, general framework for simulations
   Use your improved results to determine what sample size is large enough to give coverage of at least 94\% (so only 1\% off of desired).
 \item
   Repeat the one-factor simulation, but use \(p = 1/10\) so that the population mean is \((1 - p) / p = 9\). How do the coverage rates change?
-\item
-  Modify the \texttt{ttest\_CI\_experiment()} function so that it returns a \texttt{data.frame} with the estimated coverage rate and the lower and upper end-points of a 95\% confidence interval for the true coverage rate (you can use \texttt{prop.test()} to obtain this, treating your \(R\) simulation replicates of the 0/1 indicator of capturing the truth as a random sample).
-  Re-run the simulations with the modified function, obtaining a data frame with each row being a simulation scenario with columns of sample size, estimate of coverage, low end of the estimate's confidence interval, and high end of the interval.
-  Use these data to create a graph that depicts the coverage rates and the 95\% confidence intervals, to get a visual that includes monte carlo simulation error.
-  We recommend using the \texttt{ggplot2} function \texttt{geom\_pointrange()} to represent the confidence intervals.
 \end{enumerate}
 
 \textbf{More challenging problems}
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{3}
+\setcounter{enumi}{2}
 \item
-  Here is a modified version of the \texttt{ttest\_CI\_experiment()} function that creates a data frame with lower and upper end-points of the simulated confidence intervals:
+  Below is a modified version of the \texttt{ttest\_CI\_experiment()} function that creates a tibble with lower and upper end-points of the simulated confidence intervals:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -1418,7 +1407,7 @@ In the next chapter, we introduce an abstract, general framework for simulations
     \CommentTok{\# analyze data}
 \NormalTok{    tt }\OtherTok{\textless{}{-}} \FunctionTok{t.test}\NormalTok{( dat )                                       }
     \CommentTok{\# return CI}
-    \FunctionTok{data.frame}\NormalTok{(}\AttributeTok{lower =}\NormalTok{ tt}\SpecialCharTok{$}\NormalTok{conf.int[}\DecValTok{1}\NormalTok{], }\AttributeTok{upper =}\NormalTok{ tt.conf.int[}\DecValTok{2}\NormalTok{])}
+    \FunctionTok{tibble}\NormalTok{(}\AttributeTok{lower =}\NormalTok{ tt}\SpecialCharTok{$}\NormalTok{conf.int[}\DecValTok{1}\NormalTok{], }\AttributeTok{upper =}\NormalTok{ tt.conf.int[}\DecValTok{2}\NormalTok{])}
 \NormalTok{  \})}
 
   \CommentTok{\# summarize results}
@@ -1429,7 +1418,11 @@ In the next chapter, we introduce an abstract, general framework for simulations
 \end{Highlighting}
 \end{Shaded}
 
-  Complete the function by writing code to compute the estimated coverage rate and a 95\% confidence interval for the true coverage rate.
+  Complete the function by writing code to compute the estimated coverage rate and average confidence interval length. Also calculate a 95\% confidence interval for the true coverage rate (you can use \texttt{prop.test()} on your set of simulation coverage indicators to obtain this, treating your \(R\) simulation replicates of the 0/1 indicator of capturing the truth as a random sample in its own right). Run your code to see if it works, giving you a one-row tibble with the coverage rate, average confidence interval length, and CI for your coverage rate.
+\item
+  Modify the \texttt{ttest\_CI\_experiment()} function to include the extensions of the prior problem. Then re-run the simulations with your modified function, obtaining a data frame with each row being a simulation scenario and columns of sample size, estimated coverage, low end of the estimate's confidence interval, and high end of the interval. You will likely want to use \texttt{map()} and then \texttt{bind\_rows()} on your list of results; see Chapter \ref{repeating-oneself} for more on this.
+  Use these data to create a graph that depicts the coverage rates and the 95\% confidence intervals, to get a visual that includes monte carlo simulation error.
+  We recommend using the \texttt{ggplot2} function \texttt{geom\_pointrange()} to represent the confidence intervals.
 \item
   Modify \texttt{ttest\_CI\_experiment()} or \texttt{lotsa\_CIs\_experiment()} so that the user can specify the population mean of the data-generating process. Also let the user specify the number of replications to use. Here is a function skeleton to use as a starting point:
 
@@ -2544,7 +2537,7 @@ In terms of code, a function that implements a data-generating model should have
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{generate\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(parameters) \{}
-
+  
   \CommentTok{\# generate pseudo{-}random numbers and use those to}
   \CommentTok{\# make some data}
   
@@ -2562,7 +2555,7 @@ For example, from our Welch case study, we had the following method that generat
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{generate\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(mu, sigma\_sq, sample\_size) \{}
-
+  
 \NormalTok{  N }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(sample\_size) }
 \NormalTok{  g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(sample\_size) }
   
@@ -2572,7 +2565,7 @@ For example, from our Welch case study, we had the following method that generat
   
 \NormalTok{  x }\OtherTok{\textless{}{-}} \FunctionTok{rnorm}\NormalTok{(N, }\AttributeTok{mean =}\NormalTok{ mu\_long, }\AttributeTok{sd =}\NormalTok{ sigma\_long)}
 \NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{tibble}\NormalTok{(}\AttributeTok{group =}\NormalTok{ group, }\AttributeTok{x =}\NormalTok{ x)}
-    
+  
   \FunctionTok{return}\NormalTok{(sim\_data)}
 \NormalTok{\}}
 \end{Highlighting}
@@ -2583,20 +2576,23 @@ When simulating data, we have to specify quantities that we, when analyzing data
 
 \section{Checking the data-generating function}\label{checking-the-data-generating-function}
 
-An important part of programing in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Thus, after writing a data-generating function, we need to consider how to test whether the output it produces is correct. How best to do this will depend on the data-generating process being implemented.
+An important part of programming in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Thus, after writing a data-generating function, we need to consider how to test whether the output it produces is correct. How best to do this will depend on the data-generating process being implemented.
 
 For the heteroskedastic ANOVA problem, one basic thing we could do is check that the simulated data from each group follows a normal distribution. By generating very large samples from each group, we can effectively check characteristics of the population distribution.
 In the following code, we simulate very large samples from each of the four groups, and check that the means and variances agree with the input parameters:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{check\_data }\OtherTok{\textless{}{-}} \FunctionTok{generate\_data}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
-                            \AttributeTok{sample\_size =} \FunctionTok{rep}\NormalTok{(}\DecValTok{10000}\NormalTok{, }\DecValTok{4}\NormalTok{))}
+\NormalTok{mu }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{5}\NormalTok{, }\DecValTok{6}\NormalTok{)}
+\NormalTok{sigma\_sq }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\DecValTok{3}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{5}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+
+\NormalTok{check\_data }\OtherTok{\textless{}{-}} \FunctionTok{generate\_data}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
+                             \AttributeTok{sample\_size =} \FunctionTok{rep}\NormalTok{(}\DecValTok{10000}\NormalTok{, }\DecValTok{4}\NormalTok{) )}
 
 \NormalTok{chk }\OtherTok{\textless{}{-}}\NormalTok{ check\_data }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{group\_by}\NormalTok{( group ) }\SpecialCharTok{\%\textgreater{}\%}
 \NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{summarise}\NormalTok{( }\AttributeTok{n =} \FunctionTok{n}\NormalTok{(),}
-             \AttributeTok{mean =} \FunctionTok{mean}\NormalTok{( x ),}
-             \AttributeTok{var =} \FunctionTok{var}\NormalTok{( x ) ) }\SpecialCharTok{\%\textgreater{}\%}
+                    \AttributeTok{mean =} \FunctionTok{mean}\NormalTok{( x ),}
+                    \AttributeTok{var =} \FunctionTok{var}\NormalTok{( x ) ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{mutate}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu,}
           \AttributeTok{sigma2 =}\NormalTok{ sigma\_sq ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{relocate}\NormalTok{( group, n, mean, mu, var, sigma2 )}
@@ -2606,12 +2602,12 @@ In the following code, we simulate very large samples from each of the four grou
 
 \begin{verbatim}
 ## # A tibble: 4 x 6
-##   group     n     mean    mu   var sigma2
-##   <int> <int>    <dbl> <dbl> <dbl>  <dbl>
-## 1     1 10000 -0.00727     0  9.00      9
-## 2     2 10000 -0.0117      0  4.02      4
-## 3     3 10000 -0.0201      0  4.03      4
-## 4     4 10000 -0.0144      0  1.01      1
+##   group     n  mean    mu   var sigma2
+##   <int> <int> <dbl> <dbl> <dbl>  <dbl>
+## 1     1 10000 0.996     1  3.00      3
+## 2     2 10000 1.99      2  2.01      2
+## 3     3 10000 4.98      5  5.04      5
+## 4     4 10000 5.99      6  1.01      1
 \end{verbatim}
 
 We are recovering our parameters.
@@ -2734,7 +2730,7 @@ This makes it so if we double the sizes of all the sites, it does not change our
 To do this, we create a covariate which is the percent of the average site size that a site is:
 \[ S_j = \frac{n_j - \bar{n}}{ \bar{n} } \]
 
-where \(\bar{n}\) is the average site size. Using this coveriate, we then revise our equation for our site \(j\) to:
+where \(\bar{n}\) is the average site size. Using this covariate, we then revise our equation for our site \(j\) to:
 \[ \beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j S_j + u_j \]
 A nice thing about \(S_j\) is that it is centered at 0, meaning the average site has an impact of just \(\gamma_1\).
 If \(S_j\) was not centered at zero, then our overall average impact in our data would be a mix of the \(\gamma_1\) and the \(\gamma_2\).
@@ -2834,7 +2830,7 @@ We start by specifying a function with all the parameters we might want to pass 
 \end{Shaded}
 
 Note our parameters are a mix of \emph{model parameters} (\texttt{gamma\_0}, \texttt{gamma\_1}, \texttt{sigma2\_e}, etc., representing coefficients in regressions, variance terms, etc.) and \emph{design parameters} (\texttt{n\_bar}, \texttt{J}, \texttt{p}) that directly inform data generation.
-We set default arguments (e.g., gamma\_0=0) so we can ignore aspects of the DGP that we do not care about later on.
+We set default arguments (e.g., \texttt{gamma\_0=0}) so we can ignore aspects of the DGP that we do not care about later on.
 
 Inside the model, we will have a block of code to generate the sites, and then another to generate the students.
 
@@ -2843,20 +2839,20 @@ We make the sites first:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-  \CommentTok{\# generate site sizes }
-\NormalTok{  n\_min }\OtherTok{=} \FunctionTok{round}\NormalTok{( n\_bar }\SpecialCharTok{*}\NormalTok{ (}\DecValTok{1} \SpecialCharTok{{-}}\NormalTok{ alpha) )}
-\NormalTok{  n\_max }\OtherTok{=} \FunctionTok{round}\NormalTok{( n\_bar }\SpecialCharTok{*}\NormalTok{ (}\DecValTok{1} \SpecialCharTok{+}\NormalTok{ alpha) )}
-\NormalTok{  nj }\OtherTok{\textless{}{-}} \FunctionTok{sample}\NormalTok{( n\_min}\SpecialCharTok{:}\NormalTok{n\_max, J, }\AttributeTok{replace=}\ConstantTok{TRUE}\NormalTok{ )}
+\CommentTok{\# generate site sizes }
+\NormalTok{n\_min }\OtherTok{=} \FunctionTok{round}\NormalTok{( n\_bar }\SpecialCharTok{*}\NormalTok{ (}\DecValTok{1} \SpecialCharTok{{-}}\NormalTok{ alpha) )}
+\NormalTok{n\_max }\OtherTok{=} \FunctionTok{round}\NormalTok{( n\_bar }\SpecialCharTok{*}\NormalTok{ (}\DecValTok{1} \SpecialCharTok{+}\NormalTok{ alpha) )}
+\NormalTok{nj }\OtherTok{\textless{}{-}} \FunctionTok{sample}\NormalTok{( n\_min}\SpecialCharTok{:}\NormalTok{n\_max, J, }\AttributeTok{replace=}\ConstantTok{TRUE}\NormalTok{ )}
 
-  \CommentTok{\# Generate average control outcome and average ATE for all sites}
-  \CommentTok{\# (The random effects)}
-\NormalTok{  u0j }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( J, }\AttributeTok{mean=}\DecValTok{0}\NormalTok{, }\AttributeTok{sd=}\FunctionTok{sqrt}\NormalTok{( sigma2\_u ) )}
-  
-  \CommentTok{\# randomize units within each site (proportion p to treatment)}
-\NormalTok{  Zj }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( }\FunctionTok{sample}\NormalTok{( }\DecValTok{1}\SpecialCharTok{:}\NormalTok{J ) }\SpecialCharTok{\textless{}=}\NormalTok{ J }\SpecialCharTok{*}\NormalTok{ p, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
-  
-  \CommentTok{\# Calculate site intercept for each site}
-\NormalTok{  beta\_0j }\OtherTok{=}\NormalTok{ gamma\_0 }\SpecialCharTok{+}\NormalTok{ gamma\_1 }\SpecialCharTok{*}\NormalTok{ Zj }\SpecialCharTok{+}\NormalTok{ gamma\_2 }\SpecialCharTok{*}\NormalTok{ Zj }\SpecialCharTok{*}\NormalTok{ (nj}\SpecialCharTok{{-}}\NormalTok{n\_bar)}\SpecialCharTok{/}\NormalTok{n\_bar }\SpecialCharTok{+}\NormalTok{ u0j}
+\CommentTok{\# Generate average control outcome and average ATE for all sites}
+\CommentTok{\# (The random effects)}
+\NormalTok{u0j }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( J, }\AttributeTok{mean=}\DecValTok{0}\NormalTok{, }\AttributeTok{sd=}\FunctionTok{sqrt}\NormalTok{( sigma2\_u ) )}
+
+\CommentTok{\# randomize units within each site (proportion p to treatment)}
+\NormalTok{Zj }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( }\FunctionTok{sample}\NormalTok{( }\DecValTok{1}\SpecialCharTok{:}\NormalTok{J ) }\SpecialCharTok{\textless{}=}\NormalTok{ J }\SpecialCharTok{*}\NormalTok{ p, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
+
+\CommentTok{\# Calculate site intercept for each site}
+\NormalTok{beta\_0j }\OtherTok{=}\NormalTok{ gamma\_0 }\SpecialCharTok{+}\NormalTok{ gamma\_1 }\SpecialCharTok{*}\NormalTok{ Zj }\SpecialCharTok{+}\NormalTok{ gamma\_2 }\SpecialCharTok{*}\NormalTok{ Zj }\SpecialCharTok{*}\NormalTok{ (nj}\SpecialCharTok{{-}}\NormalTok{n\_bar)}\SpecialCharTok{/}\NormalTok{n\_bar }\SpecialCharTok{+}\NormalTok{ u0j}
 \end{Highlighting}
 \end{Shaded}
 
@@ -2870,22 +2866,22 @@ We next use the site characteristics to then generate the individuals.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-  \CommentTok{\# Make individual site membership}
-\NormalTok{  sid }\OtherTok{=} \FunctionTok{as.factor}\NormalTok{( }\FunctionTok{rep}\NormalTok{( }\DecValTok{1}\SpecialCharTok{:}\NormalTok{J, nj ) )}
-\NormalTok{  dd }\OtherTok{=} \FunctionTok{data.frame}\NormalTok{( }\AttributeTok{sid =}\NormalTok{ sid )}
-  
-  \CommentTok{\# Make individual level tx variables}
-\NormalTok{  dd}\SpecialCharTok{$}\NormalTok{Z }\OtherTok{=}\NormalTok{ Zj[ dd}\SpecialCharTok{$}\NormalTok{sid ]}
-  
-  \CommentTok{\# Generate the residuals }
-\NormalTok{  N }\OtherTok{=} \FunctionTok{sum}\NormalTok{( nj )}
-\NormalTok{  e }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( N, }\AttributeTok{mean=}\DecValTok{0}\NormalTok{, }\AttributeTok{sd=}\FunctionTok{sqrt}\NormalTok{( sigma2\_e ) )}
-  
-  \CommentTok{\# Bundle and send out}
-\NormalTok{  dd }\OtherTok{\textless{}{-}} \FunctionTok{mutate}\NormalTok{( dd, }
-                \AttributeTok{sid=}\FunctionTok{as.factor}\NormalTok{(sid),}
-                \AttributeTok{Yobs =}\NormalTok{ beta\_0j[sid] }\SpecialCharTok{+}\NormalTok{ e, }
-                \AttributeTok{Z =}\NormalTok{ Zj[ sid ] )}
+\CommentTok{\# Make individual site membership}
+\NormalTok{sid }\OtherTok{=} \FunctionTok{as.factor}\NormalTok{( }\FunctionTok{rep}\NormalTok{( }\DecValTok{1}\SpecialCharTok{:}\NormalTok{J, nj ) )}
+\NormalTok{dd }\OtherTok{=} \FunctionTok{data.frame}\NormalTok{( }\AttributeTok{sid =}\NormalTok{ sid )}
+
+\CommentTok{\# Make individual level tx variables}
+\NormalTok{dd}\SpecialCharTok{$}\NormalTok{Z }\OtherTok{=}\NormalTok{ Zj[ dd}\SpecialCharTok{$}\NormalTok{sid ]}
+
+\CommentTok{\# Generate the residuals }
+\NormalTok{N }\OtherTok{=} \FunctionTok{sum}\NormalTok{( nj )}
+\NormalTok{e }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( N, }\AttributeTok{mean=}\DecValTok{0}\NormalTok{, }\AttributeTok{sd=}\FunctionTok{sqrt}\NormalTok{( sigma2\_e ) )}
+
+\CommentTok{\# Bundle and send out}
+\NormalTok{dd }\OtherTok{\textless{}{-}} \FunctionTok{mutate}\NormalTok{( dd, }
+              \AttributeTok{sid=}\FunctionTok{as.factor}\NormalTok{(sid),}
+              \AttributeTok{Yobs =}\NormalTok{ beta\_0j[sid] }\SpecialCharTok{+}\NormalTok{ e, }
+              \AttributeTok{Z =}\NormalTok{ Zj[ sid ] )}
 \end{Highlighting}
 \end{Shaded}
 
@@ -2896,9 +2892,9 @@ Once we put the above code in our function skeleton, we can our function as so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_dat\_model}\NormalTok{( }\AttributeTok{n=}\DecValTok{5}\NormalTok{, }\AttributeTok{J=}\DecValTok{3}\NormalTok{, }\AttributeTok{p=}\FloatTok{0.5}\NormalTok{, }
-                        \AttributeTok{gamma\_0=}\DecValTok{0}\NormalTok{, }\AttributeTok{gamma\_1=}\FloatTok{0.2}\NormalTok{, }\AttributeTok{gamma\_2=}\FloatTok{0.2}\NormalTok{,}
-                        \AttributeTok{sigma2\_u =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{sigma2\_e =} \DecValTok{1}\NormalTok{,}
+\NormalTok{dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_dat\_model}\NormalTok{( }\AttributeTok{n\_bar =} \DecValTok{5}\NormalTok{, }\AttributeTok{J=}\DecValTok{3}\NormalTok{, }\AttributeTok{p =} \FloatTok{0.5}\NormalTok{, }
+                      \AttributeTok{gamma\_0 =} \DecValTok{0}\NormalTok{, }\AttributeTok{gamma\_1 =} \FloatTok{0.2}\NormalTok{, }\AttributeTok{gamma\_2 =} \FloatTok{0.2}\NormalTok{,}
+                      \AttributeTok{sigma2\_u =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{sigma2\_e =} \DecValTok{1}\NormalTok{,}
                       \AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{ )}
 
 \NormalTok{dat}
@@ -2923,79 +2919,9 @@ Once we put the above code in our function skeleton, we can our function as so:
 \end{verbatim}
 
 Our data generation code is complete.
+We can control the average size of the clusters (\texttt{n}), the number of clusters (\texttt{J}), the proportion treated (\texttt{p}), the average outcome in the control group (\texttt{gamma\_0}), the average treatment effect (\texttt{gamma\_1}), the site size by treatment interaction (\texttt{gamma\_2}), the amount of cross site variation (\texttt{sigma2\_u}), the residual variation (\texttt{sigma2\_e}), and the amount of site size variation (\texttt{alpha}).
 The next step is to test the code, making sure it is doing what we think it is.
-See the exercises for more on this.
-
-\section{Exercises}\label{exercises-2}
-
-\subsection{\texorpdfstring{The Welch test on a shifted-and-scaled \(t\) distribution}{The Welch test on a shifted-and-scaled t distribution}}\label{ex_dgp}
-
-The shifted-and-scaled \(t\)-distribution has parameters \(\mu\) (mean), \(\sigma\) (scale), and \(\nu\) (degrees of freedom).
-If \(T\) follows a student's \(t\)-distribution with \(\nu\) degrees of freedom, then \(S = \mu + \sigma T\) follows a shifted-and-scaled \(t\)-distribution.
-
-The following function will generate random draws from this distribution (the scaling of \((\nu-2)/\nu\) is to account for a non-scaled \(t\)-distribution having a variance of \(\nu/(\nu-2)\)).
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{r\_tss }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(n, mean, sd, df) \{}
-\NormalTok{  mean }\SpecialCharTok{+}\NormalTok{ sd }\SpecialCharTok{*} \FunctionTok{sqrt}\NormalTok{( (df}\DecValTok{{-}2}\NormalTok{)}\SpecialCharTok{/}\NormalTok{df ) }\SpecialCharTok{*} \FunctionTok{rt}\NormalTok{(}\AttributeTok{n =}\NormalTok{ n, }\AttributeTok{df =}\NormalTok{ df)}
-\NormalTok{\}}
-
-\FunctionTok{r\_tss}\NormalTok{(}\AttributeTok{n =} \DecValTok{8}\NormalTok{, }\AttributeTok{mean =} \DecValTok{3}\NormalTok{, }\AttributeTok{sd =} \DecValTok{2}\NormalTok{, }\AttributeTok{df =} \DecValTok{5}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 2.277769 2.568873 0.355011 3.118481 1.938473
-## [6] 4.286702 1.620475 4.300390
-\end{verbatim}
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\item
-  Modify the Welch simulation's \texttt{simulate\_data()} function to generate data from shifted-and-scaled \(t\)-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
-  Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
-\item
-  Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (generate a big dataset to ensure you get reliable mean and standard deviation estimates). Check \texttt{df} equal to 500, 5, 3, and 2.
-\item
-  Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \ref{exAnovaExercises} using a \(t\)-distribution with 5 degrees of freedom.
-  Do the results change substantially?
-\end{enumerate}
-
-\subsection{Checking and extending the Cluster RCT DGP}\label{checking-and-extending-the-cluster-rct-dgp}
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{3}
-\item
-  What is the variance of the outcomes generated by our model if there is no treatment effect? (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working?
-\item
-  In \texttt{gen\_dat\_model()} we have the following line of code to generate the number of individuals per site.
-\end{enumerate}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{nj }\OtherTok{\textless{}{-}} \FunctionTok{sample}\NormalTok{( n\_min}\SpecialCharTok{:}\NormalTok{n\_max, J, }
-                 \AttributeTok{replace=}\ConstantTok{TRUE}\NormalTok{ )}
-\end{Highlighting}
-\end{Shaded}
-
-This code has an error. Generate a variety of datasets where you vary \texttt{n\_min}, \texttt{n\_max} and \texttt{J} to discover the error. Then repair the code.
-Checking your data generating process across a range of scenarios is extremely important.
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{5}
-\item
-  The DGP allows for site-level treatment impact variation--but only if it is related to site size. How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size? Implement this change and generate some data to show how it works.
-\item
-  Extend the data generating process to include an individual level covariate \(X\) that is predictive of outcome. In particular, you will want to adjust your level one equation to
-\end{enumerate}
-
-\[ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij} . \]
-Keep the same \(\beta_1\) for all sites.
-You will have to specify how to generate your \(X_{ij}\).
-For starters, just generate it as a standard normal, and do not worry about having the mean of \(X_{ij}\) vary by sites unless you are excited to try to get that to work.
+In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on testing ones code, and for diagnosing and repairing this error in particular.
 
 \section{Extension: Standardization in a data generating process}\label{extension-standardization-in-a-data-generating-process}
 
@@ -3019,10 +2945,12 @@ Given our model, the variance of our control-side outcomes is
 \[ 
 \begin{aligned}
 var( Y_{ij}(0) ) &= var( \beta_{0j} + \epsilon_{ij} ) \\
- &= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
+&= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
+&= var( \gamma_{0} + u_j + \epsilon_{ij} ) \\
 &= \sigma^2_u + \sigma^2_\epsilon
 \end{aligned}
 \]
+(We drop the terms with the \(Z_j\) because we are looking at control-side variation, where nothing is treated.)
 We see that as we increase either within or between variation, overall variation increases.
 
 We can improve our data generating process to allow for directly controlling the amount of within vs.~between variation without it being confounded with overall variation.
@@ -3063,6 +2991,76 @@ E.g., we can call our DGP function as follows:
                       \AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
+
+\section{Exercises}\label{exercises-2}
+
+\subsection{\texorpdfstring{The Welch test on a shifted-and-scaled \(t\) distribution}{The Welch test on a shifted-and-scaled t distribution}}\label{ex_dgp}
+
+The shifted-and-scaled \(t\)-distribution has parameters \(\mu\) (mean), \(\sigma\) (scale), and \(\nu\) (degrees of freedom).
+If \(T\) follows a student's \(t\)-distribution with \(\nu\) degrees of freedom, then \(S = \mu + \sigma T\) follows a shifted-and-scaled \(t\)-distribution.
+
+The following function will generate random draws from this distribution (the scaling of \((\nu-2)/\nu\) is to account for a non-scaled \(t\)-distribution having a variance of \(\nu/(\nu-2)\)).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{r\_tss }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(n, mean, sd, df) \{}
+\NormalTok{  mean }\SpecialCharTok{+}\NormalTok{ sd }\SpecialCharTok{*} \FunctionTok{sqrt}\NormalTok{( (df}\DecValTok{{-}2}\NormalTok{)}\SpecialCharTok{/}\NormalTok{df ) }\SpecialCharTok{*} \FunctionTok{rt}\NormalTok{(}\AttributeTok{n =}\NormalTok{ n, }\AttributeTok{df =}\NormalTok{ df)}
+\NormalTok{\}}
+
+\FunctionTok{r\_tss}\NormalTok{(}\AttributeTok{n =} \DecValTok{8}\NormalTok{, }\AttributeTok{mean =} \DecValTok{3}\NormalTok{, }\AttributeTok{sd =} \DecValTok{2}\NormalTok{, }\AttributeTok{df =} \DecValTok{5}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1]  2.1573751  3.5381963  4.3321615  0.9812902
+## [5]  4.3675072  5.2172568 -2.1179124  6.2531454
+\end{verbatim}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  Modify the Welch simulation's \texttt{simulate\_data()} function to generate data from shifted-and-scaled \(t\)-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
+  Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
+\item
+  Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (generate a big dataset to ensure you get reliable mean and standard deviation estimates). Check \texttt{df} equal to 500, 5, 3, and 2.
+\item
+  Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \ref{exAnovaExercises} using a \(t\)-distribution with 5 degrees of freedom.
+  Do the results change substantially?
+\end{enumerate}
+
+\subsection{Checking and extending the Cluster RCT DGP}\label{checking-and-extending-the-cluster-rct-dgp}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{3}
+\item
+  What is the variance of the outcomes generated by our model if there is no treatment effect? (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working?
+\item
+  In \texttt{gen\_dat\_model()} we have the following line of code to generate the number of individuals per site.
+\end{enumerate}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{nj }\OtherTok{\textless{}{-}} \FunctionTok{sample}\NormalTok{( n\_min}\SpecialCharTok{:}\NormalTok{n\_max, J, }\AttributeTok{replace=}\ConstantTok{TRUE}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+This code has an error. Generate a variety of datasets where you vary \texttt{n\_min}, \texttt{n\_max} and \texttt{J} to discover the error. Then repair the code.
+Checking your data generating process across a range of scenarios is extremely important.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{5}
+\item
+  The DGP allows for site-level treatment impact variation--but only if it is related to site size. How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size? Implement this change and generate some data to show how it works.
+\item
+  Extend the data generating process to include an individual level covariate \(X\) that is predictive of outcome. In particular, you will want to adjust your level one equation to
+\end{enumerate}
+
+\[ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij} . \]
+Keep the same \(\beta_1\) for all sites.
+You will have to specify how to generate your \(X_{ij}\).
+For starters, just generate it as a standard normal, and do not worry about having the mean of \(X_{ij}\) vary by sites unless you are excited to try to get that to work.
 
 \chapter{Data analysis procedures}\label{data-analysis-procedures}
 
@@ -3111,8 +3109,8 @@ For our Welch test, we can actually check our results against the built-in \text
 ##  equal variances)
 ## 
 ## data:  x and factor(group)
-## F = 16.402, num df = 3.0000, denom df =
-## 3.3061, p-value = 0.01779
+## F = 58.782, num df = 3.000, denom df =
+## 3.494, p-value = 0.001817
 \end{verbatim}
 
 \begin{Shaded}
@@ -3247,7 +3245,7 @@ All of our methods give output in the similar format:
 ## # A tibble: 1 x 3
 ##   ATE_hat SE_hat p_value
 ##     <dbl>  <dbl>   <dbl>
-## 1  0.0908  0.249   0.718
+## 1   0.330  0.212   0.130
 \end{verbatim}
 
 \begin{Shaded}
@@ -3260,7 +3258,7 @@ All of our methods give output in the similar format:
 ## # A tibble: 1 x 3
 ##   ATE_hat SE_hat p_value
 ##     <dbl>  <dbl>   <dbl>
-## 1   0.121  0.266   0.653
+## 1   0.349  0.217   0.121
 \end{verbatim}
 
 \begin{Shaded}
@@ -3273,7 +3271,7 @@ All of our methods give output in the similar format:
 ## # A tibble: 1 x 3
 ##   ATE_hat SE_hat p_value
 ##     <dbl>  <dbl>   <dbl>
-## 1  0.0895  0.249   0.722
+## 1   0.325  0.211   0.134
 \end{verbatim}
 
 This will allow us to make our simulation, for each iteration, call each method in turn on the same dataset, stack the results into a small table, and return that result.
@@ -3384,9 +3382,9 @@ When we call it, we get a nice table of results that we can evaluate:
 ## # A tibble: 3 x 4
 ##   method ATE_hat SE_hat p_value
 ##   <chr>    <dbl>  <dbl>   <dbl>
-## 1 MLM      0.300  0.170  0.0944
-## 2 LR       0.300  0.162  0.0830
-## 3 Agg      0.304  0.170  0.0904
+## 1 MLM      0.678  0.199 0.00309
+## 2 LR       0.706  0.209 0.00369
+## 3 Agg      0.671  0.197 0.00309
 \end{verbatim}
 
 The results for each method is a single line.
@@ -3462,12 +3460,16 @@ When we pass a dataset to it, we get a nice table of results that we can evaluat
 \end{Shaded}
 
 \begin{verbatim}
+## boundary (singular) fit: see help('isSingular')
+\end{verbatim}
+
+\begin{verbatim}
 ## # A tibble: 3 x 4
 ##   method ATE_hat SE_hat p_value
 ##   <chr>    <dbl>  <dbl>   <dbl>
-## 1 MLM     0.254   0.119  0.0540
-## 2 LR      0.259   0.125  0.0608
-## 3 Agg     0.0431  0.227  0.851
+## 1 MLM      0.227 0.0787 0.00410
+## 2 LR       0.227 0.0697 0.00443
+## 3 Agg      0.227 0.0697 0.00443
 \end{verbatim}
 
 We can now use \texttt{simhelpers} to write us a new function for the entire simulation:
@@ -3493,14 +3495,14 @@ We can then use it as so:
 
 \begin{verbatim}
 ## # A tibble: 6 x 4
-##   method ATE_hat SE_hat p_value
-##   <chr>    <dbl>  <dbl>   <dbl>
-## 1 MLM    0.302   0.101  0.00307
-## 2 LR     0.302   0.0950 0.00678
-## 3 Agg    0.00604 0.262  0.982  
-## 4 MLM    0.236   0.105  0.0385 
-## 5 LR     0.235   0.115  0.0597 
-## 6 Agg    0.246   0.109  0.0359
+##   method ATE_hat SE_hat     p_value
+##   <chr>    <dbl>  <dbl>       <dbl>
+## 1 MLM      0.140 0.0823 0.105      
+## 2 LR       0.140 0.0823 0.105      
+## 3 Agg      0.140 0.0823 0.105      
+## 4 MLM      0.408 0.0766 0.000000143
+## 5 LR       0.408 0.0664 0.00000845 
+## 6 Agg      0.408 0.0664 0.00000845
 \end{verbatim}
 
 The \texttt{bundle\_sim()} command takes our DGP function and our estimation procedures function and gives us back a function, which we have called \texttt{sim\_function}, that will run a simulation using whatever parameters we give it.
@@ -3534,6 +3536,7 @@ We can do this, and also translate some of the more obscure model parameters to 
                         \AttributeTok{gamma\_1 =}\NormalTok{ ATE, }\AttributeTok{gamma\_2 =}\NormalTok{ size\_coef,}
                         \AttributeTok{sigma2\_u =}\NormalTok{ ICC, }\AttributeTok{sigma2\_e =} \DecValTok{1}\SpecialCharTok{{-}}\NormalTok{ICC,}
                         \AttributeTok{alpha =}\NormalTok{ alpha )}
+  
 \NormalTok{  MLM }\OtherTok{=} \FunctionTok{analysis\_MLM}\NormalTok{( dat )}
 \NormalTok{  LR }\OtherTok{=} \FunctionTok{analysis\_OLS}\NormalTok{( dat )}
 \NormalTok{  Agg }\OtherTok{=} \FunctionTok{analysis\_agg}\NormalTok{( dat )}
@@ -3565,55 +3568,56 @@ Here we have put our entire simulation into effect size units, and are now provi
 \chapter{Performance criteria}\label{performance-criteria}
 
 Once we have run our simulation, we have a pile of results to sort through.
-Given these results, the question is now: how do we assess the performance of our evaluated estimation procedures?
+Given these results, the question is now: how do we assess how well our evaluated analysis procedures worked? In this chapter, we look at a variety of \textbf{performance criteria} that can answer this question. Once we have a set performance criteria, we can also compare multiple estimators to each other by seeing which have better performance.
 
-In this chapter, we look at a variety of \textbf{performance criteria} that are commonly used to compare the relative performance of multiple estimators or measure how well an estimator works.
-These performance criteria are all assessments of how the estimator behaves if you repeat the experimental process an infinite number of times.
-In statistical terms, these criteria are summaries of the true sampling distribution of the estimator, given a specified data generating process.
+Performance criteria are generally assessments of how an analytic strategy behaves on average if you repeat the experimental process an infinite number of times.
 For example, the bias of an estimator in a given scenario is how far off, on average, the estimator would be from the true parameter value if you repeated the experiment an infinite number of times.
 
-Although we cannot observe the sampling distribution of an estimator directly (and it can only rarely be worked out in full mathematical detail), the set of estimates generated by a simulation constitute a (typically large) \emph{sample} from the sampling distribution of the studied estimator. (Say that six times fast!)
+Although we cannot generally work out the exact performance of our analysis procedure in full mathematical detail, our set of simulation results do constitute a (typically large) \emph{sample} of how well things will tend to worked out given the specified scenario.
 We can then use that sample to \emph{estimate} the performance criteria of interest.
 For example, when we wanted to know what percent of the time we would reject the null hypothesis (for a given, specified situation) we estimated that by seeing how often we rejected in 1000 trials.
 
-Now, because we have only a sample of trials rather than the full distribution, our estimates are merely estimates.
+Now, because we have only a sample of trials rather than the full distribution, our estimates of performance are merely estimates.
 In other words, they can be wrong, just due to random chance.
 We can describe how wrong with the \textbf{Monte Carlo standard error (MCSE)}.
 The MCSE is the standard error of our estimate of performance due to the simulation only having a finite number of trials.
 Just as with statistical uncertainty when analyzing data, we can estimate our MCSE and even use them to generate confidence intervals for our performance estimates.
-The MCSE is \emph{not} related to the estimators being evaluated; the MCSE is a function of how much simulation we can do.
-In a simulation study, we could, in theory, know \emph{exactly} how well our estimators do for a given context, if we ran an infinite number of simulations; the MCSE tells us how far we are from this ideal, given how many simulation trials we actually ran.
+The MCSE is \emph{not} related to the estimators or analytic procedures being evaluated; the MCSE is a function of how much simulation we can do.
+In a simulation study, we could, in theory, know \emph{exactly} how well we would do for a given context, if we ran an infinite number of simulations; the MCSE tells us how far we are from this ideal, given how many simulation trials we actually ran.
 Given a desired MCSE, we could similarly determine how many replications were needed to ensure our performance estimates have a desired level of precision.
 
-\section{Inference vs.~Estimation}\label{inference-vs.-estimation}
+\section{Different kinds of performance}\label{different-kinds-of-performance}
 
-There are two general classes of analysis one typically does with data: inference and estimation.
-To illustrate, we continue to reflect on the question of best practices for analyzing a cluster randomized experiment.
-For this problem, we are focused on the \emph{estimand} of the site-average treatment effect, \(\gamma_1\).
-The \emph{estimand} is the thing we are trying to estimate.
-We can ask whether \(\gamma_1\) is non-zero (inference), and we can further ask what \(\gamma_1\) actually is (estimation).
-More expanded we have:
+There are several classes of performance criteria we might be interested in, depending on what we are evaluating.
+In particular, we can as how well we are
+We talk through them in the following sections after giving a high-level overview.
 
-\emph{Inference} is when we do hypothesis testing, asking whether there is evidence for some sort of effect, or asking whether there is evidence that some coefficient is greater than or less than some specified value.
-In particular, for our example, to know if there is evidence that there is an average treatment effect at all we would test the null of \(H_0: \gamma_1 = 0\).
-
-\emph{Estimation} is when we try to measure the size of an estimand such as an actual average treatment effect \(\gamma_1\).
+\textbf{Point Estimation.}
+Point estimation is when we try to measure the size of an estimand such as an actual average treatment effect \(\gamma_1\).
 Estimation has two major components, the point estimator and the uncertainty estimator.
 We generally evaluate both the \emph{actual} properties of the point estimator and the performance of the \emph{estimated} properties of the point estimator.
-For example, consider a specific estimate \(\hat{\gamma_1}\) of our average treatment effect.
-We first wish to know the actual bias and true standard error (\(SE\)) of \(\hat{\gamma_1}\).
+
+For the point estimate, we generally need to know our target \emph{estimand}, which is the ``right answer'' that we are trying to estimate in our scenario.
+Continuing our running example of exploring best practices for analyzing a cluster randomized experiment, we might want to assess how well our estimate of the treatment effect \(\hat\gamma_1\) does for the \emph{estimand} of the site-average treatment effect, \(\gamma_1\), for example.
+
+Given our estimate \(\hat{\gamma_1}\) and our estimand \(\gamma_1\), we can ask whether we will get the right answer on average (if not, we have \emph{bias}).
+We can also ask how variable our estimate will tend to be (this is estimating the \emph{variance} or \emph{true standard error} of our estimator).
+For estimation, we generally are concerned with two things: bias and variance.
+An estimator is biased if it would generally give estimates that are systematically higher (or lower) than the parameter being estimated in a given scenario.
+The variance of an estimator is a measure of how much the estimates vary from trial to trial.
+The variance is the true standard error, squared.
+We can ask how far off the truth we are likely to be on average (this is the \emph{root mean squared error}).
 These are its actual properties.
-However, for each estimated \(\hat{\gamma_1}\), we also estimate \(\widehat{SE}\), as our estimated measure of how precise our estimate is.
+
+\textbf{Uncertainty Estimation.}
+Point estimates also usually come with estimates of uncertainty: when we estimate the average treatment effect, we will also get an estimated standard error, \(\widehat{SE}\), that tells us how far we are likely to be from our target.
 We need to understand the properties of \(\widehat{SE}\) as well.
+We can ask whether our standard error estimator tends to be too large or too small, when compared to the true standard error. We can also assess whether the estimated standard error is usually accurate, or unstable across our simulation scenarios.
 
-Inference and estimation are clearly highly related--if we have a good estimate of the treatment effect and it is not zero, then we are willing to say that there is a treatment effect--but depending on the framing, the way you would set up a simulation to investigate the behavior of your estimators could be different.
-
-\section{Ways of Assessing and Comparing Estimation Procedures}\label{ways-of-assessing-and-comparing-estimation-procedures}
-
-We often have different methods for obtaining some estimate, and we often want to know which is best.
-For example, comparison is the core question behind our running example of identifying which estimation strategy (aggregation, linear regression, or multilevel modeling) we should generally use when analyzing cluster randomized trial data.
-The goal of a simulation comparing our estimators would be to identify whether our estimation strategies were different, whether one was superior to the other (and when), and what the salient differences were.
-To fully understand the trade-offs and benefits, we would examine and compare the properties of our different approaches across a variety of circumstances, and with respect to a variety of metrics of success.
+\textbf{Inference.}
+Inference is when we do hypothesis testing, asking whether there is evidence for some sort of effect, or asking whether there is evidence that some coefficient is greater than or less than some specified value.
+In particular, for our example, to know if there is evidence that there is an average treatment effect at all we would test the null of \(H_0: \gamma_1 = 0\).
+We would then
 
 For inference, we first might ask whether our methods are valid, i.e., ask whether the methods work correctly when we test for a treatment effect when there is none.
 For example, we might wonder whether using multilevel models could open the door to inference problems if we had model misspecification, such as in a scenario where the residuals had some non-normal distribution.
@@ -3625,18 +3629,19 @@ Do they reject the null often, or rarely?
 How much does using aggregation decrease (or increase?) our chances of rejection?
 These are questions about power.
 
-For estimation, we generally are concerned with two things: bias and variance.
-An estimator is biased if it would generally give estimates that are systematically higher (or lower) than the parameter being estimated in a given scenario.
-The variance of an estimator is a measure of how much the estimates vary from trial to trial.
-The variance is the true standard error, squared.
-
-We might also be concerned with how well we can estimate the uncertainty of our estimators (i.e., estimate our standard error).
-For example, we might have an estimator that works very well, but we have no ability to estimate how well.
-Continuing our example, we might want to examine how well, for example, the standard errors we get from aggregation work as compared to the standard errors we get out of our linear regression approach.
-
+\textbf{Confidence Intervals.}
 Finally, we might want to know how well confidence intervals based on our methods work.
 Do the intervals capture the true estimands with the desired level of accuracy, across the simulation trials?
 Are the intervals for one method generally shorter or longer than those of another?
+
+\textbf{Final thoughts.}
+Inference and estimation are clearly highly related--if we have a good estimate of the treatment effect and it is not zero (this is estimation), then we are willing to say that there is a treatment effect (this is inference)--but depending on the framing, the way you would set up a simulation to investigate the behavior of your estimators could be different.
+For example, if you were interested in inference, you might want to know how often you would reject the null hypothesis of no treatment effect---if just focused on estimation, you may not have a simulation that looks at this question of validity as directly.
+
+In the above, we discussed how to assess the performance of a single procedure, but in general we often have different methods for obtaining some estimate, and want to know which is best.
+For example, we want to identify which estimation strategy (aggregation, linear regression, or multilevel modeling) we should generally use when analyzing cluster randomized trial data---this is comparison.
+The goals for a simulation comparing different approaches should be to identify whether the strategies are different, when and how one is superior to the other, and what the salient differences are driven by.
+To fully understand the trade-offs and benefits, we will generally need to compare the different approaches with respect to a variety of metrics of success.
 
 \section{Assessing a Point Estimator}\label{assessing-a-point-estimator}
 
@@ -3651,29 +3656,36 @@ We can ask if our estimator is biased.
 We can ask what the overall \(RMSE\) (root mean squared error) of our estimator is.
 
 To be more formal, consider an estimator \(T\) that is targeting a parameter \(\theta\).
-A simulation study generates a (typically large) sample of estimates \(T_1,...,T_R\), all of the target \(\theta\).
-We know \(\theta\) because we generated the data.
+We call the targeted parameter the \emph{estimand}.
+In most cases, to run our simulation we set the estimand \(\theta\) and then generate a (typically large) series of datasets where \(\theta\) is the true target.
+We then analyze each dataset, obtaining a sample of estimates \(T_1,...,T_R\), all of the target \(\theta\).
+With this approach, we know \(\theta\), but in some cases our estimand is not one of the data generation parameters; we then have to obtain \(\theta\) in some other manner.
+See below for further discussion and an example of this
 
-We can first assess whether our estimator is biased, by comparing the mean of our \(R\) estimates
-\[ \bar{T} = \frac{1}{R}\sum_{r=1}^R T_r \]
+With our target \(\theta\) and our estimates \(T_r\) in hand, we first assess whether our estimator is biased by comparing the mean of our \(R\) estimates,
+\[ \bar{T} = \frac{1}{R}\sum_{r=1}^R T_r \;,\]
 to \(\theta\).
-The bias of our estimator is \(bias = \bar{T} - \theta\).
+The bias of our estimator is
+\[bias = \bar{T} - \theta .\]
 
 We can also ask how variable our estimator is, by calculating the variance of our \(R\) estimates
 \[\displaystyle{S_T^2 = \frac{1}{R - 1}\sum_{r=1}^R \left(T_r - \bar{T}\right)^2} . \]
 
-The square root of this, \(S_T\) is the true standard error of our estimator (up to Monte Carlo simulation uncertainty).
+Importantly, the square root of \(S^2_T\), \(S_T\) is the true standard error of our estimator (up to Monte Carlo simulation uncertainty).
+The true SE \(S_T\) is more interpretable due to being on the same metric as our initial estimates.
 
 Finally, the Root Mean Square Error (RMSE) is a combination of the above two measures:
 \[ RMSE = \left\{ \frac{1}{R} \sum_{r = 1}^R \left( T_r - \theta\right)^2 \right\}^{1/2}. \]
 Often people talk about the MSE (Mean Squared Error)--this is just the RMSE squared.
+Just like the true SE is versus the variance, the RMSE is more interpretable than the MSE.
 
 An important relationship connecting these three measures is
 \[ RMSE^2 = bias^2 + variance = bias^2 + SE^2 .\]
 It is important to clarify an important point: the \emph{true standard error} of an estimator \(\hat{\gamma_1}\) is the standard deviation of \(\hat{\gamma_1}\) across multiple datasets.
 In practice, we never know this value, but in a simulation we can obtain it as the standard deviation of our simulation trial estimates.
-People generally, when they say ``Standard Error'' mean \emph{estimated} Standard Error, (\(\widehat{SE}\)) which is when one uses the emperical data to estimate \(SE\).
-For assessing actual properties, we have the true standard error (up to Monte Carlo simulation error).
+Generally, when people say ``Standard Error'' they actually mean \emph{estimated} Standard Error, (\(\widehat{SE}\)), obtained when we use empirical data to estimate the \(SE\).
+In general research, we often neglect to monitor that the standard errors themselves are estimates of a true parameter, and thus have their own uncertainty.
+For assessing actual properties in a simulation, by contrast, we can actually have the true standard error (up to Monte Carlo simulation error), along with our set of estimates.
 
 For absolute assessments of performance, an estimator with low bias, low variance, and thus low RMSE is desired.
 For comparisons of relative performance, an estimator with lower RMSE is usually preferable to an estimator with higher RMSE; if two estimators have comparable RMSE, then the estimator with lower bias would usually be preferable.
@@ -3682,12 +3694,13 @@ It is important to recognize that the above performance measures depend on the s
 For example, if our estimators are measuring a treatment impact in dollars, then our bias, SE, and RMSE are all in dollars.
 The variance and MSE would be in dollars squared, which is why we take their square roots to put them back on an intepretable dollars scale.
 
-Usually in a simulation, the scale of the outcome is irrelevant as we are comparing one estimator to the other.
+Often the scale of the outcome is irrelevant in our simulations.
+This is especially the case if we are comparing one estimator to the other.
 To ease interpretation, we might want to assess estimators relative to the baseline variation.
 To achieve this, we can generate data so the outcome has unit variance (i.e., we generate \emph{standardized data}).
 Then the bias, median bias, and root mean-squared error would all be in standard deviation units.
 
-By contrast, a nonlinear change of scale of a parameter can lead to nonlinear changes in the performance measures.
+By contrast, a nonlinear change of scale of a parameter can lead to nonlinear changes in performance.
 For instance, suppose that \(\theta\) is a measure of the proportion of time that a behavior occurs.
 A natural way to transform this parameter would be to put it on the log-odds (logit) scale.
 However, because of the nonlinear aspect of the logit,
@@ -3809,15 +3822,15 @@ That said, clearly the standard error dominates the bias term (note how RMSE and
 This is especially the case as RMSE is the square root of the bias and standard errors \emph{squared}; this makes difference between them even more extreme.
 Overall, Agg and MLM have RMSEs around 16\% smaller than LR--this seems notable.
 
-\subsection{Handling Estimands Not Represented By a Parameter}\label{handling-estimands-not-represented-by-a-parameter}
+\subsection{Estimands Not Represented By a Parameter}\label{estimands-not-represented-by-a-parameter}
 
-In our Cluster RCT example, we have focused on an estimand of the ATE as captured by our model parameter \(\gamma_1\).
+In our Cluster RCT example, we focused on the estimand of the ATE as captured by our model parameter \(\gamma_1\).
 But say we were interested in the person-average effect.
-This is not represented by any number, so we would have to calculate it and then compare all of our estimates to it.
+This is not represented by any number in our data generating process, so we would have to calculate it and then compare all of our estimates to it.
 
 We offer two ways of doing this.
 The first is to simply generate a massive dataset, and then average across it to get a good estimate of the true person-average effect.
-If our dataset is big enough, then the uncertainty in this estimate will be neglidgable compared to the uncertainty in our simulation.
+If our dataset is big enough, then the uncertainty in this estimate will be negligible compared to the uncertainty in our simulation.
 
 Here we try this:
 
@@ -3836,9 +3849,9 @@ Here we try this:
 ## [1] 0.3995638
 \end{verbatim}
 
-Note our estimate of the person-average effect of 0 is about what we would expect given the bias of the linear model!
+Note our estimate of the person-average effect of 0 is about what we would expect given the bias we saw earlier for the linear model!
 
-Note how bias and RMSE have shifted, but SE is the same, when we compare to \texttt{ATE\_person}:
+With respect to the \texttt{ATE\_person} estimand, the bias and RMSE of our estimators will shift, but SE will stay the same:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -3862,11 +3875,11 @@ Note how bias and RMSE have shifted, but SE is the same, when we compare to \tex
 ## 3 MLM    -0.0917  0.168 0.191     1.04
 \end{verbatim}
 
-We see Agg and MLM are now biased, and LR is unbiased.
+For the person-weighted estimand, Agg and MLM are biased, and LR is unbiased.
 RMSE is now a tension between bias and reduced variance.
 Overall, Agg and MLM are 4\% worse than LR in terms of RMSE, because they have lower SEs but more bias.
 
-The second method of calculating \texttt{ATE\_person} would be to record the true person average effect of the dataset of each simulation iteration, and then average those at the end.
+The second method of calculating \texttt{ATE\_person} would be to record the true person average effect of the dataset with each simulation iteration, and then average those at the end. This is in effect generating our massive dataset in pieces; the overall average of our dataset-specific \texttt{ATE\_person}s gives our population person-weighted ATE.
 To do this we would need to modify our \texttt{gen\_dat\_model()} DGP code to track this additional information.
 We might have, for example
 
@@ -3901,7 +3914,7 @@ Now when we run our simulation, we would have a column which is the true person 
 We could then take the average of those across our datasets to estimate the true person average treatment effect in the population, and then compare our point estimators to that value.
 
 Clearly, an estimand that is not represented by a parameter is more difficult to work with, but it is not impossible.
-As always, be clear as to what you are trying to estimate.
+The key is to be clear as to what you are trying to estimate: the performance of an estimator depends on the estimand the estimator is compared to.
 
 \section{Assessing a Standard Error Estimator}\label{assessing-a-standard-error-estimator}
 
@@ -4864,8 +4877,7 @@ We can generate 1000 replicates using samples of size \(n = 40\), \(p = 6\) item
 ## map(1:1000, ~ one_run(40, 6, alpha = true_alpha,
 ## df = 5))
 ## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to
-## see where this warning was generated.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
 \end{verbatim}
 
 \subsection{Exercises (Calculating Performance)}\label{exercises-calculating-performance}
@@ -5034,8 +5046,7 @@ If we only had a couple of parameter combinations, it would be easy enough to ju
 ##   # Now
 ##   map(1:100, ~ one_run(n, p, alpha, df))
 ## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to
-## see where this warning was generated.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
 \end{verbatim}
 
 \begin{verbatim}
@@ -5247,7 +5258,7 @@ What performance criteria should we look at?
 
 \chapter{Designing the multifactor simulation experiment}\label{exp-design}
 
-So far, we've created code that will give us results for a single combination of parameter values.
+So far, we have created code that will run a simulation for a single combination of parameter values.
 In practice, simulation studies typically examine a range of different values, including varying the level of the true parameter values and perhaps also varying sample sizes, to explore a range of different scenarios.
 We either want reassurance that our findings are general, or we want to understand what aspects of the context lead to our found results.
 A single simulation gives us no hint as to either of these questions.
@@ -5399,7 +5410,7 @@ And fully expect to add and subtract from your set of parameters as you get your
 
 \subsection{Choosing parameters for the Clustered RCT}\label{choosing-parameters-for-the-clustered-rct}
 
-Extending our case study presented in Section \ref{case-cluster} to a multifactor simulation, let's think about how to design our full experiment.
+Extending our case study presented in Section \ref{case-cluster} to a multifactor simulation, we next design our full experiment.
 
 So far, we have only investigated a single scenario at a time, although our modular approach does make exploring a range of scenarios by re-calling our simulation function relatively straightforward.
 But how do our findings generalize? When are the different methods differently appropriate?
@@ -5409,10 +5420,9 @@ We begin by identifying some questions we might have, given our preliminary resu
 Regarding bias, in our initial simulation, we noticed that Linear Regression is estimating a person-weighted quantity, and so would be considered biased for the site-average ATE.
 We might next ask, how much does bias change if we change the site-size by impact relationship?
 
-For precision, we also saw that Linear Regression has a higher standard error.
-But is this a general finding? When does this occur?
-Are there contexts where linear regression will do better than the others?
-Originally we thought aggregation would lose information becuase little sites will have the same weight as big sites, but be more imprecisely estimated.
+For precision, we saw that Linear Regression has a higher standard error.
+But is this a general finding? If not, are there contexts where linear regression will have a lower standard error than the others?
+Originally we thought aggregation would lose information because the little sites will have the same weight as big sites, but be more imprecisely estimated.
 Were we wrong? Or perhaps if site size was even more variable, Agg might do worse and worse.
 
 Finally, the estimated SEs all appeared to be good, although they were rather variable, relative to the true SE.
@@ -5654,14 +5664,16 @@ We can put all of this together in a a tidy workflow as follows:
 \end{Highlighting}
 \end{Shaded}
 
-If we wanted to use parallel processing (more on this later) we can also simply use the \texttt{simhelpers} package (the following code is auto-generated by the \texttt{create\_skeleton()} method as well):
+If we wanted to use parallel processing (more on this later), we can also simply use the \texttt{simhelpers} package to run a simulation for each row of our parameter dataframe in parallel:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{plan}\NormalTok{(multisession) }\CommentTok{\# choose an appropriate plan from the future package}
-\FunctionTok{evaluate\_by\_row}\NormalTok{(params, run\_alpha\_sim)}
+\NormalTok{sim\_results }\OtherTok{\textless{}{-}} \FunctionTok{evaluate\_by\_row}\NormalTok{(params, run\_alpha\_sim)}
 \end{Highlighting}
 \end{Shaded}
+
+The above code is auto-generated by the \texttt{create\_skeleton()} method as well.
 
 We finally save our results using tidyverse's \texttt{write\_csv()}; see ``R for Data Science'' textbook, 11.5.
 We can ensure we have a directory by making one via \texttt{dir.create()} (see Section \ref{saving-files} for more on files):
@@ -5673,37 +5685,38 @@ We can ensure we have a directory by making one via \texttt{dir.create()} (see S
 \end{Highlighting}
 \end{Shaded}
 
-\section{Ways of repeating oneself}\label{ways-of-repeating-oneself}
+\section{When to aggregate results across multiple simulations}\label{when-to-aggregate-results-across-multiple-simulations}
 
-We have three core elements in our simulation:
+For a single scenario simulation, we have three core elements:
 - Generate data
 - Analyze data
 - Assess performance
 
-In arranging these elements, we have a choice: do we compute performance measures for each simulation scenario as we go (inside) vs.~computing after we get all of our individual results (outside)?
+For a multifactor simulation, we have a choice in how to arrange these elements: do we compute performance measures for each simulation scenario as we go (inside) vs.~computing after we get all of our individual results (outside)?
 
-\emph{INSIDE (aggregate as you simulate):}
-In this approach, illustrated above, we, for each scenario defined by a specific combination of factors, run our simulation for that scenario, assess the performance, and then return a nice summary table of how well our methods did.
+\subsection{Aggregate as you simulate (inside)}\label{aggregate-as-you-simulate-inside}
+
+In the ``inside'' approach, illustrated above, we, for each scenario defined by a specific combination of factors, run our simulation for that scenario, assess the performance, and then return a nice summary table of how well our methods did.
 This is the most straightforward, given what we have done so far: we have a method to run a simulation for a scenario, and we simply run that method for a bunch of scenarios and collate.
 
-After the \texttt{pmap()} call, we end up with a dataframe with all our simulations, one simulation context per row (or maybe bundles, one for each method), with
-our measured performance outcomes. This is ideally all we need to analyze.
+After the \texttt{pmap()} call, we end up with a dataframe with all our simulations, one simulation context per row (or maybe bundles of rows for each simulation context, with one row for each method), with our measured performance outcomes.
+This is ideally all we need to analyze.
 
 We have less data to store, and it is easier to compartmentalize.
 On the cons side, we have no ability to add new performance measures on the fly.
 
-Overall, this seems pretty good.
-That being said, sometimes we might want to use a lot of disk space and keep
-much more. In particular, each row of the above corresponds to the summary
-of a whole collection of individual runs. We might instead store all of
-these runs, which brings us to the other approach.
+Overall, aggregating as we go seems pretty good.
+That being said, sometimes we might want to use a lot of disk space and keep much more so we can explore our simulated data more flexibly.
+In particular, each row of the above corresponds to the summary of a whole collection of individual runs.
+We might instead store all of these runs, which brings us to the other approach.
 
-\emph{OUTSIDE (keep all simulation runs):}
-In this approach we do not aggregate, but instead, for each scenario, return the entire set of individual estimates.
-The benefit of this is, given the raw estimates, you can dynamically add or change how you calculate performance measures.
+\subsection{Keep all simulation runs (outside)}\label{keep-all-simulation-runs-outside}
+
+In the ``outside'' approach we do not aggregate, but instead, for each scenario, return the entire set of individual estimates.
+The benefit of this is, given the raw estimates, you can dynamically add or change how you calculate performance measures without re-running the entire simulation.
 You do, however, end up with massive amounts of data to store and manipulate.
 
-To move from inside to outside, we just take the summarizing step out of \texttt{run\_alpha\_sim()}.
+To move from inside to outside, just take the summarizing step out of \texttt{run\_alpha\_sim()}.
 E.g.,:
 
 \begin{Shaded}
@@ -5741,14 +5754,13 @@ We replicate our simulation parameters for each row.
 ## 4 0.4810237 0.01292815 0.20267301 0.6622008
 \end{verbatim}
 
-The primary advantage of this is we can then generate new performance measures, as they
-occur to us, later on. The disadvantage is this result file will be \(R\)
-times as many rows as the older file, which can get quite, quite large.
+The primary advantage of the outside approach is we can then generate new performance measures, as they
+occur to us, later on.
+The disadvantage is this result file will be \(R\) times as many rows as the older file, which can get quite, quite large.
 
 But disk space is cheap!
-Here we run the same experiment with our more
-complete storage. Note how the \texttt{pmap\_df} stacks the
-multiple rows from each run, giving us everything nicely bundled up:
+Here we run the same experiment with our more complete storage.
+Note how the \texttt{pmap\_df} stacks the multiple rows from each run, giving us everything nicely bundled up:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -5809,38 +5821,77 @@ Compare the file sizes: one is several k, the other is around 20 megabytes.
 If we generated raw results then we need to collapse them by experimental run
 before calculating performance measures so we can explore the trends across the
 experiments.
-We do this by grouping our data and calling \texttt{alpha\_performance()} for each group:
+
+One way to do this is to use \texttt{group\_by()} and \texttt{summarize()} to collapse the raw results.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{results }\OtherTok{\textless{}{-}}\NormalTok{ sim\_results\_full }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{nest\_by}\NormalTok{( n, p, alpha, df, }\AttributeTok{.key =} \StringTok{"alpha\_sims"}\NormalTok{ )}
+\NormalTok{sim\_results\_full }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{group\_by}\NormalTok{( n, p, alpha, df ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{( }
+    \AttributeTok{bias =} \FunctionTok{mean}\NormalTok{(A }\SpecialCharTok{{-}}\NormalTok{ alpha),}
+    \AttributeTok{RMSE =} \FunctionTok{sqrt}\NormalTok{(}\FunctionTok{mean}\NormalTok{((A }\SpecialCharTok{{-}}\NormalTok{ alpha)}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{))}
+\NormalTok{  )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 144 x 6
+## # Groups:   n, p, alpha [36]
+##        n     p alpha    df    bias  RMSE
+##    <dbl> <dbl> <dbl> <dbl>   <dbl> <dbl>
+##  1    50     4   0.1     5 -0.103  0.388
+##  2    50     4   0.1    10 -0.0527 0.263
+##  3    50     4   0.1    20 -0.0190 0.221
+##  4    50     4   0.1   100 -0.0313 0.219
+##  5    50     4   0.2     5 -0.0966 0.399
+##  6    50     4   0.2    10 -0.0406 0.225
+##  7    50     4   0.2    20 -0.0301 0.223
+##  8    50     4   0.2   100 -0.0348 0.206
+##  9    50     4   0.3     5 -0.0683 0.281
+## 10    50     4   0.3    10 -0.0331 0.199
+## # i 134 more rows
+\end{verbatim}
+
+If we want to use our full performance measure function \texttt{alpha\_performance()} so we get additional metrics such as MCSEs, we would \emph{nest} our data into a series of mini-datasets (one for each simulation), and then process each element.
+As we saw above, nesting collapses a larger dataframe into a dataframe of dataframes:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{results }\OtherTok{\textless{}{-}}\NormalTok{ sim\_results\_full }\SpecialCharTok{|\textgreater{}}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{iterations, }\SpecialCharTok{{-}}\NormalTok{seed ) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{group\_by}\NormalTok{( n, p, alpha, df ) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{nest}\NormalTok{( }\AttributeTok{.key =} \StringTok{"alpha\_sims"}\NormalTok{ )}
 \NormalTok{results}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
 ## # A tibble: 144 x 5
-## # Rowwise:  n, p, alpha, df
-##        n     p alpha    df         alpha_sims
-##    <dbl> <dbl> <dbl> <dbl> <list<tibble[,6]>>
-##  1    50     4   0.1     5          [500 x 6]
-##  2    50     4   0.1    10          [500 x 6]
-##  3    50     4   0.1    20          [500 x 6]
-##  4    50     4   0.1   100          [500 x 6]
-##  5    50     4   0.2     5          [500 x 6]
-##  6    50     4   0.2    10          [500 x 6]
-##  7    50     4   0.2    20          [500 x 6]
-##  8    50     4   0.2   100          [500 x 6]
-##  9    50     4   0.3     5          [500 x 6]
-## 10    50     4   0.3    10          [500 x 6]
+## # Groups:   n, p, alpha, df [144]
+##        n     p alpha    df alpha_sims        
+##    <dbl> <dbl> <dbl> <dbl> <list>            
+##  1    50     4   0.1     5 <tibble [500 x 4]>
+##  2   100     4   0.1     5 <tibble [500 x 4]>
+##  3    50     8   0.1     5 <tibble [500 x 4]>
+##  4   100     8   0.1     5 <tibble [500 x 4]>
+##  5    50     4   0.2     5 <tibble [500 x 4]>
+##  6   100     4   0.2     5 <tibble [500 x 4]>
+##  7    50     8   0.2     5 <tibble [500 x 4]>
+##  8   100     8   0.2     5 <tibble [500 x 4]>
+##  9    50     4   0.3     5 <tibble [500 x 4]>
+## 10   100     4   0.3     5 <tibble [500 x 4]>
 ## # i 134 more rows
 \end{verbatim}
 
+Note how each row has a little dataframe of the individual simulation results, with 500 rows each.
+Once nested, we can then use \texttt{map()} to apply a function to each element of the nested dataframe.
+
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{results}\SpecialCharTok{$}\NormalTok{performance }\OtherTok{=} \FunctionTok{map2}\NormalTok{( results}\SpecialCharTok{$}\NormalTok{alpha\_sims, }
-\NormalTok{                               results}\SpecialCharTok{$}\NormalTok{alpha, alpha\_performance )}
+\NormalTok{results }\OtherTok{\textless{}{-}}\NormalTok{ results }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{performance =} \FunctionTok{map2}\NormalTok{( alpha\_sims, alpha, }
+\NormalTok{                              alpha\_performance ) )}
 \NormalTok{results }\OtherTok{\textless{}{-}}\NormalTok{ results }\SpecialCharTok{\%\textgreater{}\%}
 \NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{alpha\_sims ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{unnest}\NormalTok{( }\AttributeTok{cols=}\StringTok{"performance"}\NormalTok{ ) }
@@ -5857,28 +5908,21 @@ We do this by grouping our data and calling \texttt{alpha\_performance()} for ea
 ##  2    50     4   0.1     5 alpha RMSE       0.388 
 ##  3    50     4   0.1     5 V relative bias  0.436 
 ##  4    50     4   0.1     5 coverage         0.826 
-##  5    50     4   0.1    10 alpha bias      -0.0527
-##  6    50     4   0.1    10 alpha RMSE       0.263 
-##  7    50     4   0.1    10 V relative bias  0.780 
-##  8    50     4   0.1    10 coverage         0.908 
-##  9    50     4   0.1    20 alpha bias      -0.0190
-## 10    50     4   0.1    20 alpha RMSE       0.221 
+##  5   100     4   0.1     5 alpha bias      -0.0347
+##  6   100     4   0.1     5 alpha RMSE       0.224 
+##  7   100     4   0.1     5 V relative bias  0.500 
+##  8   100     4   0.1     5 coverage         0.85  
+##  9    50     8   0.1     5 alpha bias      -0.0728
+## 10    50     8   0.1     5 alpha RMSE       0.333 
 ## # i 566 more rows
 ## # i 1 more variable: MCSE <dbl>
 \end{verbatim}
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\CommentTok{\# }\AlertTok{NOTE}\CommentTok{: This is HORRIBLE.  There has to be a better way.}
-\end{Highlighting}
-\end{Shaded}
-
 Now, if we want to add a performance metric, we can simply change \texttt{alpha\_performance} and recalculate, without running the time-intensive simulations.
 Being able to re-analyze your results is generally a far easier fix than running all the simulations again
 after changing the \texttt{run\_alpha\_sim()} method.
-
-The results of summarizing during the simulation vs.~after as we just did
-leads to essentially the same place, however, although our old results are in long format (with one row per simulation metric vs.~the metrics being columns).
+Summarizing during the simulation vs.~after, as we just did, leads to the same set of results.
+This is about using disk space to have later flexibility.
 
 \section{Running the Cluster RCT multifactor experiment}\label{running-the-cluster-rct-multifactor-experiment}
 
@@ -6010,24 +6054,62 @@ See? No more warnings, but we see the message as a variable in our results.
 
 \chapter{Analyzing the multifactor experiment}\label{analyzing-the-multifactor-experiment}
 
+\section{Ways of analyzing simulation results}\label{ways-of-analyzing-simulation-results}
+
 Once we have performance measures for all our simulation scenarios, how do we explore them?
 For our Cluster RCT simulation, we have 270 different simulation runs across our factors (with three rows per simulation run, one for each method).
 How can we visualize and understand trends across this complex domain?
 
 There are several techniques for summarizing across the data that one might use.
 
-\section{Bundling}\label{bundling}
+\subsection{Plot everything with many small multiples}\label{plot-everything-with-many-small-multiples}
 
-As a first step, we might bundle the simulations by the primary factors of interest.
-We would then plot these bundles as box plots to see central tendency along with variation.
-With bundling, we would need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable than the truth.
-
-For example, as a first step to understanding bias, we might bundle our results by ICC.
-In this code we are making groups of method by ICC level so we get side-by-side boxplots for each ICC level considered:
+If you do not have too many different kinds of factor, you can simply plot all of your results at once.
+For example, say we only ran simulations for our Cluster RCT simulation with \texttt{n\_bar\ =\ 320} and \texttt{J\ =\ 20}.
+Then we could plot everything like so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{( }\StringTok{"results/simulation\_CRT.rds"}\NormalTok{ )}
+\NormalTok{sres\_sub }\OtherTok{\textless{}{-}}\NormalTok{ sres }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{( n\_bar }\SpecialCharTok{==} \DecValTok{320}\NormalTok{, J }\SpecialCharTok{==} \DecValTok{20}\NormalTok{ )}
+\FunctionTok{ggplot}\NormalTok{( sres\_sub, }\FunctionTok{aes}\NormalTok{( alpha, bias, }\AttributeTok{col=}\NormalTok{method, }\AttributeTok{pch=}\NormalTok{method, }\AttributeTok{group=}\NormalTok{method ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ICC, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_continuous}\NormalTok{( }\AttributeTok{breaks =} \FunctionTok{unique}\NormalTok{( sres}\SpecialCharTok{$}\NormalTok{alpha) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-157-1} \end{center}
+
+Each point is one of our methods in one of our simulation scenarios.
+We are looking at the raw results.
+We connect the points with lines to help us see trends within each of the mini-plots.
+It also helps us visually track which group of points goes with which.
+
+As a side note, this style of plotting, with a bunch of small plots, is called
+``many small multiples'' and is beloved by Tufte.
+He likes it, in part, because in a single plot we can display 5 variables: our facets are organized by two (ICC and the size coefficient), and within each facet we have three (alpha, our outcome of bias, and the methods themselves).
+Unfortunately, we quickly reach our limits of this approach if we have more factors than 5, which, in this case, we do.
+We next present bundling, a way of using this core idea of showing raw results, but in a semi-aggregated way.
+
+\subsection{Bundling}\label{bundling}
+
+As a first step, we can bundle the simulations into groups defined by a selected primary factor of interest, and then plot each bundle with a boxplot of a selected performance criteria.
+Each boxplot then shows the central measure of how well an estimator worked across those simulations, along with a sense of how much that performance varied across those simulations.
+If the boxes are narrow, then we know that the variation across simulations within the box did not impact performance much.
+If the boxes are wide, then we know that the factors that vary within the box matter a lot for performance.
+
+With bundling, we would need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable (wider) than the truth.
+(Consider a case where the simulations within a box all would have the same performance, but the MCSE is large; in this case we would see a wide boxplot when we should not.)
+
+To illustrate, we next investigate bias in our running example on cluster RCTs.
+We are going to group our results by method, ICC, the size coefficent (how strong the cluster size to treatment impact relationship is), and alpha (how much the site sizes vary).
+For a specific ICC, size, and alpha, we will put the boxes for the three methods side-by-side to directly compare the methods in terms of bias.
+
+\begin{Shaded}
+\begin{Highlighting}[]
 \FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( ICC, bias, }\AttributeTok{col=}\NormalTok{method, }\AttributeTok{group=}\FunctionTok{paste0}\NormalTok{(ICC,method) ) ) }\SpecialCharTok{+}
   \FunctionTok{facet\_grid}\NormalTok{( alpha }\SpecialCharTok{\textasciitilde{}}\NormalTok{ size\_coef, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
   \FunctionTok{geom\_boxplot}\NormalTok{(}\AttributeTok{coef =} \ConstantTok{Inf}\NormalTok{) }\SpecialCharTok{+}
@@ -6039,7 +6121,12 @@ In this code we are making groups of method by ICC level so we get side-by-side 
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/clusterRCT_plot_bias_v1-1} \end{center}
 
-Each box is a collection of simulation trials. E.g., for \texttt{ICC\ =\ 0.6}, \texttt{size\_coef\ =\ 0.2}, and \texttt{alpha\ =\ 0.8} we have 9 scenarios representing the varying level 1 and level 2 sample sizes:
+From our plot we see, for example, that there is virtually no bias for any method when the size coefficient is 0 and the ICC is 0.
+It is a bit more unclear, but it seems there is also virtually no bias when the size coefficient is 0 regardless of ICC, but the boxes are wider making us wonder if something else is potentially going on.
+When alpha is 0 and the size coefficient is 0.2, all methods have a negative bias for most scenarios considered, as all boxes and almost all of the whiskers are below the 0 line (when ICC is 0.6 or 0.8 we may have some instances of 0 or positive bias, if that is not MCSE giving long tails).
+
+Each box is a collection of simulation trials. E.g., for \texttt{ICC\ =\ 0.6}, \texttt{size\_coef\ =\ 0.2}, and \texttt{alpha\ =\ 0.8} each box contains 9 scenarios representing the varying level 1 and level 2 sample sizes.
+Here are the 9 for the Aggregation method:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6064,7 +6151,7 @@ Each box is a collection of simulation trials. E.g., for \texttt{ICC\ =\ 0.6}, \
 ## 9   320    80   0.2       0.2   0.6   0.8  0.0394
 \end{verbatim}
 
-We are seeing a few outliers for some of the boxplots, suggesting that there are other factors driving bias. We could try bundling along different aspects to see:
+The apparent outliers (long tails) for some of the boxplots suggest that the other factors (cluster size and number of clusters) also relate to degree of bias. We could try bundling along different aspects to see:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6079,31 +6166,31 @@ We are seeing a few outliers for some of the boxplots, suggesting that there are
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/clusterRCT_plot_bias_v2-1} \end{center}
 
 No progress there. Perhaps it is instability or MCSE.
-We make a note to investigate further, later on.
+In an actual analysis, we might then make a note to investigate these anomalies a bit further, later on.
 
-\section{Aggregation}\label{aggregation}
+\subsection{Aggregation}\label{aggregation}
 
-The boxplots are hard for seeing trends.
-Instead of bundling, we can therefore aggregate, to look at overall trends rather than individual simulation variation.
-This is especially important if the number of replicates within each scenario is small, because then each scenario's performance is measured with a lot of error.
+The boxplots make seeing trends more difficult.
+Instead of bundling, we can therefore aggregate, where we average all the scenarios within a box to get a single number of average performance, to look at overall trends rather than individual simulation variation.
+Aggregation is especially important if the number of replicates within each scenario is small, because then each indiviua scenario's performance is measured with a lot of error.
 
 With aggregation, we average over some of the factors, collapsing our simulation results down to fewer moving parts.
-This is better than having not had those factors in the first place!
-Averaging over a factor is a more general answer than having not varied the factor at all.
+Aggregation across factors is better than having not had those factors in the first place!
+A performance measure averaged over a factor is a more general answer of how things work in pratice than having not varied the factor at all.
 
 For example, if we average across ICC and site variation, and see how the methods change performance as a function of \(J\), we would know that this is a general trend across a range of scenarios defined by different ICC and site variation levels.
 Our conclusions would then be more general than if we picked a single ICC and amount of site variation: in this latter case we would not know if we would see our trend more broadly.
 
 Also, with aggregation, we can have a smaller number of replications per factor combination.
-The averaging will, in effect, give a lot more reps per aggregated performance measure.
+The averaging will, in effect, give a lot more replications per aggregated performance measure.
 
-A caution with aggregation is that it can be deceitful if you have scaling issues or extreme outliers.
-With bias, our scale is fairly well set, so we are good!
-But if we were aggregating standard errors over sample size, then the larger standard errors of the smaller sample size simulations (and the greater variability in estimating those standard errors) would swamp the standard errors of the larger sample sizes.
+A caution with aggregation is that aggregated results can be misleading if you have scaling issues or extreme outliers.
+With bias, our scale is fairly well set, so we are good.
+But if we were aggregating standard errors over different sample sizes, then the larger standard errors of the smaller sample size simulations (and the greater variability in estimating those standard errors) would swamp the standard errors of the larger sample sizes.
 Usually, with aggregation, we want to average over something we believe will not change massively over the marginalized-out factors.
-Alternatively, we can average over a relative measure, which tend to be more invariant and comparable across scenarios.
+Alternatively, we can average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
 
-For our cluster RCT, we might aggregate as follows:
+For our cluster RCT, we might aggregate our bias across some of our simulation factors as follows:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6121,16 +6208,42 @@ For our cluster RCT, we might aggregate as follows:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-156-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-159-1} \end{center}
 
-This shows that site variation leads to greater bias, but only if the coefficient for size is nonzero.
-We also see that all the estimators must be the same if site variation is 0, with the overplotted lines on the top row of the figure.
+We see more clearly that site variation leads to greater bias, but only if the coefficient for size is nonzero (which makes sense given our theoretical understanding of the problem--if size is not related to treatment effect, it is hard to imagine how it would bias it).
+We also see that all the estimators have near zero bias when thee is no variation in cluster size, with the overplotted lines on the top row of the figure.
 
-\section{Regression Summarization}\label{regression-summarization}
+We can also let ggplot aggregate directly by taking advantage of the smoothing options:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( ICC, bias, }\AttributeTok{col=}\NormalTok{method ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_grid}\NormalTok{( alpha }\SpecialCharTok{\textasciitilde{}}\NormalTok{  size\_coef, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
+    \FunctionTok{geom\_point}\NormalTok{( }\AttributeTok{alpha=}\FloatTok{0.25}\NormalTok{,}
+              \AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{(}\AttributeTok{width =} \FloatTok{0.04}\NormalTok{) ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_smooth}\NormalTok{( }\AttributeTok{se=}\ConstantTok{FALSE}\NormalTok{ ) }\SpecialCharTok{+} 
+  \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## `geom_smooth()` using method = 'loess' and
+## formula = 'y ~ x'
+\end{verbatim}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-160-1} \end{center}
+
+In the above, we let the original points show as well, to give a sense of the variation across simulation trials.
+
+\subsection{Regression Summarization}\label{regression-summarization}
 
 One can treat the simulation results as a dataset in its own right.
-In this case we can regress a performance measure against the methods and various factor levels to get ``main effects'' of how the different levels impact performance holding the other levels constant.
-The main effect of the method will tell us if a method is, on average, higher or lower than the baseline method.
+In this case we can regress a performance measure against the methods and various factor levels to get ``main effects'' of how the different levels impact performance, holding the other levels constant.
+This type of regression is called a ``meta regression'' (\citet{kleijnen1981regression},\citet{friedman1988metamodel},\citet{gilbert2024multilevel}), as we are regressing on already processed results.
+It also has ties to meta analysis (see, e.g., \citet{borenstein2021introduction}), where we look for trends across sets of experiments.
+
+In a meta regression, the main effect estimated for each method will tell us if a method is, on average, higher or lower than the baseline method, averaging across all the simulation scenarios.
 The main effect of the factors will tell us if that factor impacts the performance measure.
 
 These regressions can also include interactions between method and factor, to see if some factors impact different methods differently.
@@ -6140,11 +6253,15 @@ For our cluster RCT, we might have, for example:
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\CommentTok{\# Make our simulation factors factors rather tha numeric values}
 \NormalTok{sres\_f }\OtherTok{=}\NormalTok{ sres }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{mutate}\NormalTok{( }\FunctionTok{across}\NormalTok{( }\FunctionTok{c}\NormalTok{( n\_bar, J, size\_coef, ICC, alpha ), factor ) )}
 
+\CommentTok{\# Run the regression}
 \NormalTok{M }\OtherTok{\textless{}{-}} \FunctionTok{lm}\NormalTok{( bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ (n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha) }\SpecialCharTok{*}\NormalTok{ method, }
          \AttributeTok{data =}\NormalTok{ sres\_f )}
+
+\CommentTok{\# View the results}
 \NormalTok{stargazer}\SpecialCharTok{::}\FunctionTok{stargazer}\NormalTok{(M, }\AttributeTok{type =} \StringTok{"text"}\NormalTok{,}
                      \AttributeTok{single.row =} \ConstantTok{TRUE}\NormalTok{ )}
 \end{Highlighting}
@@ -6203,13 +6320,15 @@ For our cluster RCT, we might have, for example:
 ## Note:                  *p<0.1; **p<0.05; ***p<0.01
 \end{verbatim}
 
-We can quickly get a lot of features, and this approach can be hard to interpret. But picking out the significant coefficents does provide a lot of clues, rather rapidly.
-E.g., many features interact with the LR method for bias. The other methods seem less impacted.
+We can quickly get a lot of features, making a meta-regression somewhat hard to interpret.
+But picking out the significant coefficents is a quick way to obtain a lot of clues as to what is driving performance.
+E.g., many features interact with the LR method for bias.
+The other two methods seem less impacted.
 
-\section{Focus on subset, kick rest to supplement}\label{focus-on-subset-kick-rest-to-supplement}
+\subsection{Focus on a subset, kick rest to supplement}\label{focus-on-a-subset-kick-rest-to-supplement}
 
 Frequently researchers might simply filter the simulation results to a single factor level for some nuisance parameter.
-For example, we might examine ICC of 0.20 only, as this is a ``reasonable'' value given substance matter knowledge.
+For example, we might examine ICC of 0.20 only, as this is a ``reasonable'' value that, given our substance matter knowledge, we know is frequently found in empirical data.
 We would then consider the other levels as a ``sensitivity'' analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
 
 It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
@@ -6221,7 +6340,7 @@ Ideally, failure is not too common, so we can drop those trials, or keep them, w
 But one should at least know what one is ignoring.
 
 For example, in our cluster RCT, we know we have, at least sometimes, convergence issues.
-We know that ICC is an important feature, so we can explore how often we get a convergence message by ICC level:
+We also know that ICC is an important feature, so we can explore how often we get a convergence message by ICC level:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6239,8 +6358,7 @@ We know that ICC is an important feature, so we can explore how often we get a c
 ## i In group 1: `method = "Agg"` and `ICC = 0`.
 ## Caused by warning in `mean.default()`:
 ## ! argument is not numeric or logical: returning NA
-## i Run `dplyr::last_dplyr_warnings()` to see the
-##   14 remaining warnings.
+## i Run `dplyr::last_dplyr_warnings()` to see the 14 remaining warnings.
 \end{verbatim}
 
 \begin{verbatim}
@@ -6257,31 +6375,27 @@ We know that ICC is an important feature, so we can explore how often we get a c
 We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
 At this point we might decide to drop those runs with a message or keep them.
 In this case, we decide to keep.
-It shouldn't matter much in any case except the ICC = 0 case, and we know the convergence is due to trying to estimate a 0 variance, and thus is in some sense expected.
+It shouldn't matter much in any case except the ICC = 0 case, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
 Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
-We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach actually falls apart, or if it is just throwing error messages.
+We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
 
-\section{A demonstration of visualization}\label{a-demonstration-of-visualization}
+\section{Case study: power for a randomized trial}\label{case-study-power-for-a-randomized-trial}
 
-We next explore a case study comparing different visualizations of the same performance metric (in this case, power).
+We next walk through a case study where we compare different visualizations of the same performance metric (in this case, power).
 The goal is to see how to examine a metric from several perspectives, and to see how to explore simulation results across scenarios.
 
 For this example, we are going to look at a randomized experiment.
-We will generate control potential outcomes, and then add a treatment effect to the treated units.
-We assume the control group is normally distributed.
-We will generate a random data set, estimate the
-treatment effect by taking the difference in means and calculating the
-associated standard error, and generating a \(p\)-value using the normal
-approximation. (As we will see, this is not a good idea for small sample
-size since we should be using a \(t\)-test style approach.)
+We will generate control potential outcomes with a normal distribution, and then add a treatment effect to the treated units.
 
-Violating our usual modular approach, we ae going to have a single function that does an entire step: it generates two groups of the given sizes, one treatment and
-one control, and then calculates the difference in means. It will then test
-this difference using the normal approximation.
+For our analytic approach, we will estimate the
+treatment effect by taking the difference in means.
+We will calculate the associated standard error and generate \(p\)-values using the normal
+approximation.
+(As we will see, this is not a good idea for small sample sizes since we should be using a \(t\)-test style approach.)
 
-The function also calculates and returns the true effect size of the DGP as the true treatment
-effect divided by the control standard deviation (useful for understanding
-power, shown later on).
+Violating our usual modular approach, we are going to have a single function that does an entire step: our function will generate the data and then analyze it all in one go.
+Our function also calculates and returns the true effect size of the DGP as the true treatment
+effect divided by the control standard deviation (this true effect size will be useful for understanding power, as we show later on).
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6295,7 +6409,8 @@ power, shown later on).
 \NormalTok{  z }\OtherTok{=}\NormalTok{ tau.hat }\SpecialCharTok{/}\NormalTok{ SE.hat}
 \NormalTok{  pv }\OtherTok{=} \DecValTok{2} \SpecialCharTok{*}\NormalTok{ (}\DecValTok{1} \SpecialCharTok{{-}} \FunctionTok{pnorm}\NormalTok{( }\FunctionTok{abs}\NormalTok{( z ) ))}
 
-  \FunctionTok{data.frame}\NormalTok{( }\AttributeTok{tau.hat =}\NormalTok{ tau.hat, }\AttributeTok{SE.hat =}\NormalTok{ SE.hat, }\AttributeTok{z=}\NormalTok{z, }\AttributeTok{p.value=}\NormalTok{pv )}
+  \FunctionTok{data.frame}\NormalTok{( }\AttributeTok{tau.hat =}\NormalTok{ tau.hat, }\AttributeTok{SE.hat =}\NormalTok{ SE.hat, }
+              \AttributeTok{z =}\NormalTok{ z, }\AttributeTok{p.value =}\NormalTok{ pv )}
 \NormalTok{\}}
 \end{Highlighting}
 \end{Shaded}
@@ -6322,13 +6437,16 @@ summarizes the results:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{run.experiment }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( nC, nT, sdC, tau, }\AttributeTok{mu =} \DecValTok{5}\NormalTok{, }\AttributeTok{sdTau =} \DecValTok{0}\NormalTok{, }\AttributeTok{R =} \DecValTok{500}\NormalTok{ ) \{}
-
-\NormalTok{  eres }\OtherTok{=} \FunctionTok{replicate}\NormalTok{( R, }\FunctionTok{run.one}\NormalTok{( nC, nT, sdC, tau, }\AttributeTok{sdTau=}\NormalTok{sdTau, }\AttributeTok{mu=}\NormalTok{mu ), }
-                    \AttributeTok{simplify=}\ConstantTok{FALSE}\NormalTok{ )}
-\NormalTok{  eres }\OtherTok{=} \FunctionTok{bind\_rows}\NormalTok{( eres )}
-\NormalTok{  eres }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{summarise}\NormalTok{( }\AttributeTok{E.tau.hat =} \FunctionTok{mean}\NormalTok{( tau.hat ),}
-                      \AttributeTok{E.SE.hat =} \FunctionTok{mean}\NormalTok{( SE.hat ),}
-                      \AttributeTok{power =} \FunctionTok{mean}\NormalTok{( p.value }\SpecialCharTok{\textless{}=} \FloatTok{0.05}\NormalTok{ ) ) }\SpecialCharTok{\%\textgreater{}\%}
+  
+\NormalTok{  eres }\OtherTok{=} \FunctionTok{replicate}\NormalTok{( R, }
+                    \FunctionTok{run.one}\NormalTok{( nC, nT, sdC, tau, }\AttributeTok{sdTau=}\NormalTok{sdTau, }\AttributeTok{mu=}\NormalTok{mu ), }
+                    \AttributeTok{simplify=}\ConstantTok{FALSE}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{bind\_rows}\NormalTok{()}
+  
+\NormalTok{  eres }\SpecialCharTok{\%\textgreater{}\%} 
+    \FunctionTok{summarise}\NormalTok{( }\AttributeTok{E.tau.hat =} \FunctionTok{mean}\NormalTok{( tau.hat ),}
+               \AttributeTok{E.SE.hat =} \FunctionTok{mean}\NormalTok{( SE.hat ),}
+               \AttributeTok{power =} \FunctionTok{mean}\NormalTok{( p.value }\SpecialCharTok{\textless{}=} \FloatTok{0.05}\NormalTok{ ) ) }\SpecialCharTok{\%\textgreater{}\%}
     \FunctionTok{mutate}\NormalTok{( }\AttributeTok{nC=}\NormalTok{nC, }\AttributeTok{nT=}\NormalTok{nT, }\AttributeTok{sdC=}\NormalTok{sdC, }\AttributeTok{tau=}\NormalTok{tau, }\AttributeTok{mu=}\NormalTok{mu, }\AttributeTok{sdTau=}\NormalTok{sdTau, }\AttributeTok{R=}\NormalTok{R )}
 \NormalTok{\}}
 \end{Highlighting}
@@ -6358,8 +6476,8 @@ We test our function to see what we get:
 ## 1   0.2 500
 \end{verbatim}
 
-We next use the above to run a \emph{multi-factor simulation experiment}. We are
-going to vary four factors: control group size, treatment group size,
+We next use the above to run our multi-factor simulation experiment.
+We are going to vary four factors: control group size, treatment group size,
 standard deviation of the units, and the treatment effect.
 
 \begin{Shaded}
@@ -6394,17 +6512,17 @@ standard deviation of the units, and the treatment effect.
 
 We next run an experiment for each row of our dataframe of experiment factor
 combinations, and save the results.
-Note our method of adding the design parametes into our results makes this step arguably moe clean than some of the other templates we have seen.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{exp.res }\OtherTok{\textless{}{-}}\NormalTok{ experiments }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{pmap\_df}\NormalTok{( run.experiment, }\AttributeTok{R=}\DecValTok{2000}\NormalTok{ )}
+\NormalTok{exp.res }\OtherTok{\textless{}{-}}\NormalTok{ experiments }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{pmap\_df}\NormalTok{( run.experiment, }\AttributeTok{R=}\DecValTok{2000}\NormalTok{ )}
 \FunctionTok{dir.create}\NormalTok{(}\StringTok{"results"}\NormalTok{, }\AttributeTok{showWarnings =} \ConstantTok{FALSE}\NormalTok{ )}
 \FunctionTok{saveRDS}\NormalTok{( exp.res, }\AttributeTok{file=}\StringTok{"results/Neyman\_RCT\_results.rds"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-The \texttt{R=500} after \texttt{run.experiment} passes the \emph{same} parameter of \(R=500\) to each
+The \texttt{R=2000} after \texttt{run.experiment} passes the \emph{same} parameter of \(R=2000\) to each
 run (we run the same number of trials for each experiment).
 We can put it there rather than have it be a column in our list of factors to run.
 
@@ -6435,23 +6553,21 @@ Here is a peek at our results:
 
 \subsection{The initial analysis}\label{the-initial-analysis}
 
-We are ready to analyze.
-
-We start with plotting.
-Plotting is always a good way to vizualize simulation results.
-We first make
-our tau into a factor, so \texttt{ggplot} behaves, and then plot all our
+We are ready to analyze, and we start with plotting.
+Plotting is always a good way to visualize simulation results.
+We first make our tau into a factor, so \texttt{ggplot} behaves, and then plot all our
 experiments as two rows based on one factor (\texttt{sdTau}) with the columns being
-another (\texttt{nT}). (This style of plotting a bunch of small plots is called
-``many multiples'' and is beloved by Tufte.) Within each plot we have the
-x-axis for one factor (\texttt{nC}) and multiple lines for the final factor (\texttt{tau}).
+another (\texttt{nT}).
+Unlike our Cluster RCT, we only have one method, so we can use our color for a different simulation factor.
+Within each plot we have the x-axis for one factor (\texttt{nC}) and multiple lines for the final factor (\texttt{tau}).
 The \(y\)-axis is our outcome of interest, power. We add a 0.05 line to show
 when we are rejecting at rates above our nominal \(\alpha\). This plot shows
-the relationship of 5 variables.
+the relationship of five variables.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{exp.res }\OtherTok{=}\NormalTok{ exp.res }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{( }\AttributeTok{tau =} \FunctionTok{as.factor}\NormalTok{( tau ) )}
+\NormalTok{exp.res }\OtherTok{=}\NormalTok{ exp.res }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{tau =} \FunctionTok{as.factor}\NormalTok{( tau ) )}
 \FunctionTok{ggplot}\NormalTok{( exp.res, }\FunctionTok{aes}\NormalTok{( }\AttributeTok{x=}\NormalTok{nC, }\AttributeTok{y=}\NormalTok{power, }\AttributeTok{group=}\NormalTok{tau, }\AttributeTok{col=}\NormalTok{tau ) ) }\SpecialCharTok{+}
   \FunctionTok{facet\_grid}\NormalTok{( sdTau }\SpecialCharTok{\textasciitilde{}}\NormalTok{ nT, }\AttributeTok{labeller=}\NormalTok{label\_both ) }\SpecialCharTok{+}
   \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
@@ -6460,16 +6576,17 @@ the relationship of 5 variables.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-164-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-168-1} \end{center}
 
-We ae looking at power for different control and treatment group sizes. The tau is our treatment effect, and so for \(\tau = 0\) we are looking at validity (false rejection of the null) and for the other \(\tau\) power (noticing an effect when it is there).
-Notice that we are seeing elevated rejection rates under the null for small and even moderate sample sizes!
+We are looking at power for different control and treatment group sizes. The tau is our treatment effect, and so for \(\tau = 0\) we are looking at validity (false rejection of the null) and for the other \(\tau\) power (noticing an effect when it is there).
+Notice that we are seeing elevated rejection rates (the tau=0 line is well above 0.05) under the null for small and even moderate sample sizes!
 
 \subsection{Focusing on validity}\label{focusing-on-validity}
 
-We can zoom in on specific simulations run, to get some more detail
-such as estimated power under the null for larger groups. Here we check
-and we are seeing rejection rates (\texttt{power}) of around 0.05, which is what we want.
+Especially when considering power, we might want to separate rejection rates under the null vs.~rejection rates when there is a true thing to reject.
+In particular, we can subset to specific simulation runs with no treatment impact to assess the validity.
+
+First, we can filter our simulations to large samples to make sure we are seeing rejection rates (\texttt{power}) of around 0.05, which is what we want:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6500,22 +6617,29 @@ E.tau.hat & E.SE.hat & power & nC & nT & sdC & tau & mu & sdTau & R\\
 \hline
 \end{tabular}
 
-We can get fancy and look at rejection rate (power under \texttt{tau\ =\ 0}) as a
+This does check out, which is a nice sanity check that we have implemented everything correctly.
+It is ok to use simulation of simple, known, cases to check that our methods are implemented correctly and working as expected.
+
+We can then get fancy and look at false rejection rate (power under \texttt{tau\ =\ 0}) as a
 function of both nC and nT using an interaction-style plot where we average over the other variables:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{exp.res.rej }\OtherTok{\textless{}{-}}\NormalTok{ exp.res }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{filter}\NormalTok{( tau }\SpecialCharTok{==} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{exp.res.rej }\OtherTok{\textless{}{-}}\NormalTok{ exp.res }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{( tau }\SpecialCharTok{==} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{group\_by}\NormalTok{( nC, nT ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{summarize}\NormalTok{( }\AttributeTok{power =} \FunctionTok{mean}\NormalTok{( power ) )}
+  \FunctionTok{summarize}\NormalTok{( }\AttributeTok{power =} \FunctionTok{mean}\NormalTok{( power ),}
+             \AttributeTok{n =} \FunctionTok{n}\NormalTok{() )}
 
 \NormalTok{exp.res.rej }\OtherTok{=} \FunctionTok{mutate}\NormalTok{( exp.res.rej, }\AttributeTok{power =} \FunctionTok{round}\NormalTok{( power }\SpecialCharTok{*} \DecValTok{100}\NormalTok{ ) )}
 
-\FunctionTok{ggplot}\NormalTok{( exp.res.rej, }\FunctionTok{aes}\NormalTok{( }\AttributeTok{x=}\NormalTok{nC, }\AttributeTok{y=}\NormalTok{power, }\AttributeTok{group=}\NormalTok{nT, }\AttributeTok{col=}\FunctionTok{as.factor}\NormalTok{(nT) ) ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
+\FunctionTok{ggplot}\NormalTok{( exp.res.rej, }\FunctionTok{aes}\NormalTok{( }\AttributeTok{x=}\NormalTok{nC, }\AttributeTok{y=}\NormalTok{power, }\AttributeTok{group=}\NormalTok{nT, }\AttributeTok{col=}\FunctionTok{as.numeric}\NormalTok{(}\FunctionTok{as.factor}\NormalTok{(nT)) ) ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{( }\AttributeTok{size=}\FloatTok{0.5}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{5}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{limits =} \FunctionTok{c}\NormalTok{( }\DecValTok{0}\NormalTok{, }\DecValTok{40}\NormalTok{ ) ) }\SpecialCharTok{+}
   \FunctionTok{scale\_x\_log10}\NormalTok{( }\AttributeTok{breaks =} \FunctionTok{unique}\NormalTok{( exp.res.rej}\SpecialCharTok{$}\NormalTok{nC ) ) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_gradient}\NormalTok{( }\AttributeTok{low =} \StringTok{"black"}\NormalTok{, }\AttributeTok{high=}\StringTok{"red"}\NormalTok{,}
+                        \AttributeTok{labels =} \FunctionTok{unique}\NormalTok{( exp.res.rej}\SpecialCharTok{$}\NormalTok{nT ) ) }\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{( }\AttributeTok{x =} \StringTok{"\# C"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Power"}\NormalTok{, }\AttributeTok{colour =} \StringTok{"\# T"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
@@ -6523,16 +6647,17 @@ function of both nC and nT using an interaction-style plot where we average over
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/plot_interaction_Results-1} \end{center}
 
 This plot focuses on the validity of our test.
-It shows that we have massively elevated rates when either the number of treated or control units is small (10 or below).
+It shows that we can have massively elevated rates when either the number of treated or control units is small (below 7).
 It also shows that as the size of one group increases, if the other is small our rejection rates climb! Note how for 4 control units, the \(n_T = 500\) line is above the others (except for the \(n_T = 2\) line).
 
-\subsection{Looking at main effects}\label{looking-at-main-effects}
+\subsection{Aggregate to look at main effects}\label{aggregate-to-look-at-main-effects}
 
 We can ignore all the other factors while we look at one specific factor of interest.
 This is looking at the \textbf{main effect} or \textbf{marginal effect} of the factor.
 
-The easy way to do this is to let \texttt{ggplot} smooth our individual points on a
-plot. Be sure to also plot the individual points to see variation, however.
+The easy way to do this is to aggregate, letting \texttt{ggplot} smooth our individual points on a
+plot.
+Be sure to also plot the individual points to see variation, however.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6553,8 +6678,8 @@ experimental runs across other factor levels. For example, in the code below
 we average over the different treatment group sizes and standard deviations,
 and plot the marginalized results.
 
-To marginalize, we group by the things we want to keep. \texttt{summarise()} then
-averages over the things we want to get rid of.
+To marginalize, we group by the things we want to keep and let \texttt{summarise()}
+average over the things we want to get rid of.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6589,21 +6714,19 @@ averages over the things we want to get rid of.
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/plotCollapse-1} \end{center}
 
 We can try to get clever and look at other aspects of our experimental runs.
-The above suggests that the smaller of the two groups is dictating things
-going awry, in terms of elevated rejection rates under the null. We can also
-look at things in terms of some other more easily interpretable parameter
-(here we switch to effect size instead of raw treatment effect).
+The above suggests that the smaller of the two groups is dictating when things
+going awry, in terms of elevated rejection rates under the null.
 
-Given this, we might decide to look at total sample size or the smaller of
-the two groups sample size and make plots that way (we are also subsetting to
-just the \texttt{sd=1} cases as there is nothing really different about the two
-options; we probably should average across but this could reduce clarity of
-the presentation of results):
+We can also look at our results in terms of some more easily interpretable parameters, such as effect size instead of raw treatment effect.
+
+To try and simplify the story, we can try and look at total sample size and the smaller of
+the two groups sample size and make two different plots that way.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{exp.res }\OtherTok{\textless{}{-}}\NormalTok{ exp.res }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{( }\AttributeTok{n =}\NormalTok{ nC }\SpecialCharTok{+}\NormalTok{ nT,}
-                               \AttributeTok{n.min =} \FunctionTok{pmin}\NormalTok{( nC, nT ) )}
+\NormalTok{exp.res }\OtherTok{\textless{}{-}}\NormalTok{ exp.res }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{n =}\NormalTok{ nC }\SpecialCharTok{+}\NormalTok{ nT,}
+          \AttributeTok{n.min =} \FunctionTok{pmin}\NormalTok{( nC, nT ) )}
 \end{Highlighting}
 \end{Shaded}
 
@@ -6615,13 +6738,7 @@ the presentation of results):
   \FunctionTok{scale\_x\_log10}\NormalTok{() }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept=}\FloatTok{0.05}\NormalTok{, }\AttributeTok{col=}\StringTok{"black"}\NormalTok{, }\AttributeTok{lty=}\DecValTok{2}\NormalTok{) }\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{( }\AttributeTok{title =} \StringTok{"Total sample size"}\NormalTok{ )}
-\end{Highlighting}
-\end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/plotA-1} \end{center}
-
-\begin{Shaded}
-\begin{Highlighting}[]
 \FunctionTok{ggplot}\NormalTok{( exp.res, }\FunctionTok{aes}\NormalTok{( }\AttributeTok{x=}\NormalTok{n.min, }\AttributeTok{y=}\NormalTok{power, }\AttributeTok{group=}\NormalTok{tau, }\AttributeTok{col=}\NormalTok{tau ) ) }\SpecialCharTok{+}
   \FunctionTok{geom\_jitter}\NormalTok{( }\AttributeTok{width=}\FloatTok{0.05}\NormalTok{, }\AttributeTok{height=}\DecValTok{0}\NormalTok{) }\SpecialCharTok{+}
   \FunctionTok{geom\_smooth}\NormalTok{( }\AttributeTok{se =} \ConstantTok{FALSE}\NormalTok{, }\AttributeTok{span =} \DecValTok{1}\NormalTok{) }\SpecialCharTok{+}
@@ -6631,7 +6748,14 @@ the presentation of results):
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/plotB-1} \end{center}
+\begin{figure}
+
+{\centering \subfloat[Total Size\label{fig:plotA-1}]{\includegraphics[width=0.45\linewidth]{Designing-Simulations-in-R_files/figure-latex/plotA-1} }\subfloat[Minimum Size\label{fig:plotA-2}]{\includegraphics[width=0.45\linewidth]{Designing-Simulations-in-R_files/figure-latex/plotA-2} }
+
+}
+
+\caption{Power as a function of total sample size.}\label{fig:plotA}
+\end{figure}
 
 Note the few observations out in the high \texttt{n.min} region for the second
 plot---this plot is a bit strange in that the different levels along the
@@ -6987,7 +7111,7 @@ And plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-184-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-188-1} \end{center}
 
 \section{Improving the visualization of the results}\label{improving-the-visualization-of-the-results}
 
@@ -7005,7 +7129,7 @@ differences are relatively constant given changing sample size.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-185-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-189-1} \end{center}
 
 Better is to rescale using our knowledge of standard errors. If we scale by
 the square root of sample size, we should get horizontal lines. We now
@@ -7026,7 +7150,7 @@ clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-187-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-191-1} \end{center}
 
 Overall, we see the scaled error of the mean it is stable across the
 different distributions. The trimmed mean is a real advantage when the
@@ -7138,7 +7262,7 @@ Let's look at our distribution
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-190-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-194-1} \end{center}
 
 We steal the code from above, modifying it slightly for our new function and
 changing our target parameter from 0 to 1:
@@ -7229,7 +7353,7 @@ And then we plot, making a facet for each outcome of interest:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-194-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-198-1} \end{center}
 
 We see how different estimators have different biases and different
 uncertainties. The bias is negative for our trimmed estimators because we
@@ -7254,7 +7378,7 @@ good or poor. This leads to investigation of coverage rates and similar.
 
 Last chapter, we started to investigate how to present a multifactor experiment.
 In this chapter, we talk about some principles behind the choices one might make in generating final reports of a simulation.
-There are three primary approaches to the analysis and presentation of simulation results:
+There are three primary approaches for presenting simulation results:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -7272,32 +7396,32 @@ There are generally two primary goals for your results:
 \begin{itemize}
 \tightlist
 \item
-  Understand the effects of all of the factors manipulated in the simulation.
-\item
   Develop evidence that addresses your research questions.
+\item
+  Understand the effects of the factors manipulated in the simulation.
 \end{itemize}
 
 For your final write-up, you will not want to present everything.
-A wall of numbers and observations will serve to pummel the reader, rather than inform them; readers rarely enjoy being pummeled, and the solution is quite often to skim such material while feeling hurt and betayed.
-Instead, you should present selected results that clearly illustrate the main findings from the study and anything unusual/anomolous.
-This will typically be with a few well-chosen figues.
-Then, in the text of your write-up, you might include examples that make specific numerical comparisons.
-Do not include too many of theses, and be sure to say why the numerical comparisons you include are important.
-Finally, have supplementary materials that contain further detail such as additional figures and analysis, and complete simulation results.
+A wall of numbers and observations only serves to pummel the reader, rather than inform them; readers rarely enjoy being pummeled, and so they will simply skim or skip such material while feeling hurt and betrayed.
+Instead, present selected results that clearly illustrate the main findings from the study, along with anything unusual/anomalous.
+Your presentation will typically be best served with a few well-chosen figures.
+Then, in the text of your write-up, you might include a few specific numerical comparisons.
+Do not include too many of these, and be sure to say why the numerical comparisons you include are important.
+Finally, have supplementary materials that contain further detail such as additional figures and analysis, and the complete simulation results.
 
-If you want to be a moral person worthy of the awards of Heaven, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct the analysis themselves.
-This last part provides a great legitimacy bump to your work: even if no one touches your code, knowing that they could builds confidence.
-People naturally think, ``if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes and it is probably right.''
+To give a great legitimacy bump to your work, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct the analysis themselves.
+Even if no one touches your code, the code's existence and availability builds confidence.
+People will naturally think, ``if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes.''
 
-We briefly walk through the three modes of engaging with one's simulation results, with a few examples taken from the literature.
+We next walk through the three modes of engaging with one's simulation results, with a few examples taken from the literature.
 
 \section{Tabulation}\label{tabulation}
 
 Traditionally, simulation study results are presented in big tables.
 We think this doesn't really make the take-aways of a simulation readily apparent.
 Perhaps tables are fine if\ldots{}
-- they involve only a few numbers, and a few targeted comparisons
-- it is important to report \emph{exact} values for some quantities
+- they involve only a few numbers, and a few targeted comparisons.
+- it is important to report \emph{exact} values for some quantities.
 
 Unfortunately, simulations usually produce lots of numbers, and involve making lots of comparisons.
 You are going to want to show, for example, the relative performance of alternative estimators, or the performance of your estimators under different conditions for the data-generating model.
@@ -7307,9 +7431,9 @@ Tables can do two dimensions; when you try to cram more than that into a table, 
 Furthermore, in simulation, exact values for your bias/RMSE/type-I error, or whatever, are not usually of interest. And in fact, we rarely have them due to Monte Carlo simulation error.
 The tables provide a false sense of security, unless you include uncertainty, which clutters your table even further.
 
-Tables and simulations do not particularly well mix.
+Overall, tables and simulations do not particularly well mix.
 In particular, if you are ever tempted into putting your table in landscape mode to get it to fit on the page, think again.
-It is often more useful and insightful to present results in graphs (Gelman, Pasarica, \& Dodhia, 2002).
+It is often more useful and insightful to present results in graphs \citep{gelman2002let}.
 
 So, onwards.
 
@@ -7317,21 +7441,20 @@ So, onwards.
 
 Visualization should nearly always be the first step in analyzing simulation results.
 
-This often requires creating a \emph{BUNCH} of graphs to look at different aspects of the data.
+This often requires creating a \emph{bunch} of graphs to look at different aspects of the data.
+From that pile of graphs, you would then refine ones that communicate the overall results most cleanly, and include those in your main write-up.
+We find we often generate a series of R Markdown reports that load the simulation results and generate these visualizations as an initial document to talk about internally with the research team.
 
-Helpful tools/concepts:
+Especially with multi-factor simulations, use boxplots to depict range and central tendency across many combinations of parameter values.
+While these can be over-dispersed if you have substantial Monte Carlo Simulation Error, hopefully the variation induced by the different simulation factors will swamp that effect.
 
-\begin{itemize}
-\tightlist
-\item
-  Boxplots are often useful for depicting range and central tendency across many combinations of parameter values.
-\item
-  Use color, shape, and line type to encode different factors
-\item
-  Small multiples (faceting) can then encode further factors (e.g., varying sample size)
-\end{itemize}
+To get a sense of overall trends, you can aggregate across factors, averaging your performance metrics and then making line charts or scatterplots.
 
-We next present a series of visualizations taken from our published work, illustrating some different themes behind visualization that we believe are important.
+For all of these plots, if you have a lot of factors, you might also want to use small multiples (faceting) to break up the plots into manageable chunks.
+Do this especially if entire sets of simulation results are on radically different scales of performance (e.g., you have a range of outcomes explored, each on a different scale).
+You can further use color, shape, and line type to encode different factors.
+
+To illustrate some illustration principles, we next present a series of visualizations taken from our published work, illustrating some different themes behind visualization that we believe are important.
 
 \subsection{Example 1: Biserial correlation estimation}\label{example-1-biserial-correlation-estimation}
 
@@ -7346,7 +7469,7 @@ All our factors, and nearly 5000 explored simulation scenarios, are visible in a
 ## `geom_smooth()` using formula = 'y ~ x'
 \end{verbatim}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-196-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-200-1} \end{center}
 
 Source: Pustejovsky, J. E. (2014). Converting from d to r to z when the design uses extreme groups, dichotomization, or experimental control. Psychological Methods, 19(1), 92-112.
 
@@ -7355,29 +7478,22 @@ This is a nice tool for taking some of the simulation jitter out of an analysis 
 
 \subsection{Example 2: Variance estimation and Meta-regression}\label{example-2-variance-estimation-and-meta-regression}
 
-\begin{itemize}
-\tightlist
-\item
-  Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression
-\item
-  Comparison of 5 different small-sample corrections
-\item
-  Complex experimental design, varying
+In this example, we explore Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression.
+The simulation aimed to compare 5 different small-sample corrections.
 
-  \begin{itemize}
-  \tightlist
-  \item
-    sample size (\(m\))
-  \item
-    dimension of hypothesis (\(q\))
-  \item
-    covariates tested
-  \item
-    degree of model mis-specification
-  \end{itemize}
-\end{itemize}
+This was a complex experimental design, varying several factors:
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-197-1} \end{center}
+\begin{verbatim}
+- sample size ($m$)
+- dimension of hypothesis ($q$)
+- covariates tested
+- degree of model mis-specification
+\end{verbatim}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-201-1} \end{center}
+
+Here the boxplot shows the Type-I error rates for the different small-sample corrections across the covariates tested and degree of model misspecification. We add a line at the target 0.05 rejection rate to ease comparison.
+The reach of the boxes shows how some methods are more or less vulnerable to different types of misspecification. Other estimators are clearly hyper-conservitive, with very low rejection rates.
 
 Source: Tipton, E., \& Pustejovsky, J. E. (2015). Small-sample adjustments for tests of moderators and model fit using robust variance estimation in meta-regression. \emph{Journal of Educational and Behavioral Statistics, 40}(6), 604-634.
 
@@ -7392,33 +7508,26 @@ One option here is to use a heat map, showing the combinations of prevelance and
 We break coverage into ranges of interest, with green being ``good'' (near 95\%) and yellow being ``close'' (92.5\% or above).
 For this to work, we need our MCSE to be small enough that our coverage is estimated precisely enough to show structure.
 
-\begin{verbatim}
-## Warning: `qplot()` was deprecated in ggplot2 3.4.0.
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to
-## see where this warning was generated.
-\end{verbatim}
-
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/swan_example_setup-1} \end{center}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-198-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-202-1} \end{center}
 
 To see this plot IRL, see Pustejovsky, J. E., \& Swan, D. M. (2015). Four methods for analyzing partial interval recording data, with application to single-case research. \emph{Multivariate Behavioral Research, 50}(3), 365-380.
 
 \section{Modeling}\label{modeling}
 
 Simulations are designed experiments, often with a full factorial structure.
-We can therefore leverage classic means for analyzing such full factorial experiment.
-In particular, we in effect model how a performance measure varies as a function of the different experimental factors.
-We can use regression or other modeling to do this.
+We can therefore leverage classic means for analyzing such full factorial experiments.
+In particular, we can use regression to summarize how a performance measure varies as a function of the different experimental factors.
 
-First, in the language of a full factor experiment, we might be interested in the ``main effects'' or ``interaction effects.''
-A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts our peformance measure.
-When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that for a host of simulation contexts, grouped by levels of our main effect, we see a trend.
+First, in the language of a full factor experiment, we might be interested in the ``main effects'' and the ``interaction effects.''
+A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts performance.
+When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that our finding is relevant across the host of simulation contexts explored, rather than being an idioscynratic aspect of a specific scenario.
 
-For example, consider the Bias of biserial correlation estimate from an extreme groups design example from above.
-Visually, we see that most factors appear to matter for bias, but we might want to get a sense of how much.
-In particular, does the the population vs sample cutoff option matter, on average, for bias?
+For example, consider the bias of the biserial correlation estimates from above.
+Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
+In particular, does the population vs sample cutoff option matter, on average, for bias, across all the simulation factors considered?
+We can fit a regression model to see:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -7476,20 +7585,22 @@ In particular, does the the population vs sample cutoff option matter, on averag
 \end{verbatim}
 
 The above printout gives main effects for each factor, averaged across other factors.
-It is automatically generating linear, quadradic, cubic and fourth order contrasts for the ordered factors of p1 and n.
-We see that, across other contexts, the sample cutoff is around 0.004 lower than population.
+Because \texttt{p1} and \texttt{n} are ordered factors, the \texttt{lm()} command automatically generates linear, quadradic, cubic and fourth order contrasts for them.
+We see that, averaged across the other contexts, the sample cutoff is around 0.004 lower than population.
 
-We next discuss two additional tools:
+We next extend this modeling approach with two additional tools:
 
 \begin{quote}
 \begin{itemize}
 \tightlist
 \item
-  ANOVA can be useful for understanding major sources of variation in simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+  ANOVA, which can be useful for understanding major sources of variation in simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
 \item
-  Smoothing (e.g., local linear regression) over continuous factors
+  Smoothing (e.g., local linear regression) over continuous factors to simplify the interpretation of complex relationships.
 \end{itemize}
 \end{quote}
+
+For ANOVA, we use \texttt{aov()} to fit an analysis of variance model:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -7538,6 +7649,9 @@ We next discuss two additional tools:
 ## 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 \end{verbatim}
 
+The advantage here is the multiple levels of some of the factors get bundled together in our table of results.
+We can summarise our anova table to see the contribution of the various factors and interactions:
+
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{library}\NormalTok{(lsr)}
@@ -7564,7 +7678,8 @@ We next discuss two additional tools:
 ## rho:p1:fixed:n 0.003857877  0.05883389
 \end{verbatim}
 
-\cmntM{Perhaps we need an example where some things don't matter?  We need to discuss what one learns from this table.}
+Here we see which factors are explaining the most variation. E.g., \texttt{p1} is explaining 21\% of the variation in bias across simulations.
+The contribution of the three way interactions is fairly minimal, by comparison, and could be dropped to simplify our model.
 
 \part{Common Challenges with Large-Scale Simulations}\label{part-common-challenges-with-large-scale-simulations}
 
@@ -7815,15 +7930,15 @@ The \texttt{microbenchmark} function runs each expression 100 times (by default)
 
 \begin{verbatim}
 ## Unit: microseconds
-##       expr     min       lq      mean  median
-##  Rfunction 196.513 203.9955 226.46063 210.248
-##     direct  85.690  90.5690  95.89941  93.111
-##       uq      max neval
-##  217.546 1349.064   100
-##   96.596  216.521   100
+##       expr     min      lq      mean  median
+##  Rfunction 197.579 201.925 219.14418 205.246
+##     direct  84.050  89.585  93.31108  91.717
+##        uq      max neval
+##  209.1410 1319.667   100
+##   94.6075  198.809   100
 \end{verbatim}
 
-The direct function is 2.4 times faster than the built-in R function.
+The direct function is 2.3 times faster than the built-in R function.
 
 This result is not unusual.
 Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
@@ -8096,12 +8211,12 @@ The reason this is important is we are now doing our group aggregation only once
 
 \begin{verbatim}
 ## Unit: microseconds
-##   expr      min        lq      mean   median
-##  noagg  555.632  591.4045  797.6111  611.966
-##    agg 1363.373 1393.9385 1622.6017 1439.674
+##   expr      min        lq      mean    median
+##  noagg  558.010  581.6875  749.1028  619.0795
+##    agg 1368.908 1404.1065 1542.7960 1444.5325
 ##        uq       max neval
-##   670.063 11481.681   100
-##  1602.957  8613.854   100
+##   641.199 11698.120   100
+##  1513.310  4768.546   100
 \end{verbatim}
 
 And our relative speedup is:
@@ -8539,15 +8654,15 @@ The main tool for doing this is the \texttt{quietly()} function:
 ## Linear mixed model fit by REML ['lmerModLmerTest']
 ## Formula: ..1
 ##    Data: ..2
-## REML criterion at convergence: 6485.293
+## REML criterion at convergence: 14026.44
 ## Random effects:
 ##  Groups   Name        Std.Dev.
 ##  sid      (Intercept) 0.0000  
-##  Residual             0.9879  
-## Number of obs: 2302, groups:  sid, 50
+##  Residual             0.9828  
+## Number of obs: 5000, groups:  sid, 50
 ## Fixed Effects:
 ## (Intercept)            Z  
-##    -0.03143      0.03433  
+##   -0.013930    -0.008804  
 ## optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings 
 ## 
 ## $output
@@ -8606,7 +8721,7 @@ If we call it, but provide different lengths for our means and variances, nothin
 \end{Shaded}
 
 \begin{verbatim}
-## [1]  100  133 1675  402
+## [1]   100    83 -5940   400
 \end{verbatim}
 
 If this function was used in our data generating code, we would see the warnings but might not know exactly what they were.
@@ -9329,9 +9444,29 @@ Some of the above material is based on tutorials built by Kristen Hunter and Zac
 \chapter{Simulations as evidence}\label{simulations-as-evidence}
 
 We began this book with an acknowledgement that simulation is fraught with the potential for misuse: \emph{simulations are doomed to succeed}.
-We close by reiterating this point, and also disussing several ways researchers might argue for their simulations being more useful than typical.
+We close by reiterating this point, and then discuss several ways researchers might design their simulations so they more arguably produce real evidence on how well things might work.
 
-In particular a researcher might do any of the following
+When our work is done, ideally we will have generated simulations that provide a sort of ``consumer product testing'' for the study designs and statistical methods we are exploring.
+Clearly, it is important to do some consumer product tests that are grounded in how consumers will actually use the product in real life---but before you get to that point, it can be helpful to cover an array of conditions that are probably more extreme than what will be experienced in practice (like dropping things off buildings or driving over them with cars or whatever else).
+These extreme contexts give us more clear results, and can help us understand the limits of our methods.
+These extreme contexts are also usually best-case (or at least optimistic) scenarios for when our estimator of interest will excel, giving in effect an upper bound on how well things could go.
+
+Extreme and clear simulations are also usually easier to write, manipulate, and understand.
+Such simulations can help us learn about the estimators themselves.
+For example, simulation can help uncover how different aspects of a data generating process affect the performance of an estimator.
+To discover this, you need a data generation process with clear levers controlling those aspects.
+Simple simulations can be used to push theory further---we can experiment to gain an inclination of whether a model is a good idea at all, or to verify we are right about an intuition or derivation about how well an estimator can work.
+
+But such simulations cannot be the end of our journey.
+In general, a researcher should work to ensure their simulation evidence is \emph{relevant}.
+A set of simulations only using unreaslistic data generating processes may not be that useful.
+Unless the estimators being tested have truly universally stable properties, we will not learn much from a simulation that is not relevant to the problem at hand.
+We have to circle back to providing testing of the sorts of situations an eventual user of our methods might encounter in practice.
+So how can we make our simulations more relevant?
+
+\section{Strategies for making relevant simulations}\label{strategies-for-making-relevant-simulations}
+
+In the following subsections we go through a range of general strategies for making relevant simulations:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -9339,64 +9474,97 @@ In particular a researcher might do any of the following
 \item
   Use extensive multi-factor simulations
 \item
-  Beat them at their own game. Generate simulations based on prior literature.
+  Generate simulations based on prior literature.
 \item
-  Build calibrated simulations
+  Pick simulation factors based on real data
+\item
+  Resample real data directly to get authentic distributions
+\item
+  Design a fully calibrated simulation
 \end{enumerate}
 
-\section{Use extensive multi-factor simulations}\label{use-extensive-multi-factor-simulations}
+\subsection{Make your simulation general with an extensive multi-factor experiment}\label{make-your-simulation-general-with-an-extensive-multi-factor-experiment}
 
-``If a single simulation is not convincing, use more of them,'' is one principle a reseacher might take.
+``If a single simulation is not convincing, use more of them,'' is one principle a researcher might take.
 By conducting extensive multifactor simulations, once can explore a large space of possible data generating scenarios.
 If, across the full range of scenarios, a general story bears out, then perhaps that will be more convincing than a narrower range.
 
 Of course, the critic will claim that some aspect that is not varying is the real culprit.
-If this is unrealistic, then the findings, across the board, may be less relevant.
+If this aspect is unrealistic, then the findings, across the board, may be less relevant.
 Thus, pick the factors one varies with care.
 
-\section{Beat them at their own game}\label{beat-them-at-their-own-game}
+\subsection{Use previously published simulations to beat them at their own game}\label{use-previously-published-simulations-to-beat-them-at-their-own-game}
 
-If a prior paper uses a simulation to make a case, one approach is to replicate that simulation, adding in the new estimator one wants to evaluate.
+If a relevant prior paper uses a simulation to make a case, one approach is to replicate that simulation, adding in the new estimator one wants to evaluate.
 This makes it (more) clear that you are not fishing: you are using something established in the literature as a published benchmark.
 By constraining oneself to published simulations, one has less wiggle room to cherry pick a data generating process that works the way you want.
 
-\section{Calibrated simulations}\label{calibrated-simulations}
+\subsection{Calibrate simulation factors to real data}\label{calibrate-simulation-factors-to-real-data}
 
-A practice in increasing vogue is to generate \emph{calibrated simulations}.
-These are simulations tailored to a specific applied contexts, with the results of the simulation studies designed to more narrowly inform what assumptions and structures are necessary in order to make progress in that context.
+Use real data to inform choice of factor levels or other data generation features.
+For example, in James's work on designing methods for meta-analysis, there is often a question of how big sample sizes should be and how many different outcomes per study there should be when simulating effect size estimates from hypothetical studies to be included in a hypothetical meta-analysis.
+To make the simulations realistic, James obtained data from a set of past real meta-analyses and fit parametric models to these features, and used the resulting parameter estimates as benchmarks for how large and how varied the simulated meta analyses should be.
 
-Often these simulations are built out of existing data.
-For example, one might sample, with replacement, from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.
+In this case, one would probably not use the exact estimated values, but instead use them as a point of reference and possibly explore a range of values around them.
+For instance, say we find that the distribution of study sizes fits a Poisson(63) pretty well.
+We might then then simulate study sizes using a Poisson with mean parameters of 40, 60, or 80 (where 40, 60, and 80 would be one factor in our multifactor experiment).
 
-The problem with this approach is one still needs to generate a ground truth to assess how well the estimators work in practice.
-It is very easy to accidently put a very simple model in place for this component, thus making a calibrated simulation quite naive in the very way that counts.
+\subsection{Use real data to obtain directly}\label{use-real-data-to-obtain-directly}
 
-The potential outcomes framework provides a natural way of generating calibrated simulations \citep{Kern_calibrated}.
-Calbirated simulations are simulations tailored to specific real-world scenarios, to maximize their face validity as being representative of something we would see in practice.
-One way to generate a calibrated simulation is to use an existing datasets to generate plausible scenarios.
+You can also use real data directly to avoid a parametric model.
+For example, say you need a population distribution for a slew of covariates.
+Rather than using something artificial (like multivariate normal), you can pull population data on a bunch of covariates from some administrative data and then use those data as a (finite) population distribution.
+You then simple sample (possibly with replacement) rows from your reference population to generate your simulationsample.
 
-One way to do this with potential outcomes is to take an existing randomized experiment or observational study and impute all the missing potential outcomes under some specific scheme.
-This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then known.
-We will then synthetically, and repeatedly, randomize and ``observe'\,' outcomes to be analyzed with the methods we are testing.
+The appeal here is that your covariates will then have distributions that are much more authentic than some multivariate normal--they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.
+
+As an illustration of this approach, an old paper on heteroscedasticity-robust standard errors (Long and Irvin, 2000) does something similar.
+It was important in the context that they're studying because the behavior of heteroscedasticity-robust SEs is influenced by leverage, which is a function of the covariate distribution.
+Getting authentic leverage was hard to do with a parametric model, so getting examples of it from real life made the simulation more relevant.
+
+\subsection{Fully calibrated simulations}\label{fully-calibrated-simulations}
+
+Extending some of the prior ideas even further, one practice in increasing vogue is to generate \emph{calibrated simulations}.
+These are simulations tailored to a specific applied contexts, where we design our simulation study to more narrowly inform what assumptions and structures are necessary in order to make progress in that specific context.
+
+Often we would do this by building our simulations out of existing data.
+For an example from above, one might sample, with replacement, from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.
+
+But this is not far enough.
+We also need to generate a realistic relationship between our covariates and outcome to truly assess how well the estimators work in practice.
+It is very easy to accidentally put a very simple model in place for this final component, thus making a calibrated simulation quite naive in, perhaps, the very way that counts.
+
+We next walk through how you might calibrate further in the context of evaluating estimators for some sort of causal inference context where we are assessing methods of estimating a treatment effect of some binary treatment.
+If we just resample our covariates, but then layer a constant treatment effect on top, we may be missing critical aspects of how our estimators might fail in practice.
+
+In the area of causal inference, the potential outcomes framework provides a natural path for generating calibrated simulations \citep{Kern_calibrated}.
+Also see \ref{potential-outcomes} for more discussion of simulations in the potential outcomes framework.
+Under this framework, we would take an existing randomized experiment or observational study and then impute all the missing potential outcomes under some specific scheme.
+This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then fully known.
+For our simulation we then synthetically, and repeatedly, randomize and ``observe'\,' outcomes to be analyzed with the methods we are testing.
 We could also resample from our dataset to generate datasets of different size, or to have a superpopulation target as our estimand.
 
-The key feature is the imputation step.
+The key feature here is the imputation step: how do we build our full set of covariates and outcomes?
 One baseline method one can use is to generate a matched-pairs dataset by, for each unit, finding a close match given all the demographic and other covariate information of the sample. We then use the matched unit as the imputed potential outcome.\\
-By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population.
-This can preserve complex relationships in the data that are not model dependent.
+By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population, with all outcomes being ``real,'' as they are taken from actual data.
+Such matching can preserve complex relationships in the data that are not model dependent.
 In particular, if outcomes tend to be coarsely defined (e.g., on an integer scale) or have specific clumps (such as zero-inflation or rounding), this structure will be preserved.
 
-One concern with this approach is the noise in the matching will in general dilute the structure of the treatment effect.\\
+One concern with this approach is the noise in the matching could in general dilute the structure of the treatment effect as the control- and treatment-side potential outcomes may be very unrelated, creating a lot of so-called idiosyncratic treatment variation (unit-to-unit variation in the treatment effects that is not explained by the covariates).
 This is akin to measurement error diluting found relationships in linear models.
-We can then sharpen these relationships towards a given model by first imputing missing outcomes using a specified model, and then matching on all units including the imputed potential outcome.
+We could reduce such variation by first imputing missing outcomes using some model (e.g., a random forest) fit to the original data, and then matching on all units including the imputed potential outcome as a hidden ``covariate.''
 This is not a data analysis strategy, but instead a method of generating synthetic data that both has a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.
 
-A second approach that allows for varying the level of a systematic effect is to specify the treatment effect model and impute treatment outcomes for all control units.\\
-Then the complex structure between covariates and \(Y(0)\) would be perfectly preserved.
-Unfortunately, this would give 0 idiosyncratic treatment variation (unit-to-unit variation in the \(\tau_i\) that is not explained by a model).
-To add in idiosyncratic variation we would then need to generate a distribution of perturbations and add these to the imputed outcomes just as an error term in a regression model.
+A second approach that allows for varying the level of a systematic effect is to specify a treatment effect model, predict treatment effects for all units and use those to impute the treatment potential outcome for all control units.
+This will perfectly preserve the complex structure between the covariates and the \(Y_i(0)\)s.
+Unfortunately, this would also give no idiosyncratic treatment variation .
+To add in idiosyncratic variation we could then need to generate a distribution of perturbations and add these to the imputed outcomes just as an error term in a regression model.
 
-Regardless, once a fully observed sample has been obtained we can investigate several aspects of our estimators as above.
+Regardless of how we generate them, once we have a ``fully observed'' sample with the full set of treatment and control potential outcomes for all of our units, we can calculate any target estimands we like on our population, and then compare our estimators to these ground truths (even if they have no parametric analog) as desired.
+
+Clearly, these calibration games can be fairly complex.
+They do not lend themselves to a clear factor-based structure that have levers that change targeted aspects of the data generating process (although sometimes you can build in controls to make such levers possible).
+In exchange, we end up with a simulation that might be more faithfully capturing aspects of a specific context, making our simulations more relevant to answering the narrower question of ``how will things work here?''
 
 \part{Specialized Use-Cases}\label{part-specialized-use-cases}
 
@@ -9435,7 +9603,7 @@ We ended up with the following data, with log-transformed discipline rates for e
 
 \begin{verbatim}
 ## Rows: 27 Columns: 6
-## -- Column specification --------------------------
+## -- Column specification ------------------------------------------------------------------------------------------------------------
 ## Delimiter: ","
 ## chr (1): Code
 ## dbl (5): 2015, 2016, 2017, 2018, 2019
@@ -9574,7 +9742,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-257-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-261-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -9816,7 +9984,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-263-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-267-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -9945,7 +10113,7 @@ We then have to convert to our treatment scale by flipping the sign and exponent
 
 Corresponding with our findings regarding precision, above, the twopost estimator is the most sensitive, finding the smallest effects.
 
-\chapter{Simulation under the Potential Outcomes Framework}\label{chap-potential-outcomes}
+\chapter{Simulation under the Potential Outcomes Framework}\label{potential-outcomes}
 
 If we are in the business of evaluating how various methods such as matching or propensity score weighting work in practice, we would probably turn to the potential outcomes framework for our simulations.
 The potential outcomes framework is a framework typically used in the causal inference literature to make very explicit statements regarding the mechanics of causality and the associated estimands one might target when estimating causal effects.
@@ -10385,8 +10553,7 @@ This driver also stores the finite sample ATE for future reference:
 ## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
 ## Yobs = ifelse(Z == 1, Y1, Y0))
 ## mod = lm(Yobs ~ Z, data = dat)
-## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat =
-## arm::se.coef(
+## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
 ## mod)[["Z"]])
 ## })
 ## 
@@ -10395,13 +10562,11 @@ This driver also stores the finite sample ATE for future reference:
 ## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
 ## Yobs = ifelse(Z == 1, Y1, Y0))
 ## mod = lm(Yobs ~ Z, data = dat)
-## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat =
-## arm::se.coef(
+## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
 ## mod)[["Z"]])
 ## })
 ## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to
-## see where this warning was generated.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
 \end{verbatim}
 
 \begin{verbatim}
@@ -10423,22 +10588,16 @@ We then run a bunch of finite runs.
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(500,
-##   one_finite_run())
+##   rerun(500, one_finite_run())
 ## 
 ##   # Now
-##   map(1:500, ~
-##   one_finite_run())
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
-## generated.
+##   map(1:500, ~ one_finite_run())
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to
+## see where this warning was generated.
 \end{verbatim}
 
 We use \texttt{.id} because we will need to separate out each finite run and analyze separately, and then aggregate.
@@ -10660,24 +10819,219 @@ Especially considering the small number of observations, it is going to be a mor
 \appendix
 
 
-\chapter{Coding tidbits}\label{on-functions}
+\chapter{Coding tidbits}\label{coding-tidbits}
 
-This chapter is not about simulation, but does have a few tips and tricks regarding coding that are worth attending to.
+This chapter is not specifically about simulation, but it does have a few tips and tricks regarding coding that are worth attending to.
 
-\section{Other ways of repeating yourself}\label{repeating-oneself}
+\section{How to repeat yourself}\label{repeating-oneself}
 
-There are several ways to call a bit of code (e.g., \texttt{one\_run()} over and over).
-We have seen \texttt{map()} in the main part of the textbook.
+At the heart of simulation is replication: we want to do the same task over and over. In this book we have showcased a variety of tools to replicate a random process. In this section we give a formal presentation of these tools.
+
+\subsection{\texorpdfstring{Using \texttt{replicate()}}{Using replicate()}}\label{using-replicate}
+
+The \texttt{replicate(\ n,\ expr,\ simplify\ )} method is a base-R function, which takes two arguments: a number \texttt{n} and an expression \texttt{expr} to run repeatedly. You can set \texttt{simplify\ =\ FALSE} to get the output of the function as a list, and if you set \texttt{simplify\ =\ TRUE} then R will try to simplify your results into an array.
+
+For simple tasks where your expression gives you a single number, replicate will produce a vector of numbers:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{replicate}\NormalTok{( }\DecValTok{5}\NormalTok{, }\FunctionTok{mean}\NormalTok{( }\FunctionTok{rpois}\NormalTok{( }\DecValTok{3}\NormalTok{, }\AttributeTok{lambda =} \DecValTok{1}\NormalTok{ ) ) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.6666667 1.0000000 0.6666667 1.0000000
+## [5] 0.6666667
+\end{verbatim}
+
+If you do not simplify, you then will need to massage your results:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{one\_run }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{() \{}
+\NormalTok{  dd }\OtherTok{=} \FunctionTok{rpois}\NormalTok{( }\DecValTok{3}\NormalTok{, }\AttributeTok{lambda =} \DecValTok{1}\NormalTok{ )}
+  \FunctionTok{tibble}\NormalTok{( }\AttributeTok{mean =} \FunctionTok{mean}\NormalTok{( dd ), }\AttributeTok{sd =} \FunctionTok{sd}\NormalTok{( dd ) )}
+\NormalTok{\}}
+\NormalTok{rps }\OtherTok{\textless{}{-}} \FunctionTok{replicate}\NormalTok{( }\DecValTok{2}\NormalTok{, }\FunctionTok{one\_run}\NormalTok{(), }\AttributeTok{simplify =} \ConstantTok{FALSE}\NormalTok{ )}
+\NormalTok{rps}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [[1]]
+## # A tibble: 1 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1  1.67  1.53
+## 
+## [[2]]
+## # A tibble: 1 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1  1.33  1.15
+\end{verbatim}
+
+In particular, you will probably stack all your tibbles to make one large dataset:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{rps }\OtherTok{\textless{}{-}} \FunctionTok{bind\_rows}\NormalTok{( rps )}
+\NormalTok{rps}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 2 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1  1.67  1.53
+## 2  1.33  1.15
+\end{verbatim}
+
+Note that you give replicate a full piece of code that would run on its own. You can even give a whole block of code in curly braces.
+This is exactly the same code as before:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{rps }\OtherTok{\textless{}{-}} \FunctionTok{replicate}\NormalTok{( }\DecValTok{2}\NormalTok{, \{}
+\NormalTok{  dd }\OtherTok{=} \FunctionTok{rpois}\NormalTok{( }\DecValTok{3}\NormalTok{, }\AttributeTok{lambda =} \DecValTok{1}\NormalTok{ )}
+  \FunctionTok{tibble}\NormalTok{( }\AttributeTok{mean =} \FunctionTok{mean}\NormalTok{( dd ), }\AttributeTok{sd =} \FunctionTok{sd}\NormalTok{( dd ) )}
+\NormalTok{\}, }\AttributeTok{simplify =} \ConstantTok{FALSE}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{bind\_rows}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+The \texttt{replicate()} method is good for simple tasks, but for more general use, you will probably want to use \texttt{map()}.
+
+\subsection{\texorpdfstring{Using \texttt{map()}}{Using map()}}\label{using-map}
+
+The tidyverse way of repeating oneself is the \texttt{map()} method. The nice thing about \texttt{map()} is you map over a list of values, and thus can call a function repeatedly, but with a shifting set of inputs.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{one\_run\_v2 }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( N ) \{}
+\NormalTok{  dd }\OtherTok{=} \FunctionTok{rpois}\NormalTok{( N, }\AttributeTok{lambda =} \DecValTok{1}\NormalTok{ )}
+  \FunctionTok{tibble}\NormalTok{( }\AttributeTok{mean =} \FunctionTok{mean}\NormalTok{( dd ), }\AttributeTok{sd =} \FunctionTok{sd}\NormalTok{( dd ) )}
+\NormalTok{\}}
+\NormalTok{n\_list }\OtherTok{=} \FunctionTok{c}\NormalTok{(}\DecValTok{2}\NormalTok{, }\DecValTok{5}\NormalTok{)}
+\NormalTok{rps }\OtherTok{\textless{}{-}} \FunctionTok{map}\NormalTok{( n\_list, one\_run\_v2 )}
+\NormalTok{rps}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [[1]]
+## # A tibble: 1 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1   0.5 0.707
+## 
+## [[2]]
+## # A tibble: 1 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1   0.8 0.837
+\end{verbatim}
+
+You again would want to stack your results:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{bind\_rows}\NormalTok{(rps)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 2 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1   0.5 0.707
+## 2   0.8 0.837
+\end{verbatim}
+
+We have a small issue here, however, which is we lost what we \emph{gave} \texttt{map()} for each call.
+If we know we only get one row back from each call, we can add the column directly:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{rps}\SpecialCharTok{$}\NormalTok{n }\OtherTok{=}\NormalTok{ n\_list}
+\end{Highlighting}
+\end{Shaded}
+
+A better approach is to \emph{name} your list of input parameters, and then your \texttt{map} function can add those names for you as a new column when you stack:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{n\_list }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{set\_names}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{map}\NormalTok{( one\_run\_v2 ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{bind\_rows}\NormalTok{( }\AttributeTok{.id =} \StringTok{"n"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 2 x 3
+##   n      mean    sd
+##   <chr> <dbl> <dbl>
+## 1 2       2    0   
+## 2 5       1.4  1.14
+\end{verbatim}
+
+An advantage here is if you are returning multiple rows (e.g., one row for each estimator tested in a more complex simulation), all the rows will get named correctly and automatically.
+
+In older tidyverse worlds, you will see methods such as \texttt{map\_dbl()} or \texttt{map\_dfr()}. These will automatically massage your output into the target type. \texttt{map\_dfr()} will automatically bind rows, and \texttt{map\_dbl()} will try to simplify the output into a list of doubles. Modern tidyverse no longer likes this, which we find somewhat sad.
+
+To read more about \texttt{map()}, check out out \href{https://r4ds.had.co.nz/iteration.html\#the-map-functions}{Section 21.5 of R for Data Science (1st edition)}, which provides a more thorough introduction to mapping.
+
+\subsection{map with no inputs}\label{map-with-no-inputs}
+
+If you do not have parameters, but still want to use \texttt{map()}, you can. E.g.,
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{map\_dfr}\NormalTok{( }\DecValTok{1}\SpecialCharTok{:}\DecValTok{3}\NormalTok{, \textbackslash{}(.) }\FunctionTok{one\_run}\NormalTok{() )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1 1     1    
+## 2 0.667 0.577
+## 3 0     0
+\end{verbatim}
+
+The weird ``(.)'' is a shorthand for a function that takes one argument and then calls \texttt{one\_run()} with no arguments. We are using the 1:3 notation to just make a list of the right length (3 replicates, in this case) to map over. A lot of fuss! Just use \texttt{replicate()}
+
+To make all of this more clear, consider passing arguments that you manipulate on the fly:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{map\_dfr}\NormalTok{( n\_list, \textbackslash{}(x) }\FunctionTok{one\_run\_v2}\NormalTok{( x}\SpecialCharTok{*}\NormalTok{x ) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 2 x 2
+##    mean    sd
+##   <dbl> <dbl>
+## 1  1     1.41
+## 2  1.16  1.11
+\end{verbatim}
+
+Anonymous functions, as these are called, can be useful to connect your pieces of simulation together.
+
+\subsection{Other approaches for repetition}\label{other-approaches-for-repetition}
 
 In the past, there was a tidyverse method called \texttt{rerun()}, but it is currently out of favor.
 Originally, \texttt{rerun()} did exactly that: you gave it a number and a block of code, and it would rerun the block of code that many times, giving you the results as a list.
-
-Another, more classic, way to repeat oneself is to use an R function called \texttt{replicate}; \texttt{rerun()} and \texttt{replicate()} are near equivalents.
-\texttt{replicate()} does what its name suggests---it replicates the result of an expression a specified number of times. The first argument is the number of times to replicate and the next argument is an expression (a short piece of code to run). A further argument, \texttt{simplify} allows you to control how the results are structured. Setting \texttt{simplify\ =\ FALSE} returns the output as a list (just like \texttt{rerun()}.
+\texttt{rerun()} and \texttt{replicate()} are near equivalents.
+As we saw, \texttt{replicate()} does what its name suggests---it replicates the result of an expression a specified number of times. Setting \texttt{simplify\ =\ FALSE} returns the output as a list (just like \texttt{rerun()}.
 
 \section{Default arguments for functions}\label{default-arguments}
 
-To generate code both easy to use and configure, use default arguments.
+To write functions that are both easy to use and configurable, we find it helpful to set default arguments.
 For example,
 
 \begin{Shaded}
@@ -10753,11 +11107,11 @@ That didn't work, but let's provide some block sizes and see what happens:
 
 \begin{verbatim}
 ##    B         Y0       Y1
-## 1 B1  1.7317207 5.110982
-## 2 B1 -0.1608224 5.174334
-## 3 B1  1.7023413 5.233891
-## 4 B2  0.2529889 5.939471
-## 5 B2 -2.0312750 3.780810
+## 1 B1  0.1651598 6.371708
+## 2 B1 -0.7767558 5.613676
+## 3 B1 -1.4736741 4.856552
+## 4 B2 -1.0636928 4.448634
+## 5 B2  0.1533518 4.334540
 \end{verbatim}
 
 Nice! We see that we have a block ID and the control and treatment potential outcomes. We also don't see a random assignment variable, so that tells us we probably need some other methods as well.

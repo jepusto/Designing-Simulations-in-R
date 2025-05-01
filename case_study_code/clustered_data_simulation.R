@@ -25,11 +25,21 @@ gen_dat_model <- function( n_bar = 10,
                            gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
                            sigma2_u = 0, sigma2_e = 1,
                            alpha = 0 ) {
+  
+  stopifnot( alpha >= 0 )
+  
   # generate site sizes 
   n_min = round( n_bar * (1 - alpha) )
   n_max = round( n_bar * (1 + alpha) )
-  nj <- sample( n_min:n_max, J, replace=TRUE )
-
+  if ( n_max == n_min ) {
+    if ( alpha > 0 ) {
+      warning( "alpha is too small given n_bar, making there be no variation in site size" )
+    }
+    nj = rep( n_min, J )
+  } else {
+    nj <- sample( n_min:n_max, J, replace=TRUE )
+  }
+  
   # Generate average control outcome and average ATE for all sites
   # (The random effects)
   u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
