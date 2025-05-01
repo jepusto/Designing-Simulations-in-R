@@ -34,12 +34,17 @@ $$
 
 If we assume that the items follow a multivariate normal distribution, then $A$ corresponds to the maximum likelihood estimator of $\alpha$. 
 
-Our goal is to examine the properties of $A$ when the set of $P$ items is _not_ multi-variate normal, but rather follows a multivariate $t$ distribution with $v$ degrees of freedom.
+Our goal is to examine the properties of our estimator $A$ when the set of $P$ items is _not_ multi-variate normal, but rather follows a multivariate $t$ distribution with $v$ degrees of freedom.
 For simplicity, we shall assume that the items have common variance and have a __compound symmetric__ covariance matrix, such that $\phi_{11} = \phi_{22} = \cdots = \phi_{pp} = \phi$ and  $\phi_{ij} = \rho \phi$. In this case we can simplify our expression for $\alpha$ to 
 
 $$
 \alpha = \frac{p \rho}{1 + \rho (p - 1)}.
 $$
+
+In particular, we are interested in whether $A$ is a biased estimator for $\alpha$, when we have items that are not multi-variate normal.
+We are also interested in the standard error of $A$, and how that changes as features of our DGP change.
+Finally, we have a corresponding asymptotic variance estimator to get estimated standard errors for $A$, and we want to know if this variance estimator has generally good properties as well.
+
 
 ## Getting started
 
@@ -182,7 +187,7 @@ summary(alpha(x = small_sample))$raw_alpha
 
 The next step is to evaluate these individual estimates and see how well our estimator $A$ performs.
 
-### Exercices (Naive confidence intervals)
+### Exercises (Naive confidence intervals)
 
 
 1. One way to obtain an approximate confidence interval for $\alpha$ would be to take $A \pm z \sqrt{\text{Var}(A)}$, where $\text{Var}(A)$ is estimated as described above and $z$ is a standard normal critical value at the appropriate level (i.e., $z = 1.96$ for a 95% CI).
@@ -247,15 +252,17 @@ performance <- function(results, model_params) {
 The `performance()` function takes as input a bunch of simulated data (which we might call `results`) and the true values of the model parameters (`model_params`) and returns as output a set of summary performance measures. As noted in the comments above, for simple simulations it might not be necessary to write a separate function to do these calculations. For more complex simulations, though, it can be helpful to break these calculations out in a function.
 
 To start to get the code working that we would put into this function, it is useful to start with some simulation replicates to practice on.
-We can generate 1000 replicates using samples of size $n = 40$, $p = 6$ items, a true $\alpha = 0.8$, and $v = 5$ degrees of freedom:
-```{r}
+We can generate 1000 replicates using samples of size $n = 40$, $p = 6$ items, a true $\alpha = 0.8$, and $v = 5$ degrees of freedom.
+We use the `simhelpers` `repeat_and_stack()` method to do our replication:
 
+```{r}
 one_run <- function( n, p, alpha, df ) {
-    dat <- r_mvt_items(n = n, p = p, alpha = alpha, df = df)
-    estimate_alpha(dat)
+  dat <- r_mvt_items(n = n, p = p, alpha = alpha, df = df)
+  estimate_alpha(dat)
 }
 true_alpha = 0.7
-results = rerun( 1000, one_run(40, 6, alpha=true_alpha, df=5) ) %>%
+results = repeat_and_stack( 1000, 
+                            one_run(40, 6, alpha=true_alpha, df=5) ) %>%
   bind_rows()
 ```
 
@@ -273,7 +280,8 @@ For the Cronbach alpha simulation, we might want to calculate the following perf
 
 4. Calculate the relative bias of the asymptotic variance estimator.
 
-5. Using the work from above, wrap your code in an `alpha_performance()` function that takes the results of uses `run_alpha_sim` and returns a one-row data frame with columns corresponding to the bias, mean squared error, relative bias of the asymptotic variance estimator.
+5. Using the work from above, wrap your code in an `alpha_performance()` function that takes the simulation results returned by `run_alpha_sim` and returns a one-row data frame with columns corresponding to the bias, mean squared error, and relative bias of the asymptotic variance estimator.
+
 ```{r, include=FALSE}
 alpha_performance <- function(results, alpha) {
   var_A = var(results$A)
@@ -287,7 +295,8 @@ alpha_performance <- function(results, alpha) {
   return(pm)
 }
 ```
-E.g., 
+
+E.g., a function that behaves like so:
 ```{r}
 alpha_performance(results, true_alpha)
 ```
