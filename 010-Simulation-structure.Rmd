@@ -4,7 +4,7 @@
 
 Monte Carlo simulation is a very flexible tool that researchers use to study a vast array of different models and topics. 
 Within the realm of methodological research, most simulations share a common structure, nearly always involving the same set of steps or component pieces. 
-In learning to design your own simulations, it is very useful to recognize the core, abstract components that most simulation studies share.
+In learning to design your own simulations, it is very useful to recognize the core components that most simulation studies share.
 Identifying these components will help you to organize your work and structure the coding tasks involved in writing a simulation. 
 
 In this chapter, we outline the component structure of a methodological simulation study, highlighting the four steps involved in a simulation of a single scenario and the three additional steps involved in multifactor simulations.
@@ -144,7 +144,7 @@ The `simhelpers` package includes the function `create_skeleton()`, which will o
 simhelpers::create_skeleton()
 ```
 The template that appears is a slightly more elaborate version of the code above, with the main difference being that it also includes some additional lines of code to wire the pieces together for a multifactor simulation.
-Starting from this template, you will already be well on the road to writing a tidy, modular simulation.
+Starting from this template, you will already be on the road to writing a tidy, modular simulation.
 
 ### Data-Generating Process
 
@@ -186,6 +186,7 @@ This might involve generating a confidence interval, as in the example from Chap
 In another context, it might involve estimating an average growth rate along with a standard error, given a dataset with longitudinal repeated measurements from multiple individuals.
 In still another context, it might involve generating individual-level predictions from a machine learning algorithm.
 In simulations that involve comparing multiple analysis methods, we might write an `analyze()` function for each of the methods of interest, or (generally less preferred) we might write one function that does the calculations for all of the methods together.
+<!-- JEP: Why is the latter generally less preferred? -->
 
 A well-written estimation method should, in principle, work not only on a simulated, hypothetical dataset but also on a real empirical dataset that has the same format (i.e., appropriate variable names and structure).
 Because of this, the inputs of the `analyze()` function should not typically include any information about the parameters of the data-generating process.
@@ -205,27 +206,26 @@ one_run <- function( model_params ) {
   return(one_result)
 }
 
-results <- map_dfr(1:R, ~ one_run( params ))
+results <- simhelpers::repeat_and_stack(R, one_run( params ))
 ```
 We first create a helper function called `one_run()`, which takes `model_params` as input. 
 Inside the body of the function, we call the `generate_data()` function to simulate a hypothetical dataset.
 We pass this dataset to `analyze()` and return a small dataset containing the results of the data-analysis procedure.
 The `one_run()` method is like a coordinator or dispatcher of the system: it generates the data, calls all the evaluation methods we want to call, combines all the results, and hands them back for recording.
-Making a helper method such as `one_run()` can be helpful because it facilitates debugging.
+Making a helper method such as `one_run()` can be useful because it facilitates debugging.
 
 Once we have the `one_run()` helper function, we need a way to call it repeatedly. As with many things in R, there are a variety of different ways to do something over and over. 
-In the above skeleton, we use the `map_dfr()` function from the `purrr` package.[^replicate]
-In the first argument, we specify a list of indices, one for each time we want to repeat the simulation process. 
-In the second argument, we specify an anonymous function that evaluates `one_run()` for specified values of the model parameters stored in `params`.
-The `map_dfr()` function then calls the function on each entry in the list of indices, repeating the simulation process `R` times in all.
-The function then stacks up all of the replications into a big dataset, with one or more rows per replication.[^map-dfr] 
+In the above skeleton, we use the `repeat_and_stack()` function from `simhelpers`.[^replicate]
+In the first argument, we specify the number of times to repeat the process. 
+In the second argument, we specify an expression that evaluates `one_run()` for specified values of the model parameters stored in `params`.
+The `repeat_and_stack()` function then evaluates the expression repeatedly, `R` times in all, and then stacks up all of the replications into a big dataset, with one or more rows per replication.[^map-dfr] 
 
-[^map-dfr]: The `_dfr` suffix in `map_dfr()` stands for `data.frame` by row, meaning that each evaluation should produce a `data.frame` as output, and the outputs will be stacked by row.
+[^map-dfr]: If you would prefer the output as a list rather than a stacked dataset, set `repeat_and_stack()`'s optional argument `stack = FALSE`.
 
 [^replicate]: In the example from Chapter \@ref(t-test-simulation), we used the `replicate()` function from base R to repeat the process of generating and analyzing data. 
-This function is a fine alternative to the `map_dfr()` approach demonstrated in the skeleton.
+This function is a fine alternative to the `repeat_and_stack()` approach demonstrated in the skeleton.
 The only drawback is that it requires some further work to combine the results across replications. 
-Here is a different version of the skeleton, which uses `replicate()` instead of `map_dfr()`:
+Here is a different version of the skeleton, which uses `replicate()` instead of `repeat_and_stack()`:
     ```{r, eval=FALSE}
     results_list <- replicate(n = R, expr = {
       dat <- generate_data( params )
@@ -233,12 +233,12 @@ Here is a different version of the skeleton, which uses `replicate()` instead of
       return(one_result)
     }, simplify = FALSE)
     
-    results <- list_rbind(results_list)
+    results <- purrr::list_rbind(results_list)
     ```
-   This version of the skeleton does not create a `one_run()` helper function, but instead puts the code from the body of `one_run()` directly into the `expr` argument of `replicate()`.
+   This version of the skeleton does not create a `one_run()` helper function, but instead puts the code from the body of `one_run()` directly into the `expr` argument of `replicate()`. To learn about other ways of repeatedly evaluating the simulation process, see Appendix \@ref(repeating-oneself).
  
 We go into further detail about how to approach running the simulation process in Chapter \@ref(running-the-simulation-process).
-Among other things, we will illustrate how to use the `simhelpers` package to automate the process of coding this step, thereby avoiding the need to write a `one_run()` helper function.
+Among other things, we will illustrate how to use the `bundle_sim()` function from the `simhelpers` package to automate the process of coding this step, thereby avoiding the need to write a `one_run()` helper function.
 
 ### Performance summaries
 
@@ -254,8 +254,8 @@ assess_performance(results, params)
 ```
 The `assess_performance()` function takes `results` as input.
 `results` should be a dataset containing all of the replications of the data-generating and analysis process. 
-`assess_performance()`'s other input is `model_params`, which includes the true parameter values of the data-generating process. 
-The function then uses these inputs to calculate performance measures and returns a summary of the performance measures in a dataset.
+In contrast to the `analyze()` function, `assess_performance()` also needs to know the true parameter values of the data-generating process, so it needs to have `model_params` as its other input.
+The function then uses both of these inputs to calculate performance measures and returns a summary of the performance measures in a dataset.
 
 Performance measures are the metrics or criteria used to assess the performance of a statistical method across repeated samples from the data-generating process.
 For example, we might want to know how close an estimator gets to the target parameter, on average. 
