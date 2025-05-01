@@ -75,20 +75,20 @@ These math equations would also come along with specified parameter values (the 
 Once we have a recipe (our mathematical model), the next step is to translate it to code.
 In the real world:
 
- - We obtain data, we pick a model, we estimate parameters.
- - The data comes with covariates and outcomes.
- - It also comes with sample size, sizes of the clusters, etc.
+- We obtain data, we pick a model, we estimate parameters.
+- The data comes with covariates and outcomes.
+- It also comes with sample size, sizes of the clusters, etc.
 
 In the simulation world, by comparison:
 
- - We pick a model, we decide how much data, we generate covariates, we pick the parameters, and then we generate outcomes.
- - We need to decide how many clusters we have, how big the clusters are, etc.
- - We have to specify how the covariates are made.  This last piece is very different from real-world analysis.
+- We pick a model, we decide how much data, we generate covariates, we pick the parameters, and then we generate outcomes.
+- We need to decide how many clusters we have, how big the clusters are, etc.
+- We have to specify how the covariates are made.  This last piece is very different from real-world analysis.
 
 In terms of code, a function that implements a data-generating model should have the following form:
 ```{r}
 generate_data <- function(parameters) {
-
+  
   # generate pseudo-random numbers and use those to
   # make some data
   
@@ -104,7 +104,7 @@ For example, from our Welch case study, we had the following method that generat
 
 ```{r}
 generate_data <- function(mu, sigma_sq, sample_size) {
-
+  
   N <- sum(sample_size) 
   g <- length(sample_size) 
   
@@ -114,7 +114,7 @@ generate_data <- function(mu, sigma_sq, sample_size) {
   
   x <- rnorm(N, mean = mu_long, sd = sigma_long)
   sim_data <- tibble(group = group, x = x)
-    
+  
   return(sim_data)
 }
 ```
@@ -127,19 +127,22 @@ When simulating data, we have to specify quantities that we, when analyzing data
 
 ## Checking the data-generating function
 
-An important part of programing in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Thus, after writing a data-generating function, we need to consider how to test whether the output it produces is correct. How best to do this will depend on the data-generating process being implemented. 
+An important part of programming in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Thus, after writing a data-generating function, we need to consider how to test whether the output it produces is correct. How best to do this will depend on the data-generating process being implemented. 
 
 For the heteroskedastic ANOVA problem, one basic thing we could do is check that the simulated data from each group follows a normal distribution. By generating very large samples from each group, we can effectively check characteristics of the population distribution.
 In the following code, we simulate very large samples from each of the four groups, and check that the means and variances agree with the input parameters:
 
 ```{r, fig.width = 4, fig.height = 4, fig.show = "hold"}
-check_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
-                            sample_size = rep(10000, 4))
+mu <- c(1, 2, 5, 6)
+sigma_sq <- c(3, 2, 5, 1)
+
+check_data <- generate_data( mu = mu, sigma_sq = sigma_sq,
+                             sample_size = rep(10000, 4) )
 
 chk <- check_data %>% group_by( group ) %>%
   dplyr::summarise( n = n(),
-             mean = mean( x ),
-             var = var( x ) ) %>%
+                    mean = mean( x ),
+                    var = var( x ) ) %>%
   mutate( mu = mu,
           sigma2 = sigma_sq ) %>%
   relocate( group, n, mean, mu, var, sigma2 )
@@ -207,17 +210,17 @@ We also know that we are interested in what happens when the size of the treatme
 
 Given these goals and beliefs, we might think:
 
- 1) We figure if all the sites are the same size, then all the estimators will probably be ok. But if sites vary, then maybe we could have issues with our estimators.
- 2) Also, if site size varies, but has nothing to do with impact, then all the estimators might still be ok, at least for bias, but if size is associated with treatment impact, then maybe how our estimators end up averaging across sites is going to matter.
+1) We figure if all the sites are the same size, then all the estimators will probably be ok. But if sites vary, then maybe we could have issues with our estimators.
+2) Also, if site size varies, but has nothing to do with impact, then all the estimators might still be ok, at least for bias, but if size is associated with treatment impact, then maybe how our estimators end up averaging across sites is going to matter.
 
 Usually, when running a simulation, it is good practice to test the simple option along with the complex one.
 We want to both check that something does not matter as well as verify that it does.
 Given this, we land on the following points:
 
- * We need a DGP that has the option to make all-same-size sites or variable size sites.
- * Our DGP should have some impact variation across sites.
- * Our DGP should allow for different sites to have different treatment impacts.
- * We should have the option to connect impact variation to site size.
+* We need a DGP that has the option to make all-same-size sites or variable size sites.
+* Our DGP should have some impact variation across sites.
+* Our DGP should allow for different sites to have different treatment impacts.
+* We should have the option to connect impact variation to site size.
 
 
 ### A model for a cluster RCT
@@ -246,7 +249,7 @@ This makes it so if we double the sizes of all the sites, it does not change our
 To do this, we create a covariate which is the percent of the average site size that a site is:
 $$ S_j = \frac{n_j - \bar{n}}{ \bar{n} } $$
 
-where $\bar{n}$ is the average site size. Using this coveriate, we then revise our equation for our site $j$ to:
+where $\bar{n}$ is the average site size. Using this covariate, we then revise our equation for our site $j$ to:
 $$ \beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j S_j + u_j $$
 A nice thing about $S_j$ is that it is centered at 0, meaning the average site has an impact of just $\gamma_1$.
 If $S_j$ was not centered at zero, then our overall average impact in our data would be a mix of the $\gamma_1$ and the $\gamma_2$.
@@ -307,15 +310,15 @@ When sketching out our DGP mathematically we worked from the students to the sch
 For actual data generation, we will now follow our final model, but go by layers in the other direction.
 First, we generate the sites:
 
- - Generate site sizes
- - Generate site-level covariates
- - Generate site level random effects
+- Generate site sizes
+- Generate site-level covariates
+- Generate site level random effects
 
 Then we generate the students inside the sites:
 
- - Generate student covariates
- - Generate student residuals
- - Add everything up to generate student outcomes
+- Generate student covariates
+- Generate student residuals
+- Add everything up to generate student outcomes
 
 The mathematical model gives us exactly the details we need to execute on these steps.
 
@@ -331,9 +334,9 @@ gen_dat_model <- function( n_bar = 10,
   # Code (see below) goes here.
 }
 ```                           
-                           
+
 Note our parameters are a mix of *model parameters* (`gamma_0`, `gamma_1`, `sigma2_e`, etc., representing coefficients in regressions, variance terms, etc.) and *design parameters* (`n_bar`, `J`, `p`) that directly inform data generation.
-We set default arguments (e.g., gamma_0=0) so we can ignore aspects of the DGP that we do not care about later on.
+We set default arguments (e.g., `gamma_0=0`) so we can ignore aspects of the DGP that we do not care about later on.
 
 Inside the model, we will have a block of code to generate the sites, and then another to generate the students.
 
@@ -341,20 +344,20 @@ Inside the model, we will have a block of code to generate the sites, and then a
 We make the sites first:
 
 ```{r, eval = FALSE}
-  # generate site sizes 
-  n_min = round( n_bar * (1 - alpha) )
-  n_max = round( n_bar * (1 + alpha) )
-  nj <- sample( n_min:n_max, J, replace=TRUE )
+# generate site sizes 
+n_min = round( n_bar * (1 - alpha) )
+n_max = round( n_bar * (1 + alpha) )
+nj <- sample( n_min:n_max, J, replace=TRUE )
 
-  # Generate average control outcome and average ATE for all sites
-  # (The random effects)
-  u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
-  
-  # randomize units within each site (proportion p to treatment)
-  Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
-  
-  # Calculate site intercept for each site
-  beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
+# Generate average control outcome and average ATE for all sites
+# (The random effects)
+u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
+
+# randomize units within each site (proportion p to treatment)
+Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
+
+# Calculate site intercept for each site
+beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
 ```
 
 The code is a literal translation of the math we did before.
@@ -367,22 +370,22 @@ There is also a serious error in the above code (serious in that the code will r
 We next use the site characteristics to then generate the individuals.
 
 ```{r, eval=FALSE}
-  # Make individual site membership
-  sid = as.factor( rep( 1:J, nj ) )
-  dd = data.frame( sid = sid )
-  
-  # Make individual level tx variables
-  dd$Z = Zj[ dd$sid ]
-  
-  # Generate the residuals 
-  N = sum( nj )
-  e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
-  
-  # Bundle and send out
-  dd <- mutate( dd, 
-                sid=as.factor(sid),
-                Yobs = beta_0j[sid] + e, 
-                Z = Zj[ sid ] )
+# Make individual site membership
+sid = as.factor( rep( 1:J, nj ) )
+dd = data.frame( sid = sid )
+
+# Make individual level tx variables
+dd$Z = Zj[ dd$sid ]
+
+# Generate the residuals 
+N = sum( nj )
+e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
+
+# Bundle and send out
+dd <- mutate( dd, 
+              sid=as.factor(sid),
+              Yobs = beta_0j[sid] + e, 
+              Z = Zj[ sid ] )
 ```
 
 A key piece here is the `rep()` function that takes a list and repeats each element of the list a specified number of times.
@@ -401,7 +404,7 @@ gen_dat_model <- function( n_bar = 10,
   n_min = round( n_bar * (1 - alpha) )
   n_max = round( n_bar * (1 + alpha) )
   nj <- sample( n_min:n_max, J, replace=TRUE )
-
+  
   # Generate average control outcome and average ATE for all sites
   # (The random effects)
   u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
@@ -411,8 +414,8 @@ gen_dat_model <- function( n_bar = 10,
   
   # Calculate site intercept for each site
   beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
-
-    # Make individual site membership
+  
+  # Make individual site membership
   sid = as.factor( rep( 1:J, nj ) )
   dd = data.frame( sid = sid )
   
@@ -433,70 +436,19 @@ gen_dat_model <- function( n_bar = 10,
 
 Once we put the above code in our function skeleton, we can our function as so:
 ```{r}
-dat <- gen_dat_model( n=5, J=3, p=0.5, 
-                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
-                        sigma2_u = 0.4, sigma2_e = 1,
+dat <- gen_dat_model( n_bar = 5, J=3, p = 0.5, 
+                      gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
+                      sigma2_u = 0.4, sigma2_e = 1,
                       alpha = 0.5 )
 
 dat
 ```
 
 Our data generation code is complete.
+We can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the site size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of site size variation (`alpha`).
 The next step is to test the code, making sure it is doing what we think it is.
-See the exercises for more on this.
+In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on testing ones code, and for diagnosing and repairing this error in particular.
 
-
-
-
-
-## Exercises 
-
-
-### The Welch test on a shifted-and-scaled $t$ distribution {#ex_dgp}
-
-The shifted-and-scaled $t$-distribution has parameters $\mu$ (mean), $\sigma$ (scale), and $\nu$ (degrees of freedom).
-If $T$ follows a student's $t$-distribution with $\nu$ degrees of freedom, then $S = \mu + \sigma T$ follows a shifted-and-scaled $t$-distribution.
-
-The following function will generate random draws from this distribution (the scaling of $(\nu-2)/\nu$ is to account for a non-scaled $t$-distribution having a variance of $\nu/(\nu-2)$).
-
-```{r}
-r_tss <- function(n, mean, sd, df) {
-  mean + sd * sqrt( (df-2)/df ) * rt(n = n, df = df)
-}
-
-r_tss(n = 8, mean = 3, sd = 2, df = 5)
-```
-
-1. Modify the Welch simulation's `simulate_data()` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
-Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
-
-2. Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (generate a big dataset to ensure you get reliable mean and standard deviation estimates).  Check `df` equal to 500, 5, 3, and 2.
-
-3. Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \@ref(exAnovaExercises) using a $t$-distribution with 5 degrees of freedom.
-Do the results change substantially?
-
-### Checking and extending the Cluster RCT DGP
-
-4. What is the variance of the outcomes generated by our model if there is no treatment effect?  (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working? 
-
-5. In `gen_dat_model()` we have the following line of code to generate the number of individuals per site.
-
-```{r bad_sample_line, eval=FALSE}
-nj <- sample( n_min:n_max, J, 
-                 replace=TRUE )
-```
-
-This code has an error.  Generate a variety of datasets where you vary `n_min`, `n_max` and `J` to discover the error.  Then repair the code.
-Checking your data generating process across a range of scenarios is extremely important.
-
-6. The DGP allows for site-level treatment impact variation--but only if it is related to site size.  How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size?  Implement this change and generate some data to show how it works.
-
-7. Extend the data generating process to include an individual level covariate $X$ that is predictive of outcome.  In particular, you will want to adjust your level one equation to
-
-$$ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij} . $$
-Keep the same $\beta_1$ for all sites.
-You will have to specify how to generate your $X_{ij}$.
-For starters, just generate it as a standard normal, and do not worry about having the mean of $X_{ij}$ vary by sites unless you are excited to try to get that to work.
 
 
 
@@ -523,10 +475,12 @@ Given our model, the variance of our control-side outcomes is
 $$ 
 \begin{aligned}
 var( Y_{ij}(0) ) &= var( \beta_{0j} + \epsilon_{ij} ) \\
- &= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
+&= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
+&= var( \gamma_{0} + u_j + \epsilon_{ij} ) \\
 &= \sigma^2_u + \sigma^2_\epsilon
 \end{aligned}
 $$ 
+(We drop the terms with the $Z_j$ because we are looking at control-side variation, where nothing is treated.)
 We see that as we increase either within or between variation, overall variation increases.
 
 We can improve our data generating process to allow for directly controlling the amount of within vs. between variation without it being confounded with overall variation.
@@ -564,4 +518,57 @@ dat <- gen_dat_model( n_bar = 20, J = 30, p = 0.5,
                       sigma2_u = ICC, sigma2_e = 1 - ICC,
                       alpha = 0.5 )
 ```
+
+
+
+
+## Exercises 
+
+
+### The Welch test on a shifted-and-scaled $t$ distribution {#ex_dgp}
+
+The shifted-and-scaled $t$-distribution has parameters $\mu$ (mean), $\sigma$ (scale), and $\nu$ (degrees of freedom).
+If $T$ follows a student's $t$-distribution with $\nu$ degrees of freedom, then $S = \mu + \sigma T$ follows a shifted-and-scaled $t$-distribution.
+
+The following function will generate random draws from this distribution (the scaling of $(\nu-2)/\nu$ is to account for a non-scaled $t$-distribution having a variance of $\nu/(\nu-2)$).
+
+```{r}
+r_tss <- function(n, mean, sd, df) {
+  mean + sd * sqrt( (df-2)/df ) * rt(n = n, df = df)
+}
+
+r_tss(n = 8, mean = 3, sd = 2, df = 5)
+```
+
+1. Modify the Welch simulation's `simulate_data()` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
+Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
+
+2. Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (generate a big dataset to ensure you get reliable mean and standard deviation estimates).  Check `df` equal to 500, 5, 3, and 2.
+
+3. Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \@ref(exAnovaExercises) using a $t$-distribution with 5 degrees of freedom.
+Do the results change substantially?
+
+### Checking and extending the Cluster RCT DGP
+
+4. What is the variance of the outcomes generated by our model if there is no treatment effect?  (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working? 
+
+
+5. In `gen_dat_model()` we have the following line of code to generate the number of individuals per site.
+
+```{r bad_sample_line, eval=FALSE}
+nj <- sample( n_min:n_max, J, replace=TRUE )
+```
+
+This code has an error.  Generate a variety of datasets where you vary `n_min`, `n_max` and `J` to discover the error.  Then repair the code.
+Checking your data generating process across a range of scenarios is extremely important.
+
+6. The DGP allows for site-level treatment impact variation--but only if it is related to site size.  How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size?  Implement this change and generate some data to show how it works.
+
+7. Extend the data generating process to include an individual level covariate $X$ that is predictive of outcome.  In particular, you will want to adjust your level one equation to
+
+$$ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij} . $$
+Keep the same $\beta_1$ for all sites.
+You will have to specify how to generate your $X_{ij}$.
+For starters, just generate it as a standard normal, and do not worry about having the mean of $X_{ij}$ vary by sites unless you are excited to try to get that to work.
+
 
