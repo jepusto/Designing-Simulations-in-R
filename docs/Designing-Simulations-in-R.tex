@@ -529,7 +529,7 @@ For example, the \texttt{rnorm()} function takes as input a number \texttt{n} an
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.0919800  0.3386406  0.9279005
+## [1] -1.4903055 -0.2220622  1.2401096
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -541,7 +541,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.9033765  0.8568078  1.8280611
+## [1] -0.9374925 -1.6231122 -0.1582321
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let the user specify the mean and standard deviation of the distribution from which numbers are drawn:
@@ -553,7 +553,7 @@ The \texttt{rnorm()} function also has further input arguments that let the user
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 10.200501  9.904853 10.564804
+## [1]  9.993610  9.286168 11.089592
 \end{verbatim}
 
 In writing code for simulations, we will make extensive use of this particular function and other functions that produce sequences of random numbers.
@@ -603,7 +603,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 2.647353e-68
+## [1] 1.822853e-70
 \end{verbatim}
 
 \begin{Shaded}
@@ -613,7 +613,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.3254678
+## [1] 0.4877689
 \end{verbatim}
 
 \begin{Shaded}
@@ -623,7 +623,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 2.916635e-05
+## [1] 5.720625e-05
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated sample of data. The function produces a different answer each time because its instructions involve generating random numbers each time it is called.
@@ -4628,12 +4628,16 @@ A = \frac{p}{p - 1}\left(1 - \frac{\sum_{i=1}^p s_{ii}}{\sum_{i=1}^p \sum_{j=1}^
 
 If we assume that the items follow a multivariate normal distribution, then \(A\) corresponds to the maximum likelihood estimator of \(\alpha\).
 
-Our goal is to examine the properties of \(A\) when the set of \(P\) items is \emph{not} multi-variate normal, but rather follows a multivariate \(t\) distribution with \(v\) degrees of freedom.
+Our goal is to examine the properties of our estimator \(A\) when the set of \(P\) items is \emph{not} multi-variate normal, but rather follows a multivariate \(t\) distribution with \(v\) degrees of freedom.
 For simplicity, we shall assume that the items have common variance and have a \textbf{compound symmetric} covariance matrix, such that \(\phi_{11} = \phi_{22} = \cdots = \phi_{pp} = \phi\) and \(\phi_{ij} = \rho \phi\). In this case we can simplify our expression for \(\alpha\) to
 
 \[
 \alpha = \frac{p \rho}{1 + \rho (p - 1)}.
 \]
+
+In particular, we are interested in whether \(A\) is a biased estimator for \(\alpha\), when we have items that are not multi-variate normal.
+We are also interested in the standard error of \(A\), and how that changes as features of our DGP change.
+Finally, we have a corresponding asymptotic variance estimator to get estimated standard errors for \(A\), and we want to know if this variance estimator has generally good properties as well.
 
 \section{Getting started}\label{getting-started}
 
@@ -4836,7 +4840,7 @@ The \texttt{psych} package provides a function for calculating \(\alpha\), which
 
 The next step is to evaluate these individual estimates and see how well our estimator \(A\) performs.
 
-\subsection{Exercices (Naive confidence intervals)}\label{exercices-naive-confidence-intervals}
+\subsection{Exercises (Naive confidence intervals)}\label{exercises-naive-confidence-intervals}
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -4907,34 +4911,21 @@ The next section of the template deals with performance calculations.
 The \texttt{performance()} function takes as input a bunch of simulated data (which we might call \texttt{results}) and the true values of the model parameters (\texttt{model\_params}) and returns as output a set of summary performance measures. As noted in the comments above, for simple simulations it might not be necessary to write a separate function to do these calculations. For more complex simulations, though, it can be helpful to break these calculations out in a function.
 
 To start to get the code working that we would put into this function, it is useful to start with some simulation replicates to practice on.
-We can generate 1000 replicates using samples of size \(n = 40\), \(p = 6\) items, a true \(\alpha = 0.8\), and \(v = 5\) degrees of freedom:
+We can generate 1000 replicates using samples of size \(n = 40\), \(p = 6\) items, a true \(\alpha = 0.8\), and \(v = 5\) degrees of freedom.
+We use the \texttt{simhelpers} \texttt{repeat\_and\_stack()} method to do our replication:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{one\_run }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( n, p, alpha, df ) \{}
-\NormalTok{    dat }\OtherTok{\textless{}{-}} \FunctionTok{r\_mvt\_items}\NormalTok{(}\AttributeTok{n =}\NormalTok{ n, }\AttributeTok{p =}\NormalTok{ p, }\AttributeTok{alpha =}\NormalTok{ alpha, }\AttributeTok{df =}\NormalTok{ df)}
-    \FunctionTok{estimate\_alpha}\NormalTok{(dat)}
+\NormalTok{  dat }\OtherTok{\textless{}{-}} \FunctionTok{r\_mvt\_items}\NormalTok{(}\AttributeTok{n =}\NormalTok{ n, }\AttributeTok{p =}\NormalTok{ p, }\AttributeTok{alpha =}\NormalTok{ alpha, }\AttributeTok{df =}\NormalTok{ df)}
+  \FunctionTok{estimate\_alpha}\NormalTok{(dat)}
 \NormalTok{\}}
 \NormalTok{true\_alpha }\OtherTok{=} \FloatTok{0.7}
-\NormalTok{results }\OtherTok{=} \FunctionTok{rerun}\NormalTok{( }\DecValTok{1000}\NormalTok{, }\FunctionTok{one\_run}\NormalTok{(}\DecValTok{40}\NormalTok{, }\DecValTok{6}\NormalTok{, }\AttributeTok{alpha=}\NormalTok{true\_alpha, }\AttributeTok{df=}\DecValTok{5}\NormalTok{) ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{results }\OtherTok{=} \FunctionTok{repeat\_and\_stack}\NormalTok{( }\DecValTok{1000}\NormalTok{, }
+                            \FunctionTok{one\_run}\NormalTok{(}\DecValTok{40}\NormalTok{, }\DecValTok{6}\NormalTok{, }\AttributeTok{alpha=}\NormalTok{true\_alpha, }\AttributeTok{df=}\DecValTok{5}\NormalTok{) ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{bind\_rows}\NormalTok{()}
 \end{Highlighting}
 \end{Shaded}
-
-\begin{verbatim}
-## Warning: `rerun()` was deprecated in purrr 1.0.0.
-## i Please use `map()` instead.
-##   # Previously
-## rerun(1000, one_run(40, 6, alpha = true_alpha,
-## df = 5))
-## 
-##   # Now
-## map(1:1000, ~ one_run(40, 6, alpha = true_alpha,
-## df = 5))
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to
-## see where this warning was generated.
-\end{verbatim}
 
 \subsection{Exercises (Calculating Performance)}\label{exercises-calculating-performance}
 
@@ -4951,10 +4942,10 @@ For the Cronbach alpha simulation, we might want to calculate the following perf
 \item
   Calculate the relative bias of the asymptotic variance estimator.
 \item
-  Using the work from above, wrap your code in an \texttt{alpha\_performance()} function that takes the results of uses \texttt{run\_alpha\_sim} and returns a one-row data frame with columns corresponding to the bias, mean squared error, relative bias of the asymptotic variance estimator.
+  Using the work from above, wrap your code in an \texttt{alpha\_performance()} function that takes the simulation results returned by \texttt{run\_alpha\_sim} and returns a one-row data frame with columns corresponding to the bias, mean squared error, and relative bias of the asymptotic variance estimator.
 \end{enumerate}
 
-E.g.,
+E.g., a function that behaves like so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -6838,9 +6829,16 @@ The key is to explore, and see what you can learn!
 \chapter{Case study: Comparing different estimators}\label{case-study-comparing-different-estimators}
 
 \emph{Features of this case study}
-- Calculating performance metrics by estimator using tidyverse.
-- Visualization of simulation results.
-- Construction of the classic Bias + SE + RMSE performance plot.
+
+\begin{itemize}
+\tightlist
+\item
+  Calculating performance metrics by estimator using tidyverse.
+\item
+  Visualization of simulation results.
+\item
+  Construction of the classic Bias + SE + RMSE performance plot.
+\end{itemize}
 
 In this case study we conduct a simulation where we wish to compare different forms of
 estimator for estimating the same thing.
@@ -7970,12 +7968,12 @@ The \texttt{microbenchmark} function runs each expression 100 times (by default)
 
 \begin{verbatim}
 ## Unit: microseconds
-##       expr     min       lq      mean   median
-##  Rfunction 195.406 199.8955 220.01748 205.2665
-##     direct  84.542  88.3140  93.15364  91.0200
+##       expr     min       lq     mean   median
+##  Rfunction 196.513 201.1460 219.0482 203.3805
+##     direct  85.362  89.0315  93.0413  91.2455
 ##        uq      max neval
-##  213.0975 1384.242   100
-##   93.9515  199.875   100
+##  207.0295 1406.300   100
+##   93.2340  212.995   100
 \end{verbatim}
 
 The direct function is 2.4 times faster than the built-in R function.
@@ -8251,12 +8249,12 @@ The reason this is important is we are now doing our group aggregation only once
 
 \begin{verbatim}
 ## Unit: microseconds
-##   expr      min        lq     mean   median
-##  noagg  560.593  596.6115 1046.777  636.074
-##    agg 1372.065 1416.0990 1658.347 1490.698
-##        uq       max neval
-##   713.646 18544.218   100
-##  1617.409  6261.274   100
+##   expr      min        lq      mean   median
+##  noagg  556.575  582.0565  627.2328  608.153
+##    agg 1362.512 1393.2825 1508.5835 1423.499
+##        uq      max neval
+##   639.764 1930.362   100
+##  1492.236 4736.771   100
 \end{verbatim}
 
 And our relative speedup is:
@@ -8268,7 +8266,7 @@ And our relative speedup is:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.6
+## [1] 0.4
 \end{verbatim}
 
 To recap, there are two advantages of this kind of coding:
@@ -11163,18 +11161,17 @@ One way to keep this code around, but not have it run all the time when you run 
 You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
 If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
 
-\section{Keep multiple files of code}\label{keep-multiple-files-of-code}
+\section{The source command and keeping things organized}\label{the-source-command-and-keeping-things-organized}
 
 Simulations have two general phases: generate your results and analyze your results.
 The ending of the first phase should be to save the generated results.
 The beginning of the second phase should then be to load the results from a file and analyze them.
-These phases can be in a seperate `.R' files
-This allows for easily changing how one analyzes an experiment
-without re-running the entire thing.
+These phases can be in a separate `.R' files.
+Dividing your simulations in this way allows for easily changing how one \emph{analyzes} an experiment without re-running the entire thing.
 
-\section{The source command and keeping things organized}\label{the-source-command-and-keeping-things-organized}
+This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
 
-Once you have your multifactor simulation, if it is a particularly complex one, you will likely have three general collections of code:
+For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
 
 \begin{itemize}
 \tightlist
@@ -11187,7 +11184,7 @@ Once you have your multifactor simulation, if it is a particularly complex one, 
 \end{itemize}
 
 If each of these pieces is large and complex, you might consider putting them in three different \texttt{.R} files.
-Then, in your primary simulation, you would source these files.
+Then, in your primary simulation driver, you could source these files.
 E.g.,
 
 \begin{Shaded}
@@ -11198,7 +11195,12 @@ E.g.,
 \end{Highlighting}
 \end{Shaded}
 
-You might also have \texttt{pack\_simulation\_support.R} source the other two files, and then source the single simulation support file in your primay file.
+The \texttt{source()} command essentially ``cuts and pastes'' the contents of the given file into your R work session.
+If the file has code to run, it will run it.
+If the file has a list of methods, those methods will now be available for use.
+
+Alternatively, \texttt{pack\_simulation\_support.R} could, inside it, source the other two files.
+You would then only source the single simulation support file in your primay file.
 
 One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, like described above), testing each of your components.
 Then, when you are not focused on that component, you don't have to look at that testing code.
@@ -11227,7 +11229,7 @@ Modular programming is key.
 
 \section{Debugging with browser}\label{debugging-with-browser}
 
-Consider the code taken from a simulation:
+Consider the following code taken from a simulation:
 
 \begin{Shaded}
 \begin{Highlighting}[]
