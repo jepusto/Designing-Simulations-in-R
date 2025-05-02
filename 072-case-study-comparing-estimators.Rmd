@@ -4,21 +4,18 @@ rm( list = ls() )
 ```
 
 
-
 # Case study: Comparing different estimators
 
 *Features of this case study*
+
  - Calculating performance metrics by estimator using tidyverse.
  - Visualization of simulation results.
  - Construction of the classic Bias + SE + RMSE performance plot.
  
  
-In this case study we examine a simulation where we wish to compare different forms of
-estimator for estimating the same thing. We still generate data, evaluate it,
-and see how well our evaluation works. The difference is we now evaluate it
-multiple ways, storing how the different ways work.
-
-For our simple working example we are going to compare estimation of the
+In this case study we conduct a simulation where we wish to compare different forms of
+estimator for estimating the same thing.
+In particular, we are going to compare estimation of the
 center of a symmetric distribution via mean, trimmed mean, and median (so the
 mean and median are the same).  These are the three estimation strategies
 that we might be comparing in a paper (pretend we have "invented" the trimmed
@@ -27,8 +24,7 @@ mean and want to demonstrate its utility).
 We are, as usual, going to break building this simulation evaluation down into lots of
 functions to show the general framework. This framework can readily be
 extended to more complicated simulation studies.
-This case study illustrates how methodologists might compare different strategies for estimation, and is
-closest to what we might see in the "simulation" section of a stats paper.
+This case study illustrates how methodologists might compare different strategies for estimation, and is what we might see in the "simulation" section of a stats paper.
 
 ## The data generating process
 
@@ -37,33 +33,26 @@ the standard deviation will always be 1 but we will have different fatness of
 tails (high chance of outliers):
 
 ```{r}
-gen.data = function( n, df0 ) {
-    rt( n, df=df0 ) / sqrt( df0 / (df0-2) )
+gen.data = function( n, mu, df0 ) {
+    mu + rt( n, df=df0 ) / sqrt( df0 / (df0-2) )
 }
 ```
 
-The variance of a $t$ is $df/(df-2)$, so if we divide our observations by the
-square root of this, we will standardize them so they have unit variance.
-See, the standard deviation is 1 (up to random error, and as long as df0 >
+The variance of a $t$ distribution is $df/(df-2)$, so when we divide our observations by the
+square root of this, we standardize them so they have unit variance.
+See, the standard deviation of our data is 1 (up to random error, and as long as df0 >
 2)!:
 
 ```{r}
-sd( gen.data( 100000, df0 = 3 ) )
+sd( gen.data( 100000, mu = 0, df0 = 3 ) )
 ```
-
 
 (Normally our data generation code would be a bit more fancy.)
 
-We next define the parameter we want (in our case this is the mean, is what
-we are trying to estimate):
-
-```{r}
-mu = 0
-```
 
 ## The data analysis methods
 
-We then write a function that takes data and uses all our different
+We next write a function that takes our data and uses all our different
 estimators on it. We return a data frame of the three estimates, with each
 row being one of our estimators.  This is useful if our estimators return an
 estimate and a standard error, for example.
@@ -81,12 +70,12 @@ analyze.data = function( data ) {
 Let's test:
 
 ```{r}
-dt = gen.data( 100, 3 )
+dt = gen.data( 100, 0, 3 )
 analyze.data( dt )
 ```
 
 Note that we have bundled our multiple methods into a single function.
-With complex methods we generally advocate a separate function for each method, but sometimes for a target simulation having a host of methods wrapped in a single function is clean and tidy code.
+With complex methods we generally advocate a separate function for each method, but sometimes having a host of methods wrapped in a single function can still be clean and tidy code.
 
 Also note the three lines of output for our returned value.
 This long-form output will make processing the simulation results easier.
@@ -95,20 +84,18 @@ That being said, returning in wide format is also completely legitimate.
 
 ## The simulation itself
 
-To evaluate, do a bunch of times, and assess results. Let's start by looking
+To evaluate, we do a bunch of times, and assess results. Let's start by looking
 at a specific case. We generate 1000 datasets of size 10, and estimate the
 center using our three different estimators.
 
 ```{r}
-raw.exps <- replicate( 1000, {
-    dt = gen.data( n=10, df0=5 )
-    analyze.data( dt )
-}, simplify = FALSE )
-raw.exps = bind_rows( raw.exps, .id = "runID" )
+library( simhelpers )
+run_sim <- bundle_sim( gen.data, analyze.data )
+raw.exps <- run_sim( 1000, n=10, mu = 0, df0=5 )
 ```
 
-Note how our `.id` argument gives each simulation run an ID.  This can be
-useful to see how the estimators covary.
+<!--Note how our `.id` argument gives each simulation run an ID.  This can be
+useful to see how the estimators covary.-->
 
 We now have 1000 estimates for each of our estimators:
 ```{r}
@@ -136,14 +123,14 @@ Here we evaluate our 'mean' estimator:
 ```{r}
 filter( raw.exps, estimator == "mean" ) %>%
     pull( estimate ) %>%
-    estimator.quality( mu = mu )
+    estimator.quality( mu = 0 )
 ```
 
-Aside: Perhaps, code-wise, the above is piping having gone too far?  If you don't like this style, you can do
+Aside: Perhaps, code-wise, the above is piping gone too far?  If you don't like this style, you can do
 this:
 
 ```{r}
-estimator.quality( raw.exps$estimate[ raw.exps$estimator=="mean"], mu )
+estimator.quality( raw.exps$estimate[ raw.exps$estimator=="mean" ], mu = 0 )
 ```
 
 To do all our three estimators, we group by estimator and evaluate for each
@@ -165,7 +152,7 @@ Our function takes our two parameters of sample size and degrees of freedom, and
 ```{r}
 run.simulation = function( n, df0 ) {
     raw.exps <- replicate( 1000, {
-        dt = gen.data( n=n, df0=df0 )
+        dt = gen.data( n=n, mu = 0, df0=df0 )
         analyze.data( dt )
     }, simplify = FALSE )
     raw.exps = bind_rows( raw.exps, .id = "runID" )
