@@ -7,48 +7,21 @@ library(tidyverse)
 ```
 In this chapter, we present another detailed example of a simulation study to demonstrate how to put the principles of tidy, modular simulation into practice. 
 To illustrate the process of programming a simulation, we reconstruct the simulations from @brown1974SmallSampleBehavior.
-We also use this case study as a recurring example in some of the following chapters.
+We will also use this case study as a recurring example in some of the following chapters.
 
 @brown1974SmallSampleBehavior studied methods for null hypothesis testing in studies that measure a characteristic $X$ on samples from each of several groups. They consider a population consisting of $G$ separate groups, with population means $\mu_1,...,\mu_G$ and population variances $\sigma_1^2,...,\sigma_G^2$ for the characteristic $X$.
-We obtain samples of size $n_1,...,n_G$ from each of the groups, and take measurements of the characteristic for each sampled unit.
+A researcher obtains samples of size $n_1,...,n_G$ from each of the groups and takes measurements of the characteristic for each sampled unit.
 Let $x_{ig}$ denote the measurement from unit $i$ in group $g$, for $i = 1,...,n_g$ for each $j = 1,..., G$.
-The analyst's goal is to use the sample data to test the hypothesis that the population means are all equal
+The researcher's goal is to use the sample data to test the hypothesis that the population means are all equal
 $$
 H_0: \mu_1 = \mu_2 = \cdots = \mu_G.
 $$
 
-If the population _variances_ were all equal (so $\sigma_1^2 = \sigma_2^2 = \cdots = \sigma_G^2$), we could use a conventional one-way analysis of variance (ANOVA) to test.
+If the population _variances_ were all equal (so $\sigma_1^2 = \sigma_2^2 = \cdots = \sigma_G^2$), we could use a conventional one-way analysis of variance (ANOVA) to conduct this test.
 However, one-way ANOVA might not work well if the variances are not equal.
-The question is then what are best practices for testing the null of equal group means, allowing for the possibility that variances could differ across groups (a form of heteroskedasticity).
+The question is then: what are best practices for testing the null of equal group means, allowing for the possibility that variances could differ across groups?
 
-To tackle this question, Brown and Forsythe evaluated two different hypothesis testing procedures, developed by @james1951ComparisonSeveralGroups and @welch1951ComparisonSeveralMean, which avoid the assumption that all groups have equal equality of variances.
-Brown and Forsythe also evaluated the conventional one-way ANOVA F-test as a benchmark, even though this procedure maintains the assumption of equal variances.
-They also proposed and evaluated a new procedure of their own devising.[^typical-stats-methods]
-Overall, the simulation involves comparing the performance of these different hypothesis testing procedures (the methods) under a range of conditions (different data generating processes) with different sample sizes and different degrees of heteroskedasticity.
-
-[^typical-stats-methods]: This latter piece makes Brown and Forsythe's study a prototypical example of a statistical methodology paper: find some problem that current procedures do not perfectly solve, invent something to do a better job, and then do simulations and/or math to build a case that the new procedure is better.
-
-When evaluating hypothesis testing procedures, there are two main performance metrics of interest: type-I error rate and power.
-The type-I error rate is the rate at which a test rejects the null hypothesis when the null hypothesis is actually true.
-To apply a hypothesis testing procedure, one has to specify a desired, or nominal, type-I error rate, often denoted as the $\alpha$-level. 
-For a specified $\alpha$, a valid or well-calibrated test should have an actual type-I error rate less than or equal to the nominal level, and ideally should be very close to nominal. 
-<!-- JEP: Do you have a source for the terminology of a _valid_ test? I'm kind of wary of calling it the validity of a test because validity is already such an overloaded term. In some of my work, I've written about type-I error as measuring whether the test is appropriately _calibrated_, which lines up with the idea of calibrating physical measurement instruments like scales or temperature gauges. -->
-<!-- LWM: I poked around and valid seems to be common usage.  (Lot of papers talk about valid testing, for example).  Not sure we would want to cite that term here?  But i am content with calibrated only if you prefer. -->
-Power is how often a test correctly rejects the null when it is indeed false.
-It is a measure of how sensitive a method is to violations of the null.
-
-Brown and Forsythe estimated error rates and power for nominal $\alpha$-levels of 1%, 5%, and 10%.
-Table 1 of their paper reports the simulation results for type-I error (labeled as "size").
-They looked at the different scenarios shown on Table \@ref(tab:BF-Scenarios), varying number of groups, group size, and amount of variation within each group.
-We also provide some of the results on Type I error that they reported in their Table 1 for these scenarios on Table \@ref(tab:BF-table1); for a properly working method, the reported numbers should be about the desired alpha levels, listed at the top of the table.
-We can compare the four tests to each other across each row, where each row is a specific scenario defined by a specific data generating process.
-Looking at ANOVA, for example, we see some scenarios with very elevated rates--consider Scenario E, for example, with 21.9% rejection when it should only have 10%.
-By contrast, scenario A is fine--which is what we expect as all the groups have the same variation; it is wise to always include contexts where we expect things to work, as well as when we expect them to not work, in our simulations.
-
-
-```{r BF-Scenarios, echo=FALSE, message = FALSE}
-library(kableExtra)
-
+```{r BF-scenarios-data, echo=FALSE}
 table_1_scenarios <- tribble(
   ~Groups, ~`Sample Sizes`,           ~`Standard Deviations`,
   "4",     "4,4,4,4",                 "1,1,1,1",
@@ -75,6 +48,20 @@ table_1_scenarios <- tribble(
   mutate(
     Scenario = LETTERS[1:n()]
   )
+```
+
+
+To tackle this question, Brown and Forsythe evaluated two different hypothesis testing procedures, developed by @james1951ComparisonSeveralGroups and @welch1951ComparisonSeveralMean, both of which avoid the assumption that all groups have equal equality of variances.
+Brown and Forsythe also evaluated the conventional one-way ANOVA F-test as a benchmark, even though this procedure maintains the assumption of equal variances.
+They also proposed and evaluated a new procedure of their own devising.[^typical-stats-methods]
+Their simulation involved comparing the performance of these different hypothesis testing procedures (the methods) under a range of conditions (different data generating processes) with different sample sizes and different degrees of heteroskedasticity.
+They looked at the different scenarios shown as Table \@ref(tab:BF-Scenarios), varying number of groups, group size, and amount of variation within each group.
+In all, there are a total of `r nrow(table_1_scenarios)` scenarios, covering conditions with between `r min(table_1_scenarios$Groups)` and `r max(table_1_scenarios$Groups)` groups.
+
+[^typical-stats-methods]: This latter piece makes Brown and Forsythe's study a prototypical example of a statistical methodology paper: find some problem that current procedures do not perfectly solve, invent something to do a better job, and then do simulations and/or math to build a case that the new procedure is better.
+
+```{r BF-Scenarios, echo=FALSE, message = FALSE}
+library(kableExtra)
 
 table_1_scenarios %>%
   relocate(Scenario) %>%
@@ -86,6 +73,26 @@ table_1_scenarios %>%
     bootstrap_options = c("striped","compact","hover")
   ) 
 ```
+
+
+
+When evaluating hypothesis testing procedures, there are two main performance metrics of interest: type-I error rate and power.
+The type-I error rate is the rate at which a test rejects the null hypothesis when the null hypothesis is actually true.
+To apply a hypothesis testing procedure, one has to specify a desired, or nominal, type-I error rate, often denoted as the $\alpha$-level. 
+For a specified $\alpha$, a valid or well-calibrated test should have an actual type-I error rate less than or equal to the nominal level, and ideally should be very close to nominal. 
+<!-- JEP: Do you have a source for the terminology of a _valid_ test? I'm kind of wary of calling it the validity of a test because validity is already such an overloaded term. In some of my work, I've written about type-I error as measuring whether the test is appropriately _calibrated_, which lines up with the idea of calibrating physical measurement instruments like scales or temperature gauges. -->
+<!-- LWM: I poked around and valid seems to be common usage.  (Lot of papers talk about valid testing, for example).  Not sure we would want to cite that term here?  But i am content with calibrated only if you prefer. -->
+Power is how often a test correctly rejects the null when it is indeed false.
+It is a measure of how sensitive a method is to violations of the null.
+
+Brown and Forsythe estimated error rates and power for nominal $\alpha$-levels of 1%, 5%, and 10%.
+Table 1 of their paper reports the simulation results for type-I error (labeled as "size").
+Our Table \@ref(tab:BF-table1) reports some of their results with respect to Type I error.
+For a well-calibrated hypothesis testing method, the reported numbers should be very close to the desired alpha levels, as listed at the top of the table.
+We can compare the four tests to each other across each row, where each row is a specific scenario defined by a specific data generating process.
+Looking at ANOVA, for example, we see some scenarios with very elevated rates. For instance, in Scenario E, the ANOVA F-test has  21.9% rejection when it should only have 10%.
+In contrast, the ANOVA F works fine under scenario A, which is what one would expect because all the groups have the same variance. 
+Brown and Forsythe's choice of scenarios here illustrates a broader design principle: to provide a full picture of the performance of a method or set of methods, it is wise to always evaluate them under conditions where we expect things to work, as well as conditions where we expect them to not work well.
 
 
 ```{r BF-table1, echo=FALSE}
@@ -162,7 +169,7 @@ table_1 <-
 table_1 %>%
   #relocate( Scenario, Group ) %>%
   kbl( 
-    caption='Portion of "Table 1" reproduced from Brown and Forsythe',
+    caption='Portion of "Table 1" reproduced from Brown and Forsythe (1974)',
     col.names = c("Scenario", rep(c("10%","5%","1%"), times = 4))
   ) %>%
   kable_styling(
@@ -172,10 +179,8 @@ table_1 %>%
   add_header_above(c(" " = 1, "ANOVA F test" = 3, "B & F's F* test" = 3,"Welch's test" = 3, "James' test" = 3))
 ```
 
-
 To replicate the Brown and Forsythe simulation, we will first write functions to generate data for a specified scenario and evaluate data of a given structure.
-We will then use these functions to write a simulation to evaluate the hypothesis testing procedures in a specific scenario with a specific set of core parameters (e.g., sample sizes, number of groups, and so forth). We will finally then scale up to do a range of scenarios where we vary the parameters of the data-generating model.
-
+We will then use these functions to evaluate the hypothesis testing procedures in a specific scenario with a particular set of parameters (e.g., sample sizes, number of groups, and so forth). We will then scale up to execute the simulations for a range of scenarios that vary the parameters of the data-generating model, just as reported in Brown and Forsythe's paper.
 
 ## The data-generating model
 
@@ -206,27 +211,30 @@ sigma_long <- rep(sqrt(sigma_sq), times = sample_size)
 
 # See what we have?
 tibble( group = group, mu = mu_long, sigma = sigma_long )
+```
 
+Now we have the pieces needed to generate a small dataset consisting of group memberships and the measured characteristic:
+
+```{r}
 # Now make our data
 x <- rnorm(N, mean = mu_long, sd = sigma_long)
 dat <- tibble(group = group, x = x)
 dat
+
 ```
 
-We have made a small dataset of group membership and outcome.
 We have followed the strategy of first constructing a dataset with parameters for each observation in each group, making heavy use of base R's `rep()` function to repeat values in a list.
 We then called `rnorm()` to generate `N` observations in all. 
-This works because `rnorm()` is _vectorized_; if you give it a vector or vectors of parameter values, it will generate each subsequent observation according to the next entry in the vector. As a result, the first `x` value is simulated from a normal distribution with mean `mu_long[1]` and standard deviation `sd_long[1]`, the second `x` is simulated using `mu_long[2]` and `sd_long[2]`, and so on.
+This works because `rnorm()` is _vectorized_; if you give it a vector (or vectors) of parameter values, it will generate each subsequent observation according to the next entry in the vector. As a result, the first `x` value is simulated from a normal distribution with mean `mu_long[1]` and standard deviation `sd_long[1]`, the second `x` is simulated using `mu_long[2]` and `sd_long[2]`, and so on.
 
 As usual, there are many different and legitimate ways of doing this in R.
 For instance, instead of using `rep()` to do it all at once, we could generate observations for each group separately, then stack the observations into a dataset.
 Do not worry about trying to writing code the "best" way---especially when you are initially putting a simulation together.
-We strongly believe in adage that if you can do it at all, then you should feel good about yourself.
-<!-- LWM: I made the above paragraph not a footnote since I thought it deserved more light.  Put back if desired. -->
+If you can find a way to accomplish your task at all, then that's often enough (and you should feel good about it!).
 
 ### Now make a function
 
-Because we will need to generate datasets over and over, we wrap our code in a function.
+Because we will need to generate datasets over and over, we will wrap our code in a function.
 The inputs to the function will be the parameters of the model that we specified at the very beginning: the set of population means `mu`, the population variances `sigma_sq`, and sample sizes `sample_size`. We make these quantities arguments of the data-generating function so that we can make datasets of different sizes and shapes:
 
 ```{r generate_data_block}
@@ -246,10 +254,10 @@ generate_data <- function(mu, sigma_sq, sample_size) {
 }
 ```
 
-The above code is simply the code we built previously, all bundled up.
+The function is simply the code we built previously, all bundled up.
 We developed the function by first writing code to make the data-generating process to work once, the way we want, and only then turning the final code into a function for later reuse.
 
-Once we have turned the code into a function, we can call to get a new set of simulated data.
+Once we have turned the code into a function, we can call it to get a new set of simulated data.
 For example, to generate a dataset with the same parameters as before, we can do:
 
 ```{r}
@@ -259,7 +267,7 @@ sim_data <- generate_data(
   sample_size = sample_size
 )
 
-sim_data
+str(sim_data)
 ```
 
 To generate one with population means of zero in all the groups, but the same group variances and sample sizes as before, we can do:
@@ -271,7 +279,7 @@ sim_data_null <- generate_data(
   sample_size = sample_size
 )
 
-sim_data
+str(sim_data)
 ```
 
 Following the principles of tidy, modular simulation, we have written a function that returns a rectangular dataset for further analysis. 
@@ -285,15 +293,14 @@ In the above, we built some sample code, and then bundled it into a function by 
 In the process, we shifted from having variables in our workspace with different names to using those variable names as parameters in our function call.
 
 Developing code in this way is not without hazards.
-In particular, after finishing making our function, our workspace has a variable `mu` in it and our function also has a parameter named `mu`.
+In particular, after we have created our function, our workspace is left with a variable `mu` in it and our function also has a parameter named `mu`.
 Inside the function, R will use the parameter `mu` first, but this is potentially confusing.
-As are, potentially, lines such as `mu = mu`, which means "set the function's parameter called `mu` to the variable called `mu`."
+Another potential source of confusion are lines such as `mu = mu`, which means "set the function's parameter called `mu` to the variable called `mu`."
 These are different things (with the same name).
 
-One way to check your code, once a function is built, is to comment out the initial code (or delete it), restart R, or at least clear out the workspace, and then re-run the code that uses the function.
-If things still work, then you should be somewhat confident that you successfully bundled your code into the function.
-
-You can also, once you bundle your code, do a search and replace to change variable names in your function to something more generic, to make the separation more clear.
+Once  you have built a function, one way to check that it is working properly is to comment out the initial code (or delete it), clear out the workspace (or restart R), and then re-run the code that uses the function.
+If things still work, then you can be somewhat confident that you have successfully bundled your code into the function.
+Once you bundle your code, you can also do a search and replace to change the variable names inside your function to something more generic, to better clarify the distinction betwen object names and argument names.
 
 ## The hypothesis testing procedures
 
@@ -347,9 +354,8 @@ For further discussion of the trade-offs, see Chapter \@ref(optimize-code), wher
 We now have functions that implement steps 2 and 3 of the simulation.
 Given some parameters, `generate_data` produces a simulated dataset and, given some data, `ANOVA_Welch_F`  calculates $p$-values two different ways.
 We now want to know which way is better, and by how much.
-To answer this question, we next need to repeat this chain of calculations a bunch of times.
-
-We first make a function that puts our chain together in a single method:
+To answer this question, we will need to repeat the chain of generate-and-analyze calculations a bunch of times.
+To facilitate repetition, we first put the components together into a single function:
 ```{r}
 one_run = function( mu, sigma_sq, sample_size ) {
   sim_data <- generate_data(
@@ -362,30 +368,32 @@ one_run = function( mu, sigma_sq, sample_size ) {
 
 one_run( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size )
 ```
-This function implements a single simulation trial by generating artificial data and then analyzing the data, ending with a nice dataframe or tibble that has results for the single run.
+This function implements a single simulation trial by generating artificial data and then analyzing the data, ending with a tidy dataset that has results for the single run.
 
-We next call `one_run()` over and over; see \@ref(repeating-oneself) for some discussion of options.
-The following uses `map_df` to run `one_run()` 4 times and then stack the results into a single data frame:
+We next call `one_run()` over and over; see Appendix \@ref(repeating-oneself) for some discussion of options.
+The following uses `repeat_and_stack()` from `simhelpers` to evaluate `one_run()` 4 times and then stack the results into a single dataset:
 
 ```{r}
-sim_data <- map_df(
-  1:4, 
-  ~ one_run(
-      mu = mu, 
-      sigma_sq = sigma_sq, 
-      sample_size = sample_size
-    )
+library(simhelpers)
+
+sim_data <- repeat_and_stack(4, 
+  one_run(
+    mu = mu, 
+    sigma_sq = sigma_sq, 
+    sample_size = sample_size
+  )
 )
 sim_data
 ```
 
 Voila! We have simulated $p$-values!
 
-## Summarizing Test Performance
+## Summarizing test performance
 
 We now have all the pieces in place to reproduce the results from Brown and Forsythe (1974).
 We first focus on calculating the actual type-I error rate of these tests---that is, the proportion of the time that they reject the null hypothesis of equal means when that null is actually true---for an $\alpha$-level of .05.
-We therefore need to simulate data according to process where the population means are indeed all equal. Arbitrarily, we start with $G = 4$ groups and set all of the means equal to zero:
+To evaluate the type-I error rate, we need to simulate data from a process where the population means are indeed all equal. 
+Arbitrarily, let's start with $G = 4$ groups and set all of the means equal to zero:
 
 ```{r}
 mu <- rep(0, 4)
@@ -401,19 +409,18 @@ sigma_sq <- c(3, 2, 2, 1)^2
 With these parameter values, we can use `map_dfr` to simulate 10,000 $p$-values:
 
 ```{r welch_sim_1, cache=TRUE}
-p_vals <- map_dfr(1:10000, 
-  ~ one_run(
-      mu = mu,
-      sigma_sq = sigma_sq,
-      sample_size = sample_size
-    ) 
+p_vals <- repeat_and_stack(10000, 
+  one_run(
+    mu = mu,
+    sigma_sq = sigma_sq,
+    sample_size = sample_size
+  ) 
 )
-
-p_vals
 ```
 
-We next use our replications to calculate the rejection rates.
-The rule is that the null is rejected if the $p$-value is less than $\alpha$. To get the rejection rate, calculate the proportion of replications where the null is rejected.
+We can estimate the rejection rates by summarizing across these replicated p-values.
+The rule is that the null is rejected if the $p$-value is less than $\alpha$. 
+To get the rejection rate, we calculate the proportion of replications where the null is rejected:
 ```{r}
 sum(p_vals$ANOVA < 0.05) / 10000
 ```
@@ -433,11 +440,11 @@ mean(p_vals$Welch < 0.05)
 The Welch test does much better, although it appears to be a little bit in excess of 0.05.
 
 Note that these two numbers are quite close (though not quite identical) to the corresponding entries in Table 1 of Brown and Forsythe (1974). The difference is due to the fact that both Table 1 and are results are actually _estimated_ rejection rates, because we have not actually simulated an infinite number of replications. The estimation error arising from using a finite number of replications is called _simulation error_ (or _Monte Carlo error_).
-Later on in Chapter \@ref(performance-criteria), we will look more at how to estimate and control the Monte Carlo simulation error in performance measures.
+In Chapter \@ref(performance-criteria), we will look more at how to estimate and control the Monte Carlo simulation error in performance measures.
 
 So there you have it! Each part of the simulation is a distinct block of code, and together we have a modular simulation that can be easily extended to other scenarios or other tests.
-In the exercises, you will extend this framework, and get to experience first-hand how an initial structure such as this is easier to work with than a single, monolithic block of code.
-
+The exercises at the end of this chapter ask you to extend the framework further. 
+In working through them, you will get to experience first-hand how the modular code that we have started to develop is easier to work with than a single, monolithic block of code.
 
 ## Exercises {#exAnovaExercises}
 
@@ -449,18 +456,22 @@ The following exercises involve exploring and tweaking the above simulation code
 
 3. In the primary paper, Table 1 is about Type I error and Table 2 is about power.  A portion of Table 2 follows:
 
-```{r BF_power}
-pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`,
-                "1,1,1,1",   "0,0,0,0", 4.9, 5.1, 5.0,
-                "",          "1,0,0,0", 68.6, 67.6, 65.0,
-                "3,2,2,1",   "0,0,0,0",  NA, 6.2, 5.5, 
-                "",         "1.3,0,0,1.3", NA, 42.4, 68.2
-                )
-knitr::kable( pow )
-```
-
-In the table, the sizes of the four groups are 11, 16, 16, and 21, for all the scenarios.
-Try simulating the **power levels** for a couple of sets of parameter values from Table \@ref(tab:BF_power). Use 10,000 replications. How do your results compare to the results reported in the Table?
+    ```{r BF-power, echo = FALSE}
+    pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`,
+                    "1,1,1,1",   "0,0,0,0", 4.9, 5.1, 5.0,
+                    "",          "1,0,0,0", 68.6, 67.6, 65.0,
+                    "3,2,2,1",   "0,0,0,0",  NA, 6.2, 5.5, 
+                    "",         "1.3,0,0,1.3", NA, 42.4, 68.2
+                    )
+    
+    pow %>%
+      kbl(caption = 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)')
+    ```
+    
+    In the table, the sizes of the four groups are 11, 16, 16, and 21, for all the scenarios.
+    Try simulating the **power levels** for a couple of sets of parameter values from Table \@ref(tab:BF-power). 
+    Use 10,000 replications. 
+    How do your results compare to the results reported in the Table?
 
 4. Instead of making `ANOVA_Welch_F` return a single row with the columns for the $p$-values, one could instead return a dataset with one row for each test. The "long" approach is often nicer when evaluating more than two methods, or when each method returns not just a $p$-value but other quantities of interest. For our current simulation, we might also want to store the $F$ statistic, for example. The resulting dataset would then look like the following:
 
@@ -482,11 +493,15 @@ Try simulating the **power levels** for a couple of sets of parameter values fro
     ANOVA_Welch_F_long(sim_data)
     ```
 
-    Modify `ANOVA_Welch_F()` to do this, update your simulation code, and then use `group_by()` plus `summarise()` to calculate rejection rates of both tests.  `group_by()` is a method for dividing your data into distinct groups and conducting an operation on each.  The classic form of this would be something like:
+    Modify `ANOVA_Welch_F()` to return output in this format, update your simulation code, and then use `group_by()` plus `summarise()` to calculate rejection rates of both tests. 
+    `group_by()` is a method for dividing your data into distinct groups and conducting an operation on each. 
+    The classic form of this would be something like the following:
     
     ```{r, eval=FALSE}
-    sres <- res %>% group_by( method ) %>%
+    sres <- 
+      res %>% 
+      group_by( method ) %>%
       summarise( rejection_rate = mean( pvalue < 0.05 ) )
     ```
 
-5. The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means. Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise #4) to also include results from these hypothesis tests. Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table \@ref(tab:BF-Scenarios).
+5. The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means. Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise 4) to also include results from these hypothesis tests. Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table \@ref(tab:BF-Scenarios).
