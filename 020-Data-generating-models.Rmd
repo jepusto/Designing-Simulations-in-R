@@ -13,94 +13,132 @@ theme_set( theme_classic() )
 
 # Data-Generating Processes {#data-generating-processes}
 
-The data generating process (DGP) is the recipe we use to create fake data that we then analyze.
-Often we express our DGP as a specific model, with parameters that we can set to generate data.
-The advantage of this is, generally, when we generate from a specified model we know the "right answer," and can thus compare our estimates to this right answer in order to assess whether our estimation procedures worked.
+As we saw in Chapter \@ref(simulation-structure), the first step of a simulation is creating artificial data based on some process where we know (and can control) the truth. 
+This step is what we call the data generating process (DGP).
+We think of it as a recipe for creating artificial data, which can be applied over and over, any time we need to "cook" a new dataset. 
+Like a good recipe, a good DGP needs to be complete---it cannot be missing ingredients and it cannot skip steps in the process. 
+Unlike cooking or baking, however, DGPs are usually specified in terms of a statistical model, or a set of equations involving constants, parameter values, and random variables, which we will instantiate as an R function (or perhaps a set of functions). 
+More complex DGPs, such as those for hierarchical data or other latent variable models, will often involve a series of several equations that describe different dimensions or levels of the model, and which need to be followed in sequence to produce an artificial dataset.
+ 
+Designing DGPs and implementing them in R code involves making choices about what aspects of the model we want to be able to control and how to set up the parameters of the model.
+In this chapter, we will give a high-level overview of DGPs, discuss some of the choices and challenges involved in designing them, and demonstrate how to write R functions for the DGP.
+We then present a detailed example involving a hierarchical DGP for generating data on students nested within schools.
 
-The easiest way to describe a DGP is usually via a mathematical model, which is fundamentally a sequence of equations and random variables that define a series of steps.
-Describing DGPs in this way is especially important for more complex DGPs, such as those for hierarchical data.
-These models will often be a series of chained linear equations that use a set of parameters that we set out.
-Once we have them, we can convert these equations to code by simply following these laid out steps.
+## Examples {#DGP-examples}
 
-In this chapter, after giving a high level overview of the DGP process, we will walk through a running example of clustered data.
-In particular, we are going to focus on generating two-level data of students nested in schools.
+Before diving in, it is helpful to consider a few examples that we will return to throughout this and subsequent chapters. 
+First, let's look at a bivariate Poisson model. A bivariate poisson is a distribution for a pair of counts, $C_1,C_2$, where each count follows a Poisson distribution and where the pair of counts may be correlated. 
+We might want to use this model to understand how the usual Pearson sample correlation estimator behaves with non-normal data or to investigate how the Pearson correlation relates to Spearman's rank correlation coefficient.
+We will denote the expected values of the counts as $\mu_1$ and $\mu_2$ and the correlation between the counts as $\rho$. 
 
-There are several ingredients of a full mathematical model that we could use to generate data.
+To simulate a dataset based on this model, we would first need to choose how many observations to generate. Call this sample size $N$. 
+One way to generate data following a bivariate Poisson model is to generate _three_ independent Poisson random variables for each of the $N$ observations:
+$$
+\begin{aligned}
+Z_1 &\sim Pois\left(\mu_1 - \rho \sqrt{\mu_1 \mu_2}\right) \\
+Z_2 &\sim Pois\left(\mu_2 - \rho \sqrt{\mu_1 \mu_2}\right) \\
+Z_3 &\sim Pois\left( \rho \sqrt{\mu_1 \mu_2}\right) \\
+\end{aligned}
+$$
+and then combining the pieces to create two dependent observations:
+$$
+\begin{aligned}
+C_1 &= Z_1 + Z_3 \\
+C_2 &= Z_2 + Z_3.
+\end{aligned}
+$$
+An interesting feature of this model is that the range of possible correlations is constrained: only positive correlations are possible and, because each of the independent pieces must have a non-negative mean, the maximum possible correlation is $\min\{\sqrt{\frac{\mu_1}{\mu_2}},\sqrt{\frac{\mu_2}{\mu_1}}\}$.
 
-**COVARIATES, STRUCTURAL COVARIATES, and OUTCOMES**
-Covariates are the things that we are usually given when analyzing real data, such as student demographics, or school-level characteristics such as the school's treatment assignment.
-Structural covariates are covariates that we do not tend to think of as covariates per se; they are more just consequences of the data.
-These are elements such as the number of observations in each school or proportion treated in each school.
-
-In the real world statistical analysis, we rarely model covariates, but instead condition on them. 
-In a simulation, however, we have to decide how they come to be.
-
-Structural covariates are also a consequence of how we decide to generate data; for example, if we are generating sites of different size, we may put a distribution on site size, and generate the sizes according to that distribution.
-
-Outcomes are a type of covariate that are usually dependent on other covariates in our model.
-In other words, some covariates depend on other covariates, which can govern the order that we can generate all of our data.
-
-
-**MODEL**
-This is the parametric relationship between everything, such as a specification of how the outcomes are linked to the covariates.
-This includes specification of the randomness (the distribution of the residuals, etc.).
-The model will usually contain equations that one might see in an analysis of data that looks like what we are trying to generate.
-
-The full model will also have some extra parts that define how to generate the covariates and structural covariates.
-For example, we might specify that site sizes are uniformly distributed between a specified minimum and maximum size, or that some covariate is normally distributed.
-We might also specify an equation that connects size size to site average treatment impact, or things of that nature.
-
-
-**PARAMETERS**
-For a given model, parameters describe how strong a relationship there is between covariate and outcome, variance of the residuals, and so forth.
-We usually estimate these *from* data.
-Critically, if we know them, we can *generate new data*.
-
-**DESIGN PARAMETERS**
-Design parameters are the parameters that go with the parts of our model that we normally would not use when analyzing our data.
-These are, e.g., the number of sites, the range of allowed site sizes.
-These will control how we generate the structural covariates.
-We might also have parameters governing covariate generation, such as means and variances and so forth.
-
-
-For example, for the Welch data earlier we have, for observation $i$ in group $g$, a mathematical representation of our data of:
-
-$$ X_{ig} = \mu_g + \epsilon_{ig} \mbox{ with } \epsilon_{ig} \sim N( 0, \sigma^2_g ) $$
-
-These math equations would also come along with specified parameter values (the $\mu_g$, the $\sigma^2_g$), and the design parameter of the sample sizes $n_g$.
+As a second example, consider the one-way ANOVA example from Chapter \@ref(case-ANOVA). Here, we consider observations on some variable X$ drawn from a population consisting of $G$ groups, where group $g$ has population mean $\mu_g$ and population variance $\sigma_g^2$ for $g = 1,...,G$. 
+A simulated dataset consists of $n_g$ observations from each group $g = 1,...,G$, where $X_{ig}$ is the measurement for observation $i$ in group $g$.
+The statistical model for these data can be written as follows:
+$$ 
+X_{ig} = \mu_g + \epsilon_{ig}, \quad \mbox{with} \quad \epsilon_{ig} \sim N( 0, \sigma^2_g )
+$$
+Alternately, we could write the model as
+$$
+X_{ig} \sim N( \mu_g, \sigma_g^2 )
+$$
+for $i = 1,...,n_g$ and $g = 1,...,G$.
 
 
-## A statistical model is a recipe for data generation
+## Components of a DGP
 
-Once we have a recipe (our mathematical model), the next step is to translate it to code.
-In the real world:
+A DGP involves a statistical model with parameters and random variables, but it also often includes further details as well, beyond those that we would consider to be part of the model as we would use it for analyzing real data. 
+In statistical analysis of real data, we often use models that describe only _part_ of the distribution of the data, rather than its full, multivariate distribution.
+For instance, when conducting a regression analysis, we are analyzing the distribution of an outcome or response variable, conditional on a set of predictor variables.
+When using an item response theory (IRT) model, we use responses to a set of items to estimate individual ability levels given the items on the test.
+In contrast, if we are going to _generate_ data for simulating a regression model or IRT model, we need to specify distributions for these additional features (the predictors in a regression model, the items in an IRT model); we can no longer just take them as given.
 
-- We obtain data, we pick a model, we estimate parameters.
-- The data comes with covariates and outcomes.
-- It also comes with sample size, sizes of the clusters, etc.
+In designing and discussing DGPs, it is helpful to draw distinctions between the components of the focal statistical model and the remaining components of the DGP that are taken as given when analyzing real data. A first relevant distinction is between structural features, covariates, and outcomes (or more generally, endogenous quantities):
 
-In the simulation world, by comparison:
+* __Structural features__ are quantities that describe the structure of a dataset but do not enter directly into the focal statistical model, such as the per-group sample sizes in the one-way ANOVA example. 
+    When analyzing real data, we usually take the structural features as they come, but when simulating data, we will need to make choices about the structural features.
+    For instance, in a model for hierarchical data on students nested within schools, the number of students in each school is a structural feature. 
+    To simulate data based on the model, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data. 
+* __Covariates__ are variables in a dataset that we typically take as given when analyzing real data. 
+    For instance, in the one-way ANOVA example, the group assignments of each observation is a covariate.
+    In a hierarchical model, covariates would include variables such as student demographic information and past academic performance or school-level characteristics such as the school's geographic region or treatment assignment. 
+    When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that student academic performance is normally distributed).
+* __Outcomes and endogenous quantities__ are the variables whose distribution is described by the focal statistical model.
+    In the bivariate Poisson model, the outcomes consist of the component variables $Z_1,Z_2,Z_3$ and the observed counts $C_1,C_2$ because all of these quantities follow distributions that are specified as part of the focal model.
+    In the one-way ANOVA example, the outcome variable consists of the measurements $X_{ig}$ for $i = 1,...,n_g$ and $g = 1,...,G$.
+    The focal statistical model specifies the distribution of these variables, and we will be interested in estimating the parameters controlling their distribution.
 
-- We pick a model, we decide how much data, we generate covariates, we pick the parameters, and then we generate outcomes.
-- We need to decide how many clusters we have, how big the clusters are, etc.
-- We have to specify how the covariates are made.  This last piece is very different from real-world analysis.
+Note that the focal statistical model only determines this third component of the DGP. The focal model consists of the equations describing what we would aim to estimate when analyzing real data. 
+In contrast, the full statistical model also includes additional elements specify how to generate the structural features and covariates---the pieces that are taken as given when analyzing real data.
+Table \@ref(tab:real-vs-sim) contrasts the role of structural features, covariates, and outcomes in real data analysis versus in simulations.
 
-In terms of code, a function that implements a data-generating model should have the following form:
+Table: (\#tab:real-vs-sim) Real Data Analysis versus Simulation
+
+| Component | Real world                  | Simulation world            |
+|-----------|-----------------------------|-----------------------------|
+| Structural features  | We obtain data of a given sample size, sizes of clusters, etc. | We specify sample sizes, we specify how to generate cluster sizes |
+| Covariates           | Data come with covariates | We specify how to generate covariates |
+| Outcomes             | Data come with outcome variables | We generate outcome data based on a focal model |
+| Parameter estimation | We estimate a statistical model to learn about the unknown parameters | We estimate a statistical model and compare the results to the true parameters | 
+
+
+For a given DGP, the full statistical model might involve distributions for structural features, distributions for covariates, and distributions for outcomes given the covariates. 
+Each of these distributions will involve parameters that control the properties of the distribution (such as the average and degree of variation in a variable).
+We think of these parameters as falling into one of three categories: focal, auxiliary, or design.
+
+* __Focal__ parameters are the quantities that we care about and seek to estimate in real data analysis. 
+    These are typically parts of the focal statistical model, such as the correlation between counts $\rho$ in the bivariate Poisson model or the population means $\mu_1,...,\mu_G$ in the one-way ANOVA model.
+* __Auxiliary__ parameters are the other quantities that go into the focal statistical model, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis. 
+    For instance, in the bivariate Poisson model we might consider the average counts $\mu_1$ and $\mu_2$ to be auxiliary parameters; in the one-way ANOVA model, we would consider the population variances $\sigma_1^2,...,\sigma_G^2$ to be auxiliary if we are not interested in investigating how they vary from group to group. 
+* __Design__ parameters are the quantities that control how we generate structural features of the data. 
+    For instance, in a randomized experiment, the fraction of observations assigned to treatment is a design parameter that can be directly controlled by the researchers. 
+    In a hierarchical model, the design parameters might include the minimum and maximum number of students per school.
+    Typically, we do not directly estimate such parameters because we take the distribution of structural features as given.
+
+It is evident from this discussion that DGPs can involve _many_ moving parts. 
+One of the central challenges in specifying DGPs is that the performance of estimation methods will generally be affected by the _full_ statistical model---including the design parameters and distribution of structural features and covariates---even though they are not part of the focal model.
+
+## A statistical model is a recipe for data generation {#DGP-functions}
+
+Once we have decided on a full statistical model and written it down in mathematical terms, we need to translate it into code. 
+A function that implements a data-generating model should have the following form:
 ```{r}
-generate_data <- function(parameters) {
+generate_data <- function(
+    focal_parameters,
+    auxiliary_parameters,
+    design_parameters
+) {
   
-  # generate pseudo-random numbers and use those to
-  # make some data
+  # generate pseudo-random numbers and use those to make some data
   
   return(sim_data)
 }
 ```
 
 The function takes a set of parameter values as input, simulates random numbers and does calculations, and produces as output a set of simulated data.
-Again, there will in general be multiple parameters, and these will include not only the model parameters (e.g. the coefficients of a regression), but also sample sizes and other study design parameters.
-The output will typically be a dataframe, mimicking what data one would see in the "real world," possibly augmented by some other latent (normally unobserved in the real world) values that we can use later on to assess whether the estimation procedures we are checking are close to the truth.
+Typically, the inputs will consist of multiple parameters, and these will include not only the focal model parameters, but also the auxiliary parameters, sample sizes, and other design parameters.
+The output will typically be a dataset, mimicking what one would see in an analysis of real data.
+In some cases, the output data might be augmented with some other latent quantities (normally unobserved in the real world)  that can be used later to assess whether an estimation procedure produces results that are close to the truth.
 
-For example, from our Welch case study, we had the following method that generates grouped data with a single outcome.
+We have already seen an example of a complete DGP function in the case study on one-way ANOVA (see Section \@ref(case-anova-DGP)).
+In this case study, we developed the following function to generate data for a single outcome from a set of $G$ groups:
 
 ```{r}
 generate_data <- function(mu, sigma_sq, sample_size) {
@@ -108,59 +146,97 @@ generate_data <- function(mu, sigma_sq, sample_size) {
   N <- sum(sample_size) 
   g <- length(sample_size) 
   
-  group <- rep(1:g, times = sample_size) 
-  mu_long <- rep(mu, times = sample_size)
-  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
+  group <- factor( rep(1:g, times = sample_size) )
+  mu_long <- rep( mu, times = sample_size )
+  sigma_long <- rep( sqrt(sigma_sq), times = sample_size ) 
   
-  x <- rnorm(N, mean = mu_long, sd = sigma_long)
-  sim_data <- tibble(group = group, x = x)
+  x <- rnorm( N, mean = mu_long, sd = sigma_long )
+  sim_data <- tibble( group = group, x = x )
   
   return(sim_data)
 }
 ```
 
-Our function takes both parameters as we normally thing of them (`mu`, `sigma_sq`), and other values that we might not think of as parameters per-se (`sample_size`).
-When simulating data, we have to specify quantities that we, when analyzing data, often have to take for granted.
+This function takes both the focal model parameters (`mu`, `sigma_sq`) and other design parameters that one might not think of as parameters per-se (`sample_size`).
+When simulating, we have to specify quantities that we take for granted when analyzing real data.
 
-
+How would we write a DGP function for the bivariate Poisson model? The equations in Section \@ref(DGP-examples) give us the recipe, so it just a matter of re-expressing them in code.
+For this model, the only design parameter is the sample size, $N$;
+the sole focal parameter is the correlation between the variates, $\rho$; and
+the auxiliary parameters are the expected counts $\mu_1$ and $\mu_2$.
+Our function should have all four of these quantities as inputs and should produce as output a dataset with two variables, $C_1$ and $C_2$. 
+Here is one way to implement the model:
+```{r}
+r_bivariate_Poisson <- function(N, rho, mu1, mu2) {
+  
+  # covariance term, equal to E(Z_3)
+  EZ3 <- rho * sqrt(mu1 * mu2) 
+  
+  # Generate independent components
+  Z1 <- rpois(N, lambda = mu1 - EZ3)
+  Z2 <- rpois(N, lambda = mu2 - EZ3)
+  Z3 <- rpois(N, lambda = EZ3)
+  
+  # Assemble components
+  dat <- data.frame(
+    C1 = Z1 + Z3,
+    C2 = Z2 + Z3
+  )
+  
+  return(dat)
+}
+```
+Here we generate 5 observations from the bivariate Poisson with $\rho = 0.5$ and $\mu_1 = \mu_2 = 4$:
+```{r}
+r_bivariate_Poisson(5, rho = 0.5, mu1 = 4, mu2 = 4)
+```
 
 
 ## Checking the data-generating function
 
-An important part of programming in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Thus, after writing a data-generating function, we need to consider how to test whether the output it produces is correct. How best to do this will depend on the data-generating process being implemented. 
+An important part of programming in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Just writing a data-generating function is not enough. It is also _critical_ to test whether the output it produces is correct. How best to do this will depend on the particulars of the DGP being implemented. 
 
-For the heteroskedastic ANOVA problem, one basic thing we could do is check that the simulated data from each group follows a normal distribution. By generating very large samples from each group, we can effectively check characteristics of the population distribution.
+For many DGPs, a broadly useful strategy is to generate a very large sample of data, so large that the sample distribution should very closely resemble the population distribution.
+One can then test whether features of the sample distribution closely align with corresponding parameters of the population model.
+
+For the heteroskedastic ANOVA problem, one basic thing we could do is check that the simulated data from each group follows a normal distribution. 
 In the following code, we simulate very large samples from each of the four groups, and check that the means and variances agree with the input parameters:
 
 ```{r, fig.width = 4, fig.height = 4, fig.show = "hold"}
 mu <- c(1, 2, 5, 6)
 sigma_sq <- c(3, 2, 5, 1)
 
-check_data <- generate_data( mu = mu, sigma_sq = sigma_sq,
-                             sample_size = rep(10000, 4) )
+check_data <- generate_data( 
+  mu = mu, 
+  sigma_sq = sigma_sq,
+  sample_size = rep(10000, 4) 
+)
 
-chk <- check_data %>% group_by( group ) %>%
-  dplyr::summarise( n = n(),
-                    mean = mean( x ),
-                    var = var( x ) ) %>%
-  mutate( mu = mu,
-          sigma2 = sigma_sq ) %>%
+chk <- 
+  check_data %>% 
+  group_by( group ) %>%
+  dplyr::summarise(
+    n = n(),
+    mean = mean(x),
+    var = var(x)
+  ) %>%
+  mutate(mu = mu, sigma2 = sigma_sq) %>% 
   relocate( group, n, mean, mu, var, sigma2 )
 chk
 ```
-
-We are recovering our parameters.
+It seems we are recovering our parameters.
 
 We can also make some diagnostic plots to assess whether we have normal data (using QQ plots, where we expect a straight line if the data are normal):
 ```{r}
-ggplot( check_data, aes( sample=x ) ) +
+ggplot( check_data ) +
+  aes( sample = x, color = group ) + 
   facet_wrap( ~ group ) +
-  stat_qq()
+  stat_qq() + stat_qq_line()
 ```
-
-We again check out.
+This diagnostic looks good too.
 Here, these checks may seem a bit silly, but most bugs are silly---at least once you find them!
-It is easy for small things such as a sign error to happen once your model gets a bit more complex; even simple checks such as these can be quite helpful.
+In models that are even a little bit more complex, it is quite easy for small things such as a sign error to slip into your code.
+Even simple checks such as these can be quite helpful in catching such bugs.
 
 
 ## Example: Simulating clustered data {#case-cluster}
@@ -524,6 +600,28 @@ dat <- gen_dat_model( n_bar = 20, J = 30, p = 0.5,
 
 ## Exercises 
 
+### Check the bivariate Poisson function
+
+In Section \@ref(DGP-functions), we provided an example of a DGP function for the bivariate Poisson model. However, we have not demonstrated how to check that the function is correct---we're leaving that to you! 
+Write some code to verify that the function `r_bivariate_Poisson()` is working properly. 
+Do this by generating a very large sample (say $N = 10^4$ or $10^5$) and verifying the following:
+
+* The sample means of $C_1$ and $C_2$ align with the specified population means.
+* The sample variances of $C_1$ and $C_2$ are close to the specified population means (because for a Poisson distribution $\mathbb{E}(C_p) = \mathbb{V}(C_p)$ for $p = 1,2$).
+* The sample correlation aligns with the specified population correlation.
+* The observed counts $C_1$ and $C_2$ follow Poisson distributions.
+
+### Add error-catching to the bivariate Poisson function 
+
+In Section \@ref(DGP-examples), we noted that the bivariate Poisson function as we described it can only produce a constrained range of correlations, which a maximum value that depends on the ratio of $\mu_1$ to $\mu_2$. 
+Our current implementation of the model does not handle this aspect of the model very well:
+```{r}
+r_bivariate_Poisson(5, rho = 0.6, mu1 = 4, mu2 = 12)
+```
+For this combination of parameter values, $\rho \times \sqrt{\mu_1 \mu_2}$ is larger than $\mu_1$, which leads to simulated values for $C_1$ that are all missing.
+That makes it pretty hard to compute the correlation between $C_1$ and $C_2$.
+
+Please help us fix this issue! Revise `r_bivariate_Poisson()` so that it checks for allowable values of $\rho$. If the user specifies a combination of parameters that does not make sense, make the function throw an error (using R's `stop()` function).
 
 ### The Welch test on a shifted-and-scaled $t$ distribution {#ex_dgp}
 
