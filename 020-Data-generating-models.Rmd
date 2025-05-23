@@ -35,16 +35,16 @@ To simulate a dataset based on this model, we would first need to choose how man
 One way to generate data following a bivariate Poisson model is to generate _three_ independent Poisson random variables for each of the $N$ observations:
 $$
 \begin{aligned}
+Z_0 &\sim Pois\left( \rho \sqrt{\mu_1 \mu_2}\right) \\
 Z_1 &\sim Pois\left(\mu_1 - \rho \sqrt{\mu_1 \mu_2}\right) \\
-Z_2 &\sim Pois\left(\mu_2 - \rho \sqrt{\mu_1 \mu_2}\right) \\
-Z_3 &\sim Pois\left( \rho \sqrt{\mu_1 \mu_2}\right) \\
+Z_2 &\sim Pois\left(\mu_2 - \rho \sqrt{\mu_1 \mu_2}\right)
 \end{aligned}
 $$
 and then combining the pieces to create two dependent observations:
 $$
 \begin{aligned}
-C_1 &= Z_1 + Z_3 \\
-C_2 &= Z_2 + Z_3.
+C_1 &= Z_0 + Z_1 \\
+C_2 &= Z_0 + Z_2.
 \end{aligned}
 $$
 An interesting feature of this model is that the range of possible correlations is constrained: only positive correlations are possible and, because each of the independent pieces must have a non-negative mean, the maximum possible correlation is $\min\{\sqrt{\frac{\mu_1}{\mu_2}},\sqrt{\frac{\mu_2}{\mu_1}}\}$.
@@ -600,7 +600,7 @@ dat <- gen_dat_model( n_bar = 20, J = 30, p = 0.5,
 
 ## Exercises 
 
-### Check the bivariate Poisson function
+### Check the bivariate Poisson function {#BVP-check}
 
 In Section \@ref(DGP-functions), we provided an example of a DGP function for the bivariate Poisson model. However, we have not demonstrated how to check that the function is correct---we're leaving that to you! 
 Write some code to verify that the function `r_bivariate_Poisson()` is working properly. 
@@ -611,7 +611,7 @@ Do this by generating a very large sample (say $N = 10^4$ or $10^5$) and verifyi
 * The sample correlation aligns with the specified population correlation.
 * The observed counts $C_1$ and $C_2$ follow Poisson distributions.
 
-### Add error-catching to the bivariate Poisson function 
+### Add error-catching to the bivariate Poisson function {#BVP-error}
 
 In Section \@ref(DGP-examples), we noted that the bivariate Poisson function as we described it can only produce a constrained range of correlations, which a maximum value that depends on the ratio of $\mu_1$ to $\mu_2$. 
 Our current implementation of the model does not handle this aspect of the model very well:
@@ -623,7 +623,68 @@ That makes it pretty hard to compute the correlation between $C_1$ and $C_2$.
 
 Please help us fix this issue! Revise `r_bivariate_Poisson()` so that it checks for allowable values of $\rho$. If the user specifies a combination of parameters that does not make sense, make the function throw an error (using R's `stop()` function).
 
-### The Welch test on a shifted-and-scaled $t$ distribution {#ex_dgp}
+### A bivariate negative binomial distribution {#BVNB1}
+
+One potential limitation of the bivariate Poisson distribution described above is that the variances of the counts are necessarily equal to the means (i.e., unit dispersion).
+This limitation is inherited from the univariate Poisson distributions that each variate follows.
+Just as with the corresponding univariate distributions, one way to relax this limitation is to consider distributions with marginals that are negative binomial rather than Poisson, thereby allowing for overdispersion.
+@Cho2023bivariate describes one type of bivariate negative binomial distribution. They provide a method for constructing a bivariate negative binomial distribution by using latent, gamma-distributed components. 
+Their algorithm involves first generating components from gamma distributions with specified shape and scale parameters:
+$$
+\begin{aligned}
+Z_0 &\sim \Gamma\left( \alpha_0, \beta\right) \\
+Z_1 &\sim \Gamma\left( \alpha_1, \beta\right) \\
+Z_2 &\sim \Gamma\left( \alpha_2, \beta\right)
+\end{aligned}
+$$
+for $\alpha_0,\alpha_1,\alpha_2 > 0$ and $\beta > 0$.
+Then simulate independent Poisson random variables as
+$$
+\begin{aligned}
+C_1 &\sim Pois\left( Z_0 + Z_1 \right) \\
+C_2 &\sim Pois\left( \delta(Z_0 + Z_2) \right).
+\end{aligned}
+$$
+The resulting count variables follow marginal negative binomial distributions with moments
+$$
+\begin{aligned}
+\mathbb{E}(C_1) &= (\alpha_0 + \alpha_1) \beta & \mathbb{V}(C_1) &= (\alpha_0 + \alpha_1) \beta (\beta + 1) \\
+\mathbb{E}(C_2) &= (\alpha_0 + \alpha_2) \beta \delta & \mathbb{V}(C_2) &= (\alpha_0 + \alpha_2) \beta \delta (\beta \delta + 1) \\
+& & \text{Cov}(C_1, C_2) &= \alpha_0 \beta^2 \delta.
+\end{aligned}
+$$
+The correlation between $C_1$ and $C_2$ is thus
+$$
+\text{cor}(C_1, C_2) = \frac{\alpha_0}{\sqrt{(\alpha_0 + \alpha_1)(\alpha_0 + \alpha_2)}} \frac{\beta \sqrt{\delta}}{\sqrt{(\beta + 1)(\beta \delta + 1)}}.
+$$
+
+1. Write a DGP function that implements this distribution. 
+
+2. Write some code to check that the function produces data where each variate follows a negative binomial distribution and where the correlation agrees with the formula given above.
+
+3. Consider parameter values that produce $\mathbb{E}(C_1) = \mathbb{E}(C_2) = 10$ and $\mathbb{V}(C_1) = \mathbb{V}(C_2) = 15$. What are the minimum and maximum possible correlations between $C_1$ and $C_2$? 
+
+### Another bivariate negative binomial distribution  {#BVNB2}
+
+Another model for generating bivariate counts with negative binomial marginal distributions is by using Gaussian copulas. Here is a mathematical recipe for this distribution, which will produce counts with marginal means $\mu_1$ and $\mu_2$ and marginal variances $\mu_1 + \mu_1^2 / p_1$ and $\mu_2 + \mu_2^2 / p_2$. Start by generating variates from a bivariate standard normal distribution with correlation $\rho$:
+$$
+\left(\begin{array}{c}Z_1 \\ Z_2 \end{array}\right) \sim N\left(\left[\begin{array}{c}0 \\ 0\end{array}\right], \ \left[\begin{array}{cc}1  & \rho \\ \rho & 1\end{array}\right]\right)
+$$
+Now find $U_1 = \Phi(Z_1)$ and $U_1 = \Phi(Z_1)$, where $\Phi()$ is the standard normal cumulative distribution function (called `pnorm()` in R).
+Then generate the counts by evaluating $U_1$ and $U_2$ with the negative binomial quantile function, $F_{NB}^{-1}(x | \mu, p)$ with mean parameters $\mu$ and size parameter $p$ (this function is called `qnbinom()` in R):
+$$
+C_1 = F_{NB}^{-1}(U_1 | \mu_1, p_1) \qquad C_2 = F_{NB}^{-1}(U_2 |  \mu_2, p_2).
+$$
+The resulting counts will be correlated, but the correlation will not be equal to $\rho$. 
+
+1. Write a DGP function that implements this distribution.
+
+2. Write some code to check that the function produces data where each variate follows a negative binomial distribution
+
+3. Use the function to create a graph showing the population correlation between the observed counts as a function of $\rho$. Use $\mu_1 = \mu_2 = 10$ and $p_1 = p_2 = 20$. How does the range of correlations compare to the range from Exercise \@ref(BVNB1)?
+
+
+### The Welch test on a shifted-and-scaled $t$ distribution {#Welch-t-dgp}
 
 The shifted-and-scaled $t$-distribution has parameters $\mu$ (mean), $\sigma$ (scale), and $\nu$ (degrees of freedom).
 If $T$ follows a student's $t$-distribution with $\nu$ degrees of freedom, then $S = \mu + \sigma T$ follows a shifted-and-scaled $t$-distribution.
@@ -641,32 +702,31 @@ r_tss(n = 8, mean = 3, sd = 2, df = 5)
 1. Modify the Welch simulation's `simulate_data()` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
 Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
 
-2. Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (generate a big dataset to ensure you get reliable mean and standard deviation estimates).  Check `df` equal to 500, 5, 3, and 2.
+2. Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (i.e., generate a big dataset to ensure you get reliable mean and standard deviation estimates).  Check `df` equal to 500, 5, 3, and 2.
 
 3. Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \@ref(exAnovaExercises) using a $t$-distribution with 5 degrees of freedom.
 Do the results change substantially?
 
-### Checking and extending the Cluster RCT DGP
+### Checking and extending the Cluster RCT DGP {#cluster-RCT-DGP}
 
-4. What is the variance of the outcomes generated by our model if there is no treatment effect?  (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working? 
+1. What is the variance of the outcomes generated by our model if there is no treatment effect?  (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working? 
 
+2. In `gen_dat_model()` we have the following line of code to generate the number of individuals per site.
 
-5. In `gen_dat_model()` we have the following line of code to generate the number of individuals per site.
+    ```{r bad_sample_line, eval=FALSE}
+    nj <- sample( n_min:n_max, J, replace=TRUE )
+    ```
+    
+    This code has an error.  Generate a variety of datasets where you vary `n_min`, `n_max` and `J` to discover the error.  Then repair the code.
+    Checking your data generating process across a range of scenarios is extremely important.
 
-```{r bad_sample_line, eval=FALSE}
-nj <- sample( n_min:n_max, J, replace=TRUE )
-```
+3. The DGP allows for site-level treatment impact variation--but only if it is related to site size.  How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size?  Implement this change and generate some data to show how it works.
 
-This code has an error.  Generate a variety of datasets where you vary `n_min`, `n_max` and `J` to discover the error.  Then repair the code.
-Checking your data generating process across a range of scenarios is extremely important.
-
-6. The DGP allows for site-level treatment impact variation--but only if it is related to site size.  How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size?  Implement this change and generate some data to show how it works.
-
-7. Extend the data generating process to include an individual level covariate $X$ that is predictive of outcome.  In particular, you will want to adjust your level one equation to
+4. Extend the data generating process to include an individual level covariate $X$ that is predictive of outcome.  In particular, you will want to adjust your level one equation to
 
 $$ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij} . $$
-Keep the same $\beta_1$ for all sites.
-You will have to specify how to generate your $X_{ij}$.
-For starters, just generate it as a standard normal, and do not worry about having the mean of $X_{ij}$ vary by sites unless you are excited to try to get that to work.
+    Keep the same $\beta_1$ for all sites.
+    You will have to specify how to generate your $X_{ij}$.
+    For starters, just generate it as a standard normal, and do not worry about having the mean of $X_{ij}$ vary by sites unless you are excited to try to get that to work.
 
 
