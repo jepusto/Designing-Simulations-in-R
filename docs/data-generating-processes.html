@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Chapter 6 Data-Generating Processes | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
-  <meta name="generator" content="bookdown 0.40 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.43 and GitBook 2.6.7" />
 
   <meta property="og:title" content="Chapter 6 Data-Generating Processes | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2025-05-23" />
+<meta name="date" content="2025-05-31" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -56,9 +56,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -68,7 +67,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -240,7 +239,12 @@ div.csl-indent {
 </ul></li>
 <li class="chapter" data-level="6" data-path="data-generating-processes.html"><a href="data-generating-processes.html"><i class="fa fa-check"></i><b>6</b> Data-Generating Processes</a>
 <ul>
-<li class="chapter" data-level="6.1" data-path="data-generating-processes.html"><a href="data-generating-processes.html#DGP-examples"><i class="fa fa-check"></i><b>6.1</b> Examples</a></li>
+<li class="chapter" data-level="6.1" data-path="data-generating-processes.html"><a href="data-generating-processes.html#DGP-examples"><i class="fa fa-check"></i><b>6.1</b> Examples</a>
+<ul>
+<li class="chapter" data-level="6.1.1" data-path="data-generating-processes.html"><a href="data-generating-processes.html#bivariate-poisson-model"><i class="fa fa-check"></i><b>6.1.1</b> Bivariate Poisson model</a></li>
+<li class="chapter" data-level="6.1.2" data-path="data-generating-processes.html"><a href="data-generating-processes.html#one-way-analysis-of-variance"><i class="fa fa-check"></i><b>6.1.2</b> One-way analysis of variance</a></li>
+<li class="chapter" data-level="6.1.3" data-path="data-generating-processes.html"><a href="data-generating-processes.html#hierarchical-model-for-students-nested-within-schools"><i class="fa fa-check"></i><b>6.1.3</b> Hierarchical model for students nested within schools</a></li>
+</ul></li>
 <li class="chapter" data-level="6.2" data-path="data-generating-processes.html"><a href="data-generating-processes.html#components-of-a-dgp"><i class="fa fa-check"></i><b>6.2</b> Components of a DGP</a></li>
 <li class="chapter" data-level="6.3" data-path="data-generating-processes.html"><a href="data-generating-processes.html#DGP-functions"><i class="fa fa-check"></i><b>6.3</b> A statistical model is a recipe for data generation</a></li>
 <li class="chapter" data-level="6.4" data-path="data-generating-processes.html"><a href="data-generating-processes.html#checking-the-data-generating-function"><i class="fa fa-check"></i><b>6.4</b> Checking the data-generating function</a></li>
@@ -513,18 +517,20 @@ div.csl-indent {
 <h1><span class="header-section-number">Chapter 6</span> Data-Generating Processes<a href="data-generating-processes.html#data-generating-processes" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <p>As we saw in Chapter <a href="simulation-structure.html#simulation-structure">4</a>, the first step of a simulation is creating artificial data based on some process where we know (and can control) the truth.
 This step is what we call the data generating process (DGP).
-We think of it as a recipe for creating artificial data, which can be applied over and over, any time we need to “cook” a new dataset.
-Like a good recipe, a good DGP needs to be complete—it cannot be missing ingredients and it cannot skip steps in the process.
+Think of it as a recipe for cooking up artificial data, which can be applied over and over, any time we’re hungry for a new dataset.
+Like a good recipe, a good DGP needs to be complete—it cannot be missing ingredients and it cannot omit any steps.
 Unlike cooking or baking, however, DGPs are usually specified in terms of a statistical model, or a set of equations involving constants, parameter values, and random variables, which we will instantiate as an R function (or perhaps a set of functions).
-More complex DGPs, such as those for hierarchical data or other latent variable models, will often involve a series of several equations that describe different dimensions or levels of the model, and which need to be followed in sequence to produce an artificial dataset.</p>
+More complex DGPs, such as those for hierarchical data or other latent variable models, will often involve a series of several equations that describe different dimensions or levels of the model, which need to be followed in sequence to produce an artificial dataset.</p>
 <p>Designing DGPs and implementing them in R code involves making choices about what aspects of the model we want to be able to control and how to set up the parameters of the model.
-In this chapter, we will give a high-level overview of DGPs, discuss some of the choices and challenges involved in designing them, and demonstrate how to write R functions for the DGP.
+In this chapter, we give a high-level overview of DGPs, discuss some of the choices and challenges involved in designing them, and demonstrate how to write R functions for the DGP.
 We then present a detailed example involving a hierarchical DGP for generating data on students nested within schools.</p>
 <div id="DGP-examples" class="section level2 hasAnchor" number="6.1">
 <h2><span class="header-section-number">6.1</span> Examples<a href="data-generating-processes.html#DGP-examples" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>Before diving in, it is helpful to consider a few examples that we will return to throughout this and subsequent chapters.
-First, let’s look at a bivariate Poisson model. A bivariate poisson is a distribution for a pair of counts, <span class="math inline">\(C_1,C_2\)</span>, where each count follows a Poisson distribution and where the pair of counts may be correlated.
-We might want to use this model to understand how the usual Pearson sample correlation estimator behaves with non-normal data or to investigate how the Pearson correlation relates to Spearman’s rank correlation coefficient.
+<p>Before diving in, it is helpful to consider a few examples that we will return to throughout this and subsequent chapters.</p>
+<div id="bivariate-poisson-model" class="section level3 hasAnchor" number="6.1.1">
+<h3><span class="header-section-number">6.1.1</span> Bivariate Poisson model<a href="data-generating-processes.html#bivariate-poisson-model" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Suppose we want to understand how the usual Pearson sample correlation estimator behaves with non-normal data or to investigate how the Pearson correlation relates to Spearman’s rank correlation coefficient.
+To look into such questions, one DGP we might entertain is a bivariate Poisson model, which is a distribution for a pair of counts, <span class="math inline">\(C_1,C_2\)</span>, where each count follows a Poisson distribution and where the pair of counts may be correlated.
 We will denote the expected values of the counts as <span class="math inline">\(\mu_1\)</span> and <span class="math inline">\(\mu_2\)</span> and the correlation between the counts as <span class="math inline">\(\rho\)</span>.</p>
 <p>To simulate a dataset based on this model, we would first need to choose how many observations to generate. Call this sample size <span class="math inline">\(N\)</span>.
 One way to generate data following a bivariate Poisson model is to generate <em>three</em> independent Poisson random variables for each of the <span class="math inline">\(N\)</span> observations:
@@ -535,15 +541,18 @@ Z_1 &amp;\sim Pois\left(\mu_1 - \rho \sqrt{\mu_1 \mu_2}\right) \\
 Z_2 &amp;\sim Pois\left(\mu_2 - \rho \sqrt{\mu_1 \mu_2}\right)
 \end{aligned}
 \]</span>
-and then combining the pieces to create two dependent observations:
+and then combine the pieces to create two dependent observations:
 <span class="math display">\[
 \begin{aligned}
 C_1 &amp;= Z_0 + Z_1 \\
 C_2 &amp;= Z_0 + Z_2.
 \end{aligned}
 \]</span>
-An interesting feature of this model is that the range of possible correlations is constrained: only positive correlations are possible and, because each of the independent pieces must have a non-negative mean, the maximum possible correlation is <span class="math inline">\(\min\{\sqrt{\frac{\mu_1}{\mu_2}},\sqrt{\frac{\mu_2}{\mu_1}}\}\)</span>.</p>
-<p>As a second example, consider the one-way ANOVA example from Chapter <a href="case-ANOVA.html#case-ANOVA">5</a>. Here, we consider observations on some variable X$ drawn from a population consisting of <span class="math inline">\(G\)</span> groups, where group <span class="math inline">\(g\)</span> has population mean <span class="math inline">\(\mu_g\)</span> and population variance <span class="math inline">\(\sigma_g^2\)</span> for <span class="math inline">\(g = 1,...,G\)</span>.
+An interesting feature of this model is that the range of possible correlations is constrained: only positive correlations are possible and, because each of the independent pieces must have a non-negative mean, the maximum possible correlation is <span class="math inline">\(\sqrt{\frac{\min\{\mu_1,\mu_2\}}{\max\{\mu_1,\mu_2\}}}\)</span>.</p>
+</div>
+<div id="one-way-analysis-of-variance" class="section level3 hasAnchor" number="6.1.2">
+<h3><span class="header-section-number">6.1.2</span> One-way analysis of variance<a href="data-generating-processes.html#one-way-analysis-of-variance" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>As a second example, consider the one-way ANOVA example from Chapter <a href="case-ANOVA.html#case-ANOVA">5</a>. Here, we consider observations on some variable <span class="math inline">\(X\)</span> drawn from a population consisting of <span class="math inline">\(G\)</span> groups, where group <span class="math inline">\(g\)</span> has population mean <span class="math inline">\(\mu_g\)</span> and population variance <span class="math inline">\(\sigma_g^2\)</span> for <span class="math inline">\(g = 1,...,G\)</span>.
 A simulated dataset consists of <span class="math inline">\(n_g\)</span> observations from each group <span class="math inline">\(g = 1,...,G\)</span>, where <span class="math inline">\(X_{ig}\)</span> is the measurement for observation <span class="math inline">\(i\)</span> in group <span class="math inline">\(g\)</span>.
 The statistical model for these data can be written as follows:
 <span class="math display">\[
@@ -554,6 +563,28 @@ Alternately, we could write the model as
 X_{ig} \sim N( \mu_g, \sigma_g^2 )
 \]</span>
 for <span class="math inline">\(i = 1,...,n_g\)</span> and <span class="math inline">\(g = 1,...,G\)</span>.</p>
+</div>
+<div id="hierarchical-model-for-students-nested-within-schools" class="section level3 hasAnchor" number="6.1.3">
+<h3><span class="header-section-number">6.1.3</span> Hierarchical model for students nested within schools<a href="data-generating-processes.html#hierarchical-model-for-students-nested-within-schools" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Suppose we are interested in understanding the distribution of student academic performance, and specifically how current performance relates to past performance.
+We collect data on these characteristic for many students from multiple schools, where we have data for multiple students in most or all of the schools.
+We will index the schools using <span class="math inline">\(j = 1,...,J\)</span> and let <span class="math inline">\(n_j\)</span> denote the number of students observed in scool <span class="math inline">\(j\)</span>.
+Say that <span class="math inline">\(X_{ij}\)</span> and <span class="math inline">\(Y_{ij}\)</span> are the measure of past and current academic performance for student <span class="math inline">\(i\)</span> in school <span class="math inline">\(j\)</span>, for <span class="math inline">\(1 = 1,...,n_j\)</span> and <span class="math inline">\(j = 1,...,J\)</span>.</p>
+<p>A widely used approach for describing such data is a heirarchical linear model (HLM).
+One way to write this model is in two parts.
+First, we consider a regression model that relates the current and past academic performance of students within school <span class="math inline">\(j\)</span>:
+<span class="math display">\[
+Y_{ij} = \beta_{0j} + \beta_{1j} X_{ij} + \epsilon_{ij}, \qquad \epsilon_{ij} \sim N(\mu_j, \sigma^2).
+\]</span>
+Second, we might imagine that the school-specific intercepts follow a normal distribution around an overall population average <span class="math inline">\(\gamma_{00}\)</span>,
+<span class="math display">\[
+\beta_{0j} \sim N(\gamma_{00}, \tau^2),
+\]</span>
+while the slope of the regression is constant across schools, so <span class="math inline">\(\beta_{1j} = \gamma_{10}\)</span> for <span class="math inline">\(j = 1,...,J\)</span>.</p>
+<p>If we only consider the first stage of this model, it looks a bit like the one-way ANOVA model from the previous example:
+in both cases, we have multiple observations from each of several groups.<br />
+The main distinction is that the ANOVA model treats the <span class="math inline">\(G\)</span> groups as a fixed set, whereas the HLM treats the set of <span class="math inline">\(J\)</span> schools as sampled from a larger population of schools.</p>
+</div>
 </div>
 <div id="components-of-a-dgp" class="section level2 hasAnchor" number="6.2">
 <h2><span class="header-section-number">6.2</span> Components of a DGP<a href="data-generating-processes.html#components-of-a-dgp" class="anchor-section" aria-label="Anchor link to header"></a></h2>
@@ -566,12 +597,12 @@ In contrast, if we are going to <em>generate</em> data for simulating a regressi
 <ul>
 <li><strong>Structural features</strong> are quantities that describe the structure of a dataset but do not enter directly into the focal statistical model, such as the per-group sample sizes in the one-way ANOVA example.
 When analyzing real data, we usually take the structural features as they come, but when simulating data, we will need to make choices about the structural features.
-For instance, in a model for hierarchical data on students nested within schools, the number of students in each school is a structural feature.
-To simulate data based on the model, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data.</li>
+For instance, in the HLM example involving students nested within schools, the number of students in each school is a structural feature.
+To simulate data based on HLM, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data.</li>
 <li><strong>Covariates</strong> are variables in a dataset that we typically take as given when analyzing real data.
 For instance, in the one-way ANOVA example, the group assignments of each observation is a covariate.
-In a hierarchical model, covariates would include variables such as student demographic information and past academic performance or school-level characteristics such as the school’s geographic region or treatment assignment.
-When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that student academic performance is normally distributed).</li>
+In the HLM example, covariates would include the measures of past academic performance. In a more elaborate version of the HLM, they might also include variables such as student demographic information or school-level characteristics such as the school’s geographic region or treatment assignment.
+When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that students’ past academic performance is normally distributed).</li>
 <li><strong>Outcomes and endogenous quantities</strong> are the variables whose distribution is described by the focal statistical model.
 In the bivariate Poisson model, the outcomes consist of the component variables <span class="math inline">\(Z_1,Z_2,Z_3\)</span> and the observed counts <span class="math inline">\(C_1,C_2\)</span> because all of these quantities follow distributions that are specified as part of the focal model.
 In the one-way ANOVA example, the outcome variable consists of the measurements <span class="math inline">\(X_{ig}\)</span> for <span class="math inline">\(i = 1,...,n_g\)</span> and <span class="math inline">\(g = 1,...,G\)</span>.
@@ -622,9 +653,10 @@ Each of these distributions will involve parameters that control the properties 
 We think of these parameters as falling into one of three categories: focal, auxiliary, or design.</p>
 <ul>
 <li><strong>Focal</strong> parameters are the quantities that we care about and seek to estimate in real data analysis.
-These are typically parts of the focal statistical model, such as the correlation between counts <span class="math inline">\(\rho\)</span> in the bivariate Poisson model or the population means <span class="math inline">\(\mu_1,...,\mu_G\)</span> in the one-way ANOVA model.</li>
-<li><strong>Auxiliary</strong> parameters are the other quantities that go into the focal statistical model, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis.
-For instance, in the bivariate Poisson model we might consider the average counts <span class="math inline">\(\mu_1\)</span> and <span class="math inline">\(\mu_2\)</span> to be auxiliary parameters; in the one-way ANOVA model, we would consider the population variances <span class="math inline">\(\sigma_1^2,...,\sigma_G^2\)</span> to be auxiliary if we are not interested in investigating how they vary from group to group.</li>
+These are typically parts of the focal statistical model, such as the correlation between counts <span class="math inline">\(\rho\)</span> in the bivariate Poisson model, the population means <span class="math inline">\(\mu_1,...,\mu_G\)</span> in the one-way ANOVA model, or the slope coefficient <span class="math inline">\(\gamma_{10}\)</span> in the HLM example.</li>
+<li><strong>Auxiliary</strong> parameters are the other quantities that go into the focal statistical model or some other part of the DGP, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis.
+For instance, in the bivariate Poisson model we might consider the average counts <span class="math inline">\(\mu_1\)</span> and <span class="math inline">\(\mu_2\)</span> to be auxiliary parameters. In the one-way ANOVA model, we would consider the population variances <span class="math inline">\(\sigma_1^2,...,\sigma_G^2\)</span> to be auxiliary if we are not interested in investigating how they vary from group to group.
+In the HLM example, we might have parameters that describe the distribution of past academic performance, that are part of a model for this covariate that is entirely separate from the focal HLM.</li>
 <li><strong>Design</strong> parameters are the quantities that control how we generate structural features of the data.
 For instance, in a randomized experiment, the fraction of observations assigned to treatment is a design parameter that can be directly controlled by the researchers.
 In a hierarchical model, the design parameters might include the minimum and maximum number of students per school.
@@ -696,15 +728,15 @@ Here is one way to implement the model:</p>
 <p>Here we generate 5 observations from the bivariate Poisson with <span class="math inline">\(\rho = 0.5\)</span> and <span class="math inline">\(\mu_1 = \mu_2 = 4\)</span>:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="data-generating-processes.html#cb4-1" tabindex="-1"></a><span class="fu">r_bivariate_Poisson</span>(<span class="dv">5</span>, <span class="at">rho =</span> <span class="fl">0.5</span>, <span class="at">mu1 =</span> <span class="dv">4</span>, <span class="at">mu2 =</span> <span class="dv">4</span>)</span></code></pre></div>
 <pre><code>##   C1 C2
-## 1  4  4
-## 2  6  8
-## 3  5  6
-## 4  3  1
-## 5  3  5</code></pre>
+## 1  3  3
+## 2  2  1
+## 3  6  9
+## 4  5  4
+## 5  4  2</code></pre>
 </div>
 <div id="checking-the-data-generating-function" class="section level2 hasAnchor" number="6.4">
 <h2><span class="header-section-number">6.4</span> Checking the data-generating function<a href="data-generating-processes.html#checking-the-data-generating-function" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>An important part of programming in R—particularly when writing functions—is finding ways to test and check the correctness of your code. Just writing a data-generating function is not enough. It is also <em>critical</em> to test whether the output it produces is correct. How best to do this will depend on the particulars of the DGP being implemented.</p>
+<p>An important part of programming in R—and especially when writing custom functions—is finding ways to test and check the correctness of your code. Just writing a data-generating function is not enough. It is also <em>critical</em> to test whether the output it produces is correct. How best to do this will depend on the particulars of the DGP being implemented.</p>
 <p>For many DGPs, a broadly useful strategy is to generate a very large sample of data, so large that the sample distribution should very closely resemble the population distribution.
 One can then test whether features of the sample distribution closely align with corresponding parameters of the population model.</p>
 <p>For the heteroskedastic ANOVA problem, one basic thing we could do is check that the simulated data from each group follows a normal distribution.
@@ -732,10 +764,10 @@ In the following code, we simulate very large samples from each of the four grou
 <pre><code>## # A tibble: 4 × 6
 ##   group     n  mean    mu   var sigma2
 ##   &lt;fct&gt; &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt;
-## 1 1     10000  1.01     1 3.02       3
-## 2 2     10000  2.01     2 2.01       2
-## 3 3     10000  5.03     5 4.82       5
-## 4 4     10000  6.01     6 0.985      1</code></pre>
+## 1 1     10000 0.991     1  3.03      3
+## 2 2     10000 1.98      2  1.98      2
+## 3 3     10000 5.07      5  5.04      5
+## 4 4     10000 6.00      6  1.01      1</code></pre>
 <p>It seems we are recovering our parameters.</p>
 <p>We can also make some diagnostic plots to assess whether we have normal data (using QQ plots, where we expect a straight line if the data are normal):</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="data-generating-processes.html#cb8-1" tabindex="-1"></a><span class="fu">ggplot</span>( check_data ) <span class="sc">+</span></span>
@@ -752,7 +784,7 @@ Even simple checks such as these can be quite helpful in catching such bugs.</p>
 <h2><span class="header-section-number">6.5</span> Example: Simulating clustered data<a href="data-generating-processes.html#case-cluster" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Generating data with complex structure can be intimidating, but if you set out a recipe for how the data is generated it is often not to bad to build that recipe up with code.
 We will next provide a more complex example with a case study of using simulation to determine best practices for analyzing data from a cluster-randomized RCT of students nested in schools.</p>
-<p>Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the size of impacts across sites can affect how estimators behave, and what models we should use when there is impact variation (e.g., <span class="citation">(<a href="#ref-miratrix2021applied"><strong>miratrix2021applied?</strong></a>)</span>, <span class="citation">Bloom et al. (<a href="#ref-Bloom:2016um">2016</a>)</span>).
+<p>Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the size of impacts across sites can affect how estimators behave, and what models we should use when there is impact variation <span class="citation">(e.g., <a href="#ref-miratrix2021applied">Miratrix, Weiss, and Henderson 2021</a>; <a href="#ref-Bloom:2016um">Bloom et al. 2016</a>)</span>.
 We are going to extend this work to explore best practices for estimating treatment effects in cluster randomized trials.</p>
 <p>Cluster randomized trials are randomized experiments where the unit of randomization is a group of individuals, rather than the individuals themselves.
 For example, if we have a collection of schools, with students in schools, a cluster randomized trial would randomize the <em>schools</em> into treatment or control, and then measure our outcome on the <em>students</em> inside the schools.
@@ -998,22 +1030,26 @@ In particular, <code>rep()</code> repeats each number (<span class="math inline"
 <span id="cb12-5"><a href="data-generating-processes.html#cb12-5" tabindex="-1"></a></span>
 <span id="cb12-6"><a href="data-generating-processes.html#cb12-6" tabindex="-1"></a>dat</span></code></pre></div>
 <pre><code>##    sid Z       Yobs
-## 1    1 0 -1.7054854
-## 2    1 0  1.5968420
-## 3    1 0  1.8466096
-## 4    1 0 -0.1092405
-## 5    1 0  0.0455915
-## 6    2 1  0.2958095
-## 7    2 1 -0.3235125
-## 8    2 1  0.5962755
-## 9    2 1  0.1439593
-## 10   2 1 -0.5017845
-## 11   2 1  1.1003626
-## 12   2 1  0.5668307
-## 13   3 0  0.8807758
-## 14   3 0 -0.1997586
-## 15   3 0  0.7893260
-## 16   3 0  1.8095105</code></pre>
+## 1    1 0 -0.0173473
+## 2    1 0 -1.1309479
+## 3    1 0 -0.4795700
+## 4    1 0 -0.8201985
+## 5    1 0 -0.3662931
+## 6    1 0 -1.6604096
+## 7    1 0 -2.1672191
+## 8    1 0 -1.5574128
+## 9    2 0 -1.6324900
+## 10   2 0 -0.7166888
+## 11   2 0 -0.2953189
+## 12   2 0 -0.8861241
+## 13   2 0 -0.2657047
+## 14   2 0 -0.4760574
+## 15   3 1  2.1221495
+## 16   3 1 -0.2187809
+## 17   3 1 -0.5194328
+## 18   3 1  0.1294759
+## 19   3 1 -0.3914622
+## 20   3 1  1.6752613</code></pre>
 <p>Our data generation code is complete.
 We can control the average size of the clusters (<code>n</code>), the number of clusters (<code>J</code>), the proportion treated (<code>p</code>), the average outcome in the control group (<code>gamma_0</code>), the average treatment effect (<code>gamma_1</code>), the site size by treatment interaction (<code>gamma_2</code>), the amount of cross site variation (<code>sigma2_u</code>), the residual variation (<code>sigma2_e</code>), and the amount of site size variation (<code>alpha</code>).
 The next step is to test the code, making sure it is doing what we think it is.
@@ -1093,11 +1129,11 @@ Our current implementation of the model does not handle this aspect of the model
 <div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="data-generating-processes.html#cb15-1" tabindex="-1"></a><span class="fu">r_bivariate_Poisson</span>(<span class="dv">5</span>, <span class="at">rho =</span> <span class="fl">0.6</span>, <span class="at">mu1 =</span> <span class="dv">4</span>, <span class="at">mu2 =</span> <span class="dv">12</span>)</span></code></pre></div>
 <pre><code>## Warning in rpois(N, lambda = mu1 - EZ3): NAs produced</code></pre>
 <pre><code>##   C1 C2
-## 1 NA 12
-## 2 NA  8
+## 1 NA  9
+## 2 NA 12
 ## 3 NA 12
-## 4 NA 24
-## 5 NA 14</code></pre>
+## 4 NA 10
+## 5 NA 11</code></pre>
 <p>For this combination of parameter values, <span class="math inline">\(\rho \times \sqrt{\mu_1 \mu_2}\)</span> is larger than <span class="math inline">\(\mu_1\)</span>, which leads to simulated values for <span class="math inline">\(C_1\)</span> that are all missing.
 That makes it pretty hard to compute the correlation between <span class="math inline">\(C_1\)</span> and <span class="math inline">\(C_2\)</span>.</p>
 <p>Please help us fix this issue! Revise <code>r_bivariate_Poisson()</code> so that it checks for allowable values of <span class="math inline">\(\rho\)</span>. If the user specifies a combination of parameters that does not make sense, make the function throw an error (using R’s <code>stop()</code> function).</p>
@@ -1170,7 +1206,8 @@ If <span class="math inline">\(T\)</span> follows a student’s <span class="mat
 <span id="cb18-3"><a href="data-generating-processes.html#cb18-3" tabindex="-1"></a>}</span>
 <span id="cb18-4"><a href="data-generating-processes.html#cb18-4" tabindex="-1"></a></span>
 <span id="cb18-5"><a href="data-generating-processes.html#cb18-5" tabindex="-1"></a><span class="fu">r_tss</span>(<span class="at">n =</span> <span class="dv">8</span>, <span class="at">mean =</span> <span class="dv">3</span>, <span class="at">sd =</span> <span class="dv">2</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
-<pre><code>## [1] 2.302231 4.024465 7.023011 4.119698 2.322609 1.454907 1.756479 1.683873</code></pre>
+<pre><code>## [1] -0.7733983  3.1741862  7.8009102  2.9239147  3.9685458  2.9286611  4.3718197
+## [8]  2.8627233</code></pre>
 <ol style="list-style-type: decimal">
 <li><p>Modify the Welch simulation’s <code>simulate_data()</code> function to generate data from shifted-and-scaled <span class="math inline">\(t\)</span>-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
 Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.</p></li>
@@ -1205,6 +1242,9 @@ Bloom, Howard S., Stephen W. Raudenbush, Michael J. Weiss, and Kristin Porter. 2
 </div>
 <div id="ref-Cho2023bivariate" class="csl-entry">
 Cho, Hunyong, Chuwen Liu, John S Preisser, and Di Wu. 2023. <span>“A Bivariate Zero-Inflated Negative Binomial Model and Its Applications to Biomedical Settings.”</span> <em>Statistical Methods in Medical Research</em> 32 (7): 1300–1317. <a href="https://doi.org/10.1177/09622802231172028">https://doi.org/10.1177/09622802231172028</a>.
+</div>
+<div id="ref-miratrix2021applied" class="csl-entry">
+Miratrix, Luke W., Michael J. Weiss, and Brit Henderson. 2021. <span>“An <span>Applied Researcher</span>’s <span>Guide</span> to <span>Estimating Effects</span> from <span>Multisite Individually Randomized Trials</span>: <span>Estimands</span>, <span>Estimators</span>, and <span>Estimates</span>.”</span> <em>Journal of Research on Educational Effectiveness</em> 14 (1): 270–308. <a href="https://doi.org/10.1080/19345747.2020.1831115">https://doi.org/10.1080/19345747.2020.1831115</a>.
 </div>
 </div>
             </section>

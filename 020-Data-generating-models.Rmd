@@ -15,20 +15,23 @@ theme_set( theme_classic() )
 
 As we saw in Chapter \@ref(simulation-structure), the first step of a simulation is creating artificial data based on some process where we know (and can control) the truth. 
 This step is what we call the data generating process (DGP).
-We think of it as a recipe for creating artificial data, which can be applied over and over, any time we need to "cook" a new dataset. 
-Like a good recipe, a good DGP needs to be complete---it cannot be missing ingredients and it cannot skip steps in the process. 
+Think of it as a recipe for cooking up artificial data, which can be applied over and over, any time we're hungry for a new dataset. 
+Like a good recipe, a good DGP needs to be complete---it cannot be missing ingredients and it cannot omit any steps. 
 Unlike cooking or baking, however, DGPs are usually specified in terms of a statistical model, or a set of equations involving constants, parameter values, and random variables, which we will instantiate as an R function (or perhaps a set of functions). 
-More complex DGPs, such as those for hierarchical data or other latent variable models, will often involve a series of several equations that describe different dimensions or levels of the model, and which need to be followed in sequence to produce an artificial dataset.
+More complex DGPs, such as those for hierarchical data or other latent variable models, will often involve a series of several equations that describe different dimensions or levels of the model, which need to be followed in sequence to produce an artificial dataset.
  
 Designing DGPs and implementing them in R code involves making choices about what aspects of the model we want to be able to control and how to set up the parameters of the model.
-In this chapter, we will give a high-level overview of DGPs, discuss some of the choices and challenges involved in designing them, and demonstrate how to write R functions for the DGP.
+In this chapter, we give a high-level overview of DGPs, discuss some of the choices and challenges involved in designing them, and demonstrate how to write R functions for the DGP.
 We then present a detailed example involving a hierarchical DGP for generating data on students nested within schools.
 
 ## Examples {#DGP-examples}
 
 Before diving in, it is helpful to consider a few examples that we will return to throughout this and subsequent chapters. 
-First, let's look at a bivariate Poisson model. A bivariate poisson is a distribution for a pair of counts, $C_1,C_2$, where each count follows a Poisson distribution and where the pair of counts may be correlated. 
-We might want to use this model to understand how the usual Pearson sample correlation estimator behaves with non-normal data or to investigate how the Pearson correlation relates to Spearman's rank correlation coefficient.
+
+### Bivariate Poisson model
+
+Suppose we want to understand how the usual Pearson sample correlation estimator behaves with non-normal data or to investigate how the Pearson correlation relates to Spearman's rank correlation coefficient.
+To look into such questions, one DGP we might entertain is a bivariate Poisson model, which is a distribution for a pair of counts, $C_1,C_2$, where each count follows a Poisson distribution and where the pair of counts may be correlated. 
 We will denote the expected values of the counts as $\mu_1$ and $\mu_2$ and the correlation between the counts as $\rho$. 
 
 To simulate a dataset based on this model, we would first need to choose how many observations to generate. Call this sample size $N$. 
@@ -40,16 +43,18 @@ Z_1 &\sim Pois\left(\mu_1 - \rho \sqrt{\mu_1 \mu_2}\right) \\
 Z_2 &\sim Pois\left(\mu_2 - \rho \sqrt{\mu_1 \mu_2}\right)
 \end{aligned}
 $$
-and then combining the pieces to create two dependent observations:
+and then combine the pieces to create two dependent observations:
 $$
 \begin{aligned}
 C_1 &= Z_0 + Z_1 \\
 C_2 &= Z_0 + Z_2.
 \end{aligned}
 $$
-An interesting feature of this model is that the range of possible correlations is constrained: only positive correlations are possible and, because each of the independent pieces must have a non-negative mean, the maximum possible correlation is $\min\{\sqrt{\frac{\mu_1}{\mu_2}},\sqrt{\frac{\mu_2}{\mu_1}}\}$.
+An interesting feature of this model is that the range of possible correlations is constrained: only positive correlations are possible and, because each of the independent pieces must have a non-negative mean, the maximum possible correlation is $\sqrt{\frac{\min\{\mu_1,\mu_2\}}{\max\{\mu_1,\mu_2\}}}$.
 
-As a second example, consider the one-way ANOVA example from Chapter \@ref(case-ANOVA). Here, we consider observations on some variable X$ drawn from a population consisting of $G$ groups, where group $g$ has population mean $\mu_g$ and population variance $\sigma_g^2$ for $g = 1,...,G$. 
+### One-way analysis of variance
+
+As a second example, consider the one-way ANOVA example from Chapter \@ref(case-ANOVA). Here, we consider observations on some variable $X$ drawn from a population consisting of $G$ groups, where group $g$ has population mean $\mu_g$ and population variance $\sigma_g^2$ for $g = 1,...,G$. 
 A simulated dataset consists of $n_g$ observations from each group $g = 1,...,G$, where $X_{ig}$ is the measurement for observation $i$ in group $g$.
 The statistical model for these data can be written as follows:
 $$ 
@@ -61,6 +66,32 @@ X_{ig} \sim N( \mu_g, \sigma_g^2 )
 $$
 for $i = 1,...,n_g$ and $g = 1,...,G$.
 
+### Hierarchical linear model for a cluster-randomized trial
+
+Cluster-randomized trials are randomized experiments where the unit of randomization is a _group_ of individuals, rather than the individuals themselves.
+For example, suppose we have a collection of schools and the students within them. 
+A cluster-randomized trial involves randomizing the _schools_ into treatment or control conditions and then measuring an outcome such as academic performance on the multiple students within the schools.
+Typically, researchers will be interested in the extent to which average outcomes differ across schools assigned to different conditions, to understand the impact of the treatment relative to the control condition. 
+We will index the schools using $j = 1,...,J$ and let $n_j$ denote the number of students observed in school $j$.
+Say that $Y_{ij}$ is the outcome measure for student $i$ in school $j$, for $1 = 1,...,n_j$ and $j = 1,...,J$, and let $T_j$ be an indicator equal to 1 if school $j$ is assigned to the treatment condition and otherwise equal to 0.
+
+A widely used approach for describing such data is a heirarchical linear model (HLM). 
+One way to write this model is in two parts. 
+First, we consider a regression model that describes the distribution of the outcomes across students within school $j$:
+$$
+Y_{ij} = \beta_{0j} + \epsilon_{ij}, \qquad \epsilon_{ij} \sim N(0, \sigma_{\epsilon}^2),
+$$
+where $\beta_{0j}$ is the average outcome across students in school $j$.
+Second, we allow that the school-level average outcomes differ by a treatment effect $\gamma_{01}$ and that, for schools within each condition, the average outcomes follow a normal distribution with variance $\sigma_u^2$. 
+We can write these relationships as a regression equation for the school-level intercepts:
+$$
+\beta_{0j} = \gamma_{00} + \gamma_{10} T_j + u_{0j}, \quad u_{0j} \sim N(0, \tau^2),
+$$
+where $\gamma_{00}$ is the average outcome among schools in the control condition. 
+
+If we only consider the first stage of this model, it looks a bit like the one-way ANOVA model from the previous example:
+in both cases, we have multiple observations from each of several groups.  
+The main distinction is that the ANOVA model treats the $G$ groups as a fixed set, whereas the HLM treats the set of $J$ schools as sampled from a larger population of schools and includes a regression model describing variation in the school-level average outcomes.
 
 ## Components of a DGP
 
@@ -74,12 +105,12 @@ In designing and discussing DGPs, it is helpful to draw distinctions between the
 
 * __Structural features__ are quantities that describe the structure of a dataset but do not enter directly into the focal statistical model, such as the per-group sample sizes in the one-way ANOVA example. 
     When analyzing real data, we usually take the structural features as they come, but when simulating data, we will need to make choices about the structural features.
-    For instance, in a model for hierarchical data on students nested within schools, the number of students in each school is a structural feature. 
-    To simulate data based on the model, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data. 
+    For instance, in the HLM example involving students nested within schools, the number of students in each school is a structural feature. 
+    To simulate data based on HLM, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data. 
 * __Covariates__ are variables in a dataset that we typically take as given when analyzing real data. 
     For instance, in the one-way ANOVA example, the group assignments of each observation is a covariate.
-    In a hierarchical model, covariates would include variables such as student demographic information and past academic performance or school-level characteristics such as the school's geographic region or treatment assignment. 
-    When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that student academic performance is normally distributed).
+    In the HLM example, covariates would include the treatment indicators $T_1,...,T_J$. In a more elaborate version of the HLM, they might also include variables such as student demographic information, measures of past academic performance, or school-level characteristics such as the school's geographic region or treatment assignment. 
+    When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that students' past academic performance is normally distributed).
 * __Outcomes and endogenous quantities__ are the variables whose distribution is described by the focal statistical model.
     In the bivariate Poisson model, the outcomes consist of the component variables $Z_1,Z_2,Z_3$ and the observed counts $C_1,C_2$ because all of these quantities follow distributions that are specified as part of the focal model.
     In the one-way ANOVA example, the outcome variable consists of the measurements $X_{ig}$ for $i = 1,...,n_g$ and $g = 1,...,G$.
@@ -104,12 +135,12 @@ Each of these distributions will involve parameters that control the properties 
 We think of these parameters as falling into one of three categories: focal, auxiliary, or design.
 
 * __Focal__ parameters are the quantities that we care about and seek to estimate in real data analysis. 
-    These are typically parts of the focal statistical model, such as the correlation between counts $\rho$ in the bivariate Poisson model or the population means $\mu_1,...,\mu_G$ in the one-way ANOVA model.
-* __Auxiliary__ parameters are the other quantities that go into the focal statistical model, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis. 
-    For instance, in the bivariate Poisson model we might consider the average counts $\mu_1$ and $\mu_2$ to be auxiliary parameters; in the one-way ANOVA model, we would consider the population variances $\sigma_1^2,...,\sigma_G^2$ to be auxiliary if we are not interested in investigating how they vary from group to group. 
+    These are typically parts of the focal statistical model, such as the correlation between counts $\rho$ in the bivariate Poisson model, the population means $\mu_1,...,\mu_G$ in the one-way ANOVA model, or the treatment effect $\gamma_{01}$ in the HLM example.
+* __Auxiliary__ parameters are the other quantities that go into the focal statistical model or some other part of the DGP, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis. 
+    For instance, in the bivariate Poisson model we might consider the average counts $\mu_1$ and $\mu_2$ to be auxiliary parameters. In the one-way ANOVA model, we would consider the population variances $\sigma_1^2,...,\sigma_G^2$ to be auxiliary if we are not interested in investigating how they vary from group to group. 
 * __Design__ parameters are the quantities that control how we generate structural features of the data. 
     For instance, in a randomized experiment, the fraction of observations assigned to treatment is a design parameter that can be directly controlled by the researchers. 
-    In a hierarchical model, the design parameters might include the minimum and maximum number of students per school.
+    In a hierarchical model, the design parameters might include the minimum and maximum number of students per school or the fraction of schools assigned to the treatment condition. 
     Typically, we do not directly estimate such parameters because we take the distribution of structural features as given.
 
 It is evident from this discussion that DGPs can involve _many_ moving parts. 
@@ -191,10 +222,22 @@ Here we generate 5 observations from the bivariate Poisson with $\rho = 0.5$ and
 r_bivariate_Poisson(5, rho = 0.5, mu1 = 4, mu2 = 4)
 ```
 
+## Plot the artificial data
+
+The whole purpose of writing a DGP is to produce something that can be treated just as if it were real data.
+Since that is our goal, we should act like it and engage in data analysis processes that we would apply whenever we analyze real data.
+In particular, we usually find it very instructive to create one or more plots of the data generated by a DGP, just as we would if we were exploring a new real dataset for the first time. 
+This exercise can be very helpful for catching problems in the DGP function (about which more below).
+Beyond just debugging, constructing graphic visualizations can be a very effective way to _study_ a model, strengthen your understanding of how to interpret its parameters, and build intuitions about the model.
+
+```{r}
+
+```
+
 
 ## Checking the data-generating function
 
-An important part of programming in R---particularly when writing functions---is finding ways to test and check the correctness of your code. Just writing a data-generating function is not enough. It is also _critical_ to test whether the output it produces is correct. How best to do this will depend on the particulars of the DGP being implemented. 
+An important part of programming in R---and especially when writing custom functions---is finding ways to test and check the correctness of your code. Just writing a data-generating function is not enough. It is also _critical_ to test whether the output it produces is correct. How best to do this will depend on the particulars of the DGP being implemented. 
 
 For many DGPs, a broadly useful strategy is to generate a very large sample of data, so large that the sample distribution should very closely resemble the population distribution.
 One can then test whether features of the sample distribution closely align with corresponding parameters of the population model.
@@ -238,18 +281,15 @@ Here, these checks may seem a bit silly, but most bugs are silly---at least once
 In models that are even a little bit more complex, it is quite easy for small things such as a sign error to slip into your code.
 Even simple checks such as these can be quite helpful in catching such bugs.
 
-
 ## Example: Simulating clustered data {#case-cluster}
 
-Generating data with complex structure can be intimidating, but if you set out a recipe for how the data is generated it is often not to bad to build that recipe up with code.
-We will next provide a more complex example with a case study of using simulation to determine best practices for analyzing data from a cluster-randomized RCT of students nested in schools.
+Generating data with complex structure can be intimidating, but if you set out a recipe for how the data is generated it is often not too bad to then convert that recipe into code.
+We now illustrate this process with a detailed case study involving a more complex data-generating practice. 
+Our goal is to use a simulation to investigate best practices for analyzing data from a cluster-randomized RCT of students nested in schools.
 
-Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the size of impacts across sites can affect how estimators behave, and what models we should use when there is impact variation (e.g., @miratrix2021applied, @Bloom:2016um).
+Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the size of impacts across sites can affect how estimators behave, and what models we should use when there is impact variation [e.g., @miratrix2021applied; @Bloom:2016um].
 We are going to extend this work to explore best practices for estimating treatment effects in cluster randomized trials.
 
-Cluster randomized trials are randomized experiments where the unit of randomization is a group of individuals, rather than the individuals themselves.
-For example, if we have a collection of schools, with students in schools, a cluster randomized trial would randomize the _schools_ into treatment or control, and then measure our outcome on the _students_ inside the schools.
-We might be trying to estimate, for example, whether the average score of the treatment schools is different from the average score of the control schools.
 In particular, we want to investigate what happens when the average treatment impact of a school is related to the size of the school.
 
 Often we will design a data generating process to allow us to answer a specific question.
