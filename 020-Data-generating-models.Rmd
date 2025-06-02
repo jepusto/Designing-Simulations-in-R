@@ -11,7 +11,7 @@ theme_set( theme_classic() )
 ```
 
 
-# Data-Generating Processes {#data-generating-processes}
+# Data-generating processes {#data-generating-processes}
 
 As we saw in Chapter \@ref(simulation-structure), the first step of a simulation is creating artificial data based on some process where we know (and can control) the truth. 
 This step is what we call the data generating process (DGP).
@@ -85,12 +85,12 @@ $$
 Y_{ij} = \beta_{0j} + \epsilon_{ij}, \qquad \epsilon_{ij} \sim N(0, \sigma_{\epsilon}^2),
 $$
 where $\beta_{0j}$ is the average outcome across students in school $j$.
-Second, we allow that the school-level average outcomes differ by a treatment effect $\gamma_{01}$ and that, for schools within each condition, the average outcomes follow a normal distribution with variance $\sigma_u^2$. 
+Second, we allow that the school-level average outcomes differ by a treatment effect $\gamma_{1}$ and that, for schools within each condition, the average outcomes follow a normal distribution with variance $\sigma_u^2$. 
 We can write these relationships as a regression equation for the school-specific average outcome:
 $$
-\beta_{0j} = \gamma_{00} + \gamma_{10} Z_j + u_{0j}, \quad u_{0j} \sim N(0, \tau^2),
+\beta_{0j} = \gamma_{0} + \gamma_{10} Z_j + u_{0j}, \quad u_{0j} \sim N(0, \tau^2),
 $$
-where $\gamma_{00}$ is the average outcome among schools in the control condition. 
+where $\gamma_{0}$ is the average outcome among schools in the control condition. 
 
 If we only consider the first stage of this model, it looks a bit like the one-way ANOVA model from the previous example:
 in both cases, we have multiple observations from each of several groups.  
@@ -138,7 +138,7 @@ Each of these distributions will involve parameters that control the properties 
 We think of these parameters as falling into one of three categories: focal, auxiliary, or design.
 
 * __Focal__ parameters are the quantities that we care about and seek to estimate in real data analysis. 
-    These are typically parts of the focal statistical model, such as the population means $\mu_1,...,\mu_G$ in the one-way ANOVA model, the correlation between counts $\rho$ in the bivariate Poisson model, or the treatment effect $\gamma_{01}$ in the HLM example.
+    These are typically parts of the focal statistical model, such as the population means $\mu_1,...,\mu_G$ in the one-way ANOVA model, the correlation between counts $\rho$ in the bivariate Poisson model, or the treatment effect $\gamma_{1}$ in the HLM example.
 * __Auxiliary__ parameters are the other quantities that go into the focal statistical model or some other part of the DGP, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis. 
     For instance, in the one-way ANOVA model, we would consider the population variances $\sigma_1^2,...,\sigma_G^2$ to be auxiliary if we are not interested in investigating how they vary from group to group. 
     In the bivariate Poisson model we might consider the average counts $\mu_1$ and $\mu_2$ to be auxiliary parameters. 
@@ -338,7 +338,7 @@ Even simple checks such as these can be quite helpful in catching such bugs.
 
 ## Example: Simulating clustered data {#case-cluster}
 
-Generating data with complex structure can be intimidating, but if you set out a recipe for how the data is generated it is often not too bad to then convert that recipe into code.
+Writing code for a complicate DGP can feel like a daunting task, but if you first focus on a recipe for how the data is generated, it is often not too bad to then convert that recipe into code.
 We now illustrate this process with a detailed case study involving a more complex data-generating practice. 
 Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the strength of effects can affect how different data-analysis procedures behave [e.g., @miratrix2021applied; @Bloom:2016um].
 In this example, we are going to extend this work to explore best practices for estimating treatment effects in cluster randomized trials.
@@ -347,11 +347,11 @@ In particular, we will investigate what happens when the treatment impact for ea
 
 ### A design decision: What do we want to manipulate?
 
-In designing a simulation study, we need to use a DGP that will allow us to address the specific questions we are interested in investigating.
-For instance, in the one-way ANOVA example, we wanted to see how different degrees of within-group variation impacted the performance.
-We therefore needed a data generation process that allowed us to control the within-group variation.
+In designing a simulation study, we need to find a DGP that will allow us to address the specific questions we are interested in investigating.
+For instance, in the one-way ANOVA example, we wanted to see how different degrees of within-group variation impacted the performance of several hypothesis-testing procedures.
+We therefore needed a data generation process that allowed us to control the extent of within-group variation.
 
-To figure out what DGP we need for our clustered data example, we need to consider how we are going to use those data in our simulation study.
+To figure out what DGP to use for simulating data from a cluster-randomized trial, we need to consider how we are going to use those data in our simulation study.
 Because we are interested in understanding what happens when school-specific effects are related to school size, we will need data with the following features:
 
 a) observations for students in each of several schools;
@@ -375,18 +375,18 @@ For this example, we need data like the following:
 |      etc |  etc|  etc |       etc | etc |
 
 When running simulations, it is good practice to look at simple scenarios along with complex ones.
-This lets us check that some feature of the DGP does not matter as well as to identify conditions where the feature is important.
-Given this, we land on the following points:
+This lets us not only identify conditions where some aspect of the DGP is important, but also verify that the feature does _not_ matter under scenarios where we know it should not.
+Given this principle, we land on the following points:
 
 * We need a DGP that lets us generate schools that are all the same size or that are all different sizes.
 * Our DGP should allow for variation in the school-specific treatment effects.
-* We should have the option to generate school-specific effects that are related to school size.
+* We should have the option to generate school-specific effects that are related or unrelated to school size.
 
 ### A model for a cluster RCT
 
 DGPs are expressed and communicated using mathematical models. 
-In developing a DGP, we often start by considering the model for the outcomes (along with its focal parameters), which covers some of the steps in the full DGP but it may not be the complete recipe.
-It is helpful to write down the equations for the outcome model and then consider what further quantities need to be generated (such as structural features and covariates).
+In developing a DGP, we often start by considering the model for the outcomes (along with its focal parameters), which covers some but not all of the steps in the full recipe for generating data.
+It is helpful to write down the equations for the outcome model and then note what further quantities need to be generated (such as structural features and covariates).
 Then we can consider how to generate these quantities with auxiliary models.
 
 Section \@ref(CRT-example) introduced a basic HLM for a cluster-randomized trial.
@@ -394,38 +394,38 @@ This model had two parts, starting with a model for our student outcome:
 $$ Y_{ij} = \beta_{0j} + \epsilon_{ij} \mbox{ with } \epsilon_{ij} \sim N( 0, \sigma^2_\epsilon ) $$
 where $Y_{ij}$ is the outcome for student $i$ in site $j$, $\beta_{0j}$ is the average outcome in site $j$, and $\epsilon_{ij}$ is the residual error for student $i$ in site $j$.
 The model was completed by specifying how the site-specific outcomes vary as a function of treatment assignment:
-$$ \beta_{0j} = \gamma_{00} + \gamma_{01} Z_j + u_j, \quad u_j \sim N( 0, \sigma^2_u ).$$
-This model has a constant treatment effect: if a school is assigned to treatment, then all outcomes in the cluster are raised by the amount $\gamma_{01}$.
+$$ \beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + u_j, \quad u_j \sim N( 0, \sigma^2_u ).$$
+This model has a constant treatment effect: if a school is assigned to treatment, then all outcomes in the cluster are raised by the amount $\gamma_{1}$.
 But we also want to allow the size of impact to vary by school size.
 This suggests we will need to elaborate the model to include a treatment-by-size interaction term.
 
 One approach for allowing the school-specific impacts to depend on school size is to introduce school size as a predictor, as in 
 $$
-\beta_{0j} = \gamma_{00} + \gamma_{01} Z_j + \gamma_{02} \left(Z_j \times n_j\right) + u_j.
+\beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} \left(Z_j \times n_j\right) + u_j.
 $$
-A drawback of this specification is that changing the average size of the schools will change the average treatment impact. 
-A more interpretable specification is to allow treatment effects to depend on the _relative_ school sizes.
+A drawback of this approach is that changing the average size of the schools will change the average treatment impact. 
+A more interpretable approach is to allow treatment effects to depend on the _relative_ school sizes.
 To do this, we can define a covariate that describes the deviation in the school size relative to the average size.
 Thus, let 
 $$ S_j = \frac{n_j - \bar{n}}{ \bar{n} }, $$
 where $\bar{n}$ is the overall average school size.
 Using this covariate, we then revise our equation for our site $j$ to:
-$$ \beta_{0j} = \gamma_{00} + \gamma_{01} Z_j + \gamma_{02} \left( Z_j \times S_j\right) + u_j. $$
-If $\gamma_{02}$ is positive, then bigger schools will have larger treatment impacts.
-Because $S_j$ is centered at 0, the overall average impact across schools will be simply $\gamma_{01}$.
-(If $S_j$ was not centered at zero, then our overall average impact in our data would be some function of $\gamma_{01}$ and $\gamma_{02}$.)
+$$ \beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} \left( Z_j \times S_j\right) + u_j. $$
+If $\gamma_{2}$ is positive, then bigger schools will have larger treatment impacts.
+Because $S_j$ is centered at 0, the overall average impact across schools will be simply $\gamma_{1}$.
+(If $S_j$ was not centered at zero, then the overall average impact would be some function of $\gamma_{1}$ and $\gamma_{2}$.)
 
 
 Putting all of the above together, we now have an HLM to describe the distribution of outcomes conditional on the covariates and structural features:
 $$
 \begin{aligned}
 Y_{ij} &= \beta_{0j} + \epsilon_{ij} \quad &\epsilon_{ij} &\sim N( 0, \sigma^2_\epsilon ) \\
-\beta_{0j} &= \gamma_{00} + \gamma_{01} Z_j + \gamma_{02} Z_j S_j + u_j \quad & u_j &\sim N( 0, \sigma^2_u )
+\beta_{0j} &= \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} Z_j S_j + u_j \quad & u_j &\sim N( 0, \sigma^2_u )
 \end{aligned}
 $$
 Substituting the second equation into the first leads to a single equation for generating the student-level outcomes (or what is called the reduced form of the HLM):
-$$ Y_{ij} = \gamma_{00} + \gamma_{01} Z_j + \gamma_{02} Z_j S_j  + u_j + \epsilon_{ij}$$
-The parameters of this focal model are the mean outcome among control schools ($\gamma_{00}$), the average treatment impact ($\gamma_{01}$), the site-size by treatment interaction term ($\gamma_{02}$), the amount of school-level variation ($\sigma^2_u$), and the amount of within-school variation ($\sigma^2_\epsilon$).
+$$ Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} Z_j S_j  + u_j + \epsilon_{ij}$$
+The parameters of this focal model are the mean outcome among control schools ($\gamma_{0}$), the average treatment impact ($\gamma_{1}$), the site-size by treatment interaction term ($\gamma_{2}$), the amount of school-level variation ($\sigma^2_u$), and the amount of within-school variation ($\sigma^2_\epsilon$).
 
 There are several ways that we could elaborate this model further.
 For one, we might want to include a main effect for $S_j$, so that average outcomes in the absence of treatment are also dependent on school size.
@@ -436,241 +436,187 @@ So far we have a mathematical model analogous to what we would write if we were 
 To _generate_ data, we also need a way to generate the structural features and covariates involved in the model.
 First, we need to know the number of clusters ($J$) and the sizes of the clusters ($n_j$, for $j = 1, ..., J$).
 For illustrative purposes, we will generate size sizes from a uniform distribution with average school size $\bar{n}$ and a fixed parameter $\alpha$ that controls the degree of variation in school size. Mathematically,
-$$ n_j \sim unif\left[ (1-\alpha)\bar{n}, (1+\alpha)\bar{n} \right].$$
+$$ n_j \sim \text{Unif}\left[ (1-\alpha)\bar{n}, (1+\alpha)\bar{n} \right].$$
 Equivalently, we could generate site sizes by taking
 $$n_j = \bar{n}(1 + \alpha U_j), \quad U_j \sim unif(-1, 1).$$
 For instance, if $\bar{n} = 100$ and $\alpha = 0.25$ then schools would range in size from 75 to 125.
-This specification is nice because it is simple, with just two parameters,both of which are easy to interpret: $\bar{n}$ is the average school size and $\alpha$ is the amount of variation in school size.
+This specification is nice because it is simple, with just two parameters,both of which are easy to interpret: $\bar{n}$ is the average school size and $\alpha$ is the degree of variation in school size, relative to the average.
 
 To round out the model, we also need to define how to generate the treatment indicator, $Z_j$.
 To allow for different treatment allocations, we will specify a proportion $p$ of clusters assigned to treatment. 
-Because we are simulating a cluster-randomized trial, we then generate $Z_j = 1$ or $Z_j = 0$ by drawing a simple random sample (without replacement) of $p \times J$ schools out of the total sample of $J$ schools. 
+Because we are simulating a cluster-randomized trial, we do this by drawing a simple random sample (without replacement) of $p \times J$ schools out of the total sample of $J$ schools, then setting $Z_j = 1$ for these schools and $Z_j = 0$ for the remaining schools.
 We will denote this process as $Z_1,...,Z_J \sim SRS(p, J)$, where SRS stands for simple random sample.
 
 Now that we have an auxiliary model for school sizes, let us look again at our treatment impact heterogeneity term:
-$$ \gamma_2 Z_j S_j = \gamma_2 Z_j \left(\frac{n_j - \bar{n}}{\bar{n}}\right) = \gamma_2 Z_j \alpha U_j, $$
-where $U_j \sim unif(-1,1)$ is the uniform variable used to generate $n_j$.
-Because we have standardized by average school size, the importance of the covariate does not change as a function of average school size, but rather as a function of the relative variation parameter $\alpha$.
-Setting up a DGP with standardize quantity will make it easier to interpret simulation results, especially if we are looking at results from multiple scenarios with different parameter values.
+$$ \gamma_{2} Z_j S_j = \gamma_{2} Z_j \left(\frac{n_j - \bar{n}}{\bar{n}}\right) = \gamma_{2}  \alpha Z_j U_j, $$
+where $U_j \sim \text{Unif}(-1,1)$ is the uniform variable used to generate $n_j$.
+Because we have standardized by average school size, the importance of the covariate does not change as a function of ave  rage school size, but rather as a function of the relative variation parameter $\alpha$.
+Setting up a DGP with standardized quantities will make it easier to interpret simulation results, especially if we are looking at results from multiple scenarios with different parameter values.
 To the extent feasible, we want the parameters of the DGP to change only one feature of the data, so that it is easier to isolate the influence of each parameter.
 
 ### From equations to code
 
-When sketching out our DGP mathematically we worked from the students to the schools.
-For actual data generation, we will now follow our final model, but go by layers in the other direction.
-First, we generate the sites:
+When sketching out the equations for the DGP, we worked from the lowest level of the model (the students) to the higher level (schools) and then to the auxiliary models for covariates and structural features.
+For writing code to based on the DGP, we will proceed in the opposite direction, from auxiliary to focal and from the highest level to the lowest.
+First, we will generate the sites and their features:
 
-- Generate site sizes
-- Generate site-level covariates
-- Generate site level random effects
+- Generate school sizes
+- Generate school-level covariates
+- Generate school-level random effects
 
-Then we generate the students inside the sites:
+Then we will generate the students inside the sites:
 
-- Generate student covariates
 - Generate student residuals
 - Add everything up to generate student outcomes
 
-The mathematical model gives us exactly the details we need to execute on these steps.
+The mathematical model gives us the details we need to execute with each of these steps.
 
-We start by specifying a function with all the parameters we might want to pass it, including defaults for each (see \@ref(default-arguments) for more on function defaults):
+Here is the skeleton of a DGP function with arguments for each of the parameters we might want to control, including defaults for each (see \@ref(default-arguments) for more on function defaults):
+
+```{r, echo = FALSE}
+source( "case_study_code/gen_cluster_RCT.R" )
+```
 
 ```{r, eval=FALSE}
-gen_dat_model <- function( n_bar = 10,
-                           J = 30,
-                           p = 0.5,
-                           gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-                           sigma2_u = 0, sigma2_e = 1,
-                           alpha = 0 ) {
-  # Code (see below) goes here.
+gen_cluster_RCT <- function(
+  J = 30,
+  n_bar = 10,
+  alpha = 0,
+  p = 0.5,
+  gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
+  sigma2_u = 0, sigma2_e = 1
+) {
+  
+  # Code (see below) goes here
 }
 ```                           
 
-Note our parameters are a mix of *model parameters* (`gamma_0`, `gamma_1`, `sigma2_e`, etc., representing coefficients in regressions, variance terms, etc.) and *design parameters* (`n_bar`, `J`, `p`) that directly inform data generation.
-We set default arguments (e.g., `gamma_0=0`) so we can ignore aspects of the DGP that we do not care about later on.
+Note that the inputs to this function are a mix of *model parameters* (`gamma_0`, `gamma_1`, `gamma_2`, representing coefficients in regressions), *auxilary parameters* (`sigma2_u`, `sigma2_e`, `alpha`, `n_bar`), and *design parameters* (`J`, `p`) that directly inform data generation.
+We set default arguments (e.g., `gamma_0=0`) so that we can ignore aspects of the DGP that we do not care about for the moment.
 
-Inside the model, we will have a block of code to generate the sites, and then another to generate the students.
+Inside the model, we will have a block of code to generate the variables pertaining to schools, and then another to generate the variables pertaining to students.
 
-**Make the sites.**
-We make the sites first:
+We first make the schools:
 
 ```{r, eval = FALSE}
-# generate site sizes 
-n_min = round( n_bar * (1 - alpha) )
-n_max = round( n_bar * (1 + alpha) )
-nj <- sample( n_min:n_max, J, replace=TRUE )
+# generate schools sizes 
+n_min <- round( n_bar * (1 - alpha) )
+n_max <- round( n_bar * (1 + alpha) )
+nj <- sample( n_min:n_max, J, replace = TRUE )
 
-# Generate average control outcome and average ATE for all sites
-# (The random effects)
-u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
+# Generate average control outcome for all schools (the random effects)
+u0j <- rnorm( J, mean = 0, sd = sqrt(sigma2_u) )
 
-# randomize units within each site (proportion p to treatment)
-Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
+# randomize schools (proportion p to treatment)
+Zj <- ifelse( sample( 1:J ) <= J * p, 1, 0)
 
-# Calculate site intercept for each site
-beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
+# Calculate schools intercepts
+S_j <- (nj - n_bar) / n_bar
+beta_0j <- gamma_0 + gamma_1 * Zj + gamma_2 * Zj * S_j + u0j
 ```
 
 The code is a literal translation of the math we did before.
-Note the line with `sample(1:J) <= J*p`; this is a simple trick to generate a treatment and control 0/1 indicator.
+Note the line with `sample(1:J) <= J*p`; this is a simple trick to generate a 0/1 indicator for control and treatment conditions.
 
 There is also a serious error in the above code (serious in that the code will run and look fine in many cases, but not always do what we want); we leave it as an exercise (see below) to find and fix it.
+<!-- JEP: Does this exercise support our pedagogical goals? If this is supposed to be intro chapter, then debugging a subtle problem seems like it could be counterproductive. -->
 
-
-**Make the individuals.**
-We next use the site characteristics to then generate the individuals.
+Next, we use the site characteristics to generate the individual-level variables:
 
 ```{r, eval=FALSE}
 # Make individual site membership
-sid = as.factor( rep( 1:J, nj ) )
-dd = data.frame( sid = sid )
+sid <- as.factor( rep( 1:J, nj ) )
 
-# Make individual level tx variables
-dd$Z = Zj[ dd$sid ]
+# Generate the individual-level errors and outcome
+N <- sum( nj )
+e <- rnorm( N, mean = 0, sd = sqrt(sigma2_e) )
+Y <- beta_0j[sid] + e
 
-# Generate the residuals 
-N = sum( nj )
-e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
-
-# Bundle and send out
-dd <- mutate( dd, 
-              sid=as.factor(sid),
-              Yobs = beta_0j[sid] + e, 
-              Z = Zj[ sid ] )
+# Bundle into a dataset
+dd <- data.frame( 
+  sid = sid,
+  Z = Zj[ sid ],
+  Yobs = Y
+)
 ```
 
 A key piece here is the `rep()` function that takes a list and repeats each element of the list a specified number of times.
 In particular, `rep()` repeats each number ($1, 2, /ldots,J$), the corresponding number of times as listed in `nj`.
-
-
-```{r secret_code_MLM_DGP, include=FALSE}
-# Secret code block!
-gen_dat_model <- function( n_bar = 10,
-                           J = 30,
-                           p = 0.5,
-                           gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-                           sigma2_u = 0, sigma2_e = 1,
-                           alpha = 0 ) {
-  # generate site sizes 
-  n_min = round( n_bar * (1 - alpha) )
-  n_max = round( n_bar * (1 + alpha) )
-  nj <- sample( n_min:n_max, J, replace=TRUE )
-  
-  # Generate average control outcome and average ATE for all sites
-  # (The random effects)
-  u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
-  
-  # randomize units within each site (proportion p to treatment)
-  Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
-  
-  # Calculate site intercept for each site
-  beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
-  
-  # Make individual site membership
-  sid = as.factor( rep( 1:J, nj ) )
-  dd = data.frame( sid = sid )
-  
-  # Make individual level tx variables
-  dd$Z = Zj[ dd$sid ]
-  
-  # Generate the residuals 
-  N = sum( nj )
-  e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
-  
-  # Bundle and send out
-  dd <- mutate( dd, 
-                sid=as.factor(sid),
-                Yobs = beta_0j[sid] + e, 
-                Z = Zj[ sid ] )
-}
-```
-
-Once we put the above code in our function skeleton, we can our function as so:
+Putting the code above into the function skeleton will produce complete DGP function (view the [complete function here](/case_study_code/gen_cluster_RCT.R)).
+We can then call the function as so:
 ```{r}
-dat <- gen_dat_model( n_bar = 5, J=3, p = 0.5, 
-                      gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
-                      sigma2_u = 0.4, sigma2_e = 1,
-                      alpha = 0.5 )
+dat <- gen_cluster_RCT( 
+  J=3, n_bar = 5, alpha = 0.5, p = 0.5, 
+  gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
+  sigma2_u = 0.4, sigma2_e = 1
+)
 
 dat
 ```
 
-Our data generation code is complete.
-We can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the site size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of site size variation (`alpha`).
+With this function, we can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the site size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of site size variation (`alpha`).
 The next step is to test the code, making sure it is doing what we think it is.
-In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on testing ones code, and for diagnosing and repairing this error in particular.
+In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on diagnosing and repairing this error.
 
+### Standardization in the DGP
 
+One difficulty with the current implementation of the model is that the magnitude of the different parameters are inter-connected.
+For instance, raising or lowering the within-school variance ($\sigma^2_u$) will increase the overall variation in $Y$, and therefore affect our the interpretation of the treatment effect parameters, because a given value of $\gamma_{1}$ will be less consequential if there is more overall variation. 
+We can fix this issue by standardizing the model parameters.
+Standardization will allow us to reduce the set of parameters we might want to manipulate and will ensure that varying the remaining parameters only affects one aspect of the DGP.
 
+For a continuous, normally distributed outcome variable, a common approach to scaling is to constrain the overall variance of the outcome to a fixed value, such as 1 or 100.
+The magnitude of the other parameters of the model can then be interpreted relative to this scale.
+Often, we can also constrain the mean of the outcome to a fixed value, such as setting $\gamma_0 = 0$ without affecting the interpretation of the other parameters.
 
-
-## Extension: Standardization in a data generating process
-
-In this chapter, we made a model to generate data for a cluster randomized trial.
-Given our model, we can generate data by specifying our parameters and variables of $\gamma_{0}, \gamma_{1}, \gamma_{2}, \sigma^2_\epsilon, \sigma^2_u, \bar{n}, \alpha, J, p$.
-
-One factor that tends to show up when working with multisite data is how much variation there is within sites vs between sites.
-For example, the Intra-Class Correlation (ICC), a measure of how much of the variation in the outcome is due to differences between sites, is a major component for power calculations.
-Because of this, we will likely want to manipulate the amount of within vs. between variation in our simulations.
-
-An easy way to do this would be to simply raise or lower the amount of variation within sites ($\sigma^2_u$).
-This unfortunately has a side effect: if we increase $\sigma^2_u$, our overall variation of $Y$ will also increase.
-This will make it hard to think about, e.g., power, since we have confounded within vs. between variation with overall variation (which is itself bad for power).
-It also impacts interpretation of coefficients.
-A treatment effect of 0.2 on our outcome scale is "smaller" if there is more overall variation.
-
-Right now, our model is 
-$$ Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_2 Z_j \left(\frac{n_j - \bar{n}}{\bar{n}} \right)  + u_j + \epsilon_{ij}  $$
-
-Given our model, the variance of our control-side outcomes is
+With the current model, the variance of the outcome across students in the control condition is
 $$ 
 \begin{aligned}
-var( Y_{ij}(0) ) &= var( \beta_{0j} + \epsilon_{ij} ) \\
-&= var( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2}Z_j \tilde{n}_j + u_j + \epsilon_{ij} ) \\
-&= var( \gamma_{0} + u_j + \epsilon_{ij} ) \\
-&= \sigma^2_u + \sigma^2_\epsilon
+\text{Var}( Y_{ij} | Z_j = 0) &= \text{Var}( \beta_{0j} + \epsilon_{ij} | Z_j = 0) \\
+&= \text{Var}( \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} Z_j \tilde{n}_j + u_j + \epsilon_{ij} | Z_j = 0) \\
+&= \text{Var}( \gamma_{0} + u_j + \epsilon_{ij} ) \\
+&= \sigma^2_u + \sigma^2_\epsilon.
 \end{aligned}
 $$ 
-(We drop the terms with the $Z_j$ because we are looking at control-side variation, where nothing is treated.)
-We see that as we increase either within or between variation, overall variation increases.
-
-We can improve our data generating process to allow for directly controlling the amount of within vs. between variation without it being confounded with overall variation.
-To do this we first (1) Standardize our data and then (2) reparameterize, so we have human-selected parameters that we can interpret that we then _translate_ to our list of data generation parameters.
-In particular, we will index our DGP with the more interpretable parameter of the Intra-Class Correlation (ICC), and standardize our DGP so it is all in effect size units.
-
-The effect size of an impact is defined as the impact over the control-side standard deviation.
-(Sometimes people use the pooled standard deviation, but this is usually a bad choice if one suspects treatment variation.  More treatment variation should not reduce the effect size for the same absolute average impact.)
-
-$$ ES = \frac{\gamma_1}{SD( Y | Z_j = 0 )} = \frac{\gamma_1}{\sqrt{ \sigma^2_u + \sigma^2_\epsilon } } $$
-
-The way we think about how "big" $\gamma_1$ is depends on how much site variation and residual variation there is.
-But it is also easier to detect effects when the residual variation is small.
-Effect sizes "standardize out" these sorts of tensions.  We can use that.
-
-In particular, we will use the Intraclass Correlation Coeffiicent (ICC), defined as
-$$ ICC = \frac{ \sigma^2_u }{ \sigma^2_\epsilon + \sigma^2_u } . $$
-The ICC is a measure of within vs. between variation.
-
-What we then do is first standardized our data, meaning we ensure the control side variance equals 1.
-Using the above, this means $\sigma^2_u + \sigma^2_\epsilon = 1$.
-It also gives us $ICC = \sigma^2_u$, and $\sigma^2_\epsilon = 1 - ICC$.
-
-Our two model parameters are now tied together by our single ICC tuning parameter.
-The core idea is we can now manipulate the aspects of the DGP we want while holding other aspects of the DGP constant.
-Given our standardized scale, we have dropped a parameter from our set of parameters we might want to vary, and ensured that varying the other parameter (now the ICC) is varying only one aspect of the DGP, not both.
-Before, increasing $\sigma^2_u$ had two consequences: total variation and relative amount of variation at the school level.
-Now, manipulating ICC only does the latter.
-
-E.g., we can call our DGP function as follows:
+To ensure that the total variance is held constant, we can redefine the variance parameters in terms of the intra-class correlation (ICC).
+The ICC is defined as
+$$ ICC = \frac{ \sigma^2_u }{ \sigma^2_u + \sigma^2_\epsilon }.$$
+The ICC measures the degree of between-group variation as a proportion of the total variation of the outcome. 
+It plays an important role in power calculations for cluster-randomized trials.
+If we want the total variance of the outcome to be 1, we need to set $\sigma^2_u + \sigma^2_{\epsilon} = 1$, which the implies that $ICC = \sigma^2_u$, and $\sigma^2_\epsilon = 1 - ICC$.
+Thus, we can call our DGP function as follows:
 ```{r}
-ICC = 0.3
-dat <- gen_dat_model( n_bar = 20, J = 30, p = 0.5,
-                      gamma_0 = 0, gamma_1 = 0.3, gamma_2 = 0.2,
-                      sigma2_u = ICC, sigma2_e = 1 - ICC,
-                      alpha = 0.5 )
+ICC <- 0.3
+dat <- gen_cluster_RCT( 
+  J = 30, n_bar = 20, alpha = 0.5, p = 0.5,
+  gamma_0 = 0, gamma_1 = 0.3, gamma_2 = 0.2,
+  sigma2_u = ICC, sigma2_e = 1 - ICC
+)
 ```
+Manipulating the ICC rather than separately manipulating $\sigma^2_u$ and $\sigma^2_\epsilon$ will let us change the degree of between-group variation without affecting the overall scale of the outcome.
 
+A further consequence of setting the overall scale of the outcome to 1 is that the parameters controlling the treatment impact can now be interpreted as standardized mean difference effect sizes.
+The standardized mean difference for a treatment impact is defined as the average impact over the standard deviation of the outcome among control observations.^[An alternative definition is based on the pooled standard deviation, but this is usually a bad choice if one suspects treatment variation. More treatment variation should not reduce the effect size for the same absolute average impact.]
+Letting $\delta$ denote the standardized mean difference parameter, 
+$$ \delta = \frac{E(Y | Z_j = 1) - E(Y | Z_j = 0)}{SD( Y | Z_j = 0 )} = \frac{\gamma_1}{\sqrt{ \sigma^2_u + \sigma^2_\epsilon } } $$
+Because we have constrained the total variance, $\gamma_1$ is equivalent to $\delta$. This equivalence holds for any value of $\gamma_0$, so we do not have to worry about manipulating $\gamma_0$ in the simulations---we can simply leave it at its default value.
 
+<!-- JEP: Do we want to discuss anything about interpretation of gamma_2? Or add an exercise about it? -->
 
+## More to explore
+
+This chapter has introduced the core components of a data-generating process and demonstrated how to move from formulating a full data-generating model to implementing the model in R code.
+Our main aim has been to provide enough scaffolding for you to get started with simulating and exploring a variety of models.
+The exercises below will give you further practice in developing, testing, and extending DGP functions.
+Of course, we have not covered every consideration and challenge that arises when writing DGPs for simulations---there is _much_ more to explore!
+
+We will cover some of further challenges in subsequent chapters.
+<!-- JEP: Links to specific further chapters? -->
+Further challenges will surely arise as you apply simulations in your own work.
+Even though such challenges which might not align with the examples or contexts that we have covered here, the concepts and principles that we have introduced should allow you to reason about potential solutions.
+In doing so, we encourage you adopt the attitude of a chef in a test kitchen by trying out your ideas with code.
+In the kitchen, there is often no way to know how a dish will turn out until you actually bake it and taste it.
+Likewise, in developing a DGP, the best way to understand and evaluate a DGP is to write it out in code and explore the datasets that you can produce with it.
 
 ## Exercises 
 
@@ -789,11 +735,15 @@ The resulting counts will be correlated, but the correlation will not be equal t
 
 3. Use the function to create a graph showing the population correlation between the observed counts as a function of $\rho$. Use $\mu_1 = \mu_2 = 10$ and $p_1 = p_2 = 20$. How does the range of correlations compare to the range from Exercise \@ref(BVNB1)?
 
-### Checking and extending the Cluster RCT DGP {#cluster-RCT-DGP}
+### Plot the data from a cluster-randomized trial {#cluster-RCT-plot}
 
-1. What is the variance of the outcomes generated by our model if there is no treatment effect?  (Try simulating data to check!) What other quick checks can you make on your DGP to make sure it is working? 
+Run `gen_cluster_RCT()` with parameter values of your choice to produce data from a simulated cluster-randomized trial. Create a plot of the data that illustrates how student-level observations are nested within schools and how schools are assigned to different treatment conditions. 
 
-2. In `gen_dat_model()` we have the following line of code to generate the number of individuals per site.
+### Checking the Cluster RCT DGP {#cluster-RCT-checks}
+
+1. What is the variance of the outcomes generated by the model for the cluster-randomized trial if there are no treatment effects?  (Try simulating data to check!) What other quick checks can you run on this DGP to make sure it is working correctly? 
+
+2. In `gen_cluster_RCT()` we have the following line of code to generate the number of individuals per site.
 
     ```{r bad_sample_line, eval=FALSE}
     nj <- sample( n_min:n_max, J, replace=TRUE )
@@ -802,13 +752,21 @@ The resulting counts will be correlated, but the correlation will not be equal t
     This code has an error.  Generate a variety of datasets where you vary `n_min`, `n_max` and `J` to discover the error.  Then repair the code.
     Checking your data generating process across a range of scenarios is extremely important.
 
-3. The DGP allows for site-level treatment impact variation--but only if it is related to site size.  How could you modify your simulation to allow for site-level treatment impact variation that is not related to site size?  Implement this change and generate some data to show how it works.
+### More school-level variation {#cluster-RCT-heterogeneity}
 
-4. Extend the data generating process to include an individual level covariate $X$ that is predictive of outcome.  In particular, you will want to adjust your level one equation to
+The DGP for the cluster-randomized trial allows for school-level treatment impact variation, but only to the extent that the variation is explained by school size.  How could you modify your simulation to allow for school-level treatment impact variation that is not related to school size?  Implement this change and generate some data to show how it works.
 
-$$ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij} . $$
-    Keep the same $\beta_1$ for all sites.
-    You will have to specify how to generate your $X_{ij}$.
-    For starters, just generate it as a standard normal, and do not worry about having the mean of $X_{ij}$ vary by sites unless you are excited to try to get that to work.
+### Cluster-randomized trial with baseline predictors {#cluster-RCT-heterogeneity}
 
+Extend the DGP for the cluster-randomized trial to include an individual-level covariate $X$ that is correlated with the outcome. 
+Do this by modifying the model for student-level outcomes as
+$$ 
+Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij}. 
+$$
+Keep the same $\beta_1$ for all sites.
+To implement this model as a DGP, you will have to decide how to generate $X_{ij}$.
+
+1. Use words and equations to explain your auxiliary model for $X_{ij}$. 
+2. Implement the model by modifying `gen_cluster_RCT()` accordingly.
+3. Use your implementation to find the unconditional variance of the outcome, $\text{Var}(Y | Z_j = 0)$, when $\beta_1 = 0.6$.
 
