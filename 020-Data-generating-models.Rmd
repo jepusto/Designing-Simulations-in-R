@@ -176,21 +176,7 @@ In some cases, the output data might be augmented with some other latent quantit
 We have already seen an example of a complete DGP function in the case study on one-way ANOVA (see Section \@ref(case-anova-DGP)).
 In this case study, we developed the following function to generate data for a single outcome from a set of $G$ groups:
 
-```{r}
-generate_data <- function(mu, sigma_sq, sample_size) {
-  
-  N <- sum(sample_size) 
-  g <- length(sample_size) 
-  
-  group <- factor( rep(1:g, times = sample_size) )
-  mu_long <- rep( mu, times = sample_size )
-  sigma_long <- rep( sqrt(sigma_sq), times = sample_size ) 
-  
-  x <- rnorm( N, mean = mu_long, sd = sigma_long )
-  sim_data <- tibble( group = group, x = x )
-  
-  return(sim_data)
-}
+```{r, file = "case_study_code/generate_ANOVA_data.R"}
 ```
 
 This function takes both the focal model parameters (`mu`, `sigma_sq`) and other design parameters that one might not think of as parameters per-se (`sample_size`).
@@ -202,25 +188,7 @@ the sole focal parameter is the correlation between the variates, $\rho$; and
 the auxiliary parameters are the expected counts $\mu_1$ and $\mu_2$.
 Our function should have all four of these quantities as inputs and should produce as output a dataset with two variables, $C_1$ and $C_2$. 
 Here is one way to implement the model:
-```{r}
-r_bivariate_Poisson <- function(N, rho, mu1, mu2) {
-  
-  # covariance term, equal to E(Z_3)
-  EZ3 <- rho * sqrt(mu1 * mu2) 
-  
-  # Generate independent components
-  Z1 <- rpois(N, lambda = mu1 - EZ3)
-  Z2 <- rpois(N, lambda = mu2 - EZ3)
-  Z3 <- rpois(N, lambda = EZ3)
-  
-  # Assemble components
-  dat <- data.frame(
-    C1 = Z1 + Z3,
-    C2 = Z2 + Z3
-  )
-  
-  return(dat)
-}
+```{r, file = "case_study_code/r_bivariate_Poisson.R"}
 ```
 Here we generate 5 observations from the bivariate Poisson with $\rho = 0.5$ and $\mu_1 = \mu_2 = 4$:
 ```{r}
@@ -247,7 +215,7 @@ The plot is based on a simulated dataset with 50 observations in each of five gr
 
 library(ggridges)
 
-ANOVA_dat <- generate_data(
+ANOVA_dat <- generate_ANOVA_data(
   mu = 50 + c(0, 0, 4, 2, 5),
   sigma_sq = c(3^2, 3^2, 4^2, 1^2, 5^2),
   sample_size = rep(50,5)
@@ -304,7 +272,7 @@ In the following code, we simulate very large samples from each of the four grou
 mu <- c(1, 2, 5, 6)
 sigma_sq <- c(3, 2, 5, 1)
 
-check_data <- generate_data( 
+check_data <- generate_ANOVA_data( 
   mu = mu, 
   sigma_sq = sigma_sq,
   sample_size = rep(10000, 4) 
@@ -475,21 +443,13 @@ Here is the skeleton of a DGP function with arguments for each of the parameters
 
 ```{r, echo = FALSE}
 source( "case_study_code/gen_cluster_RCT.R" )
+
+cluster_RCT_fun <- readLines("case_study_code/gen_cluster_RCT.R")
+skeleton <- c(cluster_RCT_fun[1:9], "  # Code (see below) goes here", "}")
 ```
 
-```{r, eval=FALSE}
-gen_cluster_RCT <- function(
-  J = 30,
-  n_bar = 10,
-  alpha = 0,
-  p = 0.5,
-  gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-  sigma2_u = 0, sigma2_e = 1
-) {
-  
-  # Code (see below) goes here
-}
-```                           
+```{r, code = skeleton, eval = FALSE}
+```
 
 Note that the inputs to this function are a mix of *model parameters* (`gamma_0`, `gamma_1`, `gamma_2`, representing coefficients in regressions), *auxilary parameters* (`sigma2_u`, `sigma2_e`, `alpha`, `n_bar`), and *design parameters* (`J`, `p`) that directly inform data generation.
 We set default arguments (e.g., `gamma_0=0`) so that we can ignore aspects of the DGP that we do not care about for the moment.
@@ -498,21 +458,7 @@ Inside the model, we will have a block of code to generate the variables pertain
 
 We first make the schools:
 
-```{r, eval = FALSE}
-# generate schools sizes 
-n_min <- round( n_bar * (1 - alpha) )
-n_max <- round( n_bar * (1 + alpha) )
-nj <- sample( n_min:n_max, J, replace = TRUE )
-
-# Generate average control outcome for all schools (the random effects)
-u0j <- rnorm( J, mean = 0, sd = sqrt(sigma2_u) )
-
-# randomize schools (proportion p to treatment)
-Zj <- ifelse( sample( 1:J ) <= J * p, 1, 0)
-
-# Calculate schools intercepts
-S_j <- (nj - n_bar) / n_bar
-beta_0j <- gamma_0 + gamma_1 * Zj + gamma_2 * Zj * S_j + u0j
+```{r, code = cluster_RCT_fun[10:23], eval = FALSE}
 ```
 
 The code is a literal translation of the math we did before.
@@ -523,21 +469,7 @@ There is also a serious error in the above code (serious in that the code will r
 
 Next, we use the site characteristics to generate the individual-level variables:
 
-```{r, eval=FALSE}
-# Make individual site membership
-sid <- as.factor( rep( 1:J, nj ) )
-
-# Generate the individual-level errors and outcome
-N <- sum( nj )
-e <- rnorm( N, mean = 0, sd = sqrt(sigma2_e) )
-Y <- beta_0j[sid] + e
-
-# Bundle into a dataset
-dd <- data.frame( 
-  sid = sid,
-  Z = Zj[ sid ],
-  Yobs = Y
-)
+```{r, code = cluster_RCT_fun[25:38], eval=FALSE}
 ```
 
 A key piece here is the `rep()` function that takes a list and repeats each element of the list a specified number of times.
