@@ -16,12 +16,9 @@ theme_set( theme_classic() )
 ### Code for one of the running examples
 source( "case_study_code/clustered_data_simulation.R" )
 source( "case_study_code/cronbach_alpha_simulation.R" )
-dat <- gen_dat_model( n=5, J=3, p=0.5, 
-                        gamma_0=0, gamma_1=0.2, gamma_2=0.2,
-                        sigma2_u = 0.4, sigma2_e = 1,
-                      alpha = 0.5 )
 
 res <- readRDS( file = "results/simulation_CRT.rds" )
+res
 
 sres <- 
   res %>% 
@@ -38,82 +35,116 @@ sres <-
   )
 sres
 
+# 100 iterations per factor
+summary( sres$R )
 ```
 
+# Building good vizualizations
 
-# Analyzing the multifactor experiment
+In the prior chapter, we saw a series of visualizations that showed overall trends across a variety of examples.
+These visualizations are not the initial ones that were created, for those research projects.
+In practice, making a visualization often requires creating a _bunch_ of graphs to look at different aspects of the data.
+From that pile of graphs, you would then refine ones that communicate the overall results most cleanly, and include those in your main write-up.
+In our work, we find we often generate a series of R Markdown reports that load the simulation results and generate these visualizations.
+These initial documents are then discussed internally by the research team.
 
-## Ways of analyzing simulation results
-Once we have performance measures for all our simulation scenarios, how do we explore them?
-For our Cluster RCT simulation, we have `r prettyNum( nrow(sres) / 3, big.mark=",")` different simulation runs across our factors (with three rows per simulation run, one for each method).
-How can we visualize and understand trends across this complex domain?
+In this chapter we dive into how to create visualizations, and discuss a set of common tools that we use to explore our simulation results.
+In particular, we focus on four essential tools:
 
-There are several techniques for summarizing across the data that one might use.
+1. **Subsetting**: Multifactor simulations can be complex and confusing. Sometimes it is easier to first explore a subset of the simulation results, such as a single factor level.
+2. **Many small multiples**: plotting all of the results in a single plot, with facets to break up the results by simulation factors.
+3. **Bundling**: grouping the results by a primary factor of interest, and then plotting the performance measure as a boxplot so you can see how much variation there is within that factor level.
+4. **Aggregation**: averaging the performance measure across some of the simulation factors, so you can see overall trends.
 
-### Plot everything with many small multiples
+<!--These tools are often used in combination.
+To get a sense of an overall trend, you can aggregate across factors, averaging your performance metrics and then making line charts or scatterplots.
 
-If you do not have too many different kinds of factor, you can simply plot all of your results at once.
+For all of these plots, if you have a lot of factors, you might also want to use small multiples (faceting) to break up the plots into manageable chunks.
+Do this especially if entire sets of simulation results are on radically different scales of performance (e.g., you have a range of outcomes explored, each on a different scale).
+You can further use color, shape, and line type to encode different factors.
+-->
+
+We next walk through these techniques using our running example of comparing methods for analyzing a Cluster RCT.
+We will start with an investigation of bias.
+
+As a reminder, in our Cluster RCT example, we have three methods for estimating the average treatment effect: linear regression of the student-level outcome onto treatment (with cluster-robust standard errors); aggregation, where we regress the cluster-level average outcome onto treatment (with heteroskedastic robust standard errors); and multilevel modeling with random effects.
+We want to know if these methods are biased for our defined estimand, which is the cluster-average effect.
+
+## Subsetting
+
+As an initial exploration, you can simply filter the simulation results to a single factor level for some nuisance parameter.
+For example, we might examine an ICC of 0.20 only, as this is a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
+We would then consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
+
+It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
+In our case the more complex plots explored earlier, such as the aggregation plot, showed mostly horizontal lines with respect to the ICC value; we thus might be able to safely ignore the ICC factor in our main report.
+
+
+## Many small multiples
+
+If you do not have too many different factors, you can simply plot all of your results at once.
 For example, say we only ran simulations for our Cluster RCT simulation with `n_bar = 320` and `J = 20`.
-Then we could plot everything like so:
+Then we could plot all our simulation results like so:
 
 ```{r}
 sres_sub <- sres %>%
   filter( n_bar == 320, J == 20 )
-ggplot( sres_sub, aes( alpha, bias, col=method, pch=method, group=method ) ) +
+ggplot( sres_sub, aes( as.factor(alpha), bias, 
+                       col=method, pch=method, group=method ) ) +
   facet_grid( size_coef ~ ICC, labeller = label_both ) +
   geom_point() + geom_line() +
   geom_hline( yintercept = 0 ) +
-  theme_minimal() +
-  scale_x_continuous( breaks = unique( sres$alpha) )
+  theme_minimal() 
 ```
 
 Each point is one of our methods in one of our simulation scenarios.
 We are looking at the raw results.
-We connect the points with lines to help us see trends within each of the mini-plots.
-It also helps us visually track which group of points goes with which.
+We connect the points with lines to help us see trends within each of the small multiples.
+The lines help us visually track which group of points goes with which.
 
-As a side note, this style of plotting, with a bunch of small plots, is called
-"many small multiples" and is beloved by Tufte.
-He likes it, in part, because in a single plot we can display 5 variables: our facets are organized by two (ICC and the size coefficient), and within each facet we have three (alpha, our outcome of bias, and the methods themselves).
-Unfortunately, we quickly reach our limits of this approach if we have more factors than 5, which, in this case, we do.
+We are showing five variables: our facets are organized by two (ICC and the size coefficient), and within each facet we have three (alpha, our outcome of bias, and the methods themselves).
+Unfortunately, we quickly reach our limits of this approach if we have more factors than five, which, in this case, we do (recall we subset to single values of our remaining two factors of `n_bar` and `J`).
 We next present bundling, a way of using this core idea of showing raw results, but in a semi-aggregated way.
 
 
-### Bundling
-As a first step, we can bundle the simulations into groups defined by a selected primary factor of interest, and then plot each bundle with a boxplot of a selected performance criteria.
-Each boxplot then shows the central measure of how well an estimator worked across those simulations, along with a sense of how much that performance varied across those simulations.
+## Bundling
+
+When faced with many simulation factors, we can _bundle_ bundle the simulations into groups defined by a selected primary factor of interest, and then plot each bundle with a boxplot of a selected performance criteria.
+Each boxplot then shows the central measure of how well an estimator worked across those scenarios, along with a sense of how much that performance varied across those simulations.
 If the boxes are narrow, then we know that the variation across simulations within the box did not impact performance much.
 If the boxes are wide, then we know that the factors that vary within the box matter a lot for performance.
 
-With bundling, we would need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable (wider) than the truth.
+With bundling, we generally need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable (wider) than the truth.
 (Consider a case where the simulations within a box all would have the same performance, but the MCSE is large; in this case we would see a wide boxplot when we should not.)
 
-To illustrate, we next investigate bias in our running example on cluster RCTs.
-We are going to group our results by method, ICC, the size coefficent (how strong the cluster size to treatment impact relationship is), and alpha (how much the site sizes vary).
-For a specific ICC, size, and alpha, we will put the boxes for the three methods side-by-side to directly compare the methods in terms of bias.
+To illustrate, group our Cluster RCT results by method, ICC, the size coefficient (how strong the cluster size to treatment impact relationship is), and alpha (how much the cluster sizes vary).
+For a specific ICC, size, and alpha, we will put the boxes for the three methods side-by-side to directly compare the methods:
 
 ```{r clusterRCT_plot_bias_v1}
-ggplot( sres, aes( ICC, bias, col=method, group=paste0(ICC,method) ) ) +
-  facet_grid( alpha ~ size_coef, labeller = label_both ) +
+ggplot( sres, aes( as.factor(alpha), bias, col=method, group=paste0(ICC,method) ) ) +
+  facet_grid( size_coef ~ ICC, labeller = label_both ) +
   geom_boxplot(coef = Inf) +
   geom_hline( yintercept = 0 ) +
-  theme_minimal() +
-  scale_x_continuous( breaks = unique( sres$ICC) )
+  theme_minimal() 
 ```
 
-From our plot we see, for example, that there is virtually no bias for any method when the size coefficient is 0 and the ICC is 0. 
-It is a bit more unclear, but it seems there is also virtually no bias when the size coefficient is 0 regardless of ICC, but the boxes are wider making us wonder if something else is potentially going on.
-When alpha is 0 and the size coefficient is 0.2, all methods have a negative bias for most scenarios considered, as all boxes and almost all of the whiskers are below the 0 line (when ICC is 0.6 or 0.8 we may have some instances of 0 or positive bias, if that is not MCSE giving long tails).
-
-Each box is a collection of simulation trials. E.g., for `ICC = 0.6`, `size_coef = 0.2`, and `alpha = 0.8` each box contains 9 scenarios representing the varying level 1 and level 2 sample sizes.
+Each box is a collection of simulation trials. E.g., for `ICC = 0.6`, `size_coef = 0.2`, and `alpha = 0.8` each of the three boxes contains 9 scenarios representing the varying level 1 and level 2 sample sizes.
 Here are the 9 for the Aggregation method:
 ```{r}
-filter( sres, ICC == 0.6, size_coef == 0.2,
+filter( sres, 
+        ICC == 0.6, 
+        size_coef == 0.2,
         alpha == 0.8, method=="Agg" ) %>%
-  dplyr::select( n_bar:alpha, bias )
+  dplyr::select( n_bar:alpha, bias ) %>%
+  knitr::kable( digits = 2 )
 ```
 
-The apparent outliers (long tails) for some of the boxplots suggest that the other factors (cluster size and number of clusters) also relate to degree of bias.  We could try bundling along different aspects to see:
+Our bias boxplot makes some trends clear.
+For example, we see that there is virtually no bias for any method when the size coefficient is 0 and the ICC is 0. 
+It is a bit more unclear, but it seems there is also virtually no bias when the size coefficient is 0 regardless of ICC, but the boxes get wider as ICC increases, making us wonder if something else is potentially going on.
+When alpha is 0 and the size coefficient is 0.2, all methods have a negative bias for most scenarios considered, as all boxes and almost all of the whiskers are below the 0 line (when ICC is 0.6 or 0.8 we may have some instances of 0 or positive bias, if that is not MCSE giving long tails).
+
+The apparent outliers (long tails) for some of the boxplots suggest that the other two factors (cluster size and number of clusters) do relate to the degree of bias.  We could try bundling along different aspects to see if that explains these differences:
 
 ```{r clusterRCT_plot_bias_v2}
 ggplot( sres, aes( as.factor(n_bar), bias, col=method, group=paste0(n_bar,method) ) ) +
@@ -123,57 +154,77 @@ ggplot( sres, aes( as.factor(n_bar), bias, col=method, group=paste0(n_bar,method
   theme_minimal()
 ```
 
-No progress there.  Perhaps it is instability or MCSE.
-In an actual analysis, we might then make a note to investigate these anomalies a bit further, later on.
+No progress there; we have long tails suggesting something is allowing for large bias in some contexts.
+This could be MCSE, with some of our bias estimates being large due to random chance.
+Or it could be some specific combination of factors allows for large bias (e.g., perhaps small sample sizes makes our estimators more vulnerable to bias).
+In an actual analysis, we would make a note to investigate these anomalies a bit further, later on.
+
+In general, playing around with factors so that the boxes are generally narrow is a good idea; it means that you have found a representation of the data where the variation within your bundles is less important.
+This might not always be possible, if all your factors matter; in this case the width of your boxes tells you to what extent the bundled factors matter relative to the factors explicitly present in your plot.
 
 
 
+## Aggregation
 
-### Aggregation
-The boxplots make seeing trends more difficult.
-Instead of bundling, we can therefore aggregate, where we average all the scenarios within a box to get a single number of average performance, to look at overall trends rather than individual simulation variation.
-Aggregation is especially important if the number of replicates within each scenario is small, because then each indiviua scenario's performance is measured with a lot of error.
+Boxplots can make seeing trends more difficult, as the eye is drawn to the boxes and tails, and the range of your plot axes can be large due to needing to accommodate the full tails and outliers of your results; this can compress the mean differences between groups, making them look small.
+Instead of bundling, we can therefore aggregate, where we average all the scenarios within a box to get a single number of average performance.
+This will show us overall trends rather than individual simulation variation.
 
-With aggregation, we average over some of the factors, collapsing our simulation results down to fewer moving parts.
+When we aggregate, and average over some of the factors, we collapse our simulation results down to fewer moving parts.
 Aggregation across factors is better than having not had those factors in the first place!
-A performance measure averaged over a factor is a more general answer of how things work in pratice than having not varied the factor at all.
+A performance measure averaged over a factor is a more general answer of how things work in practice than having not varied the factor at all.
 
-For example, if we average across ICC and site variation, and see how the methods change performance as a function of $J$, we would know that this is a general trend across a range of scenarios defined by different ICC and site variation levels.
-Our conclusions would then be more general than if we picked a single ICC and amount of site variation: in this latter case we would not know if we would see our trend more broadly.
+For example, if we average across ICC and site variation, and see that our methods had different degrees of bias as a function of $J$, we would know that the found trend is a general trend across a range of scenarios defined by different ICC and site variation levels, rather than a specific one tied to a single ICC and amount of site variation.
+Our conclusions would then be more general: if we had not explored more scenarios, we would not have any sense of how general our found trend might be.
 
-Also, with aggregation, we can have a smaller number of replications per factor combination.
-The averaging will, in effect, give a lot more replications per aggregated performance measure.
+That said, if some of our scenarios had no bias, and some had large bias, when we aggregated we would report that there is generally a moderate amount of bias.
+This would not be entirely faithful to the actual results.
+If, however, the initial boxplots show ranges generally positive or generally negative, then aggregation will be more faithful to the spirit of the results.
 
-A caution with aggregation is that aggregated results can be misleading if you have scaling issues or extreme outliers.
+Also, aggregated results can be misleading if you have scaling issues or extreme outliers.
 With bias, our scale is fairly well set, so we are good.
 But if we were aggregating standard errors over different sample sizes, then the larger standard errors of the smaller sample size simulations (and the greater variability in estimating those standard errors) would swamp the standard errors of the larger sample sizes.
-Usually, with aggregation, we want to average over something we believe will not change massively over the marginalized-out factors.
-Alternatively, we can average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
+Usually, with aggregation, we want to average over something we believe does not change massively over the marginalized-out factors.
+To achieve this, we can often average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
 
-For our cluster RCT, we might aggregate our bias across some of our simulation factors as follows:
+A major advantage of aggregation over the bundling approach is we can have a smaller number of replications per factor combination with aggregation.
+If the number of replicates within each scenario is small, then the performance measures for each scenario is estimated with a lot of error; the aggregate, by contrast, will be an average across many more replicates and thus give a good sense of _average_ performance.
+The averaging, in effect, gives a lot more replications per aggregated performance measure.
+
+
+For our cluster RCT, we might aggregate our bias across our sample sizes as follows:
 ```{r}
 ssres <- 
   sres %>% 
-  group_by( ICC, method, alpha, size_coef ) %>%
-  summarise( bias = mean( bias ) )
+  group_by( method, ICC, alpha, size_coef ) %>%
+  summarise( bias = mean( bias ),
+             n = n() )
+ssres
+```
 
+We now have a single bias estimate for each combination of ICC, alpha, and size_coef; we have collapsed 9 scenarios into one overall scenario that generalizes bias across different sizes of experiment.
+We can then plot, using many small multiples:
+
+```{r}
 ggplot( ssres, aes( ICC, bias, col=method ) ) +
-  facet_grid( alpha ~  size_coef, labeller = label_both ) +
+  facet_grid( size_coef ~  alpha, labeller = label_both ) +
   geom_point( alpha=0.75 ) + 
   geom_line( alpha=0.75 ) +
   geom_hline( yintercept = 0 ) +
   theme_minimal()
 ```
 
-We see more clearly that site variation leads to greater bias, but only if the coefficient for size is nonzero (which makes sense given our theoretical understanding of the problem--if size is not related to treatment effect, it is hard to imagine how it would bias it).
-We also see that all the estimators have near zero bias when thee is no variation in cluster size, with the overplotted lines on the top row of the figure.
+We see more clearly that greater variation in cluster size (alpha) leads to greater bias for the linear regression estimator, but only if the coefficient for size is nonzero (which makes sense given our theoretical understanding of the problem---if size is not related to treatment effect, it is hard to imagine how varying cluster sizes would cause much bias).
+We are looking at an interaction between our simulation factors: we only see bias for linear regression when cluster size relates to impact and there is variation in cluster size.
+As ICC increases, we are not seeing any major differences in the pattern of our results
+We also see that all the estimators have near zero bias when there is no variation in cluster size, with the overplotted lines on the top row of the figure.
 
-We can also let ggplot aggregate directly by taking advantage of the smoothing options:
+If you have many levels of a factor, as we do with ICC, you can let ggplot aggregate directly by taking advantage of the smoothing options:
 
-```{r}
+```{r, messages=FALSE}
 ggplot( sres, aes( ICC, bias, col=method ) ) +
   facet_grid( alpha ~  size_coef, labeller = label_both ) +
-    geom_point( alpha=0.25,
+    geom_point( alpha=0.15,
               position = position_dodge(width = 0.04) ) +
   geom_smooth( se=FALSE ) + 
   geom_hline( yintercept = 0 ) +
@@ -181,7 +232,27 @@ ggplot( sres, aes( ICC, bias, col=method ) ) +
 
 ```
 
-In the above, we let the original points show as well, to give a sense of the variation across simulation trials.
+In the above, we let the original points show faintly as well, to give a sense of the variation across simulation trials.
+
+
+#### A note on how to aggregate
+
+Some performance measures are biased with respect to the Monte Carlo uncertainty.
+The estimated standard error, for example, is biased; the variance, by contrast, is not.
+The RMSE is biased, the MSE is not.
+
+When aggregating, therefore, it is often best to aggregate the unbiased performance measures, and then calculate the biased ones from those.
+For example, to estimate aggregated standard error you might do the following:
+```{r}
+agg_perf <- sres %>% 
+  group_by( ICC, method, alpha, size_coef ) %>%
+  summarise( SE = sqrt( mean( SE^2 ) ) )
+```
+
+Because bias is linear, you do not need to worry about the bias of the standard error.
+But if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
+In this case, looking at average bias, not $|bias|$, is safer.
+
 
 
 ### Regression Summarization
@@ -214,25 +285,32 @@ stargazer::stargazer(M, type = "text",
 ```
 
 We can quickly get a lot of features, making a meta-regression somewhat hard to interpret.
-But picking out the significant coefficents is a quick way to obtain a lot of clues as to what is driving performance.
-E.g., many features interact with the LR method for bias.
+This one does not even have interactions of the simulation factors--which, given the found interactions from our plots, is a major concern!
+That said, picking out the significant coefficients is a quick way to obtain a lot of clues as to what is driving performance.
+E.g., some features interact with the LR method for bias.
 The other two methods seem less impacted.
 
 
-### Focus on a subset, kick rest to supplement
 
-Frequently researchers might simply filter the simulation results to a single factor level for some nuisance parameter.
-For example, we might examine ICC of 0.20 only, as this is a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
-We would then consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
+## Analyzing results with few iterations per scenario
 
-It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
+When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes, then running thousands of iterations for many scenarios may no longer be computationally feasible) then you can run into serious issues with noisy estimates of performance.
 
+First, this is why understanding how large your Monte Carlo Standard Errors (MCSEs) are is so important.
+If the methods being evaluated are substantially different, then you may be able to demonstrate what you need to, even with few iterations.
+
+If, however, your MCSEs are too large, then you can use the visualization methods that average across scenarios, giving you more precise estimates of aggregated performance.
+Do not, by contrast, trust the boxplot approaches--the MCSEs will make your boxes wider, and give the impression that there is more variation than there really is.
+
+Regression approaches can be particularly useful: the regressions are effectively again averaging performance across scenario, looking for overall trends.
+You can even fit random effects regression, specifially accounting for the noise in the scenario-specific performance measures.
+For more on this approach see @gilbert2024multilevel.
 
 
 ## Analyzing results when some trials have failed
 
-If methods fail, then this is something to investigate in its own right.
-Ideally, failure is not too common, so we can drop those trials, or keep them, without really impacting our overall results.
+If your methods being evaluated sometimes fail, then when they tend to fail is something to investigate in its own right.
+Ideally, failure is not too common, meaning we could drop those trials, or keep them, without really impacting our overall results.
 But one should at least know what one is ignoring.
 
 For example, in our cluster RCT, we know we have, at least sometimes, convergence issues.
@@ -248,7 +326,7 @@ res %>%
 We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
 At this point we might decide to drop those runs with a message or keep them.
 In this case, we decide to keep.
-It shouldn't matter much in any case except the ICC = 0 case, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
+It shouldn't matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
 Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
 We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
 
