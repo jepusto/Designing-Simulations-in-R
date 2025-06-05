@@ -100,7 +100,7 @@ This type of test ensures that the estimation function is not using information 
 
 <!-- JEP: It feels like we should have an example that demonstrates a multi-step procedure here. What could that be? -->
 
-## Including Multiple estimation procedures
+## Including Multiple estimation procedures {#multiple-estimation-procedures}
 
 Many simulations involve head-to-head comparisons between more than one data-analysis procedure. 
 As a design principle, we generally recommend writing different functions for each estimation method one is planning on evaluating. 
@@ -136,13 +136,24 @@ We will implement an estimator using the popular `lme4` package, along with the 
 Here is a basic implementation:
 ```{r, code = analysis_MLM_code}
 ```
+The function fits a multi-level model with a treatment indicator as a fixed predictor and with random slopes for each school.
+To get a p-value for the treatment coefficient, we have to convert the model into an `lmerModLmerTest` object and then pass it through `summary()`. 
+The function outputs only the statistics we are interested in: a point estimate for the treatment effect along with a standard error and p-value.
 
+Our function makes use of the `lme4` and `lmerTest` packages.
+Rather than assuming that these packages will be loaded, we call relevant functions using the package name as a prefix, as in `lme4::lmer()`. 
+This way, we can run the function without having to remember to load the packages in the global environment.
+We find that this approach is also preferable to loading packages inside the function itself (e.g., with `require(lme4)`) so that calling the function does not change which packages are available in the global environment.
 
-Linear Regression with Cluster-Robust Standard Errors (LM):
+Here is a function implementing OLS regression with cluster-robust standard errors:
 ```{r, code = analysis_OLS_code}
 ```
+To get cluster-robust standard errors, we use the `lm_robust()` function from the `estimatr()` package, again calling only the relevant function using the package prefix rather than loading the whole package.
+A novel aspect of this estimation function is that it includes an additional intput argument, `se_type`, which allows us to control the type of standard error calculated by `lm_robust()`.
+Adding this option would let us use the same function to compute (and compare) different types of clustered standard errors for the average treatment effect estimate.
+We set a default option of `"CR2"`, just like the default of `lm_robust()`.
 
-and Aggregate data (Agg):
+Finally, here is a function implementing the aggregate-then-analyze approach:
 ```{r, code = analysis_agg_code}
 ```
 
@@ -150,9 +161,9 @@ Note the `stopifnot` command: putting *assert statements* in your code like this
 For example, R likes to recycle vectors to make them the right length; if you gave it a wrong length in error, this can be a brutal error to discover.
 The `stopifnot` statements halt your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, showing up in odd results that you don't understand later on.
 See Section \@ref(about-stopifnot) for more.
+<!-- JEP: Is there any reason that the `stopifnot()` test would ever fail? I'm struggling to see the utility of this particular test. -->
 
-All of our methods give output in the similar format:
-
+All of our functions produce output in the same format:
 ```{r}
 dat <- gen_cluster_RCT( 
   J=16, n_bar = 30, alpha = 0.8, p = 0.5, 
@@ -164,11 +175,8 @@ analysis_MLM( dat )
 analysis_OLS( dat )
 analysis_agg( dat )
 ```
-This will allow us to make our simulation, for each iteration, call each method in turn on the same dataset, stack the results into a small table, and return that result.
-This will in turn get stacked to make one giant table of results, which makes evaluating performance quite easy.
-We will see this in the next chapter.
-
-
+Ensuring that the output of all the functions is structured in the same way will make it easy to keep the results organized once we start running multiple iterations of the simulation.
+We will see the benefits in action in the next chapter.
 
 ## Validating Estimation Procedures
 
@@ -232,58 +240,85 @@ It is to help you, the researcher, learn about your estimators so you can find a
 What you learn then feeds back to the prior research, and you have a cycle that you eventually step off of, if you want to finish your paper.
 But do not expect it to be a single, well-defined, trajectory.
 
-
+## Handling errors, warnings, and other hiccups
 
 ## Exercises
 
+### More Heteroskedastic ANOVA {#BFFs-forever}
 
-### More Welch and adding the BFF test
+In the classic simulation by Brown and Forsythe (1974), they not only looked at the performance of the homoskedastic ANOVA-F test and Welch's heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.
 
-Let's continue to explore and tweak the simulation code we have developed to replicate the results of Brown and Forsythe (1974).
+1. Write a function that implements the Brown-Forsythe F\* test (the BFF\* test!) as described on p. 130 of Brown and Forsythe (1974), using the following code skeleton:
+    ```{r}
+    BF_F <- function( data ) {
+      
+      # fill in the guts here
+      
+      return(pval)
+    }
+    ```
+    Run the following code to check that your function produces a result:
+    ```{r, eval = FALSE}
+    sim_data <- generate_ANOVA_data(
+      mu = c(1, 2, 5, 6), 
+      sigma_sq = c(3, 2, 5, 1),
+      sample_size = c(3, 6, 2, 4)
+    )
+    BF_F( sim_data )
+    ```
+   
+2. Try calling your `BF_F` function on a variety of datasets of different sizes and shapes, to make sure it works. What kinds of datasets should you test out?
 
-```{r, include=FALSE}
-generate_data <- function(mu, sigma_sq, sample_size) {
+3. Add the BFF\* test into the output of `Welch_ANOVA_F()` by calling your `BF_F()` function inside the body of `Welch_ANOVA_F()`. 
 
-  N <- sum(sample_size) 
-  g <- length(sample_size) 
-  
-  group <- rep(1:g, times = sample_size) 
-  mu_long <- rep(mu, times = sample_size)
-  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
-  
-  x <- rnorm(N, mean = mu_long, sd = sigma_long)
-  sim_data <- data.frame(group = group, x = x)
+4. The [`onewaytests` package](https://cran.r-project.org/package=onewaytests) implements a variety of different hypothesis testing procedures for one-way ANOVA. Validate your `Welch_ANOVA_F()` function by comparing the results to the output of the relevant functions from `onewaytests`.
+
+### Contingent testing {#contingent-testing}
+
+In the one-way ANOVA problem, one approach that an analyst might think to take is to conduct a preliminary significance test for heterogeneity of variances (such as Levene's test or Bartlett's test), and then report the $p$-value from the homoskedastic ANOVA F test if variance heterogeneity is not detected but the $p$-value from the BFF\* test if variance heteogeneity is detected. 
+Modify the `Welch_ANOVA_F()` function to return the $p$-value from this contingent BFF\* test in addition to the $p$-values from the (non-contingent) ANOVA-F, Welch, and BFF\* tests.
+Include an input option that allows the user to control the $\alpha$ level of the preliminary test for heterogeneity of variances, as in the following skeleton.
+```{r, eval = FALSE}
+Welch_ANOVA_F <- function( data , pre_alpha = .05) {
+  # preliminary test for variance heterogeneity
+  # compute non-contingent F tests for group differences
+  # compute contingent test
+  # compile results
+  return(result)
+}
+```
+
+
+### Check the cluster-RCT functions {#cross-check-CRT-estimators}
+
+Section \@ref(multiple-estimation-procedures) presented functions implementing several different strategies for estimating an average treatment effect from a cluster-randomized trial. 
+Write some code to validate these functions by comparing their output to the results of other tools for doing the same calculation.
+Use one or more datasets simulated with `gen_cluster_RCT()`.
+For each of these tests, you will need to figure out the appropriate syntax by reading the package documentation.
+
+1. For `analysis_MLM()`, check the output by fitting the same model using `lme()` from the `nlme()` package or `glmmTMB()` from the package of the same name.
+
+2. For `analysis_OLS()`, check the output by fitting the linear model using the base R function `lm()`, then computing standard errors using `vcovCL()` from the `sandwich` package. Also compare the output to the results of feeding the fitted model through `coef_test()` from the `clubSandwich` package.
+
+3. For `analysis_agg()`, check the output by aggregating the data to the school-level, fitting the linear model using `lm()`, and computing standard errors using `vcovHC()` from the `sandwich` package.
+
+### Extending the cluster-RCT functions {#CRT-ANCOVA-estimators}
+
+Exercise \@ref(cluster-RCT-baseline) from Chapter \@ref(data-generating-processes) asked you to extend the data-generating function for the cluster-randomized trial to include generating a student-level covariate, $X$, that is predictive of the outcome. 
+Use your modified function to generate a dataset. 
+
+1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor.
+
+2. Further extend the functions to include an input argument for the set of predictors to be included in the model, as in the following skeleton for the multi-level model estimator:
+    ```{r, eval = FALSE}
+    analysis_MLM <- function(dat, predictors = "Z") {
+      
+    }
     
-  return(sim_data)
-}
-```
-
-
-1. Write a function that implements the Brown-Forsythe F\*-test (the BFF\* test!) as described on p. 130 of Brown and Forsythe (1974).
-Call it on a sample dataset to check it.
-
-```{r}
-BF_F <- function(x_bar, s_sq, n, g) {
-  
-  # fill in the guts here
-  
-  return(pval)
-}
-```
-
-2. Try calling your `BF_F` function on a variety of datasets of different sizes and shapes, to make sure it works.  What kinds of datasets should you test out?
-
-### More estimators for Cluster Randomized Trials
-
-3. Sometimes you might want to consider two versions of an estimator. For example, in our cluster RCT code we used robust standard errors for the linear model estimator. Say we also want to include naive standard error estimates that we get out of the `lm` call.
-
-Extend the `OLS` call to be
-```
-analysis_OLS <- function( dat, robustSE = TRUE ) {
-```
-and have the code inside calculate SEs based on the flag. Then modify the `analyze_data()` to include both approaches (you will have to call `analysis_OLS` twice).
-
-4. Efficiency-wise, estimating the OLS twice might not be ideal, but clarity-wise it might be considered helpful. Articulate two reasons for the design choice of implementing the two OLS calls separately, and articulate two reasons for instead having the `analysis_OLS` method generate both standard errors internally in a single call.
-
+    analysis_MLM( dat )
+    analysis_MLM( dat, predictors = c("Z","X"))
+    analysis_MLM( dat, predictors = c("Z","X", "X:Z"))
+    ```
+    Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.
 
 
