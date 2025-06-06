@@ -2,7 +2,7 @@
 
 ```{r, include=FALSE}
 library(tidyverse)
-
+set.seed(20250606)
 source("case_study_code/generate_ANOVA_data.R")
 source("case_study_code/ANOVA_Welch_F.R")
 source("case_study_code/r_bivariate_Poisson.R")
@@ -92,10 +92,7 @@ USJudgeRatings %>%
   dplyr::select(C1 = INTG, C2 = FAMI) %>%
   r_and_z()
 ```
-The resulting `r` is the same as what we get by computing the correlation directly from the original dataset:
-```{r}
-cor.test(~ INTG + FAMI, data = USJudgeRatings)
-```
+The function returns a valid result---a quite strong correlation!
 
 It is a good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
 This type of test ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
@@ -199,7 +196,7 @@ This will become more evident once we are working across multiple replications o
 
 Just as with data-generating functions, it is critical to verify the accuracy of the estimation functions.
 If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward way to do this is to compare your implementation to another existing implementation. 
-For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed, which rely more on available statistical theory.
+For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed, which rely more on statistical theory.
 
 ### Checking against existing implementations
 
@@ -220,26 +217,38 @@ all.equal(aov_results$p.value, Welch_results$Welch)
 
 We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some perplexing errors due to rounding.
 
-For the bivariate correlation example, we can check the output of `r_and_z()` against R's built-in `cor.test()` function, as we have already demonstrated in Section \@ref(estimation-functions).
-Such a test is even more useful here because `r_and_z()` uses our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
+For the bivariate correlation example, we can check the output of `r_and_z()` against R's built-in `cor.test()` function:
+```{r}
+Pois_dat <- r_bivariate_Poisson(15, rho = 0.6, mu1 = 14, mu2 = 8)
+my_result <- r_and_z(Pois_dat)
+my_result
+R_result <- cor.test(~ C1 + C2, data = Pois_dat)
+R_result
+all.equal(
+  tibble(r = R_result$estimate[["cor"]], CI_lo = R_result$conf.int[1], CI_hi = R_result$conf.int[2]),
+  select(my_result, -z)
+)
+```
+This type of test is even more useful here because `r_and_z()` uses our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
 
 
 ### Checking novel procedures
 
 Simulations are usually an integral part of projects to develop novel statistical methods. 
-Such projects present a puzzle: if an estimation procedure truly is new, how do you check that your code is correct?
+Checking estimation functions in such projects presents a challenge: if an estimation procedure truly is new, how do you check that your code is correct?
 Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of the estimator to check that your implementation works as expected. 
 For instance, we might work out the algebraic properties of an estimator for a special case and then check that the result of the estimation function agrees with our algebra. 
 For some estimation problems, we might be able to identify theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified. 
 If we can find results about large-sample behavior, then we can test an estimation function by applying it to a very large sample and checking whether the resulting estimates and very close to specified parameter values.
 We illustrate each of these approaches using our functions for estimating treatment effects from cluster-randomized trials.
 
-First, we test an algebraic property. 
-With each of the three methods, the treatment effect estimator is a difference between the weighted average of the outcomes from students in each treatment condition; the only difference between the estimators is in what weights are used.
+We start by testing an algebraic property. 
+With each of the three methods we have implemented, the treatment effect estimator is a difference between the weighted average of the outcomes from students in each treatment condition; 
+the only difference between the estimators is in what weights are used.
 In the special case where all schools have the same number of students, the weights used by all three methods end up being the same: all three methods allocate equal weight to each school.
 Therefore, we know that there should be no difference between the three point estimates.
 Furthermore, a bit of algebra will show that the cluster-robust standard error from the OLS approach will end up being identical to the robust standard error from the aggregation approach.
-If there are equal numbers of schools assigned to both conditions, then the standard error from the multilevel model will also be identical to the other standard errors.
+If there are also equal numbers of schools assigned to both conditions, then the standard error from the multilevel model will also be identical to the other standard errors.
 
 Let's verify that our estimation functions produce results that are consistent with these theoretical properties.
 To do so, we will need to generate a dataset with equal cluster sizes, setting $\alpha = 0$:
@@ -265,29 +274,79 @@ estimate_Tx_Fx(dat)
 ```
 As expected, all three point estimators match, but the SE from the multilevel model is a little bit discrepant from the others.
 
-asymptotics
+We can also use large-sample theory to check the multilevel modeling estimator.
+If the model is correctly specified, then _all_ the parameters of the model should be accurately estimated if the model is fit to a very large sample of data. 
+To check this property, we will need access to the full model output, not just the selected results returned by `analysis_MLM()`. 
+One way to handle this is to make a small tweak to the estimation function, adding an option to control whether to return the entire model or just selected results. 
+Here is the tweaked function:
+```{r}
+analysis_MLM <- function( dat, all_results = FALSE) {
+  
+  M1 <- lme4::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
+  M1_test <- lmerTest::as_lmerModLmerTest(M1)
+  
+  if (all_results) {
+    return(summary(M1_test))
+  } 
+  
+  M1_summary <- summary(M1_test)$coefficients
+  
+  tibble( 
+    ATE_hat = M1_summary["Z","Estimate"], 
+    SE_hat = M1_summary["Z","Std. Error"], 
+    p_value = M1_summary["Z", "Pr(>|t|)"] 
+  )
+}
+```
+Setting `all_results` to `TRUE` will return the entire function; keeping it at the default value of `FALSE` will return the same output as the other functions.
+Now let's apply the estimation function to a very large dataset, with variation in cluster sizes.
+We set `gamma_2 = 0` so that the estimation model is correctly specified:
+```{r}
+dat <- gen_cluster_RCT( 
+  J=5000, n_bar = 20, alpha = 0.9, p = 2 / 3, 
+  gamma_0 = 2, gamma_1 = 0.30, gamma_2 = 0,
+  sigma2_u = 0.4, sigma2_e = 0.6
+)
 
-only partial tests: the function could still be incorrect for scenarios not examined.
+analysis_MLM(dat, all_results = TRUE)
+```
+The intercept and treatment effect coefficient estimates are very close to their true parameter values, as are the estimated school-level variance and student-level residual variance. 
+This all gives some assurance that the `analysis_MLM()` function is working properly. 
 
-It is often the case that as you design your simulation, and then start analyzing the results, you will find your estimators are really not working as planned.
+Of course, it is important to bear in mind that these tests are only partial verifications. 
+With the algebraic test, we've checked that the functions seem to be working properly for scenarios with equal school sizes, but they still might have errors that only appear when school sizes vary. 
+Likewise, `analysis_MLM()` seems to be working properly for very large datasets, but our test does not rule out the possibility of bugs that only crawl out when $J$ is small.
+Our large-sample test also relies on the correctness of the `gen_cluster_RCT()` function;
+if we had seen a discrepancy between parameters and estimates from the multilevel model, it could have been because of a problem with the data-generation function rather than with the estimation function.
 
-Such surprises will usually be due to (at least) three factors: you did not implement your method correctly, your method is not yet a good idea in the first place, or you do not yet understand something important about how your method works.
-When faced with poor performance you thus will debug your code, revise your method, and do some serious thinking.
-Ideally this will eventually lead you to a deeper understanding of a method that is a better idea in general, and correctly implemented in all likelihood.
+These limitations are typical of what can be accomplished through tests based on theoretical results, because theoretical results typically only hold under specific conditions. 
+After all, if we had comprehensive theoretical results, we would not need to simulate anything in the first place!
+Nonetheless, it is good to work through such tests to the extent that relevant theory is available for the problem you are studying.
 
-For example, in one research project Luke and other co-authors were working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
-The idea is to group units based on a covariate that predicts compliance status, and then estimate within each group; hopefully this would improve overall estimation.
+### Checking with simulations
 
-In the first simulation, the estimates were full of NAs and odd results because we failed to properly account for what happens when the number of compliers was estimated to be zero.
-That was table stakes: after repairing that, we still found odd behavior and serious and unexpected bias, which turned out to be due to failing to implement the averaging of the groups step correctly.
-We fixed the estimator again and re-ran, and found that even when we had a variable that was almost perfectly predictive of compliance, gains were still surprisingly minimal.
-Eventually we understood that the groups with very few compliers were actually so unstable that they ruined the overall estimate.
-These results inspired us to introduce other estimators that dropped or down-weighted such strata, which gave our paper a deeper purpose and contribution.
+Checking, debugging, and revising should not be limited to when you are initially developing estimation functions. 
+It often happens that later steps in the process of conducting a simulation will reveal problems with the code for earlier steps.
+For instance, once you have run the data-generating and estimation steps repeatedly, calculated performance summaries, and created some graphs of the results, you might find an unusual or anomolous pattern in the performance of an estimator.
+This might be a legitimate result---it might be that the estimator really does behave weirdly or not work well---or it might be due to a problem in how you implemented the estimator or data-generating process.
+When faced with an unusual pattern, we recommend revisiting the estimation code to double check for bugs and also thinking further about what might lead to the anomoly.
+Further exploration might lead you to a deeper understanding of how a method works and perhaps even an idea for how to improve the estimator or refine the data-generating process.
 
-Simulation is an iterative process.
-It is to help you, the researcher, learn about your estimators so you can find a way forward with your work.
-What you learn then feeds back to the prior research, and you have a cycle that you eventually step off of, if you want to finish your paper.
-But do not expect it to be a single, well-defined, trajectory.
+A good illustration of this process comes from one of Luke's past research projects, in which he and other co-authors were working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
+<!-- JEP: Add citation? Is this Pashley, Keele, & Miratrix? -->
+The method they studied involved grouping units based on a covariate that predicts compliance status, then calculating estimates within each group, then summarizing the estimates across groups.
+They used simulations to see whether this method would improve the accuracy of the overall summary effect estimate.
+In the first simulation, the estimates were full of NAs and odd results because the estimation function failed to account for what happens in groups of observations where the number of compliers was estimated to be zero.
+After repairing that problem and re-running everything, the simulation results still indicated serious and unexpected bias, which turned out to be due to an error in how the estimation function implemented the step of summarizing estimates across groups.
+After again correcting and re-running, the simulation results showed that the gains in accuracy from this new method were minimal, even when the groups were formed based on a variable that was almost perfectly predictive of compliance status.
+Eventually, we understood that the groups with very few compliers produced such unstable estimates that they spoiled the overall average estimate.
+This inspired us to revise our estimation strategy and introduce a method that dropped or down-weighted strata with few compliers, which ultimately helped us to strengthen the contribution of our work.
+
+As this experience highlights, simulations seldom follow a single, well-defined trajectory.
+The point of conducting simulations is to help us, as researchers, learn about estimation methods so that we can make progress with analysis of real data.
+What we learn from simulation gives us a better understanding of the methods (potentially including a better understanding of theoretical results), leading to ideas about better methods or new scenarios to explore in further simulations. 
+Of course, at some point one needs to step off this merry-go-round, write up the findings, cook dinner, and clean the bathroom.
+But, just like many other research endeavors, simulations follow a highly iterative process.
 
 ## Handling errors, warnings, and other hiccups
 
