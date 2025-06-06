@@ -6,7 +6,7 @@ library(tidyverse)
 source("case_study_code/generate_ANOVA_data.R")
 source("case_study_code/ANOVA_Welch_F.R")
 source("case_study_code/r_bivariate_Poisson.R")
-source("case_study_code/gen_cluster_RCT.R")
+source("case_study_code/gen_cluster_RCT_rev.R")
 source("case_study_code/analyze_cluster_RCT.R")
 ```
 
@@ -18,7 +18,7 @@ As another example, a data-analysis procedure might involve using multiple imput
 Also depending on the research question, we might need to create _several_ functions that implement different estimation procedures to be compared.
 
 In this chapter, we demonstrate how to implement data-analysis procedures in the form of R functions, so that their performance can be evaluated by repeatedly applying them to artificial data.
-We start by discussing the high-level design of estimation functions and examining some simple but illustrative examples. 
+We start by describing the high-level design of estimation functions and examining some simple but illustrative examples. 
 We then discuss approaches for writing simulations that involve multiple estimation procedure.
 Next, we describe strategies for validating estimation functions.
 Finally, we examine methods for handling common computational problems with estimation procedures, such as non-convergence of maximum likelihood estimators.
@@ -36,8 +36,8 @@ estimate <- function(data) {
 ```
 
 The function takes a dataset as input, fits a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and returns these quantities as output.
-The estimates could be point-estimates of parameters, standard errors, confidence intervals, p-values, predictions, or other quantities.
-The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of our function for generating simulated data. 
+The estimates could be point estimates of parameters, standard errors, confidence intervals, p-values, predictions, or other quantities.
+The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of the corresponding function for generating simulated data. 
 However, in principle, we should also be able to run the estimation function on real data as well. 
 
 In Chapter \@ref(case-ANOVA) we wrote a function called `ANOVA_Welch_F()` for computing $p$-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:
@@ -59,10 +59,11 @@ However, because the primary use of the function is for simulation, it is reason
 
 In Chapter \@ref(data-generating-processes), we looked at a data-generating function for a bivariate Poisson distribution, an example of a non-normal bivariate distribution.
 We might use such a distribution to understand the behavior of Pearson's sample correlation coefficient and its normalizing transformation, known as Fisher's $z$-transformation, which is equivalent to the hyperbolic arc-tangent function (`atanh()` in R).
-When variables follow a bivariate normal distribution, Fisher's $z$-transformed correlation is very close to normally distributed and its standard error is simply $1 / \sqrt{N - 3}$, and thus independent of the correlation.
+When the sample measurements follow a bivariate normal distribution, Fisher's $z$-transformed correlation is very close to normally distributed and its standard error is simply $1 / \sqrt{N - 3}$, and thus independent of the correlation.
 This makes $z$-transformation very useful for computing confidence intervals, which can then be back-transformed to the Pearson-$r$ scale. 
 
-In this problem, a simple estimation function would take a dataset with two variables as input and computes the sample correlation and its $z$-transformation, compute confidence intervals for $z$, and then back-transform the confidence interval end-points: 
+In this problem, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its $z$-transformation, compute confidence intervals for $z$, and then back-transform the confidence interval end-points.
+Here is an implementation of these calculations:
 ```{r}
 r_and_z <- function(data) {
   
@@ -75,14 +76,15 @@ r_and_z <- function(data) {
   tibble( r = r, z = z, CI_lo = ci_r[1], CI_hi = ci_r[2] )
 }
 ```
-We can generate a small dataset using the `r_bivariate_Poisson()` function developed in the last chapter, then apply our estimation function to the result:
+To check that the function returns a result of the expected form, we generate a small dataset using the `r_bivariate_Poisson()` function developed in the last chapter, then apply our estimation function to the result:
 ```{r}
 Pois_dat <- r_bivariate_Poisson(40, rho = 0.5, mu1 = 4, mu2 = 4)
 r_and_z(Pois_dat)
 ```
 
-Although it is a bit cumbersome to do so, we could apply the estimation function to a real dataset by renaming variables as needed.
-Here is an example, which calculates the correlation between ratings of judicial integrity and familiarity with the law from the `USJudgeRatings` dataset (which is included in base R):
+Although it is a little cumbersome to do so, we could also apply the estimation function to a real dataset.
+Here is an example, which calculates the correlation between ratings of judicial integrity and familiarity with the law from the `USJudgeRatings` dataset (which is included in base R).
+For the function to work on this dataset, we first need to rename the relevant variables.
 ```{r}
 data(USJudgeRatings)
 
@@ -96,7 +98,8 @@ cor.test(~ INTG + FAMI, data = USJudgeRatings)
 ```
 
 It is a good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
-This type of test ensures that the estimation function is not using information outside of the dataset---not cheating, for example, by using known parameter values to construct an estimate---and so would be feasible to apply in real data analysis contexts.
+This type of test ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
+Applying the function to a real dataset demonstrates that the function implements a procedure that could actually be applied in real data analysis contexts.
 
 <!-- JEP: It feels like we should have an example that demonstrates a multi-step procedure here. What could that be? -->
 
@@ -106,11 +109,11 @@ Many simulations involve head-to-head comparisons between more than one data-ana
 As a design principle, we generally recommend writing different functions for each estimation method one is planning on evaluating. 
 Doing so makes it easier to add in additional methods as desired or to focus on just a subset of methods. 
 Writing separate function also leads to a code base that is flexible and useful for other purposes (such as analyzing real data).
-Finally, repeating one of our primary mantras, separating functions makes debugging easier because  it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.
+Finally (repeating one of our favorite mantras), separating functions makes debugging easier because  it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.
 
-To see how this works in practice, we will return to the case study from Section \@ref(case-cluster), in which we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
+To see how this works in practice, we will return to the case study from Section \@ref(case-cluster), where we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
 Our data-generating process allowed for varying school sizes and heterogeneous treatment effects, which might be correlated with school size.
-Several different procedures could be used to estimate an overall average effect from such a clustered experiment, including:
+Several different procedures might be used to estimate an overall average effect from a clustered experiment, including:
 
 * Estimating a multi-level regression model (also known as a hierarchical linear model),
 * Estimating an ordinary least squares (OLS) regression model and applying cluster-robust standard errors, or
@@ -120,7 +123,15 @@ All three of these methods are are widely used and have some theoretical guarant
 Education researchers tend to be more comfortable using multi-level regression models, whereas economists tend to use OLS with clustered standard errors.
 <!-- JEP: Do we want to add any citations for further reading about these strategies? Any further comments about these methods? -->
 
-Let's develop estimation functions for each of these procedures. For now we won't worry about incorporating the school size covariate, and will focus only on getting a point estimate, standard error, and $p$-value for the average treatment effect.
+Let's develop estimation functions for each of these procedures. For now we won't worry about incorporating the school size covariate, but will instead focus only on getting a point estimate, standard error, and $p$-value for the average treatment effect. For starters, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT_rev.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
+```{r}
+dat <- gen_cluster_RCT( 
+  J=16, n_bar = 30, alpha = 0.8, p = 0.5, 
+  gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
+  sigma2_u = 0.4, sigma2_e = 0.6
+)
+```
+
 
 ```{r echo = FALSE}
 
@@ -129,6 +140,8 @@ f_endings <- which(cluster_RCT_fun == "}")
 analysis_MLM_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_MLM <-")):(f_endings[1])]
 analysis_OLS_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_OLS <-")):(f_endings[2])]
 analysis_agg_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_agg <-")):(f_endings[3])]
+analysis_bundle_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "estimate_Tx_Fx <-")):(f_endings[4])]
+
 ```
 
 For the multi-level modeling strategy, there are several different existing packages that we could use.
@@ -136,14 +149,14 @@ We will implement an estimator using the popular `lme4` package, along with the 
 Here is a basic implementation:
 ```{r, code = analysis_MLM_code}
 ```
-The function fits a multi-level model with a treatment indicator as a fixed predictor and with random slopes for each school.
+The function fits a multi-level model with a fixed coefficient for the treatment indicator and random intercepts for each school.
 To get a p-value for the treatment coefficient, we have to convert the model into an `lmerModLmerTest` object and then pass it through `summary()`. 
-The function outputs only the statistics we are interested in: a point estimate for the treatment effect along with a standard error and p-value.
+The function outputs only the statistics in which we are interested.
 
 Our function makes use of the `lme4` and `lmerTest` packages.
 Rather than assuming that these packages will be loaded, we call relevant functions using the package name as a prefix, as in `lme4::lmer()`. 
-This way, we can run the function without having to remember to load the packages in the global environment.
-We find that this approach is also preferable to loading packages inside the function itself (e.g., with `require(lme4)`) so that calling the function does not change which packages are available in the global environment.
+This way, we can run the function even if we have not loaded the packages in the global environment.
+This approach is also preferable to loading packages inside the function itself (e.g., with `require(lme4)`) because calling the function does not change which packages are loaded in the global environment.
 
 Here is a function implementing OLS regression with cluster-robust standard errors:
 ```{r, code = analysis_OLS_code}
@@ -157,7 +170,7 @@ Finally, here is a function implementing the aggregate-then-analyze approach:
 ```{r, code = analysis_agg_code}
 ```
 
-Note the `stopifnot` command: putting *assert statements* in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors in your code.
+Note the `stopifnot` command. Putting *assert statements* in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors in your code.
 For example, R likes to recycle vectors to make them the right length; if you gave it a wrong length in error, this can be a brutal error to discover.
 The `stopifnot` statements halt your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, showing up in odd results that you don't understand later on.
 See Section \@ref(about-stopifnot) for more.
@@ -165,28 +178,32 @@ See Section \@ref(about-stopifnot) for more.
 
 All of our functions produce output in the same format:
 ```{r}
-dat <- gen_cluster_RCT( 
-  J=16, n_bar = 30, alpha = 0.8, p = 0.5, 
-  gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
-  sigma2_u = 0.4, sigma2_e = 0.6
-)
-
 analysis_MLM( dat )
 analysis_OLS( dat )
 analysis_agg( dat )
 ```
 Ensuring that the output of all the functions is structured in the same way will make it easy to keep the results organized once we start running multiple iterations of the simulation.
-We will see the benefits in action in the next chapter.
+If each estimation method returns a dataset with the same variables, we can simply stack the results on top of each other.
+Here is a function that bundles all the estimation procedures together:
+```{r, code = analysis_bundle_code}
+```
+```{r}
+estimate_Tx_Fx(dat)
+```
+This is a common coding pattern for in simulations that involve multiple estimation procedures. 
+Each procedure is expressed in its own function, then these are assembled together in a single function so that they can all easily be applied to the same dataset.
+Stacking the results row-wise will make it easy to compute performance measures on the results. 
+This will become more evident once we are working across multiple replications of the simulation process, as we will in Chapter \@ref(running-the-simulation-process).
 
 ## Validating Estimation Procedures
 
 Just as with data-generating functions, it is critical to verify the accuracy of the estimation functions.
-If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward verification is to compare your implementation to another existing implementation. 
-For estimation functions that involve multi-step procedures or novel methods, then other approaches to verification will be needed.
+If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward way to do this is to compare your implementation to another existing implementation. 
+For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed, which rely more on available statistical theory.
 
 ### Checking against existing implementations
 
-For our Welch test, we can check the output of `ANOVA_Welch_F()` against the built-in `oneway.test` function. Let's do that with a fresh set of data:
+For our Welch test function, we can check the output of `ANOVA_Welch_F()` against the built-in `oneway.test` function. Let's do that with a fresh set of data:
 ```{r}
 sim_data <- generate_ANOVA_data(
   mu = c(1, 2, 5, 6), 
@@ -201,25 +218,57 @@ Welch_results <- ANOVA_Welch_F(sim_data)
 all.equal(aov_results$p.value, Welch_results$Welch)
 ```
 
-We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some weird floating point errors due to rounding.
+We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some perplexing errors due to rounding.
 
 For the bivariate correlation example, we can check the output of `r_and_z()` against R's built-in `cor.test()` function, as we have already demonstrated in Section \@ref(estimation-functions).
-Such a test is even more useful here because `r_and_z()` involves our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
+Such a test is even more useful here because `r_and_z()` uses our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
 
 
 ### Checking novel procedures
 
-Simulations are usually an integral part of projects to develop novel statistical methods, but if an estimation procedure truly is new, how do you check that your code is correct?
-Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of an estimator to check that an estimator works as expected. 
-For instance, we might work out the algebraic properties of an estimator for a special case and then check that the results of the estimation function agree with our algebra. 
-In many problems, we might be able to find theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified. 
+Simulations are usually an integral part of projects to develop novel statistical methods. 
+Such projects present a puzzle: if an estimation procedure truly is new, how do you check that your code is correct?
+Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of the estimator to check that your implementation works as expected. 
+For instance, we might work out the algebraic properties of an estimator for a special case and then check that the result of the estimation function agrees with our algebra. 
+For some estimation problems, we might be able to identify theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified. 
+If we can find results about large-sample behavior, then we can test an estimation function by applying it to a very large sample and checking whether the resulting estimates and very close to specified parameter values.
+We illustrate each of these approaches using our functions for estimating treatment effects from cluster-randomized trials.
 
-such as its behavior in very large samples or under correct model specification. 
+First, we test an algebraic property. 
+With each of the three methods, the treatment effect estimator is a difference between the weighted average of the outcomes from students in each treatment condition; the only difference between the estimators is in what weights are used.
+In the special case where all schools have the same number of students, the weights used by all three methods end up being the same: all three methods allocate equal weight to each school.
+Therefore, we know that there should be no difference between the three point estimates.
+Furthermore, a bit of algebra will show that the cluster-robust standard error from the OLS approach will end up being identical to the robust standard error from the aggregation approach.
+If there are equal numbers of schools assigned to both conditions, then the standard error from the multilevel model will also be identical to the other standard errors.
 
-An estimation function implements a truly novel procedure.
-Well, one obvious answer is simulation!
+Let's verify that our estimation functions produce results that are consistent with these theoretical properties.
+To do so, we will need to generate a dataset with equal cluster sizes, setting $\alpha = 0$:
+```{r}
+dat <- gen_cluster_RCT( 
+  J=12, n_bar = 30, alpha = 0, p = 0.5, 
+  gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
+  sigma2_u = 0.4, sigma2_e = 0.6
+)
+table(dat$sid) # verify equal-sized clusters
 
-In principle, for large samples and data generated under the assumptions required by your new procedure, you should have a fairly good sense that your estimation procedures should work.
+estimate_Tx_Fx(dat)
+```
+All three methods yield identical results. 
+Now let's try equal school sizes but unequal allocation to treatment:
+```{r}
+dat <- gen_cluster_RCT( 
+  J=12, n_bar = 30, alpha = 0, p = 2 / 3, 
+  gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
+  sigma2_u = 0.4, sigma2_e = 0.6
+)
+estimate_Tx_Fx(dat)
+```
+As expected, all three point estimators match, but the SE from the multilevel model is a little bit discrepant from the others.
+
+asymptotics
+
+only partial tests: the function could still be incorrect for scenarios not examined.
+
 It is often the case that as you design your simulation, and then start analyzing the results, you will find your estimators are really not working as planned.
 
 Such surprises will usually be due to (at least) three factors: you did not implement your method correctly, your method is not yet a good idea in the first place, or you do not yet understand something important about how your method works.

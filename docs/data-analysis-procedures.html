@@ -513,7 +513,7 @@ For example, the procedure might entail first computing a diagnostic test for he
 As another example, a data-analysis procedure might involve using multiple imputation for missingness on key variables, then fitting a statistical model, and then generating predicted values based on the model.
 Also depending on the research question, we might need to create <em>several</em> functions that implement different estimation procedures to be compared.</p>
 <p>In this chapter, we demonstrate how to implement data-analysis procedures in the form of R functions, so that their performance can be evaluated by repeatedly applying them to artificial data.
-We start by discussing the high-level design of estimation functions and examining some simple but illustrative examples.
+We start by describing the high-level design of estimation functions and examining some simple but illustrative examples.
 We then discuss approaches for writing simulations that involve multiple estimation procedure.
 Next, we describe strategies for validating estimation functions.
 Finally, we examine methods for handling common computational problems with estimation procedures, such as non-convergence of maximum likelihood estimators.</p>
@@ -527,8 +527,8 @@ Finally, we examine methods for handling common computational problems with esti
 <span id="cb1-5"><a href="data-analysis-procedures.html#cb1-5" tabindex="-1"></a>  <span class="fu">return</span>(estimates)</span>
 <span id="cb1-6"><a href="data-analysis-procedures.html#cb1-6" tabindex="-1"></a>}</span></code></pre></div>
 <p>The function takes a dataset as input, fits a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and returns these quantities as output.
-The estimates could be point-estimates of parameters, standard errors, confidence intervals, p-values, predictions, or other quantities.
-The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of our function for generating simulated data.
+The estimates could be point estimates of parameters, standard errors, confidence intervals, p-values, predictions, or other quantities.
+The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of the corresponding function for generating simulated data.
 However, in principle, we should also be able to run the estimation function on real data as well.</p>
 <p>In Chapter <a href="case-ANOVA.html#case-ANOVA">5</a> we wrote a function called <code>ANOVA_Welch_F()</code> for computing <span class="math inline">\(p\)</span>-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="data-analysis-procedures.html#cb2-1" tabindex="-1"></a>ANOVA_Welch_F <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
@@ -550,17 +550,18 @@ However, in principle, we should also be able to run the estimation function on 
 <span id="cb3-5"><a href="data-analysis-procedures.html#cb3-5" tabindex="-1"></a>)</span>
 <span id="cb3-6"><a href="data-analysis-procedures.html#cb3-6" tabindex="-1"></a><span class="fu">ANOVA_Welch_F</span>(sim_data)</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 2
-##      ANOVA  Welch
-##      &lt;dbl&gt;  &lt;dbl&gt;
-## 1 0.000153 0.0131</code></pre>
+##    ANOVA Welch
+##    &lt;dbl&gt; &lt;dbl&gt;
+## 1 0.0344 0.124</code></pre>
 <p>Our <code>ANOVA_Welch_F()</code> function is designed to work with the output of <code>generate_ANOVA_data()</code> in that it assumes that the grouping variable is called <code>group</code> and the outcome is called <code>x</code>.
 Relying on this assumption would be a poor choice if we were designing a function as part of an R package or for general-purpose use.
 However, because the primary use of the function is for simulation, it is reasonable to assume that the input data will always have appropriate variable names.</p>
 <p>In Chapter <a href="data-generating-processes.html#data-generating-processes">6</a>, we looked at a data-generating function for a bivariate Poisson distribution, an example of a non-normal bivariate distribution.
 We might use such a distribution to understand the behavior of Pearson’s sample correlation coefficient and its normalizing transformation, known as Fisher’s <span class="math inline">\(z\)</span>-transformation, which is equivalent to the hyperbolic arc-tangent function (<code>atanh()</code> in R).
-When variables follow a bivariate normal distribution, Fisher’s <span class="math inline">\(z\)</span>-transformed correlation is very close to normally distributed and its standard error is simply <span class="math inline">\(1 / \sqrt{N - 3}\)</span>, and thus independent of the correlation.
+When the sample measurements follow a bivariate normal distribution, Fisher’s <span class="math inline">\(z\)</span>-transformed correlation is very close to normally distributed and its standard error is simply <span class="math inline">\(1 / \sqrt{N - 3}\)</span>, and thus independent of the correlation.
 This makes <span class="math inline">\(z\)</span>-transformation very useful for computing confidence intervals, which can then be back-transformed to the Pearson-<span class="math inline">\(r\)</span> scale.</p>
-<p>In this problem, a simple estimation function would take a dataset with two variables as input and computes the sample correlation and its <span class="math inline">\(z\)</span>-transformation, compute confidence intervals for <span class="math inline">\(z\)</span>, and then back-transform the confidence interval end-points:</p>
+<p>In this problem, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its <span class="math inline">\(z\)</span>-transformation, compute confidence intervals for <span class="math inline">\(z\)</span>, and then back-transform the confidence interval end-points.
+Here is an implementation of these calculations:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="data-analysis-procedures.html#cb5-1" tabindex="-1"></a>r_and_z <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
 <span id="cb5-2"><a href="data-analysis-procedures.html#cb5-2" tabindex="-1"></a>  </span>
 <span id="cb5-3"><a href="data-analysis-procedures.html#cb5-3" tabindex="-1"></a>  r <span class="ot">&lt;-</span> <span class="fu">cor</span>(data<span class="sc">$</span>C1, data<span class="sc">$</span>C2)</span>
@@ -571,15 +572,16 @@ This makes <span class="math inline">\(z\)</span>-transformation very useful for
 <span id="cb5-8"><a href="data-analysis-procedures.html#cb5-8" tabindex="-1"></a>  </span>
 <span id="cb5-9"><a href="data-analysis-procedures.html#cb5-9" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">r =</span> r, <span class="at">z =</span> z, <span class="at">CI_lo =</span> ci_r[<span class="dv">1</span>], <span class="at">CI_hi =</span> ci_r[<span class="dv">2</span>] )</span>
 <span id="cb5-10"><a href="data-analysis-procedures.html#cb5-10" tabindex="-1"></a>}</span></code></pre></div>
-<p>We can generate a small dataset using the <code>r_bivariate_Poisson()</code> function developed in the last chapter, then apply our estimation function to the result:</p>
+<p>To check that the function returns a result of the expected form, we generate a small dataset using the <code>r_bivariate_Poisson()</code> function developed in the last chapter, then apply our estimation function to the result:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="data-analysis-procedures.html#cb6-1" tabindex="-1"></a>Pois_dat <span class="ot">&lt;-</span> <span class="fu">r_bivariate_Poisson</span>(<span class="dv">40</span>, <span class="at">rho =</span> <span class="fl">0.5</span>, <span class="at">mu1 =</span> <span class="dv">4</span>, <span class="at">mu2 =</span> <span class="dv">4</span>)</span>
 <span id="cb6-2"><a href="data-analysis-procedures.html#cb6-2" tabindex="-1"></a><span class="fu">r_and_z</span>(Pois_dat)</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 4
 ##       r     z CI_lo CI_hi
 ##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
-## 1 0.532 0.593 0.264 0.723</code></pre>
-<p>Although it is a bit cumbersome to do so, we could apply the estimation function to a real dataset by renaming variables as needed.
-Here is an example, which calculates the correlation between ratings of judicial integrity and familiarity with the law from the <code>USJudgeRatings</code> dataset (which is included in base R):</p>
+## 1 0.419 0.447 0.124 0.646</code></pre>
+<p>Although it is a little cumbersome to do so, we could also apply the estimation function to a real dataset.
+Here is an example, which calculates the correlation between ratings of judicial integrity and familiarity with the law from the <code>USJudgeRatings</code> dataset (which is included in base R).
+For the function to work on this dataset, we first need to rename the relevant variables.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="data-analysis-procedures.html#cb8-1" tabindex="-1"></a><span class="fu">data</span>(USJudgeRatings)</span>
 <span id="cb8-2"><a href="data-analysis-procedures.html#cb8-2" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="data-analysis-procedures.html#cb8-3" tabindex="-1"></a>USJudgeRatings <span class="sc">%&gt;%</span></span>
@@ -603,7 +605,8 @@ Here is an example, which calculates the correlation between ratings of judicial
 ##      cor 
 ## 0.868858</code></pre>
 <p>It is a good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
-This type of test ensures that the estimation function is not using information outside of the dataset—not cheating, for example, by using known parameter values to construct an estimate—and so would be feasible to apply in real data analysis contexts.</p>
+This type of test ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
+Applying the function to a real dataset demonstrates that the function implements a procedure that could actually be applied in real data analysis contexts.</p>
 <!-- JEP: It feels like we should have an example that demonstrates a multi-step procedure here. What could that be? -->
 </div>
 <div id="multiple-estimation-procedures" class="section level2 hasAnchor" number="7.2">
@@ -612,10 +615,10 @@ This type of test ensures that the estimation function is not using information 
 As a design principle, we generally recommend writing different functions for each estimation method one is planning on evaluating.
 Doing so makes it easier to add in additional methods as desired or to focus on just a subset of methods.
 Writing separate function also leads to a code base that is flexible and useful for other purposes (such as analyzing real data).
-Finally, repeating one of our primary mantras, separating functions makes debugging easier because it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.</p>
-<p>To see how this works in practice, we will return to the case study from Section <a href="data-generating-processes.html#case-cluster">6.6</a>, in which we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
+Finally (repeating one of our favorite mantras), separating functions makes debugging easier because it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.</p>
+<p>To see how this works in practice, we will return to the case study from Section <a href="data-generating-processes.html#case-cluster">6.6</a>, where we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
 Our data-generating process allowed for varying school sizes and heterogeneous treatment effects, which might be correlated with school size.
-Several different procedures could be used to estimate an overall average effect from such a clustered experiment, including:</p>
+Several different procedures might be used to estimate an overall average effect from a clustered experiment, including:</p>
 <ul>
 <li>Estimating a multi-level regression model (also known as a hierarchical linear model),</li>
 <li>Estimating an ordinary least squares (OLS) regression model and applying cluster-robust standard errors, or</li>
@@ -624,138 +627,205 @@ Several different procedures could be used to estimate an overall average effect
 <p>All three of these methods are are widely used and have some theoretical guarantees supporting their use.
 Education researchers tend to be more comfortable using multi-level regression models, whereas economists tend to use OLS with clustered standard errors.
 <!-- JEP: Do we want to add any citations for further reading about these strategies? Any further comments about these methods? --></p>
-<p>Let’s develop estimation functions for each of these procedures. For now we won’t worry about incorporating the school size covariate, and will focus only on getting a point estimate, standard error, and <span class="math inline">\(p\)</span>-value for the average treatment effect.</p>
+<p>Let’s develop estimation functions for each of these procedures. For now we won’t worry about incorporating the school size covariate, but will instead focus only on getting a point estimate, standard error, and <span class="math inline">\(p\)</span>-value for the average treatment effect. For starters, we generate a sample dataset using <a href="/case_study_code/gen_cluster_RCT_rev.R">a revised version of <code>gen_cluster_RCT()</code></a>, which corrects the bug discussed in Exercise <a href="data-generating-processes.html#cluster-RCT-checks">6.8.8</a>:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="data-analysis-procedures.html#cb12-1" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb12-2"><a href="data-analysis-procedures.html#cb12-2" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">16</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>, <span class="at">p =</span> <span class="fl">0.5</span>, </span>
+<span id="cb12-3"><a href="data-analysis-procedures.html#cb12-3" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
+<span id="cb12-4"><a href="data-analysis-procedures.html#cb12-4" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb12-5"><a href="data-analysis-procedures.html#cb12-5" tabindex="-1"></a>)</span></code></pre></div>
 <p>For the multi-level modeling strategy, there are several different existing packages that we could use.
 We will implement an estimator using the popular <code>lme4</code> package, along with the <code>lmerTest</code> function for computing a <span class="math inline">\(p\)</span>-value for the average effect.
 Here is a basic implementation:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="data-analysis-procedures.html#cb12-1" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>( dat ) {</span>
-<span id="cb12-2"><a href="data-analysis-procedures.html#cb12-2" tabindex="-1"></a>  </span>
-<span id="cb12-3"><a href="data-analysis-procedures.html#cb12-3" tabindex="-1"></a>  M1 <span class="ot">&lt;-</span> lme4<span class="sc">::</span><span class="fu">lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid), <span class="at">data =</span> dat )</span>
-<span id="cb12-4"><a href="data-analysis-procedures.html#cb12-4" tabindex="-1"></a>  M1_test <span class="ot">&lt;-</span> lmerTest<span class="sc">::</span><span class="fu">as_lmerModLmerTest</span>(M1)</span>
-<span id="cb12-5"><a href="data-analysis-procedures.html#cb12-5" tabindex="-1"></a>  M1_summary <span class="ot">&lt;-</span> <span class="fu">summary</span>(M1_test)<span class="sc">$</span>coefficients</span>
-<span id="cb12-6"><a href="data-analysis-procedures.html#cb12-6" tabindex="-1"></a>  </span>
-<span id="cb12-7"><a href="data-analysis-procedures.html#cb12-7" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
-<span id="cb12-8"><a href="data-analysis-procedures.html#cb12-8" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M1_summary[<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;Estimate&quot;</span>], </span>
-<span id="cb12-9"><a href="data-analysis-procedures.html#cb12-9" tabindex="-1"></a>    <span class="at">SE_hat =</span> M1_summary[<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;Std. Error&quot;</span>], </span>
-<span id="cb12-10"><a href="data-analysis-procedures.html#cb12-10" tabindex="-1"></a>    <span class="at">p_value =</span> M1_summary[<span class="st">&quot;Z&quot;</span>, <span class="st">&quot;Pr(&gt;|t|)&quot;</span>] </span>
-<span id="cb12-11"><a href="data-analysis-procedures.html#cb12-11" tabindex="-1"></a>  )</span>
-<span id="cb12-12"><a href="data-analysis-procedures.html#cb12-12" tabindex="-1"></a>}</span></code></pre></div>
-<p>The function fits a multi-level model with a treatment indicator as a fixed predictor and with random slopes for each school.
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="data-analysis-procedures.html#cb13-1" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>( dat ) {</span>
+<span id="cb13-2"><a href="data-analysis-procedures.html#cb13-2" tabindex="-1"></a>  </span>
+<span id="cb13-3"><a href="data-analysis-procedures.html#cb13-3" tabindex="-1"></a>  M1 <span class="ot">&lt;-</span> lme4<span class="sc">::</span><span class="fu">lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid), <span class="at">data =</span> dat )</span>
+<span id="cb13-4"><a href="data-analysis-procedures.html#cb13-4" tabindex="-1"></a>  M1_test <span class="ot">&lt;-</span> lmerTest<span class="sc">::</span><span class="fu">as_lmerModLmerTest</span>(M1)</span>
+<span id="cb13-5"><a href="data-analysis-procedures.html#cb13-5" tabindex="-1"></a>  M1_summary <span class="ot">&lt;-</span> <span class="fu">summary</span>(M1_test)<span class="sc">$</span>coefficients</span>
+<span id="cb13-6"><a href="data-analysis-procedures.html#cb13-6" tabindex="-1"></a>  </span>
+<span id="cb13-7"><a href="data-analysis-procedures.html#cb13-7" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb13-8"><a href="data-analysis-procedures.html#cb13-8" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M1_summary[<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;Estimate&quot;</span>], </span>
+<span id="cb13-9"><a href="data-analysis-procedures.html#cb13-9" tabindex="-1"></a>    <span class="at">SE_hat =</span> M1_summary[<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;Std. Error&quot;</span>], </span>
+<span id="cb13-10"><a href="data-analysis-procedures.html#cb13-10" tabindex="-1"></a>    <span class="at">p_value =</span> M1_summary[<span class="st">&quot;Z&quot;</span>, <span class="st">&quot;Pr(&gt;|t|)&quot;</span>] </span>
+<span id="cb13-11"><a href="data-analysis-procedures.html#cb13-11" tabindex="-1"></a>  )</span>
+<span id="cb13-12"><a href="data-analysis-procedures.html#cb13-12" tabindex="-1"></a>}</span></code></pre></div>
+<p>The function fits a multi-level model with a fixed coefficient for the treatment indicator and random intercepts for each school.
 To get a p-value for the treatment coefficient, we have to convert the model into an <code>lmerModLmerTest</code> object and then pass it through <code>summary()</code>.
-The function outputs only the statistics we are interested in: a point estimate for the treatment effect along with a standard error and p-value.</p>
+The function outputs only the statistics in which we are interested.</p>
 <p>Our function makes use of the <code>lme4</code> and <code>lmerTest</code> packages.
 Rather than assuming that these packages will be loaded, we call relevant functions using the package name as a prefix, as in <code>lme4::lmer()</code>.
-This way, we can run the function without having to remember to load the packages in the global environment.
-We find that this approach is also preferable to loading packages inside the function itself (e.g., with <code>require(lme4)</code>) so that calling the function does not change which packages are available in the global environment.</p>
+This way, we can run the function even if we have not loaded the packages in the global environment.
+This approach is also preferable to loading packages inside the function itself (e.g., with <code>require(lme4)</code>) because calling the function does not change which packages are loaded in the global environment.</p>
 <p>Here is a function implementing OLS regression with cluster-robust standard errors:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="data-analysis-procedures.html#cb13-1" tabindex="-1"></a>analysis_OLS <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">se_type =</span> <span class="st">&quot;CR2&quot;</span> ) {</span>
-<span id="cb13-2"><a href="data-analysis-procedures.html#cb13-2" tabindex="-1"></a>  </span>
-<span id="cb13-3"><a href="data-analysis-procedures.html#cb13-3" tabindex="-1"></a>  M2 <span class="ot">&lt;-</span> estimatr<span class="sc">::</span><span class="fu">lm_robust</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> dat, <span class="at">clusters =</span> sid,  <span class="at">se_type =</span> se_type)</span>
-<span id="cb13-4"><a href="data-analysis-procedures.html#cb13-4" tabindex="-1"></a>  </span>
-<span id="cb13-5"><a href="data-analysis-procedures.html#cb13-5" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
-<span id="cb13-6"><a href="data-analysis-procedures.html#cb13-6" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M2<span class="sc">$</span>coefficients[[<span class="st">&quot;Z&quot;</span>]], </span>
-<span id="cb13-7"><a href="data-analysis-procedures.html#cb13-7" tabindex="-1"></a>    <span class="at">SE_hat =</span> M2<span class="sc">$</span>std.error[[<span class="st">&quot;Z&quot;</span>]], </span>
-<span id="cb13-8"><a href="data-analysis-procedures.html#cb13-8" tabindex="-1"></a>    <span class="at">p_value =</span> M2<span class="sc">$</span>p.value[[<span class="st">&quot;Z&quot;</span>]] </span>
-<span id="cb13-9"><a href="data-analysis-procedures.html#cb13-9" tabindex="-1"></a>  )</span>
-<span id="cb13-10"><a href="data-analysis-procedures.html#cb13-10" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="data-analysis-procedures.html#cb14-1" tabindex="-1"></a>analysis_OLS <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">se_type =</span> <span class="st">&quot;CR2&quot;</span> ) {</span>
+<span id="cb14-2"><a href="data-analysis-procedures.html#cb14-2" tabindex="-1"></a>  </span>
+<span id="cb14-3"><a href="data-analysis-procedures.html#cb14-3" tabindex="-1"></a>  M2 <span class="ot">&lt;-</span> estimatr<span class="sc">::</span><span class="fu">lm_robust</span>( </span>
+<span id="cb14-4"><a href="data-analysis-procedures.html#cb14-4" tabindex="-1"></a>    Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> dat, </span>
+<span id="cb14-5"><a href="data-analysis-procedures.html#cb14-5" tabindex="-1"></a>    <span class="at">clusters =</span> sid,  <span class="at">se_type =</span> se_type</span>
+<span id="cb14-6"><a href="data-analysis-procedures.html#cb14-6" tabindex="-1"></a>  )</span>
+<span id="cb14-7"><a href="data-analysis-procedures.html#cb14-7" tabindex="-1"></a>  </span>
+<span id="cb14-8"><a href="data-analysis-procedures.html#cb14-8" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb14-9"><a href="data-analysis-procedures.html#cb14-9" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M2<span class="sc">$</span>coefficients[[<span class="st">&quot;Z&quot;</span>]], </span>
+<span id="cb14-10"><a href="data-analysis-procedures.html#cb14-10" tabindex="-1"></a>    <span class="at">SE_hat =</span> M2<span class="sc">$</span>std.error[[<span class="st">&quot;Z&quot;</span>]], </span>
+<span id="cb14-11"><a href="data-analysis-procedures.html#cb14-11" tabindex="-1"></a>    <span class="at">p_value =</span> M2<span class="sc">$</span>p.value[[<span class="st">&quot;Z&quot;</span>]] </span>
+<span id="cb14-12"><a href="data-analysis-procedures.html#cb14-12" tabindex="-1"></a>  )</span>
+<span id="cb14-13"><a href="data-analysis-procedures.html#cb14-13" tabindex="-1"></a>}</span></code></pre></div>
 <p>To get cluster-robust standard errors, we use the <code>lm_robust()</code> function from the <code>estimatr()</code> package, again calling only the relevant function using the package prefix rather than loading the whole package.
 A novel aspect of this estimation function is that it includes an additional intput argument, <code>se_type</code>, which allows us to control the type of standard error calculated by <code>lm_robust()</code>.
 Adding this option would let us use the same function to compute (and compare) different types of clustered standard errors for the average treatment effect estimate.
 We set a default option of <code>"CR2"</code>, just like the default of <code>lm_robust()</code>.</p>
 <p>Finally, here is a function implementing the aggregate-then-analyze approach:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="data-analysis-procedures.html#cb14-1" tabindex="-1"></a>analysis_agg <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">se_type =</span> <span class="st">&quot;HC2&quot;</span> ) {</span>
-<span id="cb14-2"><a href="data-analysis-procedures.html#cb14-2" tabindex="-1"></a>  </span>
-<span id="cb14-3"><a href="data-analysis-procedures.html#cb14-3" tabindex="-1"></a>  datagg <span class="ot">&lt;-</span> </span>
-<span id="cb14-4"><a href="data-analysis-procedures.html#cb14-4" tabindex="-1"></a>    dat <span class="sc">%&gt;%</span> </span>
-<span id="cb14-5"><a href="data-analysis-procedures.html#cb14-5" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">summarise</span>( </span>
-<span id="cb14-6"><a href="data-analysis-procedures.html#cb14-6" tabindex="-1"></a>      <span class="at">Ybar =</span> <span class="fu">mean</span>( Yobs ),</span>
-<span id="cb14-7"><a href="data-analysis-procedures.html#cb14-7" tabindex="-1"></a>      <span class="at">n =</span> <span class="fu">n</span>(),</span>
-<span id="cb14-8"><a href="data-analysis-procedures.html#cb14-8" tabindex="-1"></a>      <span class="at">.by =</span> <span class="fu">c</span>(sid, Z)</span>
-<span id="cb14-9"><a href="data-analysis-procedures.html#cb14-9" tabindex="-1"></a>    )</span>
-<span id="cb14-10"><a href="data-analysis-procedures.html#cb14-10" tabindex="-1"></a>  </span>
-<span id="cb14-11"><a href="data-analysis-procedures.html#cb14-11" tabindex="-1"></a>  <span class="fu">stopifnot</span>( <span class="fu">nrow</span>( datagg ) <span class="sc">==</span> <span class="fu">length</span>(<span class="fu">unique</span>(dat<span class="sc">$</span>sid) ) )</span>
-<span id="cb14-12"><a href="data-analysis-procedures.html#cb14-12" tabindex="-1"></a>  </span>
-<span id="cb14-13"><a href="data-analysis-procedures.html#cb14-13" tabindex="-1"></a>  M3 <span class="ot">&lt;-</span> estimatr<span class="sc">::</span><span class="fu">lm_robust</span>( Ybar <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> datagg, <span class="at">se_type =</span> se_type )</span>
-<span id="cb14-14"><a href="data-analysis-procedures.html#cb14-14" tabindex="-1"></a>  </span>
-<span id="cb14-15"><a href="data-analysis-procedures.html#cb14-15" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
-<span id="cb14-16"><a href="data-analysis-procedures.html#cb14-16" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M3<span class="sc">$</span>coefficients[[<span class="st">&quot;Z&quot;</span>]], </span>
-<span id="cb14-17"><a href="data-analysis-procedures.html#cb14-17" tabindex="-1"></a>    <span class="at">SE_hat =</span> M3<span class="sc">$</span>std.error[[<span class="st">&quot;Z&quot;</span>]], </span>
-<span id="cb14-18"><a href="data-analysis-procedures.html#cb14-18" tabindex="-1"></a>    <span class="at">p_value =</span> M3<span class="sc">$</span>p.value[[<span class="st">&quot;Z&quot;</span>]] </span>
-<span id="cb14-19"><a href="data-analysis-procedures.html#cb14-19" tabindex="-1"></a>  )</span>
-<span id="cb14-20"><a href="data-analysis-procedures.html#cb14-20" tabindex="-1"></a>}</span></code></pre></div>
-<p>Note the <code>stopifnot</code> command: putting <em>assert statements</em> in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors in your code.
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="data-analysis-procedures.html#cb15-1" tabindex="-1"></a>analysis_agg <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">se_type =</span> <span class="st">&quot;HC2&quot;</span> ) {</span>
+<span id="cb15-2"><a href="data-analysis-procedures.html#cb15-2" tabindex="-1"></a>  </span>
+<span id="cb15-3"><a href="data-analysis-procedures.html#cb15-3" tabindex="-1"></a>  datagg <span class="ot">&lt;-</span> dplyr<span class="sc">::</span><span class="fu">summarise</span>( </span>
+<span id="cb15-4"><a href="data-analysis-procedures.html#cb15-4" tabindex="-1"></a>    dat,</span>
+<span id="cb15-5"><a href="data-analysis-procedures.html#cb15-5" tabindex="-1"></a>    <span class="at">Ybar =</span> <span class="fu">mean</span>( Yobs ),</span>
+<span id="cb15-6"><a href="data-analysis-procedures.html#cb15-6" tabindex="-1"></a>    <span class="at">n =</span> <span class="fu">n</span>(),</span>
+<span id="cb15-7"><a href="data-analysis-procedures.html#cb15-7" tabindex="-1"></a>    <span class="at">.by =</span> <span class="fu">c</span>(sid, Z)</span>
+<span id="cb15-8"><a href="data-analysis-procedures.html#cb15-8" tabindex="-1"></a>  )</span>
+<span id="cb15-9"><a href="data-analysis-procedures.html#cb15-9" tabindex="-1"></a>  </span>
+<span id="cb15-10"><a href="data-analysis-procedures.html#cb15-10" tabindex="-1"></a>  <span class="fu">stopifnot</span>( <span class="fu">nrow</span>( datagg ) <span class="sc">==</span> <span class="fu">length</span>(<span class="fu">unique</span>(dat<span class="sc">$</span>sid) ) )</span>
+<span id="cb15-11"><a href="data-analysis-procedures.html#cb15-11" tabindex="-1"></a>  </span>
+<span id="cb15-12"><a href="data-analysis-procedures.html#cb15-12" tabindex="-1"></a>  M3 <span class="ot">&lt;-</span> estimatr<span class="sc">::</span><span class="fu">lm_robust</span>( </span>
+<span id="cb15-13"><a href="data-analysis-procedures.html#cb15-13" tabindex="-1"></a>    Ybar <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> datagg, </span>
+<span id="cb15-14"><a href="data-analysis-procedures.html#cb15-14" tabindex="-1"></a>    <span class="at">se_type =</span> se_type </span>
+<span id="cb15-15"><a href="data-analysis-procedures.html#cb15-15" tabindex="-1"></a>  )</span>
+<span id="cb15-16"><a href="data-analysis-procedures.html#cb15-16" tabindex="-1"></a>  </span>
+<span id="cb15-17"><a href="data-analysis-procedures.html#cb15-17" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb15-18"><a href="data-analysis-procedures.html#cb15-18" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M3<span class="sc">$</span>coefficients[[<span class="st">&quot;Z&quot;</span>]], </span>
+<span id="cb15-19"><a href="data-analysis-procedures.html#cb15-19" tabindex="-1"></a>    <span class="at">SE_hat =</span> M3<span class="sc">$</span>std.error[[<span class="st">&quot;Z&quot;</span>]], </span>
+<span id="cb15-20"><a href="data-analysis-procedures.html#cb15-20" tabindex="-1"></a>    <span class="at">p_value =</span> M3<span class="sc">$</span>p.value[[<span class="st">&quot;Z&quot;</span>]] </span>
+<span id="cb15-21"><a href="data-analysis-procedures.html#cb15-21" tabindex="-1"></a>  )</span>
+<span id="cb15-22"><a href="data-analysis-procedures.html#cb15-22" tabindex="-1"></a>}</span></code></pre></div>
+<p>Note the <code>stopifnot</code> command. Putting <em>assert statements</em> in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors in your code.
 For example, R likes to recycle vectors to make them the right length; if you gave it a wrong length in error, this can be a brutal error to discover.
 The <code>stopifnot</code> statements halt your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, showing up in odd results that you don’t understand later on.
 See Section <a href="error-trapping-and-other-headaches.html#about-stopifnot">17.2</a> for more.
 <!-- JEP: Is there any reason that the `stopifnot()` test would ever fail? I'm struggling to see the utility of this particular test. --></p>
 <p>All of our functions produce output in the same format:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="data-analysis-procedures.html#cb15-1" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
-<span id="cb15-2"><a href="data-analysis-procedures.html#cb15-2" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">16</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>, <span class="at">p =</span> <span class="fl">0.5</span>, </span>
-<span id="cb15-3"><a href="data-analysis-procedures.html#cb15-3" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
-<span id="cb15-4"><a href="data-analysis-procedures.html#cb15-4" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
-<span id="cb15-5"><a href="data-analysis-procedures.html#cb15-5" tabindex="-1"></a>)</span>
-<span id="cb15-6"><a href="data-analysis-procedures.html#cb15-6" tabindex="-1"></a></span>
-<span id="cb15-7"><a href="data-analysis-procedures.html#cb15-7" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat )</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="data-analysis-procedures.html#cb16-1" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat )</span></code></pre></div>
 <pre><code>## Warning in check_dep_version(): ABI version mismatch: 
 ## lme4 was built with Matrix ABI version 2
 ## Current Matrix ABI version is 1
 ## Please re-install lme4 from source or restore original &#39;Matrix&#39; package</code></pre>
 <pre><code>## # A tibble: 1 × 3
-##   ATE_hat SE_hat p_value
-##     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
-## 1  -0.382  0.361   0.307</code></pre>
-<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="data-analysis-procedures.html#cb18-1" tabindex="-1"></a><span class="fu">analysis_OLS</span>( dat )</span></code></pre></div>
+##    ATE_hat SE_hat p_value
+##      &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+## 1 -0.00876  0.396   0.983</code></pre>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="data-analysis-procedures.html#cb19-1" tabindex="-1"></a><span class="fu">analysis_OLS</span>( dat )</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 3
 ##   ATE_hat SE_hat p_value
 ##     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
-## 1  -0.509  0.500   0.333</code></pre>
-<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="data-analysis-procedures.html#cb20-1" tabindex="-1"></a><span class="fu">analysis_agg</span>( dat )</span></code></pre></div>
+## 1  0.0241  0.457   0.959</code></pre>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="data-analysis-procedures.html#cb21-1" tabindex="-1"></a><span class="fu">analysis_agg</span>( dat )</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 3
-##   ATE_hat SE_hat p_value
-##     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
-## 1  -0.369  0.359   0.322</code></pre>
+##    ATE_hat SE_hat p_value
+##      &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+## 1 -0.00937  0.394   0.981</code></pre>
 <p>Ensuring that the output of all the functions is structured in the same way will make it easy to keep the results organized once we start running multiple iterations of the simulation.
-We will see the benefits in action in the next chapter.</p>
+If each estimation method returns a dataset with the same variables, we can simply stack the results on top of each other.
+Here is a function that bundles all the estimation procedures together:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="data-analysis-procedures.html#cb23-1" tabindex="-1"></a>estimate_Tx_Fx <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
+<span id="cb23-2"><a href="data-analysis-procedures.html#cb23-2" tabindex="-1"></a>    data, </span>
+<span id="cb23-3"><a href="data-analysis-procedures.html#cb23-3" tabindex="-1"></a>    <span class="at">CR_se_type =</span> <span class="st">&quot;CR2&quot;</span>, <span class="at">agg_se_type =</span> <span class="st">&quot;HC2&quot;</span></span>
+<span id="cb23-4"><a href="data-analysis-procedures.html#cb23-4" tabindex="-1"></a>) {</span>
+<span id="cb23-5"><a href="data-analysis-procedures.html#cb23-5" tabindex="-1"></a>  </span>
+<span id="cb23-6"><a href="data-analysis-procedures.html#cb23-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">bind_rows</span>(</span>
+<span id="cb23-7"><a href="data-analysis-procedures.html#cb23-7" tabindex="-1"></a>    <span class="at">MLM =</span> <span class="fu">analysis_MLM</span>( dat ),</span>
+<span id="cb23-8"><a href="data-analysis-procedures.html#cb23-8" tabindex="-1"></a>    <span class="at">OLS =</span> <span class="fu">analysis_OLS</span>( dat, <span class="at">se_type =</span> CR_se_type),</span>
+<span id="cb23-9"><a href="data-analysis-procedures.html#cb23-9" tabindex="-1"></a>    <span class="at">agg =</span> <span class="fu">analysis_agg</span>( dat, <span class="at">se_type =</span> agg_se_type),</span>
+<span id="cb23-10"><a href="data-analysis-procedures.html#cb23-10" tabindex="-1"></a>    <span class="at">.id =</span> <span class="st">&quot;estimator&quot;</span></span>
+<span id="cb23-11"><a href="data-analysis-procedures.html#cb23-11" tabindex="-1"></a>  )</span>
+<span id="cb23-12"><a href="data-analysis-procedures.html#cb23-12" tabindex="-1"></a>  </span>
+<span id="cb23-13"><a href="data-analysis-procedures.html#cb23-13" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="data-analysis-procedures.html#cb24-1" tabindex="-1"></a><span class="fu">estimate_Tx_Fx</span>(dat)</span></code></pre></div>
+<pre><code>## # A tibble: 3 × 4
+##   estimator  ATE_hat SE_hat p_value
+##   &lt;chr&gt;        &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+## 1 MLM       -0.00876  0.396   0.983
+## 2 OLS        0.0241   0.457   0.959
+## 3 agg       -0.00937  0.394   0.981</code></pre>
+<p>This is a common coding pattern for in simulations that involve multiple estimation procedures.
+Each procedure is expressed in its own function, then these are assembled together in a single function so that they can all easily be applied to the same dataset.
+Stacking the results row-wise will make it easy to compute performance measures on the results.
+This will become more evident once we are working across multiple replications of the simulation process, as we will in Chapter <a href="running-the-simulation-process.html#running-the-simulation-process">8</a>.</p>
 </div>
 <div id="validating-estimation-procedures" class="section level2 hasAnchor" number="7.3">
 <h2><span class="header-section-number">7.3</span> Validating Estimation Procedures<a href="data-analysis-procedures.html#validating-estimation-procedures" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Just as with data-generating functions, it is critical to verify the accuracy of the estimation functions.
-If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward verification is to compare your implementation to another existing implementation.
-For estimation functions that involve multi-step procedures or novel methods, then other approaches to verification will be needed.</p>
+If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward way to do this is to compare your implementation to another existing implementation.
+For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed, which rely more on available statistical theory.</p>
 <div id="checking-against-existing-implementations" class="section level3 hasAnchor" number="7.3.1">
 <h3><span class="header-section-number">7.3.1</span> Checking against existing implementations<a href="data-analysis-procedures.html#checking-against-existing-implementations" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>For our Welch test, we can check the output of <code>ANOVA_Welch_F()</code> against the built-in <code>oneway.test</code> function. Let’s do that with a fresh set of data:</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="data-analysis-procedures.html#cb22-1" tabindex="-1"></a>sim_data <span class="ot">&lt;-</span> <span class="fu">generate_ANOVA_data</span>(</span>
-<span id="cb22-2"><a href="data-analysis-procedures.html#cb22-2" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">6</span>), </span>
-<span id="cb22-3"><a href="data-analysis-procedures.html#cb22-3" tabindex="-1"></a>  <span class="at">sigma_sq =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">1</span>),</span>
-<span id="cb22-4"><a href="data-analysis-procedures.html#cb22-4" tabindex="-1"></a>  <span class="at">sample_size =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
-<span id="cb22-5"><a href="data-analysis-procedures.html#cb22-5" tabindex="-1"></a>)</span>
-<span id="cb22-6"><a href="data-analysis-procedures.html#cb22-6" tabindex="-1"></a></span>
-<span id="cb22-7"><a href="data-analysis-procedures.html#cb22-7" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group), <span class="at">data =</span> sim_data, <span class="at">var.equal =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb22-8"><a href="data-analysis-procedures.html#cb22-8" tabindex="-1"></a>aov_results</span></code></pre></div>
+<p>For our Welch test function, we can check the output of <code>ANOVA_Welch_F()</code> against the built-in <code>oneway.test</code> function. Let’s do that with a fresh set of data:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="data-analysis-procedures.html#cb26-1" tabindex="-1"></a>sim_data <span class="ot">&lt;-</span> <span class="fu">generate_ANOVA_data</span>(</span>
+<span id="cb26-2"><a href="data-analysis-procedures.html#cb26-2" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">6</span>), </span>
+<span id="cb26-3"><a href="data-analysis-procedures.html#cb26-3" tabindex="-1"></a>  <span class="at">sigma_sq =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">1</span>),</span>
+<span id="cb26-4"><a href="data-analysis-procedures.html#cb26-4" tabindex="-1"></a>  <span class="at">sample_size =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
+<span id="cb26-5"><a href="data-analysis-procedures.html#cb26-5" tabindex="-1"></a>)</span>
+<span id="cb26-6"><a href="data-analysis-procedures.html#cb26-6" tabindex="-1"></a></span>
+<span id="cb26-7"><a href="data-analysis-procedures.html#cb26-7" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group), <span class="at">data =</span> sim_data, <span class="at">var.equal =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb26-8"><a href="data-analysis-procedures.html#cb26-8" tabindex="-1"></a>aov_results</span></code></pre></div>
 <pre><code>## 
 ##  One-way analysis of means (not assuming equal variances)
 ## 
 ## data:  x and factor(group)
-## F = 14.664, num df = 3.0000, denom df = 3.8761, p-value = 0.01382</code></pre>
-<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="data-analysis-procedures.html#cb24-1" tabindex="-1"></a>Welch_results <span class="ot">&lt;-</span> <span class="fu">ANOVA_Welch_F</span>(sim_data)</span>
-<span id="cb24-2"><a href="data-analysis-procedures.html#cb24-2" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, Welch_results<span class="sc">$</span>Welch)</span></code></pre></div>
+## F = 6.2706, num df = 3.0000, denom df = 3.9952, p-value = 0.05426</code></pre>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="data-analysis-procedures.html#cb28-1" tabindex="-1"></a>Welch_results <span class="ot">&lt;-</span> <span class="fu">ANOVA_Welch_F</span>(sim_data)</span>
+<span id="cb28-2"><a href="data-analysis-procedures.html#cb28-2" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, Welch_results<span class="sc">$</span>Welch)</span></code></pre></div>
 <pre><code>## [1] TRUE</code></pre>
-<p>We use <code>all.equal()</code> because it will check equality up to a tolerance in R, which can avoid some weird floating point errors due to rounding.</p>
+<p>We use <code>all.equal()</code> because it will check equality up to a tolerance in R, which can avoid some perplexing errors due to rounding.</p>
 <p>For the bivariate correlation example, we can check the output of <code>r_and_z()</code> against R’s built-in <code>cor.test()</code> function, as we have already demonstrated in Section <a href="data-analysis-procedures.html#estimation-functions">7.1</a>.
-Such a test is even more useful here because <code>r_and_z()</code> involves our own implementation of the confidence interval calculations, rather than relying on R’s built-in functions as we did with <code>ANOVA_Welch_F()</code>.</p>
+Such a test is even more useful here because <code>r_and_z()</code> uses our own implementation of the confidence interval calculations, rather than relying on R’s built-in functions as we did with <code>ANOVA_Welch_F()</code>.</p>
 </div>
 <div id="checking-novel-procedures" class="section level3 hasAnchor" number="7.3.2">
 <h3><span class="header-section-number">7.3.2</span> Checking novel procedures<a href="data-analysis-procedures.html#checking-novel-procedures" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>Simulations are usually an integral part of projects to develop novel statistical methods, but if an estimation procedure truly is new, how do you check that your code is correct?
-Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of an estimator to check that an estimator works as expected.
-For instance, we might work out the algebraic properties of an estimator for a special case and then check that the results of the estimation function agree with our algebra.
-In many problems, we might be able to find theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified.</p>
-<p>such as its behavior in very large samples or under correct model specification.</p>
-<p>An estimation function implements a truly novel procedure.
-Well, one obvious answer is simulation!</p>
-<p>In principle, for large samples and data generated under the assumptions required by your new procedure, you should have a fairly good sense that your estimation procedures should work.
-It is often the case that as you design your simulation, and then start analyzing the results, you will find your estimators are really not working as planned.</p>
+<p>Simulations are usually an integral part of projects to develop novel statistical methods.
+Such projects present a puzzle: if an estimation procedure truly is new, how do you check that your code is correct?
+Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of the estimator to check that your implementation works as expected.
+For instance, we might work out the algebraic properties of an estimator for a special case and then check that the result of the estimation function agrees with our algebra.
+For some estimation problems, we might be able to identify theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified.
+If we can find results about large-sample behavior, then we can test an estimation function by applying it to a very large sample and checking whether the resulting estimates and very close to specified parameter values.
+We illustrate each of these approaches using our functions for estimating treatment effects from cluster-randomized trials.</p>
+<p>First, we test an algebraic property.
+With each of the three methods, the treatment effect estimator is a difference between the weighted average of the outcomes from students in each treatment condition; the only difference between the estimators is in what weights are used.
+In the special case where all schools have the same number of students, the weights used by all three methods end up being the same: all three methods allocate equal weight to each school.
+Therefore, we know that there should be no difference between the three point estimates.
+Furthermore, a bit of algebra will show that the cluster-robust standard error from the OLS approach will end up being identical to the robust standard error from the aggregation approach.
+If there are equal numbers of schools assigned to both conditions, then the standard error from the multilevel model will also be identical to the other standard errors.</p>
+<p>Let’s verify that our estimation functions produce results that are consistent with these theoretical properties.
+To do so, we will need to generate a dataset with equal cluster sizes, setting <span class="math inline">\(\alpha = 0\)</span>:</p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="data-analysis-procedures.html#cb30-1" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb30-2"><a href="data-analysis-procedures.html#cb30-2" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">12</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="dv">0</span>, <span class="at">p =</span> <span class="fl">0.5</span>, </span>
+<span id="cb30-3"><a href="data-analysis-procedures.html#cb30-3" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
+<span id="cb30-4"><a href="data-analysis-procedures.html#cb30-4" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb30-5"><a href="data-analysis-procedures.html#cb30-5" tabindex="-1"></a>)</span>
+<span id="cb30-6"><a href="data-analysis-procedures.html#cb30-6" tabindex="-1"></a><span class="fu">table</span>(dat<span class="sc">$</span>sid) <span class="co"># verify equal-sized clusters</span></span></code></pre></div>
+<pre><code>## 
+##  1  2  3  4  5  6  7  8  9 10 11 12 
+## 30 30 30 30 30 30 30 30 30 30 30 30</code></pre>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="data-analysis-procedures.html#cb32-1" tabindex="-1"></a><span class="fu">estimate_Tx_Fx</span>(dat)</span></code></pre></div>
+<pre><code>## # A tibble: 3 × 4
+##   estimator ATE_hat SE_hat p_value
+##   &lt;chr&gt;       &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+## 1 MLM         0.371  0.398   0.374
+## 2 OLS         0.371  0.398   0.374
+## 3 agg         0.371  0.398   0.374</code></pre>
+<p>All three methods yield identical results.
+Now let’s try equal school sizes but unequal allocation to treatment:</p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="data-analysis-procedures.html#cb34-1" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb34-2"><a href="data-analysis-procedures.html#cb34-2" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">12</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="dv">0</span>, <span class="at">p =</span> <span class="dv">2</span> <span class="sc">/</span> <span class="dv">3</span>, </span>
+<span id="cb34-3"><a href="data-analysis-procedures.html#cb34-3" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
+<span id="cb34-4"><a href="data-analysis-procedures.html#cb34-4" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb34-5"><a href="data-analysis-procedures.html#cb34-5" tabindex="-1"></a>)</span>
+<span id="cb34-6"><a href="data-analysis-procedures.html#cb34-6" tabindex="-1"></a><span class="fu">estimate_Tx_Fx</span>(dat)</span></code></pre></div>
+<pre><code>## # A tibble: 3 × 4
+##   estimator ATE_hat SE_hat p_value
+##   &lt;chr&gt;       &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+## 1 MLM        -0.109  0.348   0.760
+## 2 OLS        -0.109  0.328   0.750
+## 3 agg        -0.109  0.328   0.745</code></pre>
+<p>As expected, all three point estimators match, but the SE from the multilevel model is a little bit discrepant from the others.</p>
+<p>It is often the case that as you design your simulation, and then start analyzing the results, you will find your estimators are really not working as planned.</p>
 <p>Such surprises will usually be due to (at least) three factors: you did not implement your method correctly, your method is not yet a good idea in the first place, or you do not yet understand something important about how your method works.
 When faced with poor performance you thus will debug your code, revise your method, and do some serious thinking.
 Ideally this will eventually lead you to a deeper understanding of a method that is a better idea in general, and correctly implemented in all likelihood.</p>
@@ -782,19 +852,19 @@ But do not expect it to be a single, well-defined, trajectory.</p>
 <p>In the classic simulation by Brown and Forsythe (1974), they not only looked at the performance of the homoskedastic ANOVA-F test and Welch’s heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.</p>
 <ol style="list-style-type: decimal">
 <li><p>Write a function that implements the Brown-Forsythe F* test (the BFF* test!) as described on p. 130 of Brown and Forsythe (1974), using the following code skeleton:</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="data-analysis-procedures.html#cb26-1" tabindex="-1"></a>BF_F <span class="ot">&lt;-</span> <span class="cf">function</span>( data ) {</span>
-<span id="cb26-2"><a href="data-analysis-procedures.html#cb26-2" tabindex="-1"></a></span>
-<span id="cb26-3"><a href="data-analysis-procedures.html#cb26-3" tabindex="-1"></a>  <span class="co"># fill in the guts here</span></span>
-<span id="cb26-4"><a href="data-analysis-procedures.html#cb26-4" tabindex="-1"></a></span>
-<span id="cb26-5"><a href="data-analysis-procedures.html#cb26-5" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
-<span id="cb26-6"><a href="data-analysis-procedures.html#cb26-6" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb36-1"><a href="data-analysis-procedures.html#cb36-1" tabindex="-1"></a>BF_F <span class="ot">&lt;-</span> <span class="cf">function</span>( data ) {</span>
+<span id="cb36-2"><a href="data-analysis-procedures.html#cb36-2" tabindex="-1"></a></span>
+<span id="cb36-3"><a href="data-analysis-procedures.html#cb36-3" tabindex="-1"></a>  <span class="co"># fill in the guts here</span></span>
+<span id="cb36-4"><a href="data-analysis-procedures.html#cb36-4" tabindex="-1"></a></span>
+<span id="cb36-5"><a href="data-analysis-procedures.html#cb36-5" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
+<span id="cb36-6"><a href="data-analysis-procedures.html#cb36-6" tabindex="-1"></a>}</span></code></pre></div>
 <p>Run the following code to check that your function produces a result:</p>
-<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="data-analysis-procedures.html#cb27-1" tabindex="-1"></a>sim_data <span class="ot">&lt;-</span> <span class="fu">generate_ANOVA_data</span>(</span>
-<span id="cb27-2"><a href="data-analysis-procedures.html#cb27-2" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">6</span>), </span>
-<span id="cb27-3"><a href="data-analysis-procedures.html#cb27-3" tabindex="-1"></a>  <span class="at">sigma_sq =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">1</span>),</span>
-<span id="cb27-4"><a href="data-analysis-procedures.html#cb27-4" tabindex="-1"></a>  <span class="at">sample_size =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
-<span id="cb27-5"><a href="data-analysis-procedures.html#cb27-5" tabindex="-1"></a>)</span>
-<span id="cb27-6"><a href="data-analysis-procedures.html#cb27-6" tabindex="-1"></a><span class="fu">BF_F</span>( sim_data )</span></code></pre></div></li>
+<div class="sourceCode" id="cb37"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb37-1"><a href="data-analysis-procedures.html#cb37-1" tabindex="-1"></a>sim_data <span class="ot">&lt;-</span> <span class="fu">generate_ANOVA_data</span>(</span>
+<span id="cb37-2"><a href="data-analysis-procedures.html#cb37-2" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">6</span>), </span>
+<span id="cb37-3"><a href="data-analysis-procedures.html#cb37-3" tabindex="-1"></a>  <span class="at">sigma_sq =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">1</span>),</span>
+<span id="cb37-4"><a href="data-analysis-procedures.html#cb37-4" tabindex="-1"></a>  <span class="at">sample_size =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
+<span id="cb37-5"><a href="data-analysis-procedures.html#cb37-5" tabindex="-1"></a>)</span>
+<span id="cb37-6"><a href="data-analysis-procedures.html#cb37-6" tabindex="-1"></a><span class="fu">BF_F</span>( sim_data )</span></code></pre></div></li>
 <li><p>Try calling your <code>BF_F</code> function on a variety of datasets of different sizes and shapes, to make sure it works. What kinds of datasets should you test out?</p></li>
 <li><p>Add the BFF* test into the output of <code>Welch_ANOVA_F()</code> by calling your <code>BF_F()</code> function inside the body of <code>Welch_ANOVA_F()</code>.</p></li>
 <li><p>The <a href="https://cran.r-project.org/package=onewaytests"><code>onewaytests</code> package</a> implements a variety of different hypothesis testing procedures for one-way ANOVA. Validate your <code>Welch_ANOVA_F()</code> function by comparing the results to the output of the relevant functions from <code>onewaytests</code>.</p></li>
@@ -805,13 +875,13 @@ But do not expect it to be a single, well-defined, trajectory.</p>
 <p>In the one-way ANOVA problem, one approach that an analyst might think to take is to conduct a preliminary significance test for heterogeneity of variances (such as Levene’s test or Bartlett’s test), and then report the <span class="math inline">\(p\)</span>-value from the homoskedastic ANOVA F test if variance heterogeneity is not detected but the <span class="math inline">\(p\)</span>-value from the BFF* test if variance heteogeneity is detected.
 Modify the <code>Welch_ANOVA_F()</code> function to return the <span class="math inline">\(p\)</span>-value from this contingent BFF* test in addition to the <span class="math inline">\(p\)</span>-values from the (non-contingent) ANOVA-F, Welch, and BFF* tests.
 Include an input option that allows the user to control the <span class="math inline">\(\alpha\)</span> level of the preliminary test for heterogeneity of variances, as in the following skeleton.</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="data-analysis-procedures.html#cb28-1" tabindex="-1"></a>Welch_ANOVA_F <span class="ot">&lt;-</span> <span class="cf">function</span>( data , <span class="at">pre_alpha =</span> .<span class="dv">05</span>) {</span>
-<span id="cb28-2"><a href="data-analysis-procedures.html#cb28-2" tabindex="-1"></a>  <span class="co"># preliminary test for variance heterogeneity</span></span>
-<span id="cb28-3"><a href="data-analysis-procedures.html#cb28-3" tabindex="-1"></a>  <span class="co"># compute non-contingent F tests for group differences</span></span>
-<span id="cb28-4"><a href="data-analysis-procedures.html#cb28-4" tabindex="-1"></a>  <span class="co"># compute contingent test</span></span>
-<span id="cb28-5"><a href="data-analysis-procedures.html#cb28-5" tabindex="-1"></a>  <span class="co"># compile results</span></span>
-<span id="cb28-6"><a href="data-analysis-procedures.html#cb28-6" tabindex="-1"></a>  <span class="fu">return</span>(result)</span>
-<span id="cb28-7"><a href="data-analysis-procedures.html#cb28-7" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb38"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb38-1"><a href="data-analysis-procedures.html#cb38-1" tabindex="-1"></a>Welch_ANOVA_F <span class="ot">&lt;-</span> <span class="cf">function</span>( data , <span class="at">pre_alpha =</span> .<span class="dv">05</span>) {</span>
+<span id="cb38-2"><a href="data-analysis-procedures.html#cb38-2" tabindex="-1"></a>  <span class="co"># preliminary test for variance heterogeneity</span></span>
+<span id="cb38-3"><a href="data-analysis-procedures.html#cb38-3" tabindex="-1"></a>  <span class="co"># compute non-contingent F tests for group differences</span></span>
+<span id="cb38-4"><a href="data-analysis-procedures.html#cb38-4" tabindex="-1"></a>  <span class="co"># compute contingent test</span></span>
+<span id="cb38-5"><a href="data-analysis-procedures.html#cb38-5" tabindex="-1"></a>  <span class="co"># compile results</span></span>
+<span id="cb38-6"><a href="data-analysis-procedures.html#cb38-6" tabindex="-1"></a>  <span class="fu">return</span>(result)</span>
+<span id="cb38-7"><a href="data-analysis-procedures.html#cb38-7" tabindex="-1"></a>}</span></code></pre></div>
 </div>
 <div id="cross-check-CRT-estimators" class="section level3 hasAnchor" number="7.5.3">
 <h3><span class="header-section-number">7.5.3</span> Check the cluster-RCT functions<a href="data-analysis-procedures.html#cross-check-CRT-estimators" class="anchor-section" aria-label="Anchor link to header"></a></h3>
@@ -832,13 +902,13 @@ Use your modified function to generate a dataset.</p>
 <ol style="list-style-type: decimal">
 <li><p>Modify the estimation functions from Section <a href="data-analysis-procedures.html#multiple-estimation-procedures">7.2</a> to use models that include the covariate as a predictor.</p></li>
 <li><p>Further extend the functions to include an input argument for the set of predictors to be included in the model, as in the following skeleton for the multi-level model estimator:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="data-analysis-procedures.html#cb29-1" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>(dat, <span class="at">predictors =</span> <span class="st">&quot;Z&quot;</span>) {</span>
-<span id="cb29-2"><a href="data-analysis-procedures.html#cb29-2" tabindex="-1"></a></span>
-<span id="cb29-3"><a href="data-analysis-procedures.html#cb29-3" tabindex="-1"></a>}</span>
-<span id="cb29-4"><a href="data-analysis-procedures.html#cb29-4" tabindex="-1"></a></span>
-<span id="cb29-5"><a href="data-analysis-procedures.html#cb29-5" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat )</span>
-<span id="cb29-6"><a href="data-analysis-procedures.html#cb29-6" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat, <span class="at">predictors =</span> <span class="fu">c</span>(<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;X&quot;</span>))</span>
-<span id="cb29-7"><a href="data-analysis-procedures.html#cb29-7" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat, <span class="at">predictors =</span> <span class="fu">c</span>(<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;X&quot;</span>, <span class="st">&quot;X:Z&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb39-1"><a href="data-analysis-procedures.html#cb39-1" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>(dat, <span class="at">predictors =</span> <span class="st">&quot;Z&quot;</span>) {</span>
+<span id="cb39-2"><a href="data-analysis-procedures.html#cb39-2" tabindex="-1"></a></span>
+<span id="cb39-3"><a href="data-analysis-procedures.html#cb39-3" tabindex="-1"></a>}</span>
+<span id="cb39-4"><a href="data-analysis-procedures.html#cb39-4" tabindex="-1"></a></span>
+<span id="cb39-5"><a href="data-analysis-procedures.html#cb39-5" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat )</span>
+<span id="cb39-6"><a href="data-analysis-procedures.html#cb39-6" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat, <span class="at">predictors =</span> <span class="fu">c</span>(<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;X&quot;</span>))</span>
+<span id="cb39-7"><a href="data-analysis-procedures.html#cb39-7" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat, <span class="at">predictors =</span> <span class="fu">c</span>(<span class="st">&quot;Z&quot;</span>,<span class="st">&quot;X&quot;</span>, <span class="st">&quot;X:Z&quot;</span>))</span></code></pre></div>
 <p>Hint: Check out the <code>reformulate()</code> function, which makes it easy to build formulas for different sets of predictors.</p></li>
 </ol>
 
