@@ -1,3 +1,8 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 # Data analysis procedures {#data-analysis-procedures}
 
 ```{r, include=FALSE}
@@ -220,14 +225,15 @@ We use `all.equal()` because it will check equality up to a tolerance in R, whic
 For the bivariate correlation example, we can check the output of `r_and_z()` against R's built-in `cor.test()` function:
 ```{r}
 Pois_dat <- r_bivariate_Poisson(15, rho = 0.6, mu1 = 14, mu2 = 8)
-my_result <- r_and_z(Pois_dat)
+
+my_result <- r_and_z(Pois_dat) |> subset(select = -z)
 my_result
+
 R_result <- cor.test(~ C1 + C2, data = Pois_dat)
+R_result <- tibble(r = R_result$estimate[["cor"]], CI_lo = R_result$conf.int[1], CI_hi = R_result$conf.int[2])
 R_result
-all.equal(
-  tibble(r = R_result$estimate[["cor"]], CI_lo = R_result$conf.int[1], CI_hi = R_result$conf.int[2]),
-  select(my_result, -z)
-)
+
+all.equal(R_result, my_result)
 ```
 This type of test is even more useful here because `r_and_z()` uses our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
 
@@ -349,6 +355,23 @@ Of course, at some point one needs to step off this merry-go-round, write up the
 But, just like many other research endeavors, simulations follow a highly iterative process.
 
 ## Handling errors, warnings, and other hiccups
+
+Especially when working with more advanced estimation methods, it is possible that your estimation function will fail, throw an error, or return something uninterpretable for certain input datasets.
+For instance, maximum likelihood estimation often requires iterative, numerical optimization algorithms that sometimes fail to converge.
+This might happen rarely enough that it takes a while to even notice that it is a problem, but even quite rare things can occur when you run simulations with many thousands of repetitions.
+Less dire but still annoying, your estimation function might generate warnings, which can pile up if you are running many repetitions. 
+In some cases, such warnings might also signal that the estimator produced a bad result, and
+it may not be clear whether we should retain this result (or include it in overall performance assessments).
+After all, the function tried to warn us that something is off!
+
+Errors and warnings in estimation functions pose two problems, one purely technical and one conceptual. 
+On a technical level, R functions stop running if they hit errors (though not warnings), so we need ways to handle the errors in order to get our simulations up and running.
+On a conceptual level, we need to decide how to use the information contained in errors and warnings, whether that be by further elaborating the estimation procedures to address different contingencies or by evaluating the performance of the estimators in a way that appropriately accounts for errors.
+We consider each of the problems here, then revisit the conceptual considerations in Chapter \@ref(performance-criteria).
+
+### Capturing errors and warnings
+
+### Adapting estimation procedures for errors and warnings
 
 ## Exercises
 
