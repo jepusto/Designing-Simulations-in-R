@@ -144,6 +144,12 @@ analysis_OLS_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis
 analysis_agg_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_agg <-")):(f_endings[3])]
 analysis_bundle_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "estimate_Tx_Fx <-")):(f_endings[4])]
 
+lmer_composing <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "compose")):which(str_detect(cluster_RCT_fun, "^\\)$"))]
+
+lmer_quietly <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "purrr::quietly"))]
+                                  
+analysis_MLM_safe_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_MLM_safe")):(f_endings[5])]
+analysis_MLM_contingent_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_MLM_contingent")):(f_endings[6])]
 ```
 
 For the multi-level modeling strategy, there are several different existing packages that we could use.
@@ -371,7 +377,169 @@ We consider each of the problems here, then revisit the conceptual consideration
 
 ### Capturing errors and warnings
 
-### Adapting estimation procedures for errors and warnings
+Some estimation functions will require complicated or stochastic calculations that can sometimes produce errors. 
+Intermittent errors can really be annoying and time-consuming if not addressed.
+To protect yourself, it is good practice to anticipate potential errors, preventing them from stopping code execution and allowing your simulations to keep running. 
+We will demonstrate some techniques for error-handling using tools from the `purrr` package.
+
+For illustrative purposes, consider the following error-prone function that sometimes returns what we want, sometimes returns `NaN` due to taking the square root of a negative number, and sometimes crashes completely because `broken_code()` does not exist:
+```{r, error=TRUE}
+my_complex_function = function( param ) {
+    
+    vals = rnorm( param, mean = 0.5 )
+    if ( sum( vals ) > 5 ) {
+        broken_code( 4 )
+    } else {
+        sqrt( sum( vals ) * sign( vals )[[1]] )
+    }
+}
+```
+
+Running it produces some results and an occasional warning, and some errors:
+```{r, error=TRUE}
+set.seed(3)
+my_complex_function( 1 )
+my_complex_function( 10 )
+my_complex_function( 5 )
+```
+Running it many times produces warnings, then an error:
+```{r, error=TRUE}
+resu <- replicate(20, my_complex_function( 7 ))
+```
+
+The `purrr` package includes a function called `safely` that makes it easy to trap errors. 
+To use it, we feed the estimation function into `safely()` to create a new version:
+```{r}
+my_safe_function <- safely( my_complex_function, otherwise = NA )
+my_safe_function( 7 )
+```
+The safe version of the function returns a list with two entries: the result (or NULL if there was an error), and the error message (or NULL if there was no error).
+`safely()` is an example of a _functional_ (or an _abverb_), which takes a function and returns a new function that does something slightly different.
+We include `otherwise = NA` so we always get a result, rather than a `NULL` when there is an error.
+
+We can use the safe function repeatedly and it will always return a result:
+```{r}
+resu <- replicate(20, my_safe_function( 7 ), simplify = FALSE)
+resu <- transpose( resu )
+unlist(resu$result)
+```
+The `transpose()` function takes a list of lists, and reorganizes them to give you a list of all the first elements, a list of all the second elements, etc.
+This is very powerful for wrangling data, because then we can make a tibble with list columns as so:
+```{r}
+tb <- tibble( result = unlist( resu$result ), error = resu$error )
+head( tb, n = 4 )
+```
+The `purrr` package includes several other functionals that are useful for handling errors and warnings.
+The `possibly()` wrapper will try to run a function and will return a specified value in the event of an error:
+```{r}
+my_possible_function <- possibly( my_complex_function, otherwise = NA )
+my_possible_function( 7 )
+
+rs <- replicate(20, my_possible_function( 7 ))
+rs
+```
+It works as a simpler version of `safely()`, which does not record error messages.
+
+The `quietly` functional leads to results that are bundled together with any console output, warnings, and messages, rather than printing anything to the console:
+```{r}
+my_quiet_function <- quietly( my_complex_function )
+
+my_quiet_function( 1 )
+```
+This can be especially useful to reduce extraneous printing in a simulation, which can slow down code execution more than you might expect.
+However, `quietly()` does not trap errors:
+```{r, error=TRUE}
+rs <- replicate(20, my_quiet_function( 7 ))
+```
+Double-wrapping your function will handle both errors and warnings, but the structure it produces gets a bit complicated:
+```{r}
+my_safe_quiet_function <- quietly( safely( my_complex_function, otherwise = NA ) )
+my_safe_quiet_function(7)
+```
+Even though the result is a bit of a mess, this structure provides all the pieces that we need to do further calculations on the result (when available), along with errors, warnings, and other output.
+
+To see how this works in practice, we will adapt our `analysis_MLM()` function, which makes use of `lmer()` for fitting a multilevel model.
+Currently, the estimation function sometimes prints messages to the console:
+```{r illustrate_warnings}
+set.seed(101012)  # (I picked this to show a warning.)
+dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
+mod <- analysis_MLM(dat)
+```
+Wrapping `lmer()` with `quiet()` makes it possible to catch such output and store it along with other results, as in the following:
+```{r}
+quiet_lmer <- quietly(lme4::lmer)
+qmod <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+qmod
+```
+However, the `lmerTest` package does not like the structure of the results, and produces an error:
+```{r, error = TRUE}
+lmerTest::as_lmerModLmerTest(qmod$result)
+```
+We can side-step this by combining  `as_lmerModLmerTest()` and `lmer()` into a single function.
+While we are at it, we also layer on `summary()`.
+To do so, we use the `compose()` functional from `purrr`, which takes a list of functions and wraps them into one: 
+```{r, code = lmer_composing}
+```
+The resulting `lmer_with_test()` function acts as if we were calling `lmer()`, then feeding the result into `as_lmerModLmerTest()`, then feeding the result into `summary()`.
+We then wrap the combination function with `safely()` and `quietly()`:
+```{r, code = lmer_quietly}
+```
+Now we can use our suitably quieted and safe function in a new version of the estimation function:
+```{r, code = analysis_MLM_safe_code}
+```
+This quiet version runs without extraneous messages:
+```{r}
+mod <- analysis_MLM_safe(dat)
+mod
+```
+
+Now we have the estimation results along with any diagnostic information from messages or warnings.
+Storing this information will let us evaluate what proportion of the time there was a warning or message, run additional analyses on the subset of  replications where there was no such warning, or even modify the estimation procedure to take the diagnostics into account.
+
+### Adapting estimation procedures for errors and warnings {#adapting-for-errors}
+
+So far, we have seen techniques for handling technical hiccups that occur when data analysis procedures do not always produce results.
+But how do we account for the absence of results in a simulation? 
+In Chapter \@ref(performance-criteria), we will delve into the conceptual issues with summarizing the performance of methods that do not always provide an answer.
+One of the best solutions to such problems still concerns the formulation of estimation functions, and so we introduce it here.
+That solution is to _re-define the estimator_ to include contingencies for handling lack of results.
+
+Consider a data analyst who was planning to apply a fancy statistical model to their data, but then finds that the model does not converge. 
+What would that analyst do in practice (besides cussing and taking a snack break)?
+Rather than giving up entirely, they would probably think of an alternative analysis and attempt to apply it, perhaps by simplifying the model in some way. 
+To the extent that we can anticipate such possibilities, we can build these error-contingent alternative analyses into our estimation function.
+
+To illustrate, let's look at an error (a not-particularly-subtle one) that can crop up in the cluster-randomized trial example when clusters are very small:
+```{r}
+set.seed(65842)
+tiny_dat <- gen_cluster_RCT( J = 10, n_bar = 2, alpha = 0.5)
+analysis_MLM_safe(tiny_dat)
+table(tiny_dat$sid)
+```
+The error occurs because all 10 simulated schools include a single student, making it impossible to estimate a random-intercepts multilevel model.
+A natural fall-back analysis here would be to estimate an ordinary least squares regression analysis.
+
+Suppose that our imaginary analyst is not especially into nuance, and so will fall back onto ordinary least squares whenever the multilevel model produces an error. 
+We can express this logic in our estimation function by first catching the error thrown by `lmer()` and then running an OLS regression in the event an error is thrown:
+```{r, code = analysis_MLM_contingent_code}
+```
+We still store the messages, warnings, and errors from the initial `lmer()` fit so that we can keep track of how often errors occur.
+The function now returns an treatment effect estimate even if `lmer()` errors:
+```{r}
+analysis_MLM_contingent(tiny_dat)
+```
+Of course, we can easily anticipate the conditions under which this particular error will occur: all we need to do is check whether all the clusters are single observations.
+Because it is easily anticipated, a better strategy for handling this error is to check _before_ fitting the multilevel model and proceeding accordingly in the event that the clusters are all singletons.
+Exercise \@ref(contingent-estimator-processing) asks you to implement this approach and further refine this contingent analysis strategy.
+
+Adapting estimation functions to address errors can be an effective---and often very interesting---strategy for studying the performance of estimation methods.
+Rather than studying the performance of a data-analysis method that is only sometimes well-defined, we shift to studying a stylized cognitive model for the analyst's decision-making process, which handles contingencies that might crop up whether analyzing simulated data or real empirical data.
+Of course, studying such a model is only interesting to the extent that the decision-making process it implements is a plausible representation of what an analyst might actually do in practice.
+
+This approach to handling errors also leads to more complex estimation functions, which entail implementing multiple estimation methods and a set of decision rules for applying them.
+Often, the set of contingencies that need to be handled will not be immediately obvious, so you may find that you need to build and refine the decision rules as you learn more about how they work.
+Running an estimation procedure over multiple, simulated datasets is an excellent (if aggravating!) way to identify errors and edge cases.
+We turn to procedures for doing so in the next chapter.
 
 ## Exercises
 
@@ -452,4 +620,15 @@ Use your modified function to generate a dataset.
     ```
     Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.
 
+### Contingent estimator processing {#contingent-estimator-processing}
 
+In Section \@ref(adapting-for-errors) we developed a version of `analysis_MLM()` that fell back on OLS regression in the event that `lmer()` produced any error.
+The implementation that we demonstrated is not especially smart.
+For one, it does not anticipate that the error will occur.
+For another, if we are using this function as one of several estimation strategies, it will require fitting the OLS regression multiple times. 
+Can you fix these problems?
+
+1. Revise `analysis_MLM_contingent()` so that it checks whether all clusters are single observations _before_ fitting the multilevel model.
+Handle event the contingency where all clusters are singletons by skipping the model-fitting step, returning `NA` values for the point estimator, standard error, and p-value, and returning an informative message in the `error` variable. Test that the function is working as expected.
+
+2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code that replaces any `NA` values with corresponding results of `analysis_OLS()`. Test that the function is working as expected.
