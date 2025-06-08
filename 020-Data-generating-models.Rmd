@@ -702,3 +702,43 @@ To implement this model as a DGP, you will have to decide how to generate $X_{ij
 2. Implement the model by modifying `gen_cluster_RCT()` accordingly.
 3. Use your implementation to find the unconditional variance of the outcome, $\text{Var}(Y | Z_j = 0)$, when $\beta_1 = 0.6$.
 
+### Random effects meta-regression {#meta-regression-exercise}
+
+Meta-analysis involves working with quantitative findings reported by previous studies on a particular topic, in the form of effect size estimates and their standard errors, to generate integrative summaries and identify patterns in the findings that might not be evident from any previous study considered in isolation.
+One model that is widely used in meta-analysis is the random effects meta-regression, which relates the effect sizes to known characteristics of the studies that are encoded in the form of predictors. 
+Consider a collection of $K$ studies. Let $T_i$ denote an effect size estimate and $s_i$ denote its standard error for study $i$.
+Let $x_{i}$ be a quantitative predictor variable that represents some characteristic of study $i$ (such as its year of publication).
+The random effects meta-regression model assumes
+$$
+T_i = \beta_0 + \beta_1 x_i + u_i + e_i,
+$$
+where $u_i \sim N(0, \tau^2)$ and $e_i \sim N(0, s_i^2)$.
+In this model, $\beta_0$ corresponds to the expected effect size when $x_i = 0$ and $\beta_1$ describes the expected difference in effect size per one unit difference in $x_i$.
+The first error $u_i$ corresponds to the heterogeneity in the effect sizes above and beyond the variation explained by $x_i$, and the second error $e_i$ corresponds to the sampling error, which we assume has known variance $s_i^2$.
+
+1. Of the variables in the random effects meta-regression model, which are structural features, which are covariates, and which are outcomes? Of the parameters described above, which would you classify as focal, which as auxiliary, and which as design parameters?
+
+2. In addition to the focal model described above, what further assumptions or auxiliary models will be needed in order to simulate data for a random effects meta-regression? Propose an auxiliary model for any needed quantities.
+
+3. Using your proposed auxiliary model, write a function to generate data for a random effects meta-regression. Demonstrate your function by creating a plot based on a simulated dataset with $K = 30$ effect sizes.
+
+4. Write code to check the properties of your data-generating function.
+
+### Meta-regression with selective reporting 
+
+@vevea1995general proposed a meta-regression model that allows for the possibility that not all primary study results are published. 
+They assume that primary study results are generated according to the random effects meta-regression model described in Exercise \@ref(meta-regression-exercise), but then only a subset of results are observed, where the probability of being included is a function of the result's one-sided $p$-value for the null hypothesis $H_0: \delta \leq 0$ against alternative $H_A: \delta > 0$.
+Let $p_i = 1 - \Phi(T_i / s_i)$ be the one-sided $p$-value for study result $i$, where $Phi()$ is the standard normal cumulative distribution (`pnorm()` in R). 
+In one version of the selection model, the selection probability follows a piece-wise constant distribution with
+$$
+\text{Pr}(T_i \text{ is observed}) = \begin{cases}1 & \text{if} & 0 \leq p_i < .025 \\ \lambda_1 & \text{if} & .025 \leq p_i < .500 \\  \lambda_2 & \text{if} & .500 \leq  p_i < 1\end{cases}
+$$
+for selection probabilities $0 \leq \lambda_1 \leq 1$ and $0 \leq \lambda_2 \leq 1$.
+
+1. Modify your data-generating function from Exercise \@ref(meta-regression-exercise) to follow the Vevea-Hedges selection model. Ensure that the new data-generating function returns a total of $K$ primary study results.
+
+2. Use the new function to generate a large number of effect size estimates, all with $s_i = 0.35$, using parameters $\beta_0 = 0.1$, $\beta_1 = 0.0$, $\tau = 0.1$, $\lambda_1 = 0.5$, and $\lambda_2 = 0.2$. Plot the distribution of observed effect size estimates.
+
+3. Create several further plots using different values for $\lambda_1$ and $\lambda_2$. How do these parameters affect the shape of the distribution?
+
+4. Use the `selmodel()` function from the `metafor` package to estimate the Vevea-Hedges selection model based on one of your simulated datasets. How do the estimates compare to the model parameters you've specified?
