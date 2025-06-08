@@ -632,3 +632,50 @@ Can you fix these problems?
 Handle event the contingency where all clusters are singletons by skipping the model-fitting step, returning `NA` values for the point estimator, standard error, and p-value, and returning an informative message in the `error` variable. Test that the function is working as expected.
 
 2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code that replaces any `NA` values with corresponding results of `analysis_OLS()`. Test that the function is working as expected.
+
+### Meta-regression with selective reporting {#Vevea-Hedges-estimation}
+
+Exercise \@ref(Vevea-Hedges-DGP) asked you to write a data-generating function for the @vevea1995general selection model. 
+The `metafor` package includes a function for fitting this model (as well as a variety of other selection models). 
+Here is an example of the syntax for estimating this model, using a dataset from the `metadat` package:
+```{r}
+library(metafor, quietly = TRUE)
+data("dat.assink2016", package = "metadat")
+
+# rename variables and tidy up
+dat <- 
+  dat.assink2016 %>%
+  mutate( si = sqrt(vi) ) %>%
+  rename( Ti = yi, s_sq = vi, Xi = year )
+
+# fit a random effects meta-regression model
+rma_fit <- rma.uni(yi = Ti, sei = si, mods = ~ Xi, data = dat)
+# fit two-step selection model
+selmodel(rma_fit, type = "step", steps = c(.025, .500))
+```
+The `selmodel()` function can also be used to fit selection models in which one or both of the selection parameters are fixed to user-specified values.
+For example:
+```{r}
+# Fixing lambda_1 = 0.5, lambda_2 = 0.2
+fix_both <- selmodel(rma_fit, type = "step", steps = c(.025, .500), delta = c(1, 0.5, 0.2))
+
+# Fixing lambda_1 = 0.5, estimating lambda_2
+fix_one <- selmodel(rma_fit, type = "step", steps = c(.025, .500), delta = c(1, 0.5, NA))
+```
+
+
+1. Write an estimation function that fits the selection model and returns estimates, standard errors, and confidence intervals for each of the model parameters $(\beta_0,\beta_1,\tau,\lambda_1,\lambda_2)$.
+
+2. The `selmodel()` fitting function sometimes returns errors, as in the following example:
+    ```{r}
+    dat_sig <- dat %>% filter(Ti / si > 0)
+    rma_pos <- rma.uni(yi = Ti, sei = si, mods = ~ Xi, data = dat_sig)
+    # fit two-step selection model
+    sel_fit <- selmodel(rma_pos, type = "step", steps = c(.025, .500))
+    ```
+    Modify your estimation function to catch and return warnings such as these. 
+    Write code demonstrating that the function works as expected.
+    
+4. The `selmodel()` throws warnings when the dataset contains no observations with $p_i$ in one of the specified intervals. 
+    Modify your estimation function to set the selection probability for an interval to $\lambda_1 = 0.1$ if there are no $p_i$ values between .025 and .500 and to set $\lambda_2 = 0.1$ if there are no $p_i$ values larger than .500.
+    Write code demonstrating that the function works as expected.
