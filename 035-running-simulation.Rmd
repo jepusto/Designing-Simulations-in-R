@@ -11,7 +11,7 @@ options(list(dplyr.summarise.inform = FALSE))
 ### Code from the prior chapter
 source( "case_study_code/clustered_data_simulation.R" )
 
-dat <- gen_dat_model( n=5, J=3, p=0.5, 
+dat <- gen_cluster_RCT( n=5, J=3, p=0.5, 
                       gamma_0=0, gamma_1=0.2, gamma_2=0.2,
                       sigma2_u = 0.4, sigma2_e = 1,
                       alpha = 0.5 )
@@ -34,7 +34,7 @@ one_run <- function( n_bar = 30, J=20,
                      sigma2_u = 0.20, sigma2_e = 0.80,
                      alpha = 0.75 ) {
   
-  dat <- gen_dat_model( n_bar = n_bar, J=J, 
+  dat <- gen_cluster_RCT( n_bar = n_bar, J=J, 
                         gamma_1 = gamma_1, gamma_2 = gamma_2,
                         sigma2_u = sigma2_u, sigma2_e = sigma2_e,
                         alpha = alpha )
@@ -110,7 +110,7 @@ In the next chapter, we systematically go through answering these questions for 
 
 ## Writing simulations quick with the simhelpers package
 
-The `map` approach is a bit strange, with building a secret function on the fly with `~`, and also having the copy over all the parameters we pass from `one_run()` to `gen_dat_model()`.
+The `map` approach is a bit strange, with building a secret function on the fly with `~`, and also having the copy over all the parameters we pass from `one_run()` to `gen_cluster_RCT()`.
 The `simhelpers` package provides a shortcut that makes this step easier.
 
 To do it, we first need to write a single estimation procedure function that puts all of our estimators together:
@@ -131,14 +131,14 @@ This is simply the `one_run()` method from above, but without the data generatin
 When we pass a dataset to it, we get a nice table of results that we can evaluate, as we did before.
 
 ```{r, messages=FALSE}
-dat = gen_dat_model( n=30, J = 20, gamma_1 = 0.30 )
+dat = gen_cluster_RCT( n=30, J = 20, gamma_1 = 0.30 )
 analyze_data( dat )
 ```
 
 We can now use `simhelpers` to write us a new function for the entire simulation:
 ```{r, messages=FALSE}
 library(simhelpers)
-sim_function <- bundle_sim( gen_dat_model, analyze_data )
+sim_function <- bundle_sim( gen_cluster_RCT, analyze_data )
 ```
 
 We can then use it as so:
@@ -147,7 +147,7 @@ sim_function( 2, n_bar = 30, J = 20, gamma_1 = ATE )
 ```
 
 The `bundle_sim()` command takes our DGP function and our estimation procedures function and gives us back a function, which we have called `sim_function`, that will run a simulation using whatever parameters we give it.
-The `bundle_sim()` command examines `gen_dat_model` function, figures out what parameters it needs, and makes sure that the newly created function is able to take those parameters from the user.
+The `bundle_sim()` command examines `gen_cluster_RCT` function, figures out what parameters it needs, and makes sure that the newly created function is able to take those parameters from the user.
 
 To use it for our simulation, we would then write
 ```{r, eval=FALSE}
@@ -170,7 +170,7 @@ one_run <- function( n_bar = 30, J=20,
                      alpha = 0.75 ) {
     stopifnot( ICC >= 0 && ICC < 1 )
 
-  dat <- gen_dat_model( n_bar = n_bar, J=J, 
+  dat <- gen_cluster_RCT( n_bar = n_bar, J=J, 
                         gamma_1 = ATE, gamma_2 = size_coef,
                         sigma2_u = ICC, sigma2_e = 1-ICC,
                         alpha = alpha )
@@ -188,7 +188,7 @@ Note the `stopifnot`: it is wise to ensure our parameter transforms are all reas
 It is best if your code fails as soon as possible!  Otherwise debugging can be quite hard.
 
 In our modified `one_run()` we are transforming our ICC parameter into specific other parameters that are used in our actual model to maintain our effect size interpretation of our simulation.
-We have not even modified our `gen_dat_model()` DGP method: we are just specifying the constellation of parameters as a function of the parameters we want to directly control in the simulation.
+We have not even modified our `gen_cluster_RCT()` DGP method: we are just specifying the constellation of parameters as a function of the parameters we want to directly control in the simulation.
 
 Controlling how we use the foundational elements such as our data generating code is a key tool for making the higher level simulations sensible and more easily interpretable.
 Here we have put our entire simulation into effect size units, and are now providing "knobs" to the simulation that are directly interpretable.
