@@ -1,0 +1,135 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup_exp_design_analysis, include=FALSE}
+library( tidyverse )
+library( purrr )
+options(list(dplyr.summarise.inform = FALSE))
+theme_set( theme_classic() )
+
+
+
+### Code for one of the running examples
+source( "case_study_code/clustered_data_simulation.R" )
+source( "case_study_code/cronbach_alpha_simulation.R" )
+
+res <- readRDS( file = "results/simulation_CRT.rds" )
+res
+
+sres <- 
+  res %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarise( 
+    bias = mean(ATE_hat - ATE),
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE )^2 ) ),
+    ESE_hat = sqrt( mean( SE_hat^2 ) ),
+    SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+    power = mean( p_value <= 0.05 ),
+    R = n(),
+    .groups = "drop"
+  )
+sres
+
+# 100 iterations per factor
+summary( sres$R )
+```
+
+# Special Topics on Reporting Simulation Results
+
+In this chapter we will cover some special topics on reporting simulation results.
+In particular, we dive more deeply into having only a few iterations per scenario, and then discuss what to do when you are evaluating methods that sometimes fail to converge or give an answer.
+
+
+## Analyzing results with few iterations per scenario
+
+When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes, then running thousands of iterations for many scenarios may no longer be computationally feasible) then you can run into serious issues with noisy estimates of performance.
+
+First, this is why understanding how large your Monte Carlo Standard Errors (MCSEs) are is so important.
+If the methods being evaluated are substantially different, then you may be able to demonstrate what you need to, even with few iterations.
+
+If, however, your MCSEs are too large, then you can use the visualization methods that average across scenarios, giving you more precise estimates of aggregated performance.
+Do not, by contrast, trust the boxplot approaches--the MCSEs will make your boxes wider, and give the impression that there is more variation than there really is.
+
+Regression approaches can be particularly useful: the regressions are effectively again averaging performance across scenario, looking for overall trends.
+You can even fit random effects regression, specifially accounting for the noise in the scenario-specific performance measures.
+For more on this approach see @gilbert2024multilevel.
+
+### Example: ClusterRCT with only 100 replicates per scenario
+
+In the prior chapter we analyzed the results of our cluster RCT simulation with 1000 replicates per scenario.
+But say we only had 100.  In this case, some of our trends would be less apparent.
+Using the prior chapter as a guide, we recreate some of the plots to show how MCSE can distort the picture of what is going on.
+
+First, we look at our single plot of the raw results.
+Before we plot, however, we calculate MCSEs and add them to the plot as error bars.
+
+```{r}
+sres_sub <- sres %>%
+  filter( n_bar == 320, J == 20 )
+ggplot( sres_sub, aes( as.factor(alpha), bias, 
+                       col=method, pch=method, group=method ) ) +
+  facet_grid( size_coef ~ ICC, labeller = label_both ) +
+  geom_point() + 
+  geom_errorbar( aes( ymin = bias - 2*bias.mcse, ymax = bias + 2*bias.mcse ), 
+                 width = 0 ) +
+  geom_line() +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal() 
+```
+
+Aggregation should smooth out some of our uncertainty.
+When we aggregate across 9 scenarios, our number of replicates goes from 100 to 900; our MCSEs should be about a third the size.
+Here is our aggregated bias plot:
+
+TODO
+
+Even with the addtional replicates per point, we are seeing noise.
+Note how our three methods track each other, giving a sense of a shared bias in some cases.
+This is because all methods are analyzing the same set of datasets; they have shared uncertainty.
+This uncertainty can be deceptive.
+It can also be a boon: if we are explicitly comparing the performance of one method vs another, the shared uncertainty can be subtracted out, similar to having a blocked experiment.
+For more on this, see (CITE GILBERT META REGRESSION).
+
+To give a visual sense of the uncertainty, we can add error bars to our plot.
+Here we calculate the uncertainty for the aggregated data
+
+TO DO
+
+
+
+
+## Analyzing results when some trials have failed
+
+If your methods being evaluated sometimes fail, then when they tend to fail is something to investigate in its own right.
+Ideally, failure would not be too common, meaning we could drop those trials, or keep them, without really impacting our overall results.
+But one should at least know what one is ignoring.
+
+For example, in our cluster RCT running example, we know that our multilevel model, at least sometimes, has convergence issues.
+We also know that ICC is an important driver of when these convergence issues might occur, so we can explore how often we get a convergence message by ICC level:
+
+```{r examine_convergence_rates}
+res %>% 
+  group_by( method, ICC ) %>%
+  summarise( message = mean( message ) ) %>%
+  pivot_wider( names_from = "method", values_from="message" )
+```
+
+We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
+At this point we might decide to drop those runs with a message or keep them.
+In this case, we decide to keep.
+It should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
+Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
+We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
+
+
+
+
+
+
+
+

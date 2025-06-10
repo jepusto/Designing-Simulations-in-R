@@ -38,6 +38,8 @@ gen.data = function( n, mu, df0 ) {
 }
 ```
 
+Out method takes a sample size, an average outcome, and a degrees of freedom to control the thickness of the tails.
+
 The variance of a $t$ distribution is $df/(df-2)$, so when we divide our observations by the
 square root of this, we standardize them so they have unit variance.
 See, the standard deviation of our data is 1 (up to random error, and as long as df0 >
@@ -47,7 +49,7 @@ See, the standard deviation of our data is 1 (up to random error, and as long as
 sd( gen.data( 100000, mu = 0, df0 = 3 ) )
 ```
 
-(Normally our data generation code would be a bit more fancy.)
+Normally our data generation code would be a bit more fancy, but we are studying a simple thing here!
 
 
 ## The data analysis methods
@@ -125,12 +127,14 @@ filter( raw.exps, estimator == "mean" ) %>%
     estimator.quality( mu = 0 )
 ```
 
-Aside: Perhaps, code-wise, the above is piping gone too far?  If you don't like this style, you can do
-this:
+Some might feel, code-wise, that the above is piping gone too far.
+If you don't like this style, you can do this:
 
 ```{r}
 estimator.quality( raw.exps$estimate[ raw.exps$estimator=="mean" ], mu = 0 )
 ```
+
+Not much better.
 
 To do all our three estimators, we group by estimator and evaluate for each
 estimator. In tidyverse 1.0 `summarise` can handle multiple responses, but they
@@ -145,7 +149,7 @@ raw.exps %>%
     tidyr::unpack( cols=c(qual) )
 ```
 
-We then pack up the above into a function, as usual.
+We then pack up the above into a function that runs an entire simulation, as usual.
 Our function takes our two parameters of sample size and degrees of freedom, and returns a data frame of results.
 
 ```{r}
@@ -167,18 +171,22 @@ run.simulation = function( n, df0 ) {
 
 
 Our function will take our two parameters, run a simulation, and give us the
-results.  We see here that none of our estimators are particularly biased and
-the trimmed mean has, possibly, the smallest RMSE, although it is a close
-call.
+results.
+Witness!
 
 ```{r}
 run.simulation( 10, 5 )
 ```
 
+For this scenario, none of our estimators are particularly biased and
+the trimmed mean has, possibly, the smallest RMSE, although it is a close
+call.
+
 
 Ok, now we want to see how sample size impacts our different estimators.  If
-we also vary degrees of freedom we have a *three*-factor experiment, where
-one of the factors is our estimator itself.  We are going to use a new clever
+we also vary degrees of freedom we have a two-factor experiment, with an additional factor of our estimator itself.
+
+We are going to use a new clever
 trick. As before, we use `pmap()`, but now we store the entire dataframe of
 results we get back from our function in a new column of our original
 dataframe.  See R for DS, Chapter 25.3. This trick works best if we have
@@ -251,17 +259,17 @@ ggplot( results, aes(x=n, y=scaleRMSE, col=estimator) ) +
     scale_x_log10( breaks=ns )
 ```
 
-Overall, we see the scaled error of the mean it is stable across the
+Overall, the scaled error of the mean is stable across the
 different distributions. The trimmed mean is a real advantage when the
-degrees of freedom are small. We are cropping outliers that destabilize our
-estimate which leads to great wins. As the distribution grows more normal,
-this is no longer an advantage and we get closer to the mean in terms of
-performance. Here we are penalized slightly bye having dropped 10% of our
-data, so the standard errors will be slightly larger.
+degrees of freedom are small (note the blue line is far below the red line on the left hand plot): we are cropping outliers that destabilize our estimate which leads to great wins.
+As the distribution grows more normal (i.e., as the degress of freedom increases), this is no longer an advantage and the trimmed mean gets closer to the mean in terms of
+performance.
+We might think we should be penalized slightly by having dropped 10% of our
+data, making the standard errors slightly larger: if this is the case, then it is not large as the MCSE swamps it (the red and blue line are basically overlapping).
 
-The median is not able to take advantage of the nuances of a data set because
-it is entirely determined by the middle value. When outliers cause real
-concern, this cost is minimal. When outliers are not a concern, the median is
+The median is not able to take advantage of the nuances of the individual observations in the data because
+it is entirely determined by the middle value.
+When outliers cause real concern, this cost is minimal. When outliers are not a concern, the median is
 just worse.
 
 Overall, the trimmed mean seems an excellent choice: in the presence of
@@ -273,13 +281,13 @@ visual displays of simulation results can tell very clear stories. Eschew
 complicated tables with lots of numbers.
 
 
-## Extension: The Bias-variance tradeoff
+## Bias-variance tradeoffs
 
 We can use the above simulation to examine these same estimators when we the
-median is not the same as the mean.  Say we want the mean of a distribution,
-but have systematic outliers.  If we just use the median, or trimmed mean, we
-might have bias if the outliers tend to be on one side or another.  For
-example, consider the exponential distribution:
+median is not the same as the mean.
+Say we want the mean of a distribution, but have systematic outliers.  If we just use the median, or trimmed mean, we
+might have bias if the outliers tend to be on one side or another.
+For example, consider the exponential distribution:
 
 ```{r}
 nums = rexp( 100000 )
@@ -289,13 +297,14 @@ median( nums )
 ```
 
 Our trimming, etc., is *biased* if we think of our goal as estimating the
-mean.  But if the trimmed estimators are much more stable, we might still
+mean: we tend to cut extreme right tail values, but there are no extreme left tail values to cut.
+But if the trimmed estimators are much more stable, we might still
 wish to use them. Let's find out.
 
-Let's generate a mixture distribution, just for fun.  It will have a nice
+To explore this tension we generate a mixture distribution, with a nice
 normal base with some extreme outliers.  We will make sure the overall mean,
-including the outliers, is always 1, however. (So our target, $\mu$ is now 1,
-not 0.)
+including the outliers, is always 1, making our target, $\mu$ is now 1,
+not 0, as it was above.
 
 ```{r comp_est_DGP}
 gen.data.outliers = function( n, prob.outlier = 0.05 ) {
@@ -307,6 +316,7 @@ gen.data.outliers = function( n, prob.outlier = 0.05 ) {
 }
 ```
 
+Modular programming means we can write a custum DGP function, which we can easily plug into our overall framework.
 Let's look at our distribution
 
 ```{r}

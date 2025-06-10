@@ -73,11 +73,19 @@ We want to know if these methods are biased for our defined estimand, which is t
 ## Subsetting
 
 As an initial exploration, you can simply filter the simulation results to a single factor level for some nuisance parameter.
-For example, we might examine an ICC of 0.20 only, as this is a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
-We would then consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
+For example, we might examine an ICC of 0.20 only, taking it as a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
+
+```{r}
+
+# FINISH THIS UP AND SUBSET.
+```
+
+
+Sometimes we might even just report a subset in our final analysis.
+In this case, we would consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
 
 It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
-In our case the more complex plots explored earlier, such as the aggregation plot, showed mostly horizontal lines with respect to the ICC value; we thus might be able to safely ignore the ICC factor in our main report.
+In our case, as we see below, we cthe more complex plots explored earlier, such as the aggregation plot, showed mostly horizontal lines with respect to the ICC value; we thus might be able to safely ignore the ICC factor in our main report.
 
 
 ## Many small multiples
@@ -254,8 +262,8 @@ But if you are looking at the magnitude of bias ($|bias|$), then you can run int
 In this case, looking at average bias, not $|bias|$, is safer.
 
 
-
-### Regression Summarization
+<!--
+## Regression Summarization
 
 One can treat the simulation results as a dataset in its own right.
 In this case we can regress a performance measure against the methods and various factor levels to get "main effects" of how the different levels impact performance, holding the other levels constant.
@@ -289,328 +297,8 @@ This one does not even have interactions of the simulation factors--which, given
 That said, picking out the significant coefficients is a quick way to obtain a lot of clues as to what is driving performance.
 E.g., some features interact with the LR method for bias.
 The other two methods seem less impacted.
+-->
 
-
-
-## Analyzing results with few iterations per scenario
-
-When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes, then running thousands of iterations for many scenarios may no longer be computationally feasible) then you can run into serious issues with noisy estimates of performance.
-
-First, this is why understanding how large your Monte Carlo Standard Errors (MCSEs) are is so important.
-If the methods being evaluated are substantially different, then you may be able to demonstrate what you need to, even with few iterations.
-
-If, however, your MCSEs are too large, then you can use the visualization methods that average across scenarios, giving you more precise estimates of aggregated performance.
-Do not, by contrast, trust the boxplot approaches--the MCSEs will make your boxes wider, and give the impression that there is more variation than there really is.
-
-Regression approaches can be particularly useful: the regressions are effectively again averaging performance across scenario, looking for overall trends.
-You can even fit random effects regression, specifially accounting for the noise in the scenario-specific performance measures.
-For more on this approach see @gilbert2024multilevel.
-
-
-## Analyzing results when some trials have failed
-
-If your methods being evaluated sometimes fail, then when they tend to fail is something to investigate in its own right.
-Ideally, failure is not too common, meaning we could drop those trials, or keep them, without really impacting our overall results.
-But one should at least know what one is ignoring.
-
-For example, in our cluster RCT, we know we have, at least sometimes, convergence issues.
-We also know that ICC is an important feature, so we can explore how often we get a convergence message by ICC level:
-
-```{r examine_convergence_rates}
-res %>% 
-  group_by( method, ICC ) %>%
-  summarise( message = mean( message ) ) %>%
-  pivot_wider( names_from = "method", values_from="message" )
-```
-
-We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
-At this point we might decide to drop those runs with a message or keep them.
-In this case, we decide to keep.
-It shouldn't matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
-Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
-We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
-
-
-## Case study: power for a randomized trial
-
-We next walk through a case study where we compare different visualizations of the same performance metric (in this case, power).
-The goal is to see how to examine a metric from several perspectives, and to see how to explore simulation results across scenarios.
-
-For this example, we are going to look at a randomized experiment.
-We will generate control potential outcomes with a normal distribution, and then add a treatment effect to the treated units.
-
-For our analytic approach, we will estimate the
-treatment effect by taking the difference in means.
-We will calculate the associated standard error and generate $p$-values using the normal
-approximation.
-(As we will see, this is not a good idea for small sample sizes since we should be using a $t$-test style approach.)
-
-Violating our usual modular approach, we are going to have a single function that does an entire step: our function will generate the data and then analyze it all in one go.
-Our function also calculates and returns the true effect size of the DGP as the true treatment
-effect divided by the control standard deviation (this true effect size will be useful for understanding power, as we show later on).
-
-```{r}
-run.one = function( nC, nT, sdC, tau, mu = 5, sdTau = 0 ) {
-  Y0 = mu + rnorm( nC, sd=sdC )
-  Y1 = mu + rnorm( nT, sd=sdC ) + tau + rnorm( nT, sd=sdTau )
-
-  tau.hat = mean( Y1 ) - mean( Y0 )
-  SE.hat = sqrt( var( Y0 ) / ( nC ) + var( Y1 ) / ( nT ) )
-
-  z = tau.hat / SE.hat
-  pv = 2 * (1 - pnorm( abs( z ) ))
-
-  data.frame( tau.hat = tau.hat, SE.hat = SE.hat, 
-              z = z, p.value = pv )
-}
-```
-
-Our function generates a data set, analyzes it, and give us back a variety
-of results as a one-row dataframe, as per usual:
-
-```{r}
-run.one( nT=5, nC=10, sdC=1, tau=0.5 )
-```
-
-In this case, our results are a mix of the parameters and estimated quantities.
-
-We then write a function that runs our single trial multiple times and
-summarizes the results:
-
-```{r}
-run.experiment = function( nC, nT, sdC, tau, mu = 5, sdTau = 0, R = 500 ) {
-  
-  eres = replicate( R, 
-                    run.one( nC, nT, sdC, tau, sdTau=sdTau, mu=mu ), 
-                    simplify=FALSE ) %>%
-    bind_rows()
-  
-  eres %>% 
-    summarise( E.tau.hat = mean( tau.hat ),
-               E.SE.hat = mean( SE.hat ),
-               power = mean( p.value <= 0.05 ) ) %>%
-    mutate( nC=nC, nT=nT, sdC=sdC, tau=tau, mu=mu, sdTau=sdTau, R=R )
-}
-```
-
-For performance, we have the average average treatment effect estimate `E.tau.hat`,
-the average Standard Error estimate `E.SE.hat`, 
-and the power `power` (defined as the percent of time we reject at
-alpha=0.05, i.e., the percent of times our $p$-value was less than our 0.05
-threshold):
-
-Our function also adds in the details of the simulation (the parameters we passed
-to the `run.one()` call). This is an easy way to keep track of things.
-
-We test our function to see what we get:
-```{r, cache=TRUE}
-run.experiment( 10, 3, 1, 0.5, 5, 0.2 )
-```
-
-We next use the above to run our multi-factor simulation experiment.
-We are going to vary four factors: control group size, treatment group size,
-standard deviation of the units, and the treatment effect.
-
-```{r}
-nC = c( 2, 4, 7, 10, 50, 500 )
-nT = c( 2, 4, 7, 10, 50, 500 )
-sdC = c( 1 )
-tau = c( 0, 0.5, 1 )
-sdTau = c( 0, 0.5 )
-
-experiments = expand_grid( nC=nC, nT=nT, sdC=sdC, tau=tau, sdTau = sdTau )
-experiments
-```
-
-We next run an experiment for each row of our dataframe of experiment factor
-combinations, and save the results.
-
-```{r secret_run_Neyman_block, include=FALSE}
-if ( !file.exists("results/Neyman_RCT_results.rds")) {
-  library( furrr )
-  plan(multisession)
-  exp.res <- experiments %>% future_pmap_dfr( run.experiment, R=2000,
-                                             .options = furrr_options(seed = NULL) )
-  saveRDS( exp.res, file="results/Neyman_RCT_results.rds" )
-
-} else {
-  exp.res = readRDS( file="results/Neyman_RCT_results.rds" )
-}
-```
-
-```{r, do_power_sim, eval=FALSE}
-exp.res <- experiments %>% 
-  pmap_df( run.experiment, R=2000 )
-dir.create("results", showWarnings = FALSE )
-saveRDS( exp.res, file="results/Neyman_RCT_results.rds" )
-```
-
-The `R=2000` after `run.experiment` passes the *same* parameter of $R=2000$ to each
-run (we run the same number of trials for each experiment).
-We can put it there rather than have it be a column in our list of factors to run.
-
-Here is a peek at our results:
-```{r}
-head( exp.res )
-```
-
-
-### The initial analysis
-
-We are ready to analyze, and we start with plotting.
-Plotting is always a good way to visualize simulation results.
-We first make our tau into a factor, so `ggplot` behaves, and then plot all our
-experiments as two rows based on one factor (`sdTau`) with the columns being
-another (`nT`).
-Unlike our Cluster RCT, we only have one method, so we can use our color for a different simulation factor.
-Within each plot we have the x-axis for one factor (`nC`) and multiple lines for the final factor (`tau`).
-The $y$-axis is our outcome of interest, power. We add a 0.05 line to show
-when we are rejecting at rates above our nominal $\alpha$. This plot shows
-the relationship of five variables.
-
-```{r, messages=FALSE}
-exp.res = exp.res %>% 
-  mutate( tau = as.factor( tau ) )
-ggplot( exp.res, aes( x=nC, y=power, group=tau, col=tau ) ) +
-  facet_grid( sdTau ~ nT, labeller=label_both ) +
-  geom_point() + geom_line() +
-  scale_x_log10() +
-  geom_hline( yintercept=0.05, col="black", lty=2)
-```
-
-We are looking at power for different control and treatment group sizes.  The tau is our treatment effect, and so for $\tau = 0$ we are looking at validity (false rejection of the null) and for the other $\tau$ power (noticing an effect when it is there).
-Notice that we are seeing elevated rejection rates (the tau=0 line is well above 0.05) under the null for small and even moderate sample sizes!
-
-
-### Focusing on validity
-
-Especially when considering power, we might want to separate rejection rates under the null vs. rejection rates when there is a true thing to reject.
-In particular, we can subset to specific simulation runs with no treatment impact to assess the validity. 
-
-First, we can filter our simulations to large samples to make sure we are seeing rejection rates (`power`) of around 0.05, which is what we want:
-
-```{r}
-filter( exp.res, tau==0, nT >= 50, nC >= 50 ) %>%
-  knitr::kable(digits=2)
-```
-
-This does check out, which is a nice sanity check that we have implemented everything correctly.
-It is ok to use simulation of simple, known, cases to check that our methods are implemented correctly and working as expected.
-
-We can then get fancy and look at false rejection rate (power under `tau = 0`) as a
-function of both nC and nT using an interaction-style plot where we average over the other variables:
-
-```{r plot_interaction_Results, warning=FALSE}
-exp.res.rej <- exp.res %>% 
-  filter( tau == 0 ) %>%
-  group_by( nC, nT ) %>%
-  summarize( power = mean( power ),
-             n = n() )
-
-exp.res.rej = mutate( exp.res.rej, power = round( power * 100 ) )
-
-ggplot( exp.res.rej, aes( x=nC, y=power, group=nT, col=as.numeric(as.factor(nT)) ) ) +
-  geom_point() + geom_line( size=0.5 ) +
-  geom_hline( yintercept = 5 ) +
-  scale_y_continuous( limits = c( 0, 40 ) ) +
-  scale_x_log10( breaks = unique( exp.res.rej$nC ) ) +
-  scale_color_gradient( low = "black", high="red",
-                        labels = unique( exp.res.rej$nT ) ) +
-  labs( x = "# C", y = "Power", colour = "# T" )
-```
-
-This plot focuses on the validity of our test.
-It shows that we can have massively elevated rates when either the number of treated or control units is small (below 7).
-It also shows that as the size of one group increases, if the other is small our rejection rates climb!  Note how for 4 control units, the $n_T = 500$ line is above the others (except for the $n_T = 2$ line).
-
-
-
-### Aggregate to look at main effects
-
-We can ignore all the other factors while we look at one specific factor of interest.
-This is looking at the **main effect** or **marginal effect** of the factor.
-
-The easy way to do this is to aggregate, letting `ggplot` smooth our individual points on a
-plot.
-Be sure to also plot the individual points to see variation, however.
-
-```{r plotPool, warning=FALSE, message=FALSE}
-ggplot( exp.res, aes( x=nC, y=power, group=tau, col=tau ) ) +
-  geom_jitter( width=0.02, height=0, alpha=0.5 ) +
-  geom_smooth( se = FALSE ) +
-  scale_x_log10( breaks=nC) +
-  geom_hline( yintercept=0.05, col="black", lty=2)
-```
-
-Note how we see our individual runs that we marginalize over as the dots.
-
-To look at our main effects we can also summarize our results, averaging our
-experimental runs across other factor levels. For example, in the code below
-we average over the different treatment group sizes and standard deviations,
-and plot the marginalized results.
-
-To marginalize, we group by the things we want to keep and let `summarise()` 
-average over the things we want to get rid of.
-
-```{r}
-exp.res.sum = exp.res %>% group_by( nC, tau ) %>%
-  summarise( power = mean( power ) )
-head( exp.res.sum )
-```
-
-```{r plotCollapse, fig.height=3, warning=FALSE, message=FALSE}
-ggplot( exp.res.sum, aes( x=nC, y=power, group=tau, col=tau ) ) +
-  geom_line() + geom_point() +
-  scale_x_log10( breaks=nC) +
-  geom_hline( yintercept=0.05, col="black", lty=2)
-```
-
-We can try to get clever and look at other aspects of our experimental runs.
-The above suggests that the smaller of the two groups is dictating when things
-going awry, in terms of elevated rejection rates under the null.
-
-We can also look at our results in terms of some more easily interpretable parameters, such as effect size instead of raw treatment effect.
-
-To try and simplify the story, we can try and look at total sample size and the smaller of
-the two groups sample size and make two different plots that way.
-<!--We also subset to just the `sd=1` cases as there is nothing really different about the two
-options; we probably should average across but this could reduce clarity of
-the presentation of results:-->
-
-
-```{r}
-exp.res <- exp.res %>% 
-  mutate( n = nC + nT,
-          n.min = pmin( nC, nT ) )
-```
-
-```{r plotA, fig.height=4, warning=FALSE, message=FALSE, fig.cap="Power as a function of total sample size.", fig.subcap=c( "Total Size", "Minimum Size" ), out.width="45%", fig.ncol=2}
-
-ggplot( exp.res, aes( x=n, y=power, group=tau, col=tau ) ) +
-  geom_jitter( width=0.05, height=0) +
-  geom_smooth( se = FALSE, span = 1) +
-  scale_x_log10() +
-  geom_hline( yintercept=0.05, col="black", lty=2) +
-  labs( title = "Total sample size" )
-
-ggplot( exp.res, aes( x=n.min, y=power, group=tau, col=tau ) ) +
-  geom_jitter( width=0.05, height=0) +
-  geom_smooth( se = FALSE, span = 1) +
-  scale_x_log10() +
-  geom_hline( yintercept=0.05, col="black", lty=2) +
-  labs( title = "Minimum group size" )
-```
-
-Note the few observations out in the high `n.min` region for the second
-plot---this plot is a bit strange in that the different levels along the
-x-axis are assymetric with respect to each other. It is not balanced.
-
-
-### Recap
-Overall, this exploration demonstrates the process of looking at a single performance metric (power) and refining a series of plots to get a sense of what the simulation is taking us.
-There are many different plots we might choose, and this depends on the messages we are trying to convey.
-
-The key is to explore, and see what you can learn!
 
 
 ## Exercises
