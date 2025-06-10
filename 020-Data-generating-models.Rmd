@@ -176,21 +176,7 @@ In some cases, the output data might be augmented with some other latent quantit
 We have already seen an example of a complete DGP function in the case study on one-way ANOVA (see Section \@ref(case-anova-DGP)).
 In this case study, we developed the following function to generate data for a single outcome from a set of $G$ groups:
 
-```{r}
-generate_data <- function(mu, sigma_sq, sample_size) {
-  
-  N <- sum(sample_size) 
-  g <- length(sample_size) 
-  
-  group <- factor( rep(1:g, times = sample_size) )
-  mu_long <- rep( mu, times = sample_size )
-  sigma_long <- rep( sqrt(sigma_sq), times = sample_size ) 
-  
-  x <- rnorm( N, mean = mu_long, sd = sigma_long )
-  sim_data <- tibble( group = group, x = x )
-  
-  return(sim_data)
-}
+```{r, file = "case_study_code/generate_ANOVA_data.R"}
 ```
 
 This function takes both the focal model parameters (`mu`, `sigma_sq`) and other design parameters that one might not think of as parameters per-se (`sample_size`).
@@ -202,25 +188,7 @@ the sole focal parameter is the correlation between the variates, $\rho$; and
 the auxiliary parameters are the expected counts $\mu_1$ and $\mu_2$.
 Our function should have all four of these quantities as inputs and should produce as output a dataset with two variables, $C_1$ and $C_2$. 
 Here is one way to implement the model:
-```{r}
-r_bivariate_Poisson <- function(N, rho, mu1, mu2) {
-  
-  # covariance term, equal to E(Z_3)
-  EZ3 <- rho * sqrt(mu1 * mu2) 
-  
-  # Generate independent components
-  Z1 <- rpois(N, lambda = mu1 - EZ3)
-  Z2 <- rpois(N, lambda = mu2 - EZ3)
-  Z3 <- rpois(N, lambda = EZ3)
-  
-  # Assemble components
-  dat <- data.frame(
-    C1 = Z1 + Z3,
-    C2 = Z2 + Z3
-  )
-  
-  return(dat)
-}
+```{r, file = "case_study_code/r_bivariate_Poisson.R"}
 ```
 Here we generate 5 observations from the bivariate Poisson with $\rho = 0.5$ and $\mu_1 = \mu_2 = 4$:
 ```{r}
@@ -247,7 +215,7 @@ The plot is based on a simulated dataset with 50 observations in each of five gr
 
 library(ggridges)
 
-ANOVA_dat <- generate_data(
+ANOVA_dat <- generate_ANOVA_data(
   mu = 50 + c(0, 0, 4, 2, 5),
   sigma_sq = c(3^2, 3^2, 4^2, 1^2, 5^2),
   sample_size = rep(50,5)
@@ -304,7 +272,7 @@ In the following code, we simulate very large samples from each of the four grou
 mu <- c(1, 2, 5, 6)
 sigma_sq <- c(3, 2, 5, 1)
 
-check_data <- generate_data( 
+check_data <- generate_ANOVA_data( 
   mu = mu, 
   sigma_sq = sigma_sq,
   sample_size = rep(10000, 4) 
@@ -475,21 +443,13 @@ Here is the skeleton of a DGP function with arguments for each of the parameters
 
 ```{r, echo = FALSE}
 source( "case_study_code/gen_cluster_RCT.R" )
+
+cluster_RCT_fun <- readLines("case_study_code/gen_cluster_RCT.R")
+skeleton <- c(cluster_RCT_fun[1:9], "  # Code (see below) goes here", "}")
 ```
 
-```{r, eval=FALSE}
-gen_cluster_RCT <- function(
-  J = 30,
-  n_bar = 10,
-  alpha = 0,
-  p = 0.5,
-  gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-  sigma2_u = 0, sigma2_e = 1
-) {
-  
-  # Code (see below) goes here
-}
-```                           
+```{r, code = skeleton, eval = FALSE}
+```
 
 Note that the inputs to this function are a mix of *model parameters* (`gamma_0`, `gamma_1`, `gamma_2`, representing coefficients in regressions), *auxilary parameters* (`sigma2_u`, `sigma2_e`, `alpha`, `n_bar`), and *design parameters* (`J`, `p`) that directly inform data generation.
 We set default arguments (e.g., `gamma_0=0`) so that we can ignore aspects of the DGP that we do not care about for the moment.
@@ -498,21 +458,7 @@ Inside the model, we will have a block of code to generate the variables pertain
 
 We first make the schools:
 
-```{r, eval = FALSE}
-# generate schools sizes 
-n_min <- round( n_bar * (1 - alpha) )
-n_max <- round( n_bar * (1 + alpha) )
-nj <- sample( n_min:n_max, J, replace = TRUE )
-
-# Generate average control outcome for all schools (the random effects)
-u0j <- rnorm( J, mean = 0, sd = sqrt(sigma2_u) )
-
-# randomize schools (proportion p to treatment)
-Zj <- ifelse( sample( 1:J ) <= J * p, 1, 0)
-
-# Calculate schools intercepts
-S_j <- (nj - n_bar) / n_bar
-beta_0j <- gamma_0 + gamma_1 * Zj + gamma_2 * Zj * S_j + u0j
+```{r, code = cluster_RCT_fun[10:23], eval = FALSE}
 ```
 
 The code is a literal translation of the math we did before.
@@ -523,21 +469,7 @@ There is also a serious error in the above code (serious in that the code will r
 
 Next, we use the site characteristics to generate the individual-level variables:
 
-```{r, eval=FALSE}
-# Make individual site membership
-sid <- as.factor( rep( 1:J, nj ) )
-
-# Generate the individual-level errors and outcome
-N <- sum( nj )
-e <- rnorm( N, mean = 0, sd = sqrt(sigma2_e) )
-Y <- beta_0j[sid] + e
-
-# Bundle into a dataset
-dd <- data.frame( 
-  sid = sid,
-  Z = Zj[ sid ],
-  Yobs = Y
-)
+```{r, code = cluster_RCT_fun[25:38], eval=FALSE}
 ```
 
 A key piece here is the `rep()` function that takes a list and repeats each element of the list a specified number of times.
@@ -756,7 +688,7 @@ Run `gen_cluster_RCT()` with parameter values of your choice to produce data fro
 
 The DGP for the cluster-randomized trial allows for school-level treatment impact variation, but only to the extent that the variation is explained by school size.  How could you modify your simulation to allow for school-level treatment impact variation that is not related to school size?  Implement this change and generate some data to show how it works.
 
-### Cluster-randomized trial with baseline predictors {#cluster-RCT-heterogeneity}
+### Cluster-randomized trial with baseline predictors {#cluster-RCT-baseline}
 
 Extend the DGP for the cluster-randomized trial to include an individual-level covariate $X$ that is correlated with the outcome. 
 Do this by modifying the model for student-level outcomes as
@@ -770,3 +702,47 @@ To implement this model as a DGP, you will have to decide how to generate $X_{ij
 2. Implement the model by modifying `gen_cluster_RCT()` accordingly.
 3. Use your implementation to find the unconditional variance of the outcome, $\text{Var}(Y | Z_j = 0)$, when $\beta_1 = 0.6$.
 
+### Random effects meta-regression {#meta-regression-DGP}
+
+Meta-analysis involves working with quantitative findings reported by previous studies on a particular topic, in the form of effect size estimates and their standard errors, to generate integrative summaries and identify patterns in the findings that might not be evident from any previous study considered in isolation.
+One model that is widely used in meta-analysis is the random effects meta-regression, which relates the effect sizes to known characteristics of the studies that are encoded in the form of predictors. 
+Consider a collection of $K$ studies. Let $T_i$ denote an effect size estimate and $s_i$ denote its standard error for study $i$.
+Let $x_{i}$ be a quantitative predictor variable that represents some characteristic of study $i$ (such as its year of publication).
+The random effects meta-regression model assumes
+$$
+T_i = \beta_0 + \beta_1 x_i + u_i + e_i,
+$$
+where $u_i \sim N(0, \tau^2)$ and $e_i \sim N(0, s_i^2)$.
+In this model, $\beta_0$ corresponds to the expected effect size when $x_i = 0$ and $\beta_1$ describes the expected difference in effect size per one unit difference in $x_i$.
+The first error $u_i$ corresponds to the heterogeneity in the effect sizes above and beyond the variation explained by $x_i$, and the second error $e_i$ corresponds to the sampling error, which we assume has known variance $s_i^2$.
+
+1. Of the variables in the random effects meta-regression model, which are structural features, which are covariates, and which are outcomes? Of the parameters described above, which would you classify as focal, which as auxiliary, and which as design parameters?
+
+2. In addition to the focal model described above, what further assumptions or auxiliary models will be needed in order to simulate data for a random effects meta-regression? Propose an auxiliary model for any needed quantities.
+
+3. Using your proposed auxiliary model, write a function to generate data for a random effects meta-regression. Demonstrate your function by creating a plot based on a simulated dataset with $K = 30$ effect sizes.
+
+4. Write code to check the properties of your data-generating function.
+
+### Meta-regression with selective reporting {#Vevea-Hedges-DGP}
+
+@vevea1995general proposed a meta-regression model that allows for the possibility that not all primary study results are published. 
+They assume that primary study results are generated according to the random effects meta-regression model described in Exercise \@ref(meta-regression-DGP), but then only a subset of results are observed, where the probability of being included is a function of the result's one-sided $p$-value for the null hypothesis $H_0: \delta \leq 0$ against alternative $H_A: \delta > 0$.
+Let $p_i = 1 - \Phi(T_i / s_i)$ be the one-sided $p$-value for study result $i$, where $Phi()$ is the standard normal cumulative distribution (`pnorm()` in R). 
+In one version of the selection model, the selection probability follows a piece-wise constant distribution with
+$$
+\text{Pr}(T_i \text{ is observed}) = \begin{cases} 
+1 & \text{if} \quad 0 \leq p_i < .025 \\ 
+\lambda_1 & \text{if} \quad .025 \leq p_i < .500 \\  
+\lambda_2 & \text{if} \quad .500 \leq  p_i < 1
+\end{cases}
+$$
+for selection probabilities $0 \leq \lambda_1 \leq 1$ and $0 \leq \lambda_2 \leq 1$.
+
+1. Modify your data-generating function from Exercise \@ref(meta-regression-DGP) to follow the Vevea-Hedges selection model. Ensure that the new data-generating function returns a total of $K$ primary study results.
+
+2. Use the new function to generate a large number of effect size estimates, all with $s_i = 0.35$, using parameters $\beta_0 = 0.1$, $\beta_1 = 0.0$, $\tau = 0.1$, $\lambda_1 = 0.5$, and $\lambda_2 = 0.2$. Plot the distribution of observed effect size estimates.
+
+3. Create several further plots using different values for $\lambda_1$ and $\lambda_2$. How do these parameters affect the shape of the distribution?
+
+4. Use the `selmodel()` function from the `metafor` package to estimate the Vevea-Hedges selection model based on one of your simulated datasets. (See Exercise \@ref(Vevea-Hedges-estimation) for example syntax.) How do the estimates compare to the model parameters you've specified?
