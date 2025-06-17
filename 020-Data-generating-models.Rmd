@@ -490,7 +490,7 @@ With this function, we can control the average size of the clusters (`n`), the n
 The next step is to test the code, making sure it is doing what we think it is.
 In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on diagnosing and repairing this error.
 
-### Standardization in the DGP
+### Standardization in the DGP 
 
 One difficulty with the current implementation of the model is that the magnitude of the different parameters are inter-connected.
 For instance, raising or lowering the within-school variance ($\sigma^2_u$) will increase the overall variation in $Y$, and therefore affect our the interpretation of the treatment effect parameters, because a given value of $\gamma_{1}$ will be less consequential if there is more overall variation. 
@@ -535,6 +535,156 @@ Because we have constrained the total variance, $\gamma_1$ is equivalent to $\de
 
 <!-- JEP: Do we want to discuss anything about interpretation of gamma_2? Or add an exercise about it? -->
 
+## Sometimes a DGP is all you need {#three-parameter-IRT}
+
+We have introduced the data-generating process as only the first step in developing a simulation study. Indeed, there are many more considerations to come, which we will describe in subsequent chapters.
+However, this first step is still very useful in its own right, even apart from the other components of a simulation. 
+Sometimes, writing a data-generating function is all you need to learn about a statistical model.
+
+Writing data-generating functions is a very effective way to _study_ a statistical model, such as a model that you might be learning about in a course or through self-study.
+Writing code based on a model is a much more _active_ process than listening to a lecture or reading a book or paper. 
+Coding requires you to make the mathematical notation tangible and can help you to notice details of the model that might be easily missed through listening or reading alone.
+
+Suppose we are taking a first course psychometrics and have just been introduced to item response theory (IRT) models for binary response items. 
+Our instructor has just laid out a bunch of notation: 
+
+* We have data from a sample of $N$ individuals, each of whom responds to a set of $M$ test items.
+* We let $X_{im} = 1$ if respondent $i$ answers item $m$ correctly, with $X_{im} = 0$ otherwise, for $i = 1,...,N$ and $m = 1,...,M$. 
+* We imagine that each respondent has a latent ability $\theta_i$ on whatever domain the test measures.
+
+Now our instructor starts dropping models on us, putting up a slide showing the equation for a three-parameter IRT model:
+$$
+Pr(X_{im} = 1) = \gamma_m + (1 - \gamma_m) g\left( \alpha_m [\theta_i - \beta_m]\right),
+$$
+where $g(x)$ is the cumulative logistic curve: $g(x) = e^x / (1 + e^x)$.
+The instructor explains that $\alpha_m$ is discrimination parameter that can take any real value, $\beta_m$ is a difficulty parameter that has to be greater than zero, and $\gamma_m$ is a guessing parameter between 0 and 1.
+They also explain that the guessing parameter is often hard to estimate and so might get treated as fixed and known, based on the number of response options on the item. 
+For instance, if all the items have four options, then we might take $\gamma_m = \frac{1}{4}$ for $m = 1,...,M$.
+Finally, they explain that the ability parameters are assumed to follow a standard normal distribution, so $\theta_i \sim N(0, 1)$ in the population. 
+
+What is this madnesses? It certainly is a lot of notation to try and follow. 
+To make sense of all the moving pieces, let's try simulating from the model using more-or-less arbitrary parameters.
+To begin, we will need to pick a test length $M$ and a sample size $N$.
+Let's use $N = 7$ participants and $M = 4$ items for starters:
+```{r}
+N <- 7
+M <- 4
+```
+The $\theta_i$ distribution seems like the next-simplest part of the model, so let's generate some ability parameters:
+```{r}
+thetas <- rnorm(N)
+```
+Now we need sets of parameters $\alpha_m, \beta_m, \gamma_m$ for every item $m = 1,...,M$. 
+Where do we get these? 
+
+For a particular fixed-length test, the set of item parameters would depend on the features of the actual test questions.
+But we are not (yet) dealing with actual testing data, so we will need to make something up.
+In other words, we need an auxiliary model for these parameters.
+Perhaps we could just simulate some values?
+Arbitrarily, let's draw the difficulty parameters from a normal distribution with mean $\mu_\alpha = 0$ and standard deviation $\tau_\beta = 1$.
+The discrimination parameters have to be greater than zero, and values near $\beta_m = 1$ make the model simplify, so let's draw them from a gamma distribution with mean $\mu_\beta = 1$ and standard deviation $\tau_\beta = 0.2$. For a gamma distribution parameterized in terms of shape and rate, shape is equal to $\mu_\beta^2 \tau_\beta^2 = 0.2^2$ and rate is equal to $\mu_\beta \tau_\beta^2 = 0.2^2$.
+We will let the difficulty and discrimination parameters be independent of each other.
+We will also imagine that all the test questions have four possible responses, and therefore set $\gamma_m = \frac{1}{4}$ for all the items.
+With that, let's make up some item parameters:
+```{r}
+alphas <- rnorm(M, mean = 0, sd = 1.5)
+betas <- rgamma(M, shape = 0.2^2, rate = 0.2^2)
+gammas <- rep(1 / 4, M)
+```
+The three-parameter IRT model describes the probability that a given respondent with ability $\theta_i$ answers each of the items on the test correctly.
+To generate data based on the model, we need to produce scores on every item for every respondent, leading to a matrix of $N$ respondents by $M$ items. 
+To simplify this calculation, let's write a function to compute the item probabilities for a single respondent:
+```{r}
+r_scores <- function(theta_i, alphas, betas, gammas, M) {
+  pi_i <- gammas + (1 - gammas) * plogis(alphas * (theta_i - betas))
+  scores <- rbinom(M, size = 1, prob = pi_i)
+  names(scores) <- paste0("q",1:M)
+  return(scores)
+}
+
+r_scores(thetas[1], alphas = alphas, betas = betas, gammas = gammas, M = M)
+```
+In the first line of the function, we compute the probability of correctly answering all $M = 12$ items, storing the result in a vector `pi_i`.
+In the next line, we simulate binary outcomes with the specified vector of probabilities.
+Finally, we assign names to each item so that we can keep track of which score is for which item.
+Now we can run the function for every one of our respondents:
+```{r}
+map_dfr(
+  thetas, .f = r_scores, 
+  alphas = alphas, betas = betas, gammas = gammas, M = M
+)
+```
+To make it easier to generate datasets with different characteristics, let's now combine the chunks of code we've written into a single data-generating function.
+To do so, we'll need to consider what the input parameters should be. 
+We've seen that we need to specify $N$ and $M$.
+We made assumptions about the item parameters, but we had to specify means and standard deviations for the difficulty and discrimination parameter distributions, so let's allow those to be inputs also.
+Our data-generating function will then be
+```{r}
+r_3PL_IRT <- function(
+    N, M = 4,
+    diff_M = 0, diff_SD = 1,
+    disc_M = 1, disc_SD = 0.2,
+    item_options = 4
+) {
+  # generate ability parameters
+  thetas <- rnorm(N)
+  
+  # generate item parameters
+  alphas <- rnorm(M, mean = diff_M, sd = diff_SD)
+  betas <- rgamma(M, shape = disc_M^2 * disc_SD^2, rate = disc_M * disc_SD^2)
+  gammas <- rep(1 / item_options, M)
+
+  # simulate item responses
+  test_scores <- map_dfr(
+   thetas, .f = r_scores, 
+    alphas = alphas, betas = betas, gammas = gammas, M = M
+  )
+  
+  # calculate total score
+  test_scores$total <- rowSums(test_scores)
+  
+  return(test_scores)
+}
+
+r_3PL_IRT(N = 7, M = 4)
+```
+We will now look at a much larger sample of participants, with a longer test that includes $M = 12$ items:
+```{r}
+test_scores <- r_3PL_IRT(N = 10000, M = 12)
+```
+
+Having written a function for the 3-parameter logistic IRT model makes it easy to explore properties of the model.
+For instance, we can easily visualize the distribution of the total scores on the test:
+```{r}
+#| fig.width: 6
+#| fig.height: 3
+ggplot(test_scores, aes(total)) + 
+  geom_bar() + 
+  scale_x_continuous(limits = c(0,12.5), breaks = seq(0,12,2))
+```
+Likewise, we can examine the probability of correctly responding to each of the items by computing sample means for each item:
+```{r}
+test_scores %>%
+  summarise(across(starts_with("q"), mean))
+```
+```{r, echo = FALSE}
+item_summary <- 
+  test_scores %>%
+  summarise(across(starts_with("q"), ~ 100 * mean(.x)))
+```
+
+The percentage of correct responses varies from `r round(min(item_summary), 1)`% to `r round(max(item_summary), 1)`.
+What are the correlations between individual items and the total score?
+Let's check:
+```{r}
+test_scores %>%
+  summarise(across(starts_with("q"), ~ cor(.x, total)))
+```
+
+Note that simulating a new dataset will produce different results for these summaries because generating each dataset entails sampling a new set of items (with different difficulty and discrimination).
+
+What if the items covered a much broader range of difficulties? Or what if the items had many more options so guessing was nearly impossible? We could investigate such questions by simulating new datasets with varying values of the model parameters.
+
 ## More to explore
 
 This chapter has introduced the core components of a data-generating process and demonstrated how to move from formulating a full data-generating model to implementing the model in R code.
@@ -542,9 +692,9 @@ Our main aim has been to provide enough scaffolding for you to get started with 
 The exercises below will give you further practice in developing, testing, and extending DGP functions.
 Of course, we have not covered every consideration and challenge that arises when writing DGPs for simulations---there is _much_ more to explore!
 
-We will cover some of further challenges in subsequent chapters.
+We will cover some further challenges in subsequent chapters.
 <!-- JEP: Links to specific further chapters? -->
-Further challenges will surely arise as you apply simulations in your own work.
+Yet more challenges will surely arise as you apply simulations in your own work.
 Even though such challenges which might not align with the examples or contexts that we have covered here, the concepts and principles that we have introduced should allow you to reason about potential solutions.
 In doing so, we encourage you adopt the attitude of a chef in a test kitchen by trying out your ideas with code.
 In the kitchen, there is often no way to know how a dish will turn out until you actually bake it and taste it.
