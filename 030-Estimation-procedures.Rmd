@@ -69,17 +69,7 @@ This makes $z$-transformation very useful for computing confidence intervals, wh
 
 In this problem, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its $z$-transformation, compute confidence intervals for $z$, and then back-transform the confidence interval end-points.
 Here is an implementation of these calculations:
-```{r}
-r_and_z <- function(data) {
-  
-  r <- cor(data$C1, data$C2)
-  z <- atanh(r)
-  se_z <- 1 / sqrt(nrow(data) - 3)
-  ci_z <- z + c(-1, 1) * qnorm(.975) * se_z
-  ci_r <- tanh(ci_z)
-  
-  tibble( r = r, z = z, CI_lo = ci_r[1], CI_hi = ci_r[2] )
-}
+```{r, file = "case_study_code/r_and_z.R"}
 ```
 To check that the function returns a result of the expected form, we generate a small dataset using the `r_bivariate_Poisson()` function developed in the last chapter, then apply our estimation function to the result:
 ```{r}
@@ -102,9 +92,6 @@ The function returns a valid result---a quite strong correlation!
 It is a good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
 This type of test ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
 Applying the function to a real dataset demonstrates that the function implements a procedure that could actually be applied in real data analysis contexts.
-
-<!-- JEP: It feels like we should have an example that demonstrates a multi-step procedure here. What could that be? -->
-<!-- LWM: I don't think it is needed.  The aggregation code below could be framed as such.  I added some text. -->
 
 ## Including Multiple Data Analysis Procedures {#multiple-estimation-procedures}
 
@@ -192,10 +179,6 @@ Putting *assert statements* in your code like this is a good way to guarantee yo
 A `stopifnot` statement halts your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, creating odd results that are hard to understand.
 Here we are protecting ourselves from strange results if, for example, we messed up our DGP code to have treatment not nested within school, or we were using data that did not actually come from a cluster randomized experiment.
 See Section \@ref(about-stopifnot) for more.
-
-<!--To flag another common pitfall, R likes to recycle vectors to make them the right length; if you gave it a wrong length by mistake, finding out can be brutally difficult to discover.-->
-<!-- JEP: Is there any reason that the `stopifnot()` test would ever fail? I'm struggling to see the utility of this particular test. -->
-<!-- LWM: It looks like you retooled the code considerably.  This was a check to make sure you did not have both tx and co units in all schools, originally.  Text updated. -->
 
 All of our functions produce output in the same format:
 ```{r}
@@ -651,13 +634,28 @@ Handle event the contingency where all clusters are singletons by skipping the m
 
 2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code that replaces any `NA` values with corresponding results of `analysis_OLS()`. Test that the function is working as expected.
 
+### Estimating 3-parameter item response theory models {#IRT-3PL-estimation}
+
+Exercise \@ref(IRT-DGP-parameters) asked you to write a data-generating function for the 3-parameter IRT model described in described in Section \@ref(three-parameter-IRT). 
+Use your function to generate a large dataset.
+Using functions from the [`{ltm}`](https://cran.r-project.org/package=ltm), [`{mirt}`](https://cran.r-project.org/package=mirt), or [`{TAM}`](https://cran.r-project.org/package=TAM) packages, _estimate_ the parameters of the 3-parameter IRT model based on the simulated dataset.
+
+1. Write a function to _estimate_ a 3-parameter IRT model and return a dataset containing estimates of the item characteristics $(\alpha_m,\beta_m, \gamma_m)$.
+
+2. Add an option to the function to allow the user to specify known values of $\gamma_m$.
+
+3. Create a graphic showing how the item parameter estimates compare to the true item characteristics.
+
+4. Write a function or set of functions to apply 1-parameter, 2-parameter, and 3-parameter models and return datasets containing the person ability estimates $\theta_1,...,\theta_N$ and corresponding standard errors of measurement.
+
+
 ### Meta-regression with selective reporting {#Vevea-Hedges-estimation}
 
 Exercise \@ref(Vevea-Hedges-DGP) asked you to write a data-generating function for the @vevea1995general selection model. 
-The `metafor` package includes a function for fitting this model (as well as a variety of other selection models). 
-Here is an example of the syntax for estimating this model, using a dataset from the `metadat` package:
-```{r}
-library(metafor, quietly = TRUE)
+The `{metafor}` package includes a function for fitting this model (as well as a variety of other selection models). 
+Here is an example of the syntax for estimating this model, using a dataset from the `{metadat}` package:
+```{r, message = FALSE}
+library(metafor)
 data("dat.assink2016", package = "metadat")
 
 # rename variables and tidy up
