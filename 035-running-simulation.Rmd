@@ -8,58 +8,125 @@ output:
 library(tidyverse)
 options(list(dplyr.summarise.inform = FALSE))
 
-### Code from the prior chapter
-source( "case_study_code/clustered_data_simulation.R" )
-
-dat <- gen_cluster_RCT( n=5, J=3, p=0.5, 
-                      gamma_0=0, gamma_1=0.2, gamma_2=0.2,
-                      sigma2_u = 0.4, sigma2_e = 1,
-                      alpha = 0.5 )
+### Code from prior chapters
+source("case_study_code/r_bivariate_Poisson.R")
+source("case_study_code/r_and_z.R")
+source("case_study_code/gen_cluster_RCT.R")
+source("case_study_code/analyze_cluster_RCT.R")
 
 ```
 
 
 # Running the Simulation Process {#running-the-simulation-process}
 
-In the prior two chapters we saw how to write functions that generate data according to a specified model (and parameters) and functions that implement estimation procedures on simulated data.
-We next put those two together and repeat a bunch of times to obtain a lot of results such as point estimates, estimated standard errors and/or confidence intervals.
+In the prior two chapters we saw how to write functions that generate data according to a particular model (and user-specified input parameters) and functions that implement data-analysis or estimation procedures on the simulated data.
+The next step in a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, p-values, or other quantities) from many replications of the whole process.
 
-We use two primary ways of doing this in this textbook.
-The first is to write a function that does a single step of a simulation, and then use the `map()` function to run that single step multiple times.
+As with most things R-related, there are many different techniques that can be used to repeat a set of calculations over and over. 
+In this chapter, we will demonstrate several techniques for doing so.
+We will then discuss how ensure reproducibility of simulation results by setting the seed used by R's random number generator.
 
-For our Cluster RCT case study, for example, we would write the following that takes our simulation parameters and runs a single trial of our simulation:
+## Repeating oneself
+
+Suppose that we want to simulate Pearson's correlation coefficient calculated based on a sample from the bivariate Poisson function.
+We saw a DGP function for the bivariate Poisson in Section \@ref(DGP-functions), and an estimation function in Section \@ref(estimation-functions).
+To produce a simulated correlation coefficient, we need to run these two functions in turn:
 ```{r}
-one_run <- function( n_bar = 30, J=20, 
-                     gamma_1 = 0.3, gamma_2 = 0.5,
-                     sigma2_u = 0.20, sigma2_e = 0.80,
-                     alpha = 0.75 ) {
+dat <- r_bivariate_Poisson( N = 30, rho = 0.4, mu1 = 8, mu2 = 14 )
+r_and_z(dat)
+```
+To execute a simulation, we need to repeat this process over and over.
+R has many different functions for doing exactly this.
+
+The `{simhelpers}` package includes a function called `repeat_and_stack()`, which can be used to evaluate an arbitrary expression many times over.
+We can use it to generate five replications of our correlation coefficient:
+```{r}
+library(simhelpers)
+repeat_and_stack(
+  n = 5, 
+  {
+    dat <- r_bivariate_Poisson( N = 30, rho = 0.4, mu1 = 8, mu2 = 14 )
+    r_and_z(dat)
+  }, 
+  id = "rep", 
+  stack = TRUE
+)
+```
+The first argument specifies the number of times to repeat the calculation.
+The second argument is an R expression that will be evaluated. 
+The expression is wrapped in curly braces (`{}`) because it involves more than a single line of code.
+Including the option `id = "rep"` will return a dataset that includes a variable called `rep` to identify each replication of the process.
+Setting the option `stack = TRUE` will stack up the output of each expression into a single tibble, which will facilitate later calculations on the results.
+Setting this option is not necessary because it is `TRUE` by default; setting `stack = FALSE` will return the results in a list rather than a tibble (try this for yourself to see!).
+
+There are many other functions that work very much like `repeat_and_stack()`, including the base-R function `replicate()` and the now-deprecated function `rerun()` from `{purrr}`.
+The functions in the `map()` family from `{purrr}` can also be used to do the same thing as `repeat_and_stack()`.
+See Appendix \@ref(repeating-oneself) for more discussion of these alternatives.
+
+
+## One run at a time
+
+A slightly different technique for running multiple replications of a process is to first write a function that executes a single run of the simulation, and then repeatedly evaluate that a function.
+For instance, here is a function that stitching the two steps in the bivariate-Poisson correlation simulation:
+```{r}
+one_bivariate_Poisson_r <- function(N, rho, mu1, mu2) {
+  dat <- r_bivariate_Poisson( N = N, rho = rho, mu1 = mu1, mu2 = mu2 )
+  res <- r_and_z(dat)
+  return(res)
+}
+```
+Calling the function produces a nicely formatted set of results that we can then evaluate:
+```{r}
+one_bivariate_Poisson_r(N = 30, rho = 0.4, mu1 = 8, mu2 = 14)
+```
+We can then evaluate the function over and over using `repeat_and_stack()`:
+```{r}
+repeat_and_stack(
+  n = 5, 
+  one_bivariate_Poisson_r( N = 30, rho = 0.4, mu1 = 8, mu2 = 14 ), 
+  id = "rep"
+)
+```
+
+This technique of wrapping the data-generating function and estimation function inside of another function might strike you as a bit cumbersome because the wrapper is only two lines of code.
+Further, writing the wrapper requires repeating many of the function argument names when calling the data-generating function (`N = N, rho = rho`, etc.).
+However, the wrapper technique can be useful for more complicated simulations, such as those that involve comparison of multiple estimation methods.
+
+Consider the cluster-randomized experiment case study presented in Section \@ref(case-cluster) and \@ref(multiple-estimation-procedures). 
+In this simulation, we are interested in comparing the performance of three different estimation methods: a multi-level model, a linear regression with clustered standard errors, and a linear regression on the data aggregated to the school level.
+Thus, we need to generate a dataset and then apply three different estimation functions to it.
+Here is a function that takes our simulation parameters and runs a single trial of the full process:
+```{r}
+one_run <- function( 
+  n_bar = 30, J = 20, 
+  gamma_1 = 0.3, gamma_2 = 0.5,
+  sigma2_u = 0.20, sigma2_e = 0.80,
+  alpha = 0.75 
+) {
   
-  dat <- gen_cluster_RCT( n_bar = n_bar, J=J, 
-                        gamma_1 = gamma_1, gamma_2 = gamma_2,
-                        sigma2_u = sigma2_u, sigma2_e = sigma2_e,
-                        alpha = alpha )
+  dat <- gen_cluster_RCT(
+    n_bar = n_bar, J = J, gamma_1 = gamma_1, gamma_2 = gamma_2,
+    sigma2_u = sigma2_u, sigma2_e = sigma2_e, alpha = alpha 
+  )
   MLM = analysis_MLM( dat )
   LR = analysis_OLS( dat )
   Agg = analysis_agg( dat )
   
-  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
-             .id = "method" )
+  bind_rows( MLM = MLM, LR = LR, Agg = Agg, .id = "method" )
 }
 ```
-
-We have added a bunch of defaults to our function, so we can easily run it without remembering all the things we can change.
-
-When we call it, we get a nice table of results that we can evaluate:
+We have added a bunch of defaults to our function, so that we can run it without having to remember all the various input parameters.
+When we call the function, we get a nice table of results that we can evaluate:
 
 ```{r, messages=FALSE}
 one_run( n_bar = 30, J = 20, alpha=0.5 )
 ```
-The results for each method is a single line.
-We record estimated impact, estimated standard error, and a nominal $p$-value.
-Note how the `bind_rows()` method can take naming on the fly, and give us a column of `method`, which will be very useful for keeping track of what estimated what.
-We intentionally wrap up our results with a data frame to make later processing of data with the tidyverse package much easier.
+The results for each method are organized in separate lines.
+For each method, we record the impact estimate, its (estimated) standard error, and a nominal $p$-value.
+Note how the `bind_rows()` method can take naming on the fly, and give us a column of `method`, which will be very useful for keeping track of which results come from which estimation.
+We intentionally wrap up our results with a tibble to make later it easier to do subsequent data processing and analysis.
 
-We then use the `map()` function to run this function multiple times:
+Once we have a function to execute a single run of the simulation, we can produce multiple results using `repeat_and_stack()`:
 
 ```{r secret_run_cluster_rand_sim, include=FALSE}
 R <- 1000
@@ -68,47 +135,35 @@ ATE <- 0.30
 if ( !file.exists("results/cluster_RCT_simulation.rds") ) {
   tictoc::tic()  # Start the clock!
   set.seed( 40404 )
-  runs <- 
-    map_df( 1:R, ~one_run( n_bar = 30, J=20, gamma_1 = ATE ) ) 
-  
+  runs <- repeat_and_stack(R, one_run( n_bar = 30, J=20, gamma_1 = ATE ), id = "runID") 
   tictoc::toc()
   
   saveRDS( runs, file = "results/cluster_RCT_simulation.rds" ) 
 } else {
-  runs = readRDS( file = "results/cluster_RCT_simulation.rds" ) 
+  runs <- readRDS( file = "results/cluster_RCT_simulation.rds" ) 
 }
 ```
 
 
 ```{r cluster_rand_sim, eval=FALSE}
-set.seed( 40404 )
-R = 1000
-ATE = 0.30
-runs <- 
-  map_df( 1:R, ~one_run( n_bar = 30, J=20, gamma_1 = ATE ),
-          .id="runID" ) 
+R <- 1000
+ATE <- 0.30
+runs <- repeat_and_stack(R, one_run( n_bar = 30, J=20, gamma_1 = ATE ), id = "runID") 
 
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
+Setting `id = "runID"` argument is a way of keeping track of which iteration number produced which result.
+Once our simulation is complete, we save our results to a file for future use.
+Doing so allows us to avoid having to re-run our simulation each time we want to explore the results.
 
-What the `map()` function is doing is first making a list from 1 to R, and then for each element in that list, it is calling `one_run()` with the parameters `n_bar = 30, J=20`.
-The `~` is a shorthand way of writing a function that takes one argument, and then calls `one_run()` with that argument; the argument is the iteration number (1, 2, 3, ..., R), but we are ignoring it.  The `.id = "runID"` argument is a way of keeping track of which iteration number produced which result.
-The `_df` at the end of `map_df()` is a way of telling `map()` to take the results of each iteration and bind them together into a single data frame.
-
-Once our simulation is complete, we save our results to a file for future use; this speeds up our lives since we will not have to constantly re-run our simulation each time we want to explore the results.
-
-We have arrived!  We now have the individual results of all our methods applied to each of 1000 generated datasets.
+We now have results for each of our estimation methods applied to each of 1000 generated datasets.
 The next step is to evaluate how well the estimators did.
-Regarding our point estimate, for example, we have these primary questions:
+Regarding the point estimates, for example, we will examine questions about bias, precision, and accuracy.
+In Chapter \@ref(performance-criteria), we look systematically at ways to quantify the performance of estimation methods.
 
- - Is it biased? (bias)
- - Is it precise? (standard error)
- - Does it predict well? (RMSE)
- 
-In the next chapter, we systematically go through answering these questions for our initial scenario.
+## Bundling simulations with `{simhelpers}`
 
-
-## Writing simulations quick with the simhelpers package
+The techniques that we have demonstrated for repeating a set of calculations over and over involve 
 
 The `map` approach is a bit strange, with building a secret function on the fly with `~`, and also having the copy over all the parameters we pass from `one_run()` to `gen_cluster_RCT()`.
 The `simhelpers` package provides a shortcut that makes this step easier.
@@ -192,6 +247,75 @@ We have not even modified our `gen_cluster_RCT()` DGP method: we are just specif
 
 Controlling how we use the foundational elements such as our data generating code is a key tool for making the higher level simulations sensible and more easily interpretable.
 Here we have put our entire simulation into effect size units, and are now providing "knobs" to the simulation that are directly interpretable.
+
+
+## Seeds and pseudo-random number generators
+
+In prior chapters, we have used built-in functions to generate random numbers and also written our own data-generating functions that produce artificial data following a specific random process.
+With either type of function, re-running it with the exact same input parameters will produce different results.
+For instance, running the `rchisq` function with the same set of inputs will produce two different sequences of $\chi^2$ random variables:
+```{r}
+c1 <- rchisq(4, df = 3)
+c2 <- rchisq(4, df = 3)
+rbind(c1, c2)
+```
+
+Likewise, running the bivariate Poisson function from Section \@ref(DGP-functions) twice will produce different datasets:
+```{r}
+dat_A <- r_bivariate_Poisson(20, rho = 0.5, mu1 = 4, mu2 = 7)
+dat_B <- r_bivariate_Poisson(20, rho = 0.5, mu1 = 4, mu2 = 7)
+identical(dat_A, dat_B)
+
+bind_rows(A = r_and_z(dat_A), B = r_and_z(dat_B), .id = "Rep")
+```
+Of course, this is the intended behavior of the function. 
+However, if you run the same code as above, you will get different results.
+Thus, using functions like `rchisq()` or `r_bivariate_Poisson()` in a simulation study means that our results will not be entirely reproducible. 
+
+When using DGP functions for simulations, it is useful to be able to exactly control the process of generating random numbers.
+This is more possible than it sounds: Monte Carlo simulations are random, at least in theory, but computers are deterministic.
+When we use R to generate what we have been referring to as "random numbers," the functions produce what are actually _pseudo-random_ numbers.
+Pseudo-random numbers are generated from chains of mathematical equations designed to produce sequences of numbers that _appear_ random, but actually follow a deterministic sequence.
+Each subsequent random number is a calculated by starting from the previously generated value (i.e., the current state of the random number generator), applying a complicated function, and storing the result (i.e., updating the state).
+The numbers returned by the generator form a chain that, ideally, cycles through an extremely long list of values in way that looks stochastic and unpredictable.
+The state of the generator is shared across different functions that produce pseudo-random numbers, so it does not matter if we are generating numbers with `rnorm()` or `rchisq()` or `r_bivariate_Poisson()`.
+Each time we ask for a random number from the generator, its state is updated.
+Functions like `rnorm()` and `rchisq()` all call the low-level generator and then transform the result to be of the correct distribution.
+
+
+Because the generator is actually deterministic, we can control its output by specify a starting value or initial state, 
+In R, the state of the random number generator can be controlled by setting what its known as the seed.
+The `set.seed()` function allows us to specify a seed value, so that we can exactly reproduce a calculation.
+For example,
+```{r}
+set.seed(6)
+c1 <- rchisq(4, df = 3)
+set.seed(6)
+c2 <- rchisq(4, df = 3)
+rbind(c1, c2)
+```
+Similarly, we can set the seed and run a series of calculations involving multiple functions that make use of the random number generator:
+```{r}
+# First time
+set.seed(6)
+c1 <- rchisq(4, df = 3)
+dat_A <- r_bivariate_Poisson(20, rho = 0.5, mu1 = 4, mu2 = 7)
+
+# Exactly reproduce the calculations
+set.seed(6)
+c2 <- rchisq(4, df = 3)
+dat_B <- r_bivariate_Poisson(20, rho = 0.5, mu1 = 4, mu2 = 7)
+
+bind_rows(A = r_and_z(dat_A), B = r_and_z(dat_B), .id = "Rep")
+```
+
+In practice, it is a good idea to always set seed values for your simulations, so that you (or someone else!) can exactly reproduce the results.
+Attending to reproducibility allows us to easily check if we are running the same code that generated a set of results. For instance, try running the previous block of code on your machine; if you set the seed to the same value as we did, you should get identical output.
+Setting seeds is also very helpful for debugging.
+For example, say we had an error that showed up one in a thousand, causing our simulation to crash sometimes.
+If we set a seed and see that it crashes, we can repair our code and then rerun the simulation.
+If it runs without error, we know we fixed the problem.
+If we had not set the seed, we would not know if we were just getting (un)lucky, and avoiding the error by chance.
 
 
 ## Exercises
