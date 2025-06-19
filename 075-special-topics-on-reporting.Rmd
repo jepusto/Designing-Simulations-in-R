@@ -129,6 +129,62 @@ We might eventually, however, want to do a separate analysis of the ICC = 0 cont
 
 
 
+## More on modeling
+
+
+### Example 1: Biserial, revisited
+
+For example, consider the bias of the biserial correlation estimates from above.
+Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
+In particular, does the population vs sample cutoff option matter, on average, for bias, across all the simulation factors considered?
+
+We can fit a regression model to see:
+
+```{r modeling_demonstration, warning=FALSE}
+options(scipen = 5)
+mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
+summary(mod, digits=2)
+```
+
+The above printout gives main effects for each factor, averaged across other factors.
+Because `p1` and `n` are ordered factors, the `lm()` command automatically generates linear, quadradic, cubic and fourth order contrasts for them.
+We smooth our `rho` factor, which has many levels of a continuous measure, with a quadratic curve.
+We could instead use splines or some local linear regression if we were worried about model fit for a complex relationship.
+
+The main effects are summaries of trends across contexts.
+For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
+
+We can also use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+To do this, we use `aov()` to fit an analysis of variance model:
+
+```{r anova_example, warning=FALSE}
+anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
+summary(anova_table)
+```
+
+The advantage here is the multiple levels of our categorical factors get bundled together in our table of results, making a tidier display.
+We can also summarise our anova table to see the contribution of the various factors and interactions to the total amount of variation in performance:
+
+```{r, warning=FALSE}
+library(lsr)
+etaSquared(anova_table) %>%
+  knitr::kable( digits = 2 )
+```
+
+Here we see which factors are explaining the most variation.  E.g., `p1` is explaining 21% of the variation in bias across simulations.
+The contribution of the three way interactions is fairly minimal, by comparison, and could be dropped to simplify our model.
+
+Modeling summarizes overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
+We can fit our regression model for each performance measure in turn, to understand what drives our results.
+
+
+### Example 2: Estimators of treatment variation, revisited
+
+When we have many methods to compare, we can also use meta-regression to understand how these methods change as other simulation factors change
+
+
+**TO DO: Add more on this, possibly cribbing from the commented out cluster RCT metaregression from the next chapter**
+
 
 
 

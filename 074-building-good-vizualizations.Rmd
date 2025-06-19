@@ -41,11 +41,12 @@ summary( sres$R )
 
 # Building good vizualizations
 
+Visualization should nearly always be the first step in analyzing simulation results.
 In the prior chapter, we saw a series of visualizations that showed overall trends across a variety of examples.
-These visualizations are not the initial ones that were created, for those research projects.
+Those visualizations are not the initial ones that were created for those research projects.
 In practice, making a visualization often requires creating a _bunch_ of graphs to look at different aspects of the data.
 From that pile of graphs, you would then refine ones that communicate the overall results most cleanly, and include those in your main write-up.
-In our work, we find we often generate a series of R Markdown reports that load the simulation results and generate these visualizations.
+In our work, we find we often generate a series of R Markdown reports that load the simulation results and generate collections visualizations targeting our various research questions.
 These initial documents are then discussed internally by the research team.
 
 In this chapter we dive into how to create visualizations, and discuss a set of common tools that we use to explore our simulation results.
@@ -69,37 +70,27 @@ We will start with an investigation of bias.
 
 As a reminder, in our Cluster RCT example, we have three methods for estimating the average treatment effect: linear regression of the student-level outcome onto treatment (with cluster-robust standard errors); aggregation, where we regress the cluster-level average outcome onto treatment (with heteroskedastic robust standard errors); and multilevel modeling with random effects.
 We want to know if these methods are biased for our defined estimand, which is the cluster-average effect.
+We have five simulation factors: school size (`n_bar`), number of schools (`J`), the intraclass correlation (`ICC`), the degree of variation in school size (`alpha`), and the relationship between school size and treatment effect (`size_coef`).
 
-## Subsetting
+
+## Subsetting and Many Small Multiples
 
 As an initial exploration, you can simply filter the simulation results to a single factor level for some nuisance parameter.
-For example, we might examine an ICC of 0.20 only, taking it as a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
+Generally, with small multiples, it is relatively straightforward to look at _three simulation factors_.
+This is because, with a facet grid, you can plot five things easily: two for the facets, one for the x-axis, one for color/line type, and one for the y-axis.
+We usually use two of these for method and outcome, giving three factors to explore.
 
-```{r}
-
-# FINISH THIS UP AND SUBSET.
-```
-
-
-Sometimes we might even just report a subset in our final analysis.
-In this case, we would consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
-
-It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
-In our case, as we see below, we cthe more complex plots explored earlier, such as the aggregation plot, showed mostly horizontal lines with respect to the ICC value; we thus might be able to safely ignore the ICC factor in our main report.
-
-
-## Many small multiples
-
-If you do not have too many different factors, you can simply plot all of your results at once.
-For example, say we only ran simulations for our Cluster RCT simulation with `n_bar = 320` and `J = 20`.
-Then we could plot all our simulation results like so:
+For example, for our simulation, we might examine an ICC of 0.20 only, taking it as a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
+We migth further pick $n_bar = 80$ so we do not have to worry about it too much.
+This leaves three factors, allowing us to plot all of our simulation results.
+We the bias as a function of `J`, with different lines for the different methods, and facets for the different levels of `size_coef` and `alpha`.
 
 ```{r}
 sres_sub <- sres %>%
-  filter( n_bar == 320, J == 20 )
-ggplot( sres_sub, aes( as.factor(alpha), bias, 
+  filter( ICC == 0.20, n_bar == 80 )
+ggplot( sres_sub, aes( as.factor(J), bias, 
                        col=method, pch=method, group=method ) ) +
-  facet_grid( size_coef ~ ICC, labeller = label_both ) +
+  facet_grid( size_coef ~ alpha, labeller = label_both ) +
   geom_point() + geom_line() +
   geom_hline( yintercept = 0 ) +
   theme_minimal() 
@@ -110,9 +101,42 @@ We are looking at the raw results.
 We connect the points with lines to help us see trends within each of the small multiples.
 The lines help us visually track which group of points goes with which.
 
-We are showing five variables: our facets are organized by two (ICC and the size coefficient), and within each facet we have three (alpha, our outcome of bias, and the methods themselves).
-Unfortunately, we quickly reach our limits of this approach if we have more factors than five, which, in this case, we do (recall we subset to single values of our remaining two factors of `n_bar` and `J`).
-We next present bundling, a way of using this core idea of showing raw results, but in a semi-aggregated way.
+We immediately see that when there is a lot of site variation, and it relates to outcome, linear regression is very different from the other two methods.  When there is no variation, or it does not relate to impact, nothing is particularly biased.
+
+<!--Again, we are showing five variables: our facets are organized by two (alpha and the size coefficient), and within each facet we have three (J, our outcome of bias, and the methods themselves).-->
+
+Subsetting is a very useful tool, especially when the scope of the simulation feels overwhelming.
+It can also be used as a quick validity check, we can subset to a known context where we know nothing exciting should be happening, and then check that indeed nothing is there.
+For example, in our context we might subset to the scenarios with no variation in site size or relationship between size and outcome:
+
+```{r}
+sres_null <- sres %>%
+  filter( size_coef == 0, alpha == 0 )
+```
+
+So, for our null check, we have three factors and can plot the them all:
+```{r}
+ggplot( sres_null, aes( ICC, bias, 
+                       col=method, pch=method, group=method ) ) +
+  facet_grid( J ~ n_bar, labeller = label_both ) +
+  geom_point() + geom_line() +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal()
+```
+
+As predicted, nothing is happening.
+Interestingly, we see that all methods are identical when there is no site variation, regardless of ICC, J, or `n_bar`.
+
+Subsetting allows for a deep dive into a specific context.
+It also can make it easier to think through what is happening in a complex context.
+Sometimes we might even just report a subset in our final analysis.
+In this case, we would consider the other levels as a "sensitivity" analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
+
+It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
+In our case, as we see below, we will see little effect of the ICC on how one model performs relative to another; we thus might be able to safely ignore the ICC factor in our main report.
+
+But if you do want to look at all your simulation results at once, you need to somehow aggregate your results to make them all fit on the plot.
+We next present bundling, a way of using the core idea of small multiples for showing all of the raw results, but which does so in a semi-aggregated way.
 
 
 ## Bundling
