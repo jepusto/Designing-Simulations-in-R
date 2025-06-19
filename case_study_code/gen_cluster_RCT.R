@@ -12,7 +12,8 @@ gen_cluster_RCT <- function(
   n_max <- round( n_bar * (1 + alpha) )
   nj <- sample( n_min:n_max, J, replace = TRUE )
   
-  # Generate average control outcome for all schools (the random effects)
+  # Generate average control outcome for all schools
+  # (the random effects)
   u0j <- rnorm( J, mean = 0, sd = sqrt(sigma2_u) )
   
   # randomize schools (proportion p to treatment)
