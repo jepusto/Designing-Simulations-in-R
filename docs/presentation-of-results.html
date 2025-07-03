@@ -4,18 +4,18 @@
 
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>A Coding tidbits | Designing Monte Carlo Simulations in R</title>
+  <title>Chapter 12 Presenting multifactor simulation results | Designing Monte Carlo Simulations in R</title>
   <meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
   <meta name="generator" content="bookdown 0.43 and GitBook 2.6.7" />
 
-  <meta property="og:title" content="A Coding tidbits | Designing Monte Carlo Simulations in R" />
+  <meta property="og:title" content="Chapter 12 Presenting multifactor simulation results | Designing Monte Carlo Simulations in R" />
   <meta property="og:type" content="book" />
   
   <meta property="og:description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
   <meta name="github-repo" content="jepusto/Designing-Simulations-in-R" />
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="A Coding tidbits | Designing Monte Carlo Simulations in R" />
+  <meta name="twitter:title" content="Chapter 12 Presenting multifactor simulation results | Designing Monte Carlo Simulations in R" />
   
   <meta name="twitter:description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies" />
   
@@ -30,8 +30,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   
   
-<link rel="prev" href="the-parametric-bootstrap.html"/>
-<link rel="next" href="further-readings-and-resources.html"/>
+<link rel="prev" href="exp-design.html"/>
+<link rel="next" href="building-good-vizualizations.html"/>
 <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
@@ -512,235 +512,783 @@ div.csl-indent {
           <div class="page-inner">
 
             <section class="normal" id="section-">
-<div id="coding-tidbits" class="section level1 hasAnchor" number="25">
-<h1><span class="header-section-number">A</span> Coding tidbits<a href="coding-tidbits.html#coding-tidbits" class="anchor-section" aria-label="Anchor link to header"></a></h1>
-<p>This chapter is not specifically about simulation, but it does have a few tips and tricks regarding coding that are worth attending to.</p>
-<div id="repeating-oneself" class="section level2 hasAnchor" number="25.1">
-<h2><span class="header-section-number">A.1</span> How to repeat yourself<a href="coding-tidbits.html#repeating-oneself" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>At the heart of simulation is replication: we want to do the same task over and over. In this book we have showcased a variety of tools to replicate a random process. In this section we give a formal presentation of these tools.</p>
-<div id="using-replicate" class="section level3 hasAnchor" number="25.1.1">
-<h3><span class="header-section-number">A.1.1</span> Using <code>replicate()</code><a href="coding-tidbits.html#using-replicate" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>The <code>replicate( n, expr, simplify )</code> method is a base-R function, which takes two arguments: a number <code>n</code> and an expression <code>expr</code> to run repeatedly. You can set <code>simplify = FALSE</code> to get the output of the function as a list, and if you set <code>simplify = TRUE</code> then R will try to simplify your results into an array.</p>
-<p>For simple tasks where your expression gives you a single number, replicate will produce a vector of numbers:</p>
-<div class="sourceCode" id="cb563"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb563-1"><a href="coding-tidbits.html#cb563-1" tabindex="-1"></a><span class="fu">replicate</span>( <span class="dv">5</span>, <span class="fu">mean</span>( <span class="fu">rpois</span>( <span class="dv">3</span>, <span class="at">lambda =</span> <span class="dv">1</span> ) ) )</span></code></pre></div>
-<pre><code>## [1] 0.6666667 1.0000000 0.6666667 1.0000000
-## [5] 0.6666667</code></pre>
-<p>If you do not simplify, you then will need to massage your results:</p>
-<div class="sourceCode" id="cb565"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb565-1"><a href="coding-tidbits.html#cb565-1" tabindex="-1"></a>one_run <span class="ot">&lt;-</span> <span class="cf">function</span>() {</span>
-<span id="cb565-2"><a href="coding-tidbits.html#cb565-2" tabindex="-1"></a>  dd <span class="ot">=</span> <span class="fu">rpois</span>( <span class="dv">3</span>, <span class="at">lambda =</span> <span class="dv">1</span> )</span>
-<span id="cb565-3"><a href="coding-tidbits.html#cb565-3" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">mean =</span> <span class="fu">mean</span>( dd ), <span class="at">sd =</span> <span class="fu">sd</span>( dd ) )</span>
-<span id="cb565-4"><a href="coding-tidbits.html#cb565-4" tabindex="-1"></a>}</span>
-<span id="cb565-5"><a href="coding-tidbits.html#cb565-5" tabindex="-1"></a>rps <span class="ot">&lt;-</span> <span class="fu">replicate</span>( <span class="dv">2</span>, <span class="fu">one_run</span>(), <span class="at">simplify =</span> <span class="cn">FALSE</span> )</span>
-<span id="cb565-6"><a href="coding-tidbits.html#cb565-6" tabindex="-1"></a>rps</span></code></pre></div>
-<pre><code>## [[1]]
-## # A tibble: 1 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1  1.67  1.53
-## 
-## [[2]]
-## # A tibble: 1 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1  1.33  1.15</code></pre>
-<p>In particular, you will probably stack all your tibbles to make one large dataset:</p>
-<div class="sourceCode" id="cb567"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb567-1"><a href="coding-tidbits.html#cb567-1" tabindex="-1"></a>rps <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>( rps )</span>
-<span id="cb567-2"><a href="coding-tidbits.html#cb567-2" tabindex="-1"></a>rps</span></code></pre></div>
-<pre><code>## # A tibble: 2 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1  1.67  1.53
-## 2  1.33  1.15</code></pre>
-<p>Note that you give replicate a full piece of code that would run on its own. You can even give a whole block of code in curly braces.
-This is exactly the same code as before:</p>
-<div class="sourceCode" id="cb569"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb569-1"><a href="coding-tidbits.html#cb569-1" tabindex="-1"></a>rps <span class="ot">&lt;-</span> <span class="fu">replicate</span>( <span class="dv">2</span>, {</span>
-<span id="cb569-2"><a href="coding-tidbits.html#cb569-2" tabindex="-1"></a>  dd <span class="ot">=</span> <span class="fu">rpois</span>( <span class="dv">3</span>, <span class="at">lambda =</span> <span class="dv">1</span> )</span>
-<span id="cb569-3"><a href="coding-tidbits.html#cb569-3" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">mean =</span> <span class="fu">mean</span>( dd ), <span class="at">sd =</span> <span class="fu">sd</span>( dd ) )</span>
-<span id="cb569-4"><a href="coding-tidbits.html#cb569-4" tabindex="-1"></a>}, <span class="at">simplify =</span> <span class="cn">FALSE</span> ) <span class="sc">%&gt;%</span></span>
-<span id="cb569-5"><a href="coding-tidbits.html#cb569-5" tabindex="-1"></a>  <span class="fu">bind_rows</span>()</span></code></pre></div>
-<p>The <code>replicate()</code> method is good for simple tasks, but for more general use, you will probably want to use <code>map()</code>.</p>
-</div>
-<div id="using-map" class="section level3 hasAnchor" number="25.1.2">
-<h3><span class="header-section-number">A.1.2</span> Using <code>map()</code><a href="coding-tidbits.html#using-map" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>The tidyverse way of repeating oneself is the <code>map()</code> method. The nice thing about <code>map()</code> is you map over a list of values, and thus can call a function repeatedly, but with a shifting set of inputs.</p>
-<div class="sourceCode" id="cb570"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb570-1"><a href="coding-tidbits.html#cb570-1" tabindex="-1"></a>one_run_v2 <span class="ot">&lt;-</span> <span class="cf">function</span>( N ) {</span>
-<span id="cb570-2"><a href="coding-tidbits.html#cb570-2" tabindex="-1"></a>  dd <span class="ot">=</span> <span class="fu">rpois</span>( N, <span class="at">lambda =</span> <span class="dv">1</span> )</span>
-<span id="cb570-3"><a href="coding-tidbits.html#cb570-3" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">mean =</span> <span class="fu">mean</span>( dd ), <span class="at">sd =</span> <span class="fu">sd</span>( dd ) )</span>
-<span id="cb570-4"><a href="coding-tidbits.html#cb570-4" tabindex="-1"></a>}</span>
-<span id="cb570-5"><a href="coding-tidbits.html#cb570-5" tabindex="-1"></a>n_list <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">5</span>)</span>
-<span id="cb570-6"><a href="coding-tidbits.html#cb570-6" tabindex="-1"></a>rps <span class="ot">&lt;-</span> <span class="fu">map</span>( n_list, one_run_v2 )</span>
-<span id="cb570-7"><a href="coding-tidbits.html#cb570-7" tabindex="-1"></a>rps</span></code></pre></div>
-<pre><code>## [[1]]
-## # A tibble: 1 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1   0.5 0.707
-## 
-## [[2]]
-## # A tibble: 1 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1   0.8 0.837</code></pre>
-<p>You again would want to stack your results:</p>
-<div class="sourceCode" id="cb572"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb572-1"><a href="coding-tidbits.html#cb572-1" tabindex="-1"></a><span class="fu">bind_rows</span>(rps)</span></code></pre></div>
-<pre><code>## # A tibble: 2 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1   0.5 0.707
-## 2   0.8 0.837</code></pre>
-<p>We have a small issue here, however, which is we lost what we <em>gave</em> <code>map()</code> for each call.
-If we know we only get one row back from each call, we can add the column directly:</p>
-<div class="sourceCode" id="cb574"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb574-1"><a href="coding-tidbits.html#cb574-1" tabindex="-1"></a>rps<span class="sc">$</span>n <span class="ot">=</span> n_list</span></code></pre></div>
-<p>A better approach is to <em>name</em> your list of input parameters, and then your <code>map</code> function can add those names for you as a new column when you stack:</p>
-<div class="sourceCode" id="cb575"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb575-1"><a href="coding-tidbits.html#cb575-1" tabindex="-1"></a>n_list <span class="sc">%&gt;%</span></span>
-<span id="cb575-2"><a href="coding-tidbits.html#cb575-2" tabindex="-1"></a>  <span class="fu">set_names</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb575-3"><a href="coding-tidbits.html#cb575-3" tabindex="-1"></a>  <span class="fu">map</span>( one_run_v2 ) <span class="sc">%&gt;%</span></span>
-<span id="cb575-4"><a href="coding-tidbits.html#cb575-4" tabindex="-1"></a>  <span class="fu">bind_rows</span>( <span class="at">.id =</span> <span class="st">&quot;n&quot;</span> )</span></code></pre></div>
-<pre><code>## # A tibble: 2 × 3
-##   n      mean    sd
-##   &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt;
-## 1 2       2    0   
-## 2 5       1.4  1.14</code></pre>
-<p>An advantage here is if you are returning multiple rows (e.g., one row for each estimator tested in a more complex simulation), all the rows will get named correctly and automatically.</p>
-<p>In older tidyverse worlds, you will see methods such as <code>map_dbl()</code> or <code>map_dfr()</code>. These will automatically massage your output into the target type. <code>map_dfr()</code> will automatically bind rows, and <code>map_dbl()</code> will try to simplify the output into a list of doubles. Modern tidyverse no longer likes this, which we find somewhat sad.</p>
-<p>To read more about <code>map()</code>, check out out <a href="https://r4ds.had.co.nz/iteration.html#the-map-functions">Section 21.5 of R for Data Science (1st edition)</a>, which provides a more thorough introduction to mapping.</p>
-</div>
-<div id="map-with-no-inputs" class="section level3 hasAnchor" number="25.1.3">
-<h3><span class="header-section-number">A.1.3</span> map with no inputs<a href="coding-tidbits.html#map-with-no-inputs" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>If you do not have parameters, but still want to use <code>map()</code>, you can. E.g.,</p>
-<div class="sourceCode" id="cb577"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb577-1"><a href="coding-tidbits.html#cb577-1" tabindex="-1"></a><span class="fu">map_dfr</span>( <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, \(.) <span class="fu">one_run</span>() )</span></code></pre></div>
-<pre><code>## # A tibble: 3 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1 1     1    
-## 2 0.667 0.577
-## 3 0     0</code></pre>
-<p>The weird “(.)” is a shorthand for a function that takes one argument and then calls <code>one_run()</code> with no arguments. We are using the 1:3 notation to just make a list of the right length (3 replicates, in this case) to map over. A lot of fuss! Just use <code>replicate()</code></p>
-<p>To make all of this more clear, consider passing arguments that you manipulate on the fly:</p>
-<div class="sourceCode" id="cb579"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb579-1"><a href="coding-tidbits.html#cb579-1" tabindex="-1"></a><span class="fu">map_dfr</span>( n_list, \(x) <span class="fu">one_run_v2</span>( x<span class="sc">*</span>x ) )</span></code></pre></div>
-<pre><code>## # A tibble: 2 × 2
-##    mean    sd
-##   &lt;dbl&gt; &lt;dbl&gt;
-## 1  1     1.41
-## 2  1.16  1.11</code></pre>
-<p>Anonymous functions, as these are called, can be useful to connect your pieces of simulation together.</p>
-</div>
-<div id="other-approaches-for-repetition" class="section level3 hasAnchor" number="25.1.4">
-<h3><span class="header-section-number">A.1.4</span> Other approaches for repetition<a href="coding-tidbits.html#other-approaches-for-repetition" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>In the past, there was a tidyverse method called <code>rerun()</code>, but it is currently out of favor.
-Originally, <code>rerun()</code> did exactly that: you gave it a number and a block of code, and it would rerun the block of code that many times, giving you the results as a list.
-<code>rerun()</code> and <code>replicate()</code> are near equivalents.
-As we saw, <code>replicate()</code> does what its name suggests—it replicates the result of an expression a specified number of times. Setting <code>simplify = FALSE</code> returns the output as a list (just like <code>rerun()</code>.</p>
-</div>
-</div>
-<div id="default-arguments" class="section level2 hasAnchor" number="25.2">
-<h2><span class="header-section-number">A.2</span> Default arguments for functions<a href="coding-tidbits.html#default-arguments" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>To write functions that are both easy to use and configurable, we find it helpful to set default arguments.
-For example,</p>
-<div class="sourceCode" id="cb581"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb581-1"><a href="coding-tidbits.html#cb581-1" tabindex="-1"></a>my_function <span class="ot">=</span> <span class="cf">function</span>( <span class="at">a =</span> <span class="dv">10</span>, <span class="at">b =</span> <span class="dv">20</span> ) {</span>
-<span id="cb581-2"><a href="coding-tidbits.html#cb581-2" tabindex="-1"></a>     <span class="dv">100</span> <span class="sc">*</span> a <span class="sc">+</span> b</span>
-<span id="cb581-3"><a href="coding-tidbits.html#cb581-3" tabindex="-1"></a>}</span>
-<span id="cb581-4"><a href="coding-tidbits.html#cb581-4" tabindex="-1"></a></span>
-<span id="cb581-5"><a href="coding-tidbits.html#cb581-5" tabindex="-1"></a><span class="fu">my_function</span>()</span></code></pre></div>
-<pre><code>## [1] 1020</code></pre>
-<div class="sourceCode" id="cb583"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb583-1"><a href="coding-tidbits.html#cb583-1" tabindex="-1"></a><span class="fu">my_function</span>( <span class="dv">5</span> )</span></code></pre></div>
-<pre><code>## [1] 520</code></pre>
-<div class="sourceCode" id="cb585"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb585-1"><a href="coding-tidbits.html#cb585-1" tabindex="-1"></a><span class="fu">my_function</span>( <span class="at">b =</span> <span class="dv">5</span> )</span></code></pre></div>
-<pre><code>## [1] 1005</code></pre>
-<div class="sourceCode" id="cb587"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb587-1"><a href="coding-tidbits.html#cb587-1" tabindex="-1"></a><span class="fu">my_function</span>( <span class="at">b =</span> <span class="dv">5</span>, <span class="at">a =</span> <span class="dv">1</span> )</span></code></pre></div>
-<pre><code>## [1] 105</code></pre>
-<p>We can still call <code>my_function()</code> when we don’t know what the arguments are, but then when we know more about the function, we can specify things of interest.
-Lots of R commands work exactly this way, and for good reason.</p>
-<p>Especially for code to generate random datasets, default arguments can be a lifesaver as you can then call the method before you know exactly what everything means.</p>
-<p>For example, consider the <code>blkvar</code> package that has some code to generate blocked randomized datasets.
-We might locate a promising method, and type it in:</p>
-<div class="sourceCode" id="cb589"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb589-1"><a href="coding-tidbits.html#cb589-1" tabindex="-1"></a><span class="fu">library</span>( blkvar )</span>
-<span id="cb589-2"><a href="coding-tidbits.html#cb589-2" tabindex="-1"></a><span class="fu">generate_blocked_data</span>()</span></code></pre></div>
-<pre><code>## Error in generate_blocked_data(): argument &quot;n_k&quot; is missing, with no default</code></pre>
-<p>That didn’t work, but let’s provide some block sizes and see what happens:</p>
-<div class="sourceCode" id="cb591"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb591-1"><a href="coding-tidbits.html#cb591-1" tabindex="-1"></a><span class="fu">generate_blocked_data</span>( <span class="at">n_k =</span> <span class="fu">c</span>( <span class="dv">3</span>, <span class="dv">2</span> ) )</span></code></pre></div>
-<pre><code>##    B         Y0       Y1
-## 1 B1  0.1651598 6.371708
-## 2 B1 -0.7767558 5.613676
-## 3 B1 -1.4736741 4.856552
-## 4 B2 -1.0636928 4.448634
-## 5 B2  0.1533518 4.334540</code></pre>
-<p>Nice! We see that we have a block ID and the control and treatment potential outcomes. We also don’t see a random assignment variable, so that tells us we probably need some other methods as well.
-But we can play with this as it stands right away.</p>
-<p>Next we can see that there are many things we might tune:</p>
-<div class="sourceCode" id="cb593"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb593-1"><a href="coding-tidbits.html#cb593-1" tabindex="-1"></a><span class="fu">args</span>( generate_blocked_data )</span></code></pre></div>
-<pre><code>## function (n_k, sigma_alpha = 1, sigma_beta = 0, beta = 5, sigma_0 = 1, 
-##     sigma_1 = 1, corr = 0.5, exact = FALSE) 
-## NULL</code></pre>
-<p>The documentation will tell us more, but if we just need some sample data, we can quickly assess our method before having to do much reading and understanding.
-Only once we have identified what we need do we have to turn to the documentation itself.</p>
-</div>
-<div id="testing-and-debugging-code-in-your-scripts" class="section level2 hasAnchor" number="25.3">
-<h2><span class="header-section-number">A.3</span> Testing and debugging code in your scripts<a href="coding-tidbits.html#testing-and-debugging-code-in-your-scripts" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>If you have an extended script with a list of functions, you might have a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
-One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a “FALSE block,” that might look like so:</p>
-<div class="sourceCode" id="cb595"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb595-1"><a href="coding-tidbits.html#cb595-1" tabindex="-1"></a><span class="cf">if</span> ( <span class="cn">FALSE</span> ) {</span>
-<span id="cb595-2"><a href="coding-tidbits.html#cb595-2" tabindex="-1"></a>  res <span class="ot">&lt;-</span> <span class="fu">my_function</span>( <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span> )</span>
-<span id="cb595-3"><a href="coding-tidbits.html#cb595-3" tabindex="-1"></a>  res</span>
-<span id="cb595-4"><a href="coding-tidbits.html#cb595-4" tabindex="-1"></a>  <span class="co"># Some notes as to what I want to see.</span></span>
-<span id="cb595-5"><a href="coding-tidbits.html#cb595-5" tabindex="-1"></a>  </span>
-<span id="cb595-6"><a href="coding-tidbits.html#cb595-6" tabindex="-1"></a>  <span class="fu">sd</span>( res )</span>
-<span id="cb595-7"><a href="coding-tidbits.html#cb595-7" tabindex="-1"></a>  <span class="co"># This should be around 20</span></span>
-<span id="cb595-8"><a href="coding-tidbits.html#cb595-8" tabindex="-1"></a>}</span></code></pre></div>
-<p>You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
-If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.</p>
-</div>
-<div id="the-source-command-and-keeping-things-organized" class="section level2 hasAnchor" number="25.4">
-<h2><span class="header-section-number">A.4</span> The source command and keeping things organized<a href="coding-tidbits.html#the-source-command-and-keeping-things-organized" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>Simulations have two general phases: generate your results and analyze your results.
-The ending of the first phase should be to save the generated results.
-The beginning of the second phase should then be to load the results from a file and analyze them.
-These phases can be in a separate ‘.R’ files.
-Dividing your simulations in this way allows for easily changing how one <em>analyzes</em> an experiment without re-running the entire thing.</p>
-<p>This is the simplest version of a general principle of a larger project: put code for different purposes in different files.</p>
-<p>For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:</p>
+<div id="presentation-of-results" class="section level1 hasAnchor" number="12">
+<h1><span class="header-section-number">Chapter 12</span> Presenting multifactor simulation results<a href="presentation-of-results.html#presentation-of-results" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>Once we have our performance measures for each method for each of our simulation scenarios, how do we explore them?
+For our Cluster RCT simulation, for example, we have 270 different simulation scenarios across our factors.
+For each scenario we calculate a whole suite of performance measures we might be interested in (e.g., bias, se, rmse, coverage, …), and we have these performance measures for each of our three methods.
+All these results can be stored as a table with 810 rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
+Navigating all of this can feel somewhat overwhelming.
+How can we understand trends across this complex domain?</p>
+<p>Tackling this question is the primary purpose of this chapter.
+A first principle to keep in mind is that the goal of a simulation study is to provide evidence for a research question.
+If you keep the research question in mind, it will be easier to stay on track and not get overwhelmed by the many options you have for analysis.
+This first principle will, for example, help you navigate which performance measures are most important.
+A second principle is that a good piece of analysis will give you clear understanding of how one or more of your simulation factors matter, in terms of your performance measures of interest.</p>
+<p>For your final write-up, you will not want to present everything.
+A wall of numbers and observations only serves to pummel the reader.
+Instead, present selected results that clearly illustrate the main findings from the study, along with anything unusual or anomalous.
+Your presentation will typically be best served with a few well-chosen figures.
+Then, in the text of your write-up, you might include a few specific numerical comparisons.
+Do not include too many of these, and be sure to say why the numerical comparisons you include are important.</p>
+<p>To form these final exhibits, you will likely have to generate a wide range of results that show different facets of your simulation.
+These are for you, and will help you deeply understand what is going on.
+You then try to simplify the story, in a way that is honest and transparent, by curating this full set of figures to your final ones.
+Some of the remainder will then become supplementary materials that contain further detail to both enrich your main narrative and demonstrate that you are not hiding anything.</p>
+<!--If you want to be a moral person worthy of the awards of Heaven-->
+<p>Results are by definition a simplified summary of a complex thing.
+The alert reader will know this, and will thus be suspicious about what you might have left out.
+To give a great legitimacy bump to your work, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct your analysis themselves, or perhaps rerun your simulation under different conditions.
+Even if no one touches your code, the code’s existence and availability builds confidence.
+People will naturally think, “if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes.”</p>
+<p>There are three primary tools for presenting simulation results:</p>
+<ol style="list-style-type: decimal">
+<li>Tabulation</li>
+<li>Visualization</li>
+<li>Modeling</li>
+</ol>
+<p>We next walk through these three modes, with a few examples taken from the literature and our own work.</p>
+<div id="tabulation" class="section level2 hasAnchor" number="12.1">
+<h2><span class="header-section-number">12.1</span> Tabulation<a href="presentation-of-results.html#tabulation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Traditionally, simulation study results are presented in big tables.
+In general, we believe tables rarely make the take-aways of a simulation readily apparent.
+Perhaps tables are fine if…</p>
 <ul>
-<li>Code for generating data</li>
-<li>Code for analyzing data</li>
-<li>Code for running a single simulation scenario</li>
+<li>they involve only a few numbers, and a few targeted comparisons.</li>
+<li>it is important to report <em>exact</em> values for some quantities.</li>
 </ul>
-<p>If each of these pieces is large and complex, you might consider putting them in three different <code>.R</code> files.
-Then, in your primary simulation driver, you could source these files.
-E.g.,</p>
-<div class="sourceCode" id="cb596"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb596-1"><a href="coding-tidbits.html#cb596-1" tabindex="-1"></a><span class="fu">source</span>( <span class="st">&quot;pack_data_generators.R&quot;</span> )</span>
-<span id="cb596-2"><a href="coding-tidbits.html#cb596-2" tabindex="-1"></a><span class="fu">source</span>( <span class="st">&quot;pack_estimators.R&quot;</span> )</span>
-<span id="cb596-3"><a href="coding-tidbits.html#cb596-3" tabindex="-1"></a><span class="fu">source</span>( <span class="st">&quot;pack_simulation_support.R&quot;</span> )</span></code></pre></div>
-<p>The <code>source()</code> command essentially “cuts and pastes” the contents of the given file into your R work session.
-If the file has code to run, it will run it.
-If the file has a list of methods, those methods will now be available for use.</p>
-<p>Alternatively, <code>pack_simulation_support.R</code> could, inside it, source the other two files.
-You would then only source the single simulation support file in your primay file.</p>
-<p>One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, like described above), testing each of your components.
-Then, when you are not focused on that component, you don’t have to look at that testing code.</p>
-<p>Another good reason for this type of modular organizing is you can then have a variety of data generators, forming a library of options.
-You can then easily create different simulations that use different pieces, in a larger project.</p>
-<p>For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
-Our data generation code file then had several methods:</p>
-<pre><code>&gt; ls()
-[1] &quot;describe_sim_data&quot;  &quot;make_dat&quot;           &quot;make.dat.1side&quot;     
-[4] &quot;make.dat.1side.old&quot; &quot;make.dat.orig&quot;      &quot;make.dat.simple&quot;
-[7] &quot;make.dat.tuned&quot;     &quot;rand.exp&quot;           &quot;summarize_sim_data&quot;</code></pre>
-<p>The describe and summarize methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
-We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.</p>
-<p>Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that file and use those estimators on our actual data.
-This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
-Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.</p>
-<p>Modular programming is key.</p>
+<p>Unfortunately, simulations usually produce lots of numbers, and involve making lots of comparisons.
+You are going to want to show, for example, the relative performance of alternative estimators, or the performance of your estimators under different conditions for the data-generating model.
+This means a lot of rows, and a lot of dimensions.
+Tables can do two dimensions; when you try to cram more than that into a table, no one is particularly well served.</p>
+<p>Furthermore, in simulation, exact values for your bias/RMSE/type-I error, or whatever, are not usually of interest. And in fact, we rarely have them due to Monte Carlo simulation error.
+The tables provide a false sense of security, unless you include uncertainty, which clutters your table even further.</p>
+<p>Overall, tables and simulations do not particularly well mix.
+In particular, if you are ever tempted into putting your table in landscape mode to get it to fit on the page, think again.
+It is often more useful and insightful to present results in graphs <span class="citation">(<a href="#ref-gelman2002let">Gelman, Pasarica, and Dodhia 2002</a>)</span>.</p>
+<p>To illustrate, consider the following table of simulation results showing the false rejection rate, against an <span class="math inline">\(\alpha\)</span> of <span class="math inline">\(0.10\)</span>, for an estimator of an average treatment impact.
+We have two factors of interest, the treatment and control group sizes.</p>
+<!--```{r unused_code, eval=FALSE, echo=FALSE}
+fakesim <- tribble( ~n, ~p, ~bias, ~se, ~rmse, ~ext,
+                    10, 10, 0.0, 0.01, 0.02, 0.03,
+                    10, 20, 0.0, 0.02, 0.03, 0.04,
+                    10, 40, 0.0, 0.03, 0.04, 0.05,
+                    20, 10, 0.0, 0.04, 0.05, 0.06,
+                    20, 20, 0.0, 0.05, 0.06, 0.07,
+                    20, 40, 0.0, 0.06, 0.07, 0.08,
+                  )
+fakesim <- fakesim %>%
+  mutate( se = sqrt( 1 / (n*p) ) + rnorm(n(), sd=0.05 ),
+          bias = sqrt( n ) + rnorm( n(), sd=0.1 ),
+          rmse = sqrt( se^2 + bias^2 ) ) %>%
+  dplyr::select( -ext )
+```
+-->
+<table>
+<thead>
+<tr class="header">
+<th align="right">nT</th>
+<th align="right">nC</th>
+<th align="right">reject</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">2</td>
+<td align="right">2</td>
+<td align="right">19</td>
+</tr>
+<tr class="even">
+<td align="right">2</td>
+<td align="right">4</td>
+<td align="right">16</td>
+</tr>
+<tr class="odd">
+<td align="right">2</td>
+<td align="right">10</td>
+<td align="right">20</td>
+</tr>
+<tr class="even">
+<td align="right">2</td>
+<td align="right">50</td>
+<td align="right">26</td>
+</tr>
+<tr class="odd">
+<td align="right">2</td>
+<td align="right">500</td>
+<td align="right">31</td>
+</tr>
+<tr class="even">
+<td align="right">10</td>
+<td align="right">2</td>
+<td align="right">18</td>
+</tr>
+<tr class="odd">
+<td align="right">10</td>
+<td align="right">4</td>
+<td align="right">9</td>
+</tr>
+<tr class="even">
+<td align="right">10</td>
+<td align="right">10</td>
+<td align="right">7</td>
+</tr>
+<tr class="odd">
+<td align="right">10</td>
+<td align="right">50</td>
+<td align="right">7</td>
+</tr>
+<tr class="even">
+<td align="right">10</td>
+<td align="right">500</td>
+<td align="right">8</td>
+</tr>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">2</td>
+<td align="right">29</td>
+</tr>
+<tr class="even">
+<td align="right">500</td>
+<td align="right">4</td>
+<td align="right">14</td>
+</tr>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">10</td>
+<td align="right">8</td>
+</tr>
+<tr class="even">
+<td align="right">500</td>
+<td align="right">50</td>
+<td align="right">5</td>
+</tr>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">500</td>
+<td align="right">5</td>
+</tr>
+</tbody>
+</table>
+<p>We can see that the rejection rates are often well above 10%, and that if there are few treatment units, the rates are all way too high.
+Because of the ordering of rows, it is a bit harder to see how the number of control units impacts the rate, and understanding the joint relationship between number of treatment and number of control requires extra thinking.
+But this is a classic type of table you might see in a paper: the table is a group of tables indexed by one factor, with the second varying within each group.</p>
+<p>By contrast, a plot of these exact same numbers (this is an “interaction plot” showing the “interaction” of nT and nC) can make trends much more clear:</p>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-161-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>Now we immediately see that only if both nC and nT are above 50 do we achieve anything close to valid tests.
+Even if nC is 500, we are elevated if nT is only 10. When nT is 2, then increasing nC actually <em>increases</em> the rejection rate, meaning larger samples are worse; this is not obvious from looking at the raw table results.</p>
+<div id="example-estimators-of-treatment-variation" class="section level3 hasAnchor" number="12.1.1">
+<h3><span class="header-section-number">12.1.1</span> Example: estimators of treatment variation<a href="presentation-of-results.html#example-estimators-of-treatment-variation" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Tables do have some purpose.
+For example, tables can be used a bit more effectively to show average performance across a range of simulation scenarios.
+In general, tables are more plausibly useful for displaying a summary of findings. Do not use them for raw results.</p>
+<p>For example, in ongoing work, Miratrix has been studying the performance of a suite of estimators designed to estimate individual treatment effects.
+To test which estimators perform better or worse than the others, we designed a series of scenarios where we varied the data-generating model by a variety of factors.
+We then, for each scenario, calculated the relative performance of each estimator to the median of all estimators considered.</p>
+<p>We can then ask, do some methods perform better than their peers on average across all scenarios considered?
+The following table gives an answer to this question: we evaluate each method, averaged across all scenarios, along four metrics: relative bias, relative se, relative rmse, and <span class="math inline">\(R^2\)</span>.
+To easily see who is good and who is bad, we order the methods from highest average relative RMSE to lowest:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">model</th>
+<th align="right">bias</th>
+<th align="right">se</th>
+<th align="right">rmse</th>
+<th align="right">sd_bias</th>
+<th align="right">sd_se</th>
+<th align="right">sd_rmse</th>
+<th align="right">R2</th>
+<th align="right">sd_R2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">BART S</td>
+<td align="right">-6</td>
+<td align="right">-28</td>
+<td align="right">-17</td>
+<td align="right">13</td>
+<td align="right">14</td>
+<td align="right">12</td>
+<td align="right">0.40</td>
+<td align="right">0.25</td>
+</tr>
+<tr class="even">
+<td align="left">CF</td>
+<td align="right">-10</td>
+<td align="right">-2</td>
+<td align="right">-10</td>
+<td align="right">14</td>
+<td align="right">34</td>
+<td align="right">11</td>
+<td align="right">0.35</td>
+<td align="right">0.19</td>
+</tr>
+<tr class="odd">
+<td align="left">CF LC</td>
+<td align="right">-10</td>
+<td align="right">-1</td>
+<td align="right">-10</td>
+<td align="right">14</td>
+<td align="right">33</td>
+<td align="right">10</td>
+<td align="right">0.34</td>
+<td align="right">0.19</td>
+</tr>
+<tr class="even">
+<td align="left">LASSO R</td>
+<td align="right">2</td>
+<td align="right">-21</td>
+<td align="right">-10</td>
+<td align="right">9</td>
+<td align="right">13</td>
+<td align="right">10</td>
+<td align="right">0.31</td>
+<td align="right">0.25</td>
+</tr>
+<tr class="odd">
+<td align="left">LASSO MCM EA</td>
+<td align="right">2</td>
+<td align="right">-20</td>
+<td align="right">-10</td>
+<td align="right">9</td>
+<td align="right">13</td>
+<td align="right">10</td>
+<td align="right">0.31</td>
+<td align="right">0.25</td>
+</tr>
+<tr class="even">
+<td align="left">LASSO MOM DR</td>
+<td align="right">2</td>
+<td align="right">-21</td>
+<td align="right">-9</td>
+<td align="right">9</td>
+<td align="right">13</td>
+<td align="right">10</td>
+<td align="right">0.31</td>
+<td align="right">0.25</td>
+</tr>
+<tr class="odd">
+<td align="left">RF MOM DR</td>
+<td align="right">3</td>
+<td align="right">-12</td>
+<td align="right">-8</td>
+<td align="right">15</td>
+<td align="right">16</td>
+<td align="right">8</td>
+<td align="right">0.31</td>
+<td align="right">0.20</td>
+</tr>
+<tr class="even">
+<td align="left">LASSO T</td>
+<td align="right">-1</td>
+<td align="right">-10</td>
+<td align="right">-6</td>
+<td align="right">16</td>
+<td align="right">23</td>
+<td align="right">9</td>
+<td align="right">0.32</td>
+<td align="right">0.23</td>
+</tr>
+<tr class="odd">
+<td align="left">LASSO T INT</td>
+<td align="right">-4</td>
+<td align="right">19</td>
+<td align="right">5</td>
+<td align="right">16</td>
+<td align="right">55</td>
+<td align="right">17</td>
+<td align="right">0.28</td>
+<td align="right">0.20</td>
+</tr>
+<tr class="even">
+<td align="left">LASSO MCM</td>
+<td align="right">20</td>
+<td align="right">4</td>
+<td align="right">8</td>
+<td align="right">20</td>
+<td align="right">10</td>
+<td align="right">8</td>
+<td align="right">0.14</td>
+<td align="right">0.15</td>
+</tr>
+<tr class="odd">
+<td align="left">LASSO MOM IPW</td>
+<td align="right">20</td>
+<td align="right">4</td>
+<td align="right">8</td>
+<td align="right">20</td>
+<td align="right">10</td>
+<td align="right">8</td>
+<td align="right">0.14</td>
+<td align="right">0.15</td>
+</tr>
+<tr class="even">
+<td align="left">ATE</td>
+<td align="right">47</td>
+<td align="right">-60</td>
+<td align="right">9</td>
+<td align="right">48</td>
+<td align="right">7</td>
+<td align="right">17</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">RF T</td>
+<td align="right">-22</td>
+<td align="right">60</td>
+<td align="right">11</td>
+<td align="right">17</td>
+<td align="right">48</td>
+<td align="right">19</td>
+<td align="right">0.29</td>
+<td align="right">0.13</td>
+</tr>
+<tr class="even">
+<td align="left">RF MOM IPW</td>
+<td align="right">15</td>
+<td align="right">27</td>
+<td align="right">12</td>
+<td align="right">31</td>
+<td align="right">20</td>
+<td align="right">13</td>
+<td align="right">0.16</td>
+<td align="right">0.12</td>
+</tr>
+<tr class="odd">
+<td align="left">OLS S</td>
+<td align="right">-26</td>
+<td align="right">87</td>
+<td align="right">23</td>
+<td align="right">28</td>
+<td align="right">83</td>
+<td align="right">34</td>
+<td align="right">0.31</td>
+<td align="right">0.22</td>
+</tr>
+<tr class="even">
+<td align="left">BART T</td>
+<td align="right">-38</td>
+<td align="right">103</td>
+<td align="right">25</td>
+<td align="right">19</td>
+<td align="right">54</td>
+<td align="right">22</td>
+<td align="right">0.32</td>
+<td align="right">0.18</td>
+</tr>
+<tr class="odd">
+<td align="left">CDML</td>
+<td align="right">9</td>
+<td align="right">71</td>
+<td align="right">31</td>
+<td align="right">20</td>
+<td align="right">99</td>
+<td align="right">46</td>
+<td align="right">0.24</td>
+<td align="right">0.20</td>
+</tr>
+</tbody>
+</table>
+<p>We are summarizing 324 scenarios.
+The first columns show relative performance.
+To calculate these values we, for each method <span class="math inline">\(m\)</span>, performance metric <span class="math inline">\(Q\)</span>, and scenario <span class="math inline">\(s\)</span>, calculate <span class="math inline">\(P_{ms} = Q_{ms} / median( Q_{ms} )\)</span>, and then average the <span class="math inline">\(P_{ms}\)</span> across the scenarios to get <span class="math inline">\(\bar{P}_m\)</span>.
+Each method also has an <span class="math inline">\(R^2_{ms}\)</span> value for each scenario; we simply take the average of these across all scenarios for the penultimate column.</p>
+<p>The standard deviation columns show the standard deviation of the performances across the full set of scenarios: they give some sense of how much the relative performance of a method changes from scenario to scenario.
+Seeing this variation more explicitly might be better done with a visualization; we explore that below.</p>
+<p>Overall, the table does give a nice summary of the results, but we still do not feel it makes the results particularly visceral.
+Visualization can make trends jump out much more clearly.
+That said, the table <em>is</em> showing four performance measures, one of which (the <span class="math inline">\(R^2\)</span>) is on a different scale than the others; this is hard to do with a single visualiztion.</p>
+<p>So much for tables.</p>
 </div>
-<div id="debugging-with-browser" class="section level2 hasAnchor" number="25.5">
-<h2><span class="header-section-number">A.5</span> Debugging with browser<a href="coding-tidbits.html#debugging-with-browser" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>Consider the following code taken from a simulation:</p>
-<div class="sourceCode" id="cb598"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb598-1"><a href="coding-tidbits.html#cb598-1" tabindex="-1"></a>    <span class="cf">if</span> ( <span class="fu">any</span>( <span class="fu">is.na</span>( rs<span class="sc">$</span>estimate ) ) ) {</span>
-<span id="cb598-2"><a href="coding-tidbits.html#cb598-2" tabindex="-1"></a>        <span class="fu">browser</span>()</span>
-<span id="cb598-3"><a href="coding-tidbits.html#cb598-3" tabindex="-1"></a>    }</span></code></pre></div>
-<p>The <code>browser()</code> command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
-Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.</p>
+</div>
+<div id="visualization" class="section level2 hasAnchor" number="12.2">
+<h2><span class="header-section-number">12.2</span> Visualization<a href="presentation-of-results.html#visualization" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>We believe visualization to be the primary vehicle for communicating simulation results.
+To illustrate some illustration principles, we next present a series of visualizations, illustrating some different themes behind visualization that we believe are important.
+In the following chapters we talk about how to get to this final point by iteratively refining a series of plots.</p>
+<div id="example-1-biserial-correlation-estimation" class="section level3 hasAnchor" number="12.2.1">
+<h3><span class="header-section-number">12.2.1</span> Example 1: Biserial correlation estimation<a href="presentation-of-results.html#example-1-biserial-correlation-estimation" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Our first example, from <span class="citation">Pustejovsky (<a href="#ref-pustejovsky2014converting">2014</a>)</span>, shows the bias of a biserial correlation estimate from an extreme groups design.
+This simulation was a 4-factor, <span class="math inline">\(96 \times 2 \times 5 \times 5\)</span> factorial design (factors being true correlation for a range of values, cut-off type, cut-off percentile, and sample size).
+The correlation, with 96 levels, forms the <span class="math inline">\(x\)</span>-axis, giving us nice performance curves.
+We use line type for the sample size, allowing us to easily see how bias collapses as sample size increases.
+Finally, the facet grid gives our final factors of cut-off type and cut-off percentile.
+All our factors, and nearly 5000 explored simulation scenarios, are visible in a single plot.</p>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-163-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>To make this figure, we smoothed the lines with respect to <code>rho</code> using <code>geom_smooth()</code>.
+Smoothing is a nice tool for taking some of the simulation jitter out of an analysis to show overall trends more directly.</p>
+<p>This style of plotting, with a bunch of small plots, is called
+“many small multiples” and is beloved by Edward Tufte, who has written extensively on best on information design (see, for example, <span class="citation">Tufte and Graves-Morris (<a href="#ref-tufte1983visual">1983</a>)</span>).
+Tufte likes many small multiples, in part, because in a single plot we can display many different variables: here, our facets are organized by two (<code>p1</code> and the cuttoff approach), and within each facet we have three (our outcome of bias, rho (x-axis), and <span class="math inline">\(n\)</span> (line type).
+We have five variables in total; this means we can fully show all combinations of our factors along with an outcome in a four factor experiment!</p>
+</div>
+<div id="example-2-variance-estimation-and-meta-regression" class="section level3 hasAnchor" number="12.2.2">
+<h3><span class="header-section-number">12.2.2</span> Example 2: Variance estimation and Meta-regression<a href="presentation-of-results.html#example-2-variance-estimation-and-meta-regression" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>In our next example, from <span class="citation">Tipton and Pustejovsky (<a href="#ref-tipton2015small">2015</a>)</span>, we explore Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression.
+The simulation aimed to compare 5 different small-sample corrections.</p>
+<p>This was another complex experimental design, varying several factors:</p>
+<ul>
+<li>sample size (<span class="math inline">\(m\)</span>)</li>
+<li>dimension of hypothesis (<span class="math inline">\(q\)</span>)</li>
+<li>covariates tested</li>
+<li>degree of model mis-specification</li>
+</ul>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-164-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>Again using small multiples, we are able to show two of our simulation factors: sample size (<span class="math inline">\(m\)</span>) and dimension of hypothesis (<span class="math inline">\(q\)</span>).
+The <span class="math inline">\(x\)</span>-axis shows each of our five methods we are comparing.
+The boxplots are “holding” the other factors, and show the Type-I error rates for the different small-sample corrections across the covariates tested and degree of model misspecification.
+We add a line at the target 0.05 rejection rate to ease comparison.
+The reach of the boxes shows how some methods are more or less vulnerable to different types of misspecification.
+Some estimators (e.g., <span class="math inline">\(T^2_A\)</span>) are clearly hyper-conservitive, with very low rejection rates.
+Other methods (e.g., EDF), have a range of very high rejection rates when <span class="math inline">\(m = 10\)</span>; the degree of rejection rate must depend on model mis-specification and number of covariates tested (the things in the boxes).</p>
+</div>
+<div id="example-3-heat-maps-of-coverage" class="section level3 hasAnchor" number="12.2.3">
+<h3><span class="header-section-number">12.2.3</span> Example 3: Heat maps of coverage<a href="presentation-of-results.html#example-3-heat-maps-of-coverage" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>For data with many levels of two different factors, one option is to use a heat map.
+For example, the visualization below shows the coverage of parametric bootstrap confidence intervals for momentary time sampling data.
+In this simulation study the authors were comparing maximum likelihood estimators to posterior mode (penalized likelihood) estimators of prevalence.
+We have a 2-dimensional parameter space of prevalence (19 levels) by incidence (10 levels).
+We also have 12 levels of sample size.</p>
+<p>The plot shows the combinations of prevalence and incidence as a grid for each sample size level.
+We break coverage into ranges of interest, with green being “good” (near 95%) and yellow being “close” (92.5% or above).
+Blue and purple show conservative (above 95%) coverage.
+For this kind of plotting to work, we need our MCSE to be small enough that our coverage is estimated precisely enough to show structure.
+We have two plots, one for each of the methods being compared.</p>
+<p><img src="Designing-Simulations-in-R_files/figure-html/swan_example_setup-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-165-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>For each plot, we can see clear trends, where coverage degrades for low incidence rates.
+We are <em>wrapping</em> our small multiples by sample size–if you have many levels of a factor you can wrap to show all the levels, which is good, but wrapping does not take advantage of the two-dimensional aspect of having rows and columns of plots (such as we saw with Example 1 and Example 2).</p>
+<p>For comparing our two estimators, the prevelance of green in the bottom plot shows generally good behavior for the penalized MLE. The upper plot has less green, showing worse coverage; the improvement of the penalized MLE over the simple MLE is clear.
+To see this plot in real life, see <span class="citation">Pustejovsky and Swan (<a href="#ref-pustejovsky2015four">2015</a>)</span>.</p>
+</div>
+<div id="example-4-relative-performance-of-treatment-effect-estimators" class="section level3 hasAnchor" number="12.2.4">
+<h3><span class="header-section-number">12.2.4</span> Example 4: Relative performance of treatment effect estimators<a href="presentation-of-results.html#example-4-relative-performance-of-treatment-effect-estimators" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>Revisiting the example of different estimators for estimating treatment variation from the table example above, we can try to plot our results.</p>
+<p>As a starting point, we can use the same data we used for the table, and just plot the values as bars (after rescaling <code>R2</code> by 100 to put it on a similar scale to the other measures):</p>
+<p><img src="Designing-Simulations-in-R_files/figure-html/MLIV_bar_chart-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>Now we can more visually see how the trends of performance between the different methods correspond.
+This plot does not, however, show how variation across scenarios might play out.
+We can extend this plot by plotting boxplots of the actual performances across all scenarios.</p>
+<p>In the plot below, we show the range of relative performances for each estimator vs the median, across the simulations.
+We again order the methods from highest average RMSE to lowest, and plot the average performance across all the simulations as little circles (these would correspond to the bars, above).</p>
+<p><img src="Designing-Simulations-in-R_files/figure-html/unnamed-chunk-166-1.png" width="75%" style="display: block; margin: auto;" /></p>
+<p>The simulation summarizes performance across 324 scenarios, now showing how much the relative performance can change from scenario to scenario.
+We truncate extreme values to make the plot more readable and bring focus to central tendencies.
+We are able to see three performance measures at the same time.
+The x-axis is on a log scale, again selected to navigate long tails and highlight relative performances.
+The log scaling also makes the scale of improved performance (less than x1) similar to worse performance (above x1).</p>
+<p>We dropped R2 for these plot, since the R2 measure was in percentage points, and, due to estimation uncertainty, included negative values; this was not compatible with the log scaling.
+We have lost something in order to gain something; what plot is best will often be a matter of aesthetic opinion.
+Pick your plot based on whether it is clearly communicating the message you are trying to get across.
+(We could also dive into complex plot management, making an R2 plot and adding it to the right of the above plot; we could do this with plot control packages such as <code>patchwork</code> or <code>cowplot</code>, but we do not do that here.)</p>
+</div>
+</div>
+<div id="modeling" class="section level2 hasAnchor" number="12.3">
+<h2><span class="header-section-number">12.3</span> Modeling<a href="presentation-of-results.html#modeling" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Simulations are designed experiments, often with a full factorial structure.
+The results are datasets in their own right, just as if we had collected data in the wild.
+We can therefore leverage classic means for analyzing such full factorial experiments.
+For example, we can regress a performance measure against our factor levels to get the “main effects” of how the different levels impact performance, holding the other levels constant.
+This type of regression is called a “meta regression” (<span class="citation">Kleijnen (<a href="#ref-kleijnen1981regression">1981</a>)</span>, <span class="citation">Friedman and Pressman (<a href="#ref-friedman1988metamodel">1988</a>)</span>, <span class="citation">Gilbert and Miratrix (<a href="#ref-gilbert2024multilevel">2024</a>)</span>), as we are regressing on already processed results.
+It also has ties to meta analysis (see, e.g., <span class="citation">Borenstein et al. (<a href="#ref-borenstein2021introduction">2021</a>)</span>), where we look for trends across sets of experiments.</p>
+<p>In the language of a full factor experiment, we might be interested in the “main effects” and the “interaction effects.”
+A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts performance.
+When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that our finding is relevant across the host of simulation contexts explored, rather than being an idiosyncratic aspect of a specific and narrow context</p>
+<p>If we are comparing multiple methods, we would include the method itself as a factor in our regression.
+Then the estimated main effects for each method will tell us if a method is, on average, higher or lower than the baseline method, averaging across all the simulation scenarios.
+The main effect of the simulation factors will tell us if that factor impacts the performance measure on average across the methods considered.
+We might expect, for example, that for all methods the true standard error goes down as sample size increases.</p>
+<p>Meta-regressions would also typically include interactions between method and factor, to see if some factors impact different methods differently.
+They can also include interactions between simulation factors, which allows us to explore how the impact of a factor can matter more or less, depending on other aspects of the context.</p>
+<div id="example-1-biserial-revisited" class="section level3 hasAnchor" number="12.3.1">
+<h3><span class="header-section-number">12.3.1</span> Example 1: Biserial, revisited<a href="presentation-of-results.html#example-1-biserial-revisited" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>For example, consider the bias of the biserial correlation estimates from above.
+Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
+In particular, does the population vs sample cutoff option matter, on average, for bias, across all the simulation factors considered?</p>
+<!--The above printout gives main effects for each factor, averaged across other factors.
+Because `p1` and `n` are ordered factors, the `lm()` command automatically generates linear, quadradic, cubic and fourth order contrasts for them.
+We smooth our `rho` factor, which has many levels of a continuous measure, with a quadratic curve.
+We could instead use splines or some local linear regression if we were worried about model fit for a complex relationship.
 
+The main effects are summaries of trends across contexts.
+For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
+-->
+<p>We can use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+We can then summarise our anova table to see the contribution of the various factors and interactions to the total amount of variation in performance:</p>
+<!--The advantage here is the multiple levels of our categorical factors get bundled together in our table of results, making a tidier display.-->
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">eta.sq</th>
+<th align="right">eta.sq.part</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">rho</td>
+<td align="right">0.02</td>
+<td align="right">0.26</td>
+</tr>
+<tr class="even">
+<td align="left">p1</td>
+<td align="right">0.21</td>
+<td align="right">0.77</td>
+</tr>
+<tr class="odd">
+<td align="left">fixed</td>
+<td align="right">0.14</td>
+<td align="right">0.70</td>
+</tr>
+<tr class="even">
+<td align="left">n</td>
+<td align="right">0.12</td>
+<td align="right">0.67</td>
+</tr>
+<tr class="odd">
+<td align="left">rho:p1</td>
+<td align="right">0.02</td>
+<td align="right">0.20</td>
+</tr>
+<tr class="even">
+<td align="left">rho:fixed</td>
+<td align="right">0.03</td>
+<td align="right">0.33</td>
+</tr>
+<tr class="odd">
+<td align="left">p1:fixed</td>
+<td align="right">0.02</td>
+<td align="right">0.20</td>
+</tr>
+<tr class="even">
+<td align="left">rho:n</td>
+<td align="right">0.02</td>
+<td align="right">0.23</td>
+</tr>
+<tr class="odd">
+<td align="left">p1:n</td>
+<td align="right">0.18</td>
+<td align="right">0.74</td>
+</tr>
+<tr class="even">
+<td align="left">fixed:n</td>
+<td align="right">0.12</td>
+<td align="right">0.66</td>
+</tr>
+<tr class="odd">
+<td align="left">rho:p1:fixed</td>
+<td align="right">0.00</td>
+<td align="right">0.06</td>
+</tr>
+<tr class="even">
+<td align="left">rho:p1:n</td>
+<td align="right">0.01</td>
+<td align="right">0.18</td>
+</tr>
+<tr class="odd">
+<td align="left">rho:fixed:n</td>
+<td align="right">0.03</td>
+<td align="right">0.30</td>
+</tr>
+<tr class="even">
+<td align="left">p1:fixed:n</td>
+<td align="right">0.01</td>
+<td align="right">0.17</td>
+</tr>
+<tr class="odd">
+<td align="left">rho:p1:fixed:n</td>
+<td align="right">0.00</td>
+<td align="right">0.06</td>
+</tr>
+</tbody>
+</table>
+<p>Here we see which factors are explaining the most variation. E.g., <code>p1</code> is explaining 21% of the variation in bias across simulations.
+The contribution of the three way interactions is fairly minimal, by comparison, and could be dropped to simplify our model.</p>
+<p>Modeling can summarize overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
+We could fit a regression model or ANOVA model for each performance measure in turn, to understand what drives our results.</p>
+</div>
+<div id="example-2-comparing-methods-for-cross-classified-data" class="section level3 hasAnchor" number="12.3.2">
+<h3><span class="header-section-number">12.3.2</span> Example 2: Comparing methods for cross-classified data<a href="presentation-of-results.html#example-2-comparing-methods-for-cross-classified-data" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p><span class="citation">Lee and Pustejovsky (<a href="#ref-lee2023comparing">2023</a>)</span> were interested in evaluating how different modeling approaches perform when analyzing cross-classified data structures.
+To do this they conducted a multi-factor simulation to compare three methods: a method called CCREM, two-way OLS with cluster-robust variance estimation (CRVE), and two-way fixed effects with CRVE.
+The simulation was complex, involving several factors, so they fit an ANOVA model to understand which factors had the most influence on performance.
+In particular, they ran <em>four</em> multifactor simulations, each in a different set of conditions.
+They then used ANOVA to explore how the simulation factors impacted bias within each of these contexts.</p>
+<p>One of their tables in the supplementary materials (Table S5.2, see <a href="https://osf.io/hy73g">here</a>, page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes), and the rows corresponding to factors manipulated within the simulation.
+Small, medium, and large effects are marked to make them jump out to the eye.</p>
+<p><strong>ANOVA Results on Parameter Bias</strong></p>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="17%" />
+<col width="24%" />
+<col width="16%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Source</th>
+<th>Assumptions</th>
+<th>Homoscedasticity</th>
+<th>Exogeneity</th>
+<th>Rand Slope</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Method</td>
+<td>0.000</td>
+<td>0.006</td>
+<td>0.995 L</td>
+<td>0.000</td>
+</tr>
+<tr class="even">
+<td>Effect Size (r)</td>
+<td>0.131 M</td>
+<td>0.008</td>
+<td>0.020 S</td>
+<td>0.142 L</td>
+</tr>
+<tr class="odd">
+<td>Number of Schools (H)</td>
+<td>0.014 S</td>
+<td>0.113 M</td>
+<td>0.188 L</td>
+<td>0.001</td>
+</tr>
+<tr class="even">
+<td>Students per School (J)</td>
+<td>0.016 S</td>
+<td>0.016 S</td>
+<td>0.747 L</td>
+<td>0.110 M</td>
+</tr>
+<tr class="odd">
+<td>IUCC</td>
+<td>0.007</td>
+<td>0.007</td>
+<td>0.033 S</td>
+<td>0.073 M</td>
+</tr>
+<tr class="even">
+<td>method × r</td>
+<td>0.006</td>
+<td>0.006</td>
+<td>0.007</td>
+<td>0.012 S</td>
+</tr>
+<tr class="odd">
+<td>method × H</td>
+<td>0.004</td>
+<td>0.002</td>
+<td>0.157 L</td>
+<td>0.000</td>
+</tr>
+<tr class="even">
+<td>method × J</td>
+<td>0.002</td>
+<td>0.000</td>
+<td>0.878 L</td>
+<td>0.010 S</td>
+</tr>
+<tr class="odd">
+<td>method × IUCC</td>
+<td>0.012 S</td>
+<td>0.003</td>
+<td>0.037 S</td>
+<td>0.000</td>
+</tr>
+<tr class="even">
+<td>r × H</td>
+<td>0.103 M</td>
+<td>0.010 S</td>
+<td>0.059 S</td>
+<td>0.377 L</td>
+</tr>
+<tr class="odd">
+<td>r × J</td>
+<td>0.006</td>
+<td>0.024 S</td>
+<td>0.008</td>
+<td>0.051 S</td>
+</tr>
+<tr class="even">
+<td>r × IUCC</td>
+<td>0.065 M</td>
+<td>0.025 S</td>
+<td>0.084 M</td>
+<td>0.136 M</td>
+</tr>
+<tr class="odd">
+<td>H × J</td>
+<td>0.002</td>
+<td>0.014 S</td>
+<td>0.062 M</td>
+<td>0.105 M</td>
+</tr>
+<tr class="even">
+<td>H × IUCC</td>
+<td>0.024 S</td>
+<td>0.008</td>
+<td>0.034 S</td>
+<td>0.137 M</td>
+</tr>
+<tr class="odd">
+<td>J × IUCC</td>
+<td>0.004</td>
+<td>0.088 M</td>
+<td>0.013 S</td>
+<td>0.029 S</td>
+</tr>
+</tbody>
+</table>
+<p><em>Note: (S)mall = .01, (M)edium = .06, (L)arge = .14</em></p>
+<p>We see that when model assumptions are met or only homoscedasticity is violated, choice of method (CCREM, two-way OLS-CRVE, FE-CRVE) has almost no impact on parameter bias (<span class="math inline">\(\eta^2 = 0.000\)</span> to 0.006).
+However, under an exogeneity violation, method choice has a large effect (<span class="math inline">\(\eta^2 = 0.995\)</span>), indicating that some methods (like OLS-CRVE) have much more bias than others.
+Other factors such as the effect size of the parameter and the number of schools can also show moderate-to-large impacts on bias in several conditions.</p>
+<p>The table also shows how an interaction between simulation factors can matter.
+For example, interactions between method and number of schools, or students per school, can really impact bias under the Exogeniety Violated condition; this means the different methods respond differently as sample size changes.</p>
+<p>Overall, the table shows how some aspects of the DGP matter more, and some less.</p>
+<p>Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
+See <span class="citation">Gilbert and Miratrix (<a href="#ref-gilbert2024multilevel">2024</a>)</span> for more on this.</p>
+
+</div>
+</div>
+</div>
+<h3>References</h3>
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="ref-borenstein2021introduction" class="csl-entry">
+Borenstein, Michael, Larry V. Hedges, Julian P. T. Higgins, and Hannah R. Rothstein. 2021. <em>Introduction to Meta-Analysis</em>. 3rd ed. Chichester, UK: John Wiley &amp; Sons.
+</div>
+<div id="ref-friedman1988metamodel" class="csl-entry">
+Friedman, Linda Weiser, and Israel Pressman. 1988. <span>“The Metamodel in Simulation Analysis: Can It Be Trusted?”</span> <em>Journal of the Operational Research Society</em> 39 (10): 939–48.
+</div>
+<div id="ref-gelman2002let" class="csl-entry">
+Gelman, Andrew, Cristian Pasarica, and Rahul Dodhia. 2002. <span>“Let’s Practice What We Preach: Turning Tables into Graphs.”</span> <em>The American Statistician</em> 56 (2): 121–30.
+</div>
+<div id="ref-gilbert2024multilevel" class="csl-entry">
+Gilbert, Joshua, and Luke Miratrix. 2024. <span>“Multilevel Metamodels: A Novel Approach to Enhance Efficiency and Generalizability in Monte Carlo Simulation Studies.”</span> <em>arXiv Preprint arXiv:2401.07294</em>.
+</div>
+<div id="ref-kleijnen1981regression" class="csl-entry">
+Kleijnen, Jack PC. 1981. <span>“Regression Analysis for Simulation Practitioners.”</span> <em>Journal of the Operational Research Society</em> 32 (1): 35–43.
+</div>
+<div id="ref-lee2023comparing" class="csl-entry">
+Lee, Young Ri, and James E Pustejovsky. 2023. <span>“Comparing Random Effects Models, Ordinary Least Squares, or Fixed Effects with Cluster Robust Standard Errors for Cross-Classified Data.”</span> <em>Psychological Methods</em>.
+</div>
+<div id="ref-pustejovsky2014converting" class="csl-entry">
+Pustejovsky, James E. 2014. <span>“Converting from d to r to z When the Design Uses Extreme Groups, Dichotomization, or Experimental Control.”</span> <em>Psychological Methods</em> 19 (1): 92.
+</div>
+<div id="ref-pustejovsky2015four" class="csl-entry">
+Pustejovsky, James E, and Daniel M Swan. 2015. <span>“Four Methods for Analyzing Partial Interval Recording Data, with Application to Single-Case Research.”</span> <em>Multivariate Behavioral Research</em> 50 (3): 365–80.
+</div>
+<div id="ref-tipton2015small" class="csl-entry">
+Tipton, Elizabeth, and James E Pustejovsky. 2015. <span>“Small-Sample Adjustments for Tests of Moderators and Model Fit Using Robust Variance Estimation in Meta-Regression.”</span> <em>Journal of Educational and Behavioral Statistics</em> 40 (6): 604–34.
+</div>
+<div id="ref-tufte1983visual" class="csl-entry">
+Tufte, Edward R, and Peter R Graves-Morris. 1983. <em>The Visual Display of Quantitative Information</em>. Vol. 2. 9. Graphics press Cheshire, CT.
 </div>
 </div>
             </section>
@@ -748,8 +1296,8 @@ Having it triggered when something bad happens (in this case when a set of estim
           </div>
         </div>
       </div>
-<a href="the-parametric-bootstrap.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
-<a href="further-readings-and-resources.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+<a href="exp-design.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="building-good-vizualizations.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
     </div>
   </div>
 <script src="libs/gitbook-2.6.7/js/app.min.js"></script>
@@ -781,7 +1329,7 @@ gitbook.start({
     "size": 2
   },
   "edit": {
-    "link": "https://github.com/jepusto/Designing-Simulations-in-R/edit/master/200-coding-tidbits.Rmd",
+    "link": "https://github.com/jepusto/Designing-Simulations-in-R/edit/master/072-presentation-of-results.Rmd",
     "text": "Edit"
   },
   "history": {
