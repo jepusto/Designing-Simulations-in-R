@@ -4064,9 +4064,9 @@ Here is a function that bundles all the estimation procedures together:
 \NormalTok{) \{}
   
 \NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{bind\_rows}\NormalTok{(}
-    \AttributeTok{MLM =} \FunctionTok{analysis\_MLM}\NormalTok{( dat ),}
-    \AttributeTok{OLS =} \FunctionTok{analysis\_OLS}\NormalTok{( dat, }\AttributeTok{se\_type =}\NormalTok{ CR\_se\_type),}
-    \AttributeTok{agg =} \FunctionTok{analysis\_agg}\NormalTok{( dat, }\AttributeTok{se\_type =}\NormalTok{ agg\_se\_type),}
+    \AttributeTok{MLM =} \FunctionTok{analysis\_MLM}\NormalTok{( data ),}
+    \AttributeTok{OLS =} \FunctionTok{analysis\_OLS}\NormalTok{( data, }\AttributeTok{se\_type =}\NormalTok{ CR\_se\_type),}
+    \AttributeTok{agg =} \FunctionTok{analysis\_agg}\NormalTok{( data, }\AttributeTok{se\_type =}\NormalTok{ agg\_se\_type),}
     \AttributeTok{.id =} \StringTok{"estimator"}
 \NormalTok{  )}
   
@@ -4348,7 +4348,7 @@ The intercept and treatment effect coefficient estimates are very close to their
 This all gives some assurance that the \texttt{analysis\_MLM()} function is working properly.
 
 Of course, it is important to bear in mind that these tests are only partial verifications.
-With the algebraic test, we've checked that the functions seem to be working properly for scenarios with equal school sizes, but they still might have errors that only appear when school sizes vary.
+With the algebraic test, we have only checked that the functions seem to be working properly for scenarios with equal school sizes, but they still might have errors that only appear when school sizes vary.
 Likewise, \texttt{analysis\_MLM()} seems to be working properly for very large datasets, but our test does not rule out the possibility of bugs that only crawl out when \(J\) is small.
 Our large-sample test also relies on the correctness of the \texttt{gen\_cluster\_RCT()} function;
 if we had seen a discrepancy between parameters and estimates from the multilevel model, it could have been because of a problem with the data-generation function rather than with the estimation function.
@@ -4362,7 +4362,7 @@ Nonetheless, it is good to work through such tests to the extent that relevant t
 Checking, debugging, and revising should not be limited to when you are initially developing estimation functions.
 It often happens that later steps in the process of conducting a simulation will reveal problems with the code for earlier steps.
 For instance, once you have run the data-generating and estimation steps repeatedly, calculated performance summaries, and created some graphs of the results, you might find an unusual or anomolous pattern in the performance of an estimator.
-This might be a legitimate result---it might be that the estimator really does behave weirdly or not work well---or it might be due to a problem in how you implemented the estimator or data-generating process.
+This might be a legitimate result---perhaps the estimator really does behave weirdly or not work well---or it might be due to a problem in how you implemented the estimator or data-generating process.
 When faced with an unusual pattern, we recommend revisiting the estimation code to double check for bugs and also thinking further about what might lead to the anomoly.
 Further exploration might lead you to a deeper understanding of how a method works and perhaps even an idea for how to improve the estimator or refine the data-generating process.
 
@@ -5167,12 +5167,12 @@ For example:
 
 \chapter{Running the Simulation Process}\label{running-the-simulation-process}
 
-In the prior two chapters we saw how to write functions that generate data according to a particular model and functions that implement data-analysis procedures on the simulated data.
+In the prior two chapters we saw how to write functions that generate data according to a particular model and functions that implement data-analysis procedures on simulated data.
 The next step in a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, p-values, or other quantities) from many replications of the whole process.
 
 As with most things R-related, there are many different techniques that can be used to repeat a set of calculations over and over.
-In this chapter, we will demonstrate several techniques for doing so.
-We will then explain how to ensure reproducibility of simulation results by setting the seed used by R's random number generator.
+In this chapter, we demonstrate several techniques for doing so.
+We then explain how to ensure reproducibility of simulation results by setting the seed used by R's random number generator.
 
 \section{Repeating oneself}\label{repeating-oneself}
 
@@ -5196,7 +5196,7 @@ To produce a simulated correlation coefficient, we need to run these two functio
 
 To execute a simulation with these components, we need to repeat this set of calculations over and over.
 R has many different functions for doing exactly this.
-As one of many alternatives, the \texttt{\{simhelpers\}} package includes a function called \texttt{repeat\_and\_stack()}, which can be used to evaluate an arbitrary expression many times over.
+As one of many alternatives, the \texttt{simhelpers} package includes a function called \texttt{repeat\_and\_stack()}, which can be used to evaluate an arbitrary expression many times over.
 We can use it to generate five replications of our correlation coefficient:
 
 \begin{Shaded}
@@ -5290,7 +5290,7 @@ However, the wrapper technique can be useful for more complicated simulations, s
 
 Consider the cluster-randomized experiment case study presented in Section \ref{case-cluster} and \ref{multiple-estimation-procedures}.
 In this simulation, we are interested in comparing the performance of three different estimation methods: a multi-level model, a linear regression with clustered standard errors, and a linear regression on the data aggregated to the school level.
-A single replication of the simulation entails generating a dataset and then apply three different estimation functions to it.
+A single replication of the simulation entails generating a dataset and then applying three different estimation functions to it.
 Here is a function that takes our simulation parameters and runs a single trial of the full process:
 
 \begin{Shaded}
@@ -5333,28 +5333,29 @@ When we call the function, we get a nicely structured table of results:
 
 We organize the output in a tibble to make it easier to do subsequent data processing and analysis.
 The results for each method are organized in separate lines.
-For each method, we record the impact estimate, its (estimated) standard error, and a nominal \(p\)-value.
+For each method, we record the impact estimate, its estimated standard error, and a nominal \(p\)-value.
 Note how the \texttt{bind\_rows()} method can take naming on the fly, and give us a column of \texttt{method}, which will be very useful for keeping track of which results come from which estimation.
 
-Once we have a function to execute a single run of the simulation, we can produce multiple results using \texttt{repeat\_and\_stack()}:
+Once we have a function to execute a single run, we can produce multiple results using \texttt{repeat\_and\_stack()}:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{R }\OtherTok{\textless{}{-}} \DecValTok{1000}
 \NormalTok{ATE }\OtherTok{\textless{}{-}} \FloatTok{0.30}
-\NormalTok{runs }\OtherTok{\textless{}{-}} \FunctionTok{repeat\_and\_stack}\NormalTok{(R, }\FunctionTok{one\_run}\NormalTok{( }\AttributeTok{n\_bar =} \DecValTok{30}\NormalTok{, }\AttributeTok{J=}\DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =}\NormalTok{ ATE ), }\AttributeTok{id =} \StringTok{"runID"}\NormalTok{) }
+\NormalTok{runs }\OtherTok{\textless{}{-}} \FunctionTok{repeat\_and\_stack}\NormalTok{(R, }
+                         \FunctionTok{one\_run}\NormalTok{( }\AttributeTok{n\_bar =} \DecValTok{30}\NormalTok{, }\AttributeTok{J=}\DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =}\NormalTok{ ATE ),}
+                         \AttributeTok{id =} \StringTok{"runID"}\NormalTok{) }
 \FunctionTok{saveRDS}\NormalTok{( runs, }\AttributeTok{file =} \StringTok{"results/cluster\_RCT\_simulation.rds"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 Setting \texttt{id\ =\ "runID"} lets us keep track of which iteration number produced which result.
-Once our simulation is complete, we save our results to a file for future use.
-so that we can avoid having to re-run these calculations each time we want to explore the results.
+Once our simulation is complete, we save our results to a file so that we can avoid having to re-run the full simulation if we want to explore the results in some future work session.
 
 We now have results for each of our estimation methods applied to each of 1000 generated datasets.
 The next step is to evaluate how well the estimators did.
-For example, we will want to examine questions about bias, precision, and accuracy of the point estimators.
-In Chapter \ref{performance-criteria}, we look systematically at ways to quantify the performance of estimation methods.
+For example, we will want to examine questions about bias, precision, and accuracy of the three point estimators.
+In Chapter \ref{performance-criteria}, we will look systematically at ways to quantify the performance of estimation methods.
 
 \subsection{Reparameterizing}\label{one-run-reparameterization}
 
@@ -5392,7 +5393,7 @@ In the revised \texttt{one\_run()} function, we transform the \texttt{ICC} input
 We have not modified \texttt{gen\_cluster\_RCT()} at all: instead, we specify the parameters of the DGP function in terms of the parameters we want to directly control in the simulation.
 Here we have put our entire simulation into effect size units, and are now providing ``knobs'' to the simulation that are directly interpretable.
 
-\section{\texorpdfstring{Bundling simulations with \texttt{\{simhelpers\}}}{Bundling simulations with \{simhelpers\}}}\label{bundle-sim-demo}
+\section{\texorpdfstring{Bundling simulations with \texttt{simhelpers}}{Bundling simulations with simhelpers}}\label{bundle-sim-demo}
 
 The techniques that we have demonstrated for repeating a set of calculations each involve a very specific coding pattern, which will often have the same structure even if the details of the data-generating model or the names of the input parameters are very different from the examples we have presented.
 The \texttt{simhelpers} package provides a function \texttt{bundle\_sim()} that abstracts this common pattern and allows you to automatically stitch together (or ``bundle'') a DGP function and an estimation function, so that they can be run once or multiple times.
@@ -5403,7 +5404,9 @@ Here is a basic example, which creates a function for simulating Pearson correla
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{sim\_r\_Poisson }\OtherTok{\textless{}{-}} \FunctionTok{bundle\_sim}\NormalTok{(}\AttributeTok{f\_generate =}\NormalTok{ r\_bivariate\_Poisson, }\AttributeTok{f\_analyze =}\NormalTok{ r\_and\_z, }\AttributeTok{id =} \StringTok{"rep"}\NormalTok{)}
+\NormalTok{sim\_r\_Poisson }\OtherTok{\textless{}{-}} \FunctionTok{bundle\_sim}\NormalTok{(}\AttributeTok{f\_generate =}\NormalTok{ r\_bivariate\_Poisson, }
+                            \AttributeTok{f\_analyze =}\NormalTok{ r\_and\_z, }
+                            \AttributeTok{id =} \StringTok{"rep"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
@@ -5442,48 +5445,13 @@ In addition to the expected arguments from \texttt{r\_bivariate\_Poisson()}, the
 Its first argument is \texttt{reps}, which controls the number of times that the simulation process will be evaluated.
 Its last argument is \texttt{seed}, which we will discuss in Section \ref{seeds-and-pseudo-RNGs}.
 
-The \texttt{bundle\_sim()} function requires specifying a DGP function and a \emph{single} estimation function, with the data as the first argument. Our cluster-randomized experiment example involved three separate estimation functions, so we first need to write a single function that organizes all of the estimators:
+The \texttt{bundle\_sim()} function requires specifying a DGP function and a \emph{single} estimation function, with the data as the first argument.
+For our cluster-randomized experiment example, we would then need to use our \texttt{estimate\_Tx\_Fx()} function that organizes all of the estimators (see Chapter \ref{multiple-estimation-procedures}).
+We then use \texttt{bundle\_sim()} to create a function for running an entire simulation:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{analyze\_data }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( dat ) \{}
-\NormalTok{  MLM }\OtherTok{=} \FunctionTok{analysis\_MLM}\NormalTok{( dat )}
-\NormalTok{  LR }\OtherTok{=} \FunctionTok{analysis\_OLS}\NormalTok{( dat )}
-\NormalTok{  Agg }\OtherTok{=} \FunctionTok{analysis\_agg}\NormalTok{( dat )}
-  
-  \FunctionTok{bind\_rows}\NormalTok{( }\AttributeTok{MLM =}\NormalTok{ MLM, }\AttributeTok{LR =}\NormalTok{ LR, }\AttributeTok{Agg =}\NormalTok{ Agg, }\AttributeTok{.id =} \StringTok{"method"}\NormalTok{ )}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-This is simply the \texttt{one\_run()} method from above, but without the data generating part.
-When we pass a dataset to it, we get a nice table of results, just as before:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_cluster\_RCT}\NormalTok{( }\AttributeTok{n=}\DecValTok{30}\NormalTok{, }\AttributeTok{J =} \DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =} \FloatTok{0.30}\NormalTok{ )}
-\FunctionTok{analyze\_data}\NormalTok{( dat )}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## boundary (singular) fit: see help('isSingular')
-\end{verbatim}
-
-\begin{verbatim}
-## # A tibble: 3 x 4
-##   method ATE_hat SE_hat   p_value
-##   <chr>    <dbl>  <dbl>     <dbl>
-## 1 MLM      0.534 0.132  0.0000650
-## 2 LR       0.534 0.0844 0.0000660
-## 3 Agg      0.261 0.229  0.269
-\end{verbatim}
-
-We can now use \texttt{bundle\_sim()} to create a function for running an entire simulation:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{sim\_cluster\_RCT }\OtherTok{\textless{}{-}} \FunctionTok{bundle\_sim}\NormalTok{( gen\_cluster\_RCT, analyze\_data, }\AttributeTok{id =} \StringTok{"runID"}\NormalTok{ )}
+\NormalTok{sim\_cluster\_RCT }\OtherTok{\textless{}{-}} \FunctionTok{bundle\_sim}\NormalTok{( gen\_cluster\_RCT, estimate\_Tx\_Fx, }\AttributeTok{id =} \StringTok{"runID"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
@@ -5491,29 +5459,33 @@ We can call the newly created function like so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{sim\_cluster\_RCT}\NormalTok{( }\DecValTok{2}\NormalTok{, }\AttributeTok{n\_bar =} \DecValTok{30}\NormalTok{, }\AttributeTok{J =} \DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =}\NormalTok{ ATE, }\AttributeTok{sigma2\_u =} \FloatTok{0.3}\NormalTok{, }\AttributeTok{sigma2\_e =} \FloatTok{0.7}\NormalTok{ )}
+\FunctionTok{sim\_cluster\_RCT}\NormalTok{( }\DecValTok{2}\NormalTok{, }
+                 \AttributeTok{n\_bar =} \DecValTok{30}\NormalTok{, }\AttributeTok{J =} \DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =}\NormalTok{ ATE, }
+                 \AttributeTok{sigma2\_u =} \FloatTok{0.3}\NormalTok{, }\AttributeTok{sigma2\_e =} \FloatTok{0.7}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-##   method    ATE_hat    SE_hat   p_value runID
-## 1    MLM -0.2220811 0.2112882 0.3070589     1
-## 2     LR -0.3118805 0.2436926 0.2225359     1
-## 3    Agg -0.1479897 0.2026064 0.4745281     1
-## 4    MLM  0.3036305 0.2248424 0.1956698     2
-## 5     LR  0.3277870 0.2147519 0.1523052     2
-## 6    Agg  0.3884213 0.2589027 0.1508837     2
+##   estimator   ATE_hat    SE_hat     p_value runID
+## 1       MLM 1.0718041 0.3464600 0.009834928     1
+## 2       OLS 0.8725333 0.3581403 0.041659400     1
+## 3       agg 1.1574631 0.4486484 0.018880161     1
+## 4       MLM 0.3975797 0.2379827 0.111564711     2
+## 5       OLS 0.4656465 0.2686438 0.111156240     2
+## 6       agg 0.3142312 0.2140596 0.159372293     2
 \end{verbatim}
 
-Note that \texttt{bundle\_sim()} produces a function with input names that exactly match the inputs of the DGP function that we give it.
+Again, \texttt{bundle\_sim()} produces a function with input names that exactly match the inputs of the DGP function that we give it.
 It is not possible to re-parameterize or change argument names, as we did with \texttt{one\_run()} in Section \ref{one-run-reparameterization}.
-See Exercise @ref() for further discussion of this limitation.
+See Exercise \ref{reparameterization-redux} for further discussion of this limitation.
 
 To use the simulation function in practice, we call it by specifying the number of replications desired (which we have stored in \texttt{R}) and any relevant input parameters.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{runs }\OtherTok{\textless{}{-}} \FunctionTok{sim\_cluster\_RCT}\NormalTok{( R, }\AttributeTok{n\_bar =} \DecValTok{30}\NormalTok{, }\AttributeTok{J =} \DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =}\NormalTok{ ATE, }\AttributeTok{sigma2\_u =} \FloatTok{0.3}\NormalTok{, }\AttributeTok{sigma2\_e =} \FloatTok{0.7}\NormalTok{ )}
+\NormalTok{runs }\OtherTok{\textless{}{-}} \FunctionTok{sim\_cluster\_RCT}\NormalTok{( R, }
+                         \AttributeTok{n\_bar =} \DecValTok{30}\NormalTok{, }\AttributeTok{J =} \DecValTok{20}\NormalTok{, }\AttributeTok{gamma\_1 =}\NormalTok{ ATE, }
+                         \AttributeTok{sigma2\_u =} \FloatTok{0.3}\NormalTok{, }\AttributeTok{sigma2\_e =} \FloatTok{0.7}\NormalTok{ )}
 \FunctionTok{saveRDS}\NormalTok{( runs, }\AttributeTok{file =} \StringTok{"results/cluster\_RCT\_simulation.rds"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
@@ -5536,9 +5508,9 @@ For instance, running the \texttt{rchisq} function with the same set of inputs w
 \end{Shaded}
 
 \begin{verbatim}
-##         [,1]     [,2]    [,3]     [,4]
-## c1 0.8928948 4.685652 1.94097 5.593987
-## c2 0.9632513 2.454760 2.48962 1.463933
+##        [,1]     [,2]     [,3]     [,4]
+## c1 2.859183 2.925194 9.362208 2.502835
+## c2 3.495920 5.326844 1.008615 2.359409
 \end{verbatim}
 
 If you run the same code as above, you will get different results from these.
@@ -5636,8 +5608,10 @@ Specifying an integer-valued seed will make the results exactly reproducible:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{sim\_A }\OtherTok{\textless{}{-}} \FunctionTok{sim\_r\_Poisson}\NormalTok{( }\DecValTok{10}\NormalTok{, }\AttributeTok{N =} \DecValTok{30}\NormalTok{, }\AttributeTok{rho =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{mu1 =} \DecValTok{8}\NormalTok{, }\AttributeTok{mu2 =} \DecValTok{14}\NormalTok{, }\AttributeTok{seed =} \DecValTok{25}\NormalTok{)}
-\NormalTok{sim\_B }\OtherTok{\textless{}{-}} \FunctionTok{sim\_r\_Poisson}\NormalTok{( }\DecValTok{10}\NormalTok{, }\AttributeTok{N =} \DecValTok{30}\NormalTok{, }\AttributeTok{rho =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{mu1 =} \DecValTok{8}\NormalTok{, }\AttributeTok{mu2 =} \DecValTok{14}\NormalTok{, }\AttributeTok{seed =} \DecValTok{25}\NormalTok{)}
+\NormalTok{sim\_A }\OtherTok{\textless{}{-}} \FunctionTok{sim\_r\_Poisson}\NormalTok{( }\DecValTok{10}\NormalTok{, }\AttributeTok{N =} \DecValTok{30}\NormalTok{, }\AttributeTok{rho =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{mu1 =} \DecValTok{8}\NormalTok{, }\AttributeTok{mu2 =} \DecValTok{14}\NormalTok{,}
+                        \AttributeTok{seed =} \DecValTok{25}\NormalTok{)}
+\NormalTok{sim\_B }\OtherTok{\textless{}{-}} \FunctionTok{sim\_r\_Poisson}\NormalTok{( }\DecValTok{10}\NormalTok{, }\AttributeTok{N =} \DecValTok{30}\NormalTok{, }\AttributeTok{rho =} \FloatTok{0.4}\NormalTok{, }\AttributeTok{mu1 =} \DecValTok{8}\NormalTok{, }\AttributeTok{mu2 =} \DecValTok{14}\NormalTok{,}
+                        \AttributeTok{seed =} \DecValTok{25}\NormalTok{)}
 \FunctionTok{identical}\NormalTok{(sim\_A, sim\_B)}
 \end{Highlighting}
 \end{Shaded}
@@ -5667,7 +5641,7 @@ In the prior chapter's exercises, you made a new \texttt{BF\_F} function for the
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
 \item
-  Use \texttt{sim\_r\_Poisson()} to generate 5000 replications of the Fisher-z-transformed correlation coefficient under a bivariate Poisson distribution for a sample of \(N = 40\) observations, with \(\rho = 0.7\) and your own choice for the remaining parameters.
+  Use \texttt{sim\_r\_Poisson()} to generate 5000 replications of the Fisher-z-transformed correlation coefficient under a bivariate Poisson distribution with \(\rho = 0.7\) for a sample of \(N = 40\) observations. You pick the remaining parameters.
 \item
   Create a bundled simulation function by combining the data-generating function from Exercise \ref{BVNB1} or \ref{BVNB2} with the \texttt{r\_and\_z()} estimation function. Run the function to generate 5000 replications of the Fisher-z-transformed correlation coefficient under a bivariate negative binomial distribution, with the same parameter values as above.
 \item
@@ -5692,7 +5666,7 @@ Then in Exercise \ref{CRT-ANCOVA-estimators}, your task was to create an estimat
 \item
   Use the resulting function to simulate results from 1000 replications of a cluster-randomized trial, each analyzed two ways (with and without covariate adjustment).
 \item
-  Create a plot that shows the sampling distribution of each average treatment effect estimator and makes it easy to compare the distributions.
+  Create a plot that shows the sampling distribution of each average treatment effect estimator in a way that makes it easy to compare the distributions.
 \end{enumerate}
 
 \chapter{Performance criteria}\label{performance-criteria}
@@ -6327,7 +6301,7 @@ In many simulation studies, replications are generated and performance criteria 
 Let's focus on bias for now, and say that we've estimated (from a large number of replications) the bias at each parameter value.
 We present two hypothetical scenarios, A and B, in the figures below.
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-176-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-174-1} \end{center}
 
 If the absolute bias is roughly the same for all values of \(\theta\) (as in Scenario A), then it makes sense to report absolute bias as the summary performance criterion.
 On the other hand, if the bias grows roughly in proportion to \(\theta\) (as in Scenario B), then relative bias might be a better summary criterion.
@@ -6832,7 +6806,7 @@ We can also check normality:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-190-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-188-1} \end{center}
 
 Looks good! A nice straight line.
 
@@ -7160,22 +7134,15 @@ If we only had a couple of parameter combinations, it would be easy enough to ju
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(100, one_run(n, p,
-##   alpha, df))
+##   rerun(100, one_run(n, p, alpha, df))
 ## 
 ##   # Now
-##   map(1:100, ~ one_run(n, p,
-##   alpha, df))
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
-## generated.
+##   map(1:100, ~ one_run(n, p, alpha, df))
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
 \end{verbatim}
 
 \begin{verbatim}
@@ -7876,8 +7843,7 @@ As we saw above, nesting collapses a larger dataframe into a dataframe of datafr
 
 \begin{verbatim}
 ## # A tibble: 144 x 5
-## # Groups:   n, p, alpha, df
-## #   [144]
+## # Groups:   n, p, alpha, df [144]
 ##        n     p alpha    df alpha_sims        
 ##    <dbl> <dbl> <dbl> <dbl> <list>            
 ##  1    50     4   0.1     5 <tibble [500 x 4]>
@@ -7910,8 +7876,7 @@ Once nested, we can then use \texttt{map()} to apply a function to each element 
 
 \begin{verbatim}
 ## # A tibble: 576 x 7
-## # Groups:   n, p, alpha, df
-## #   [144]
+## # Groups:   n, p, alpha, df [144]
 ##        n     p alpha    df criterion           est
 ##    <dbl> <dbl> <dbl> <dbl> <chr>             <dbl>
 ##  1    50     4   0.1     5 alpha bias      -0.103 
@@ -8091,7 +8056,7 @@ Then we could plot everything like so:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-224-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-222-1} \end{center}
 
 Each point is one of our methods in one of our simulation scenarios.
 We are looking at the raw results.
@@ -8218,7 +8183,7 @@ For our cluster RCT, we might aggregate our bias across some of our simulation f
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-226-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-224-1} \end{center}
 
 We see more clearly that site variation leads to greater bias, but only if the coefficient for size is nonzero (which makes sense given our theoretical understanding of the problem--if size is not related to treatment effect, it is hard to imagine how it would bias it).
 We also see that all the estimators have near zero bias when thee is no variation in cluster size, with the overplotted lines on the top row of the figure.
@@ -8238,12 +8203,11 @@ We can also let ggplot aggregate directly by taking advantage of the smoothing o
 \end{Shaded}
 
 \begin{verbatim}
-## `geom_smooth()` using method
-## = 'loess' and formula = 'y ~
-## x'
+## `geom_smooth()` using method = 'loess' and
+## formula = 'y ~ x'
 \end{verbatim}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-227-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-225-1} \end{center}
 
 In the above, we let the original points show as well, to give a sense of the variation across simulation trials.
 
@@ -8363,19 +8327,13 @@ We also know that ICC is an important feature, so we can explore how often we ge
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: There were 15 warnings in
-## `summarise()`.
+## Warning: There were 15 warnings in `summarise()`.
 ## The first warning was:
-## i In argument: `message =
-##   mean(message)`.
-## i In group 1: `method =
-##   "Agg"` `ICC = 0`.
+## i In argument: `message = mean(message)`.
+## i In group 1: `method = "Agg"` `ICC = 0`.
 ## Caused by warning in `mean.default()`:
 ## ! argument is not numeric or logical: returning NA
-## i Run
-##   `dplyr::last_dplyr_warnings()`
-##   to see the 14 remaining
-##   warnings.
+## i Run `dplyr::last_dplyr_warnings()` to see the 14 remaining warnings.
 \end{verbatim}
 
 \begin{verbatim}
@@ -8593,7 +8551,7 @@ the relationship of five variables.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-235-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-233-1} \end{center}
 
 We are looking at power for different control and treatment group sizes. The tau is our treatment effect, and so for \(\tau = 0\) we are looking at validity (false rejection of the null) and for the other \(\tau\) power (noticing an effect when it is there).
 Notice that we are seeing elevated rejection rates (the tau=0 line is well above 0.05) under the null for small and even moderate sample sizes!
@@ -9117,7 +9075,7 @@ And plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-254-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-252-1} \end{center}
 
 \section{Improving the visualization of the results}\label{improving-the-visualization-of-the-results}
 
@@ -9135,7 +9093,7 @@ differences are relatively constant given changing sample size.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-255-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-253-1} \end{center}
 
 Better is to rescale using our knowledge of standard errors. If we scale by
 the square root of sample size, we should get horizontal lines. We now
@@ -9156,7 +9114,7 @@ clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-257-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-255-1} \end{center}
 
 Overall, we see the scaled error of the mean it is stable across the
 different distributions. The trimmed mean is a real advantage when the
@@ -9268,7 +9226,7 @@ Let's look at our distribution
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-260-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-258-1} \end{center}
 
 We steal the code from above, modifying it slightly for our new function and
 changing our target parameter from 0 to 1:
@@ -9359,7 +9317,7 @@ And then we plot, making a facet for each outcome of interest:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-264-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-262-1} \end{center}
 
 We see how different estimators have different biases and different
 uncertainties. The bias is negative for our trimmed estimators because we
@@ -9472,11 +9430,10 @@ Finally, the facet grid gives our final factors of cut-off type and cut-off perc
 All our factors, and nearly 5000 explored simulation scenarios, are visible in a single plot.
 
 \begin{verbatim}
-## `geom_smooth()` using formula
-## = 'y ~ x'
+## `geom_smooth()` using formula = 'y ~ x'
 \end{verbatim}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-266-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-264-1} \end{center}
 
 Source: Pustejovsky, J. E. (2014). Converting from d to r to z when the design uses extreme groups, dichotomization, or experimental control. Psychological Methods, 19(1), 92-112.
 
@@ -9497,7 +9454,7 @@ This was a complex experimental design, varying several factors:
 - degree of model mis-specification
 \end{verbatim}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-267-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-265-1} \end{center}
 
 Here the boxplot shows the Type-I error rates for the different small-sample corrections across the covariates tested and degree of model misspecification. We add a line at the target 0.05 rejection rate to ease comparison.
 The reach of the boxes shows how some methods are more or less vulnerable to different types of misspecification. Other estimators are clearly hyper-conservitive, with very low rejection rates.
@@ -9517,7 +9474,7 @@ For this to work, we need our MCSE to be small enough that our coverage is estim
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/swan_example_setup-1} \end{center}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-268-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-266-1} \end{center}
 
 To see this plot IRL, see Pustejovsky, J. E., \& Swan, D. M. (2015). Four methods for analyzing partial interval recording data, with application to single-case research. \emph{Multivariate Behavioral Research, 50}(3), 365-380.
 
@@ -9766,15 +9723,15 @@ The \texttt{microbenchmark} function runs each expression 100 times (by default)
 
 \begin{verbatim}
 ## Unit: microseconds
-##       expr     min       lq      mean  median
-##  Rfunction 196.431 204.5285 228.20026 208.690
-##     direct  86.346  90.2820  95.17207  93.029
+##       expr     min      lq      mean   median
+##  Rfunction 198.522 205.369 229.81648 213.5075
+##     direct  86.141  90.364  97.92276  93.8900
 ##        uq      max neval
-##  218.4275 1692.890   100
-##   96.5755  198.153   100
+##  220.6415 1401.093   100
+##   98.7690  197.251   100
 \end{verbatim}
 
-The direct function is 2.4 times faster than the built-in R function.
+The direct function is 2.3 times faster than the built-in R function.
 
 This result is not unusual.
 Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
@@ -10047,12 +10004,12 @@ The reason this is important is we are now doing our group aggregation only once
 
 \begin{verbatim}
 ## Unit: microseconds
-##   expr     min       lq      mean   median
-##  noagg  556.78  586.423  753.0212  612.991
-##    agg 1372.68 1402.999 1527.8851 1438.690
+##   expr      min        lq      mean    median
+##  noagg  554.402  589.6005  777.1058  616.9475
+##    agg 1353.779 1408.1040 1547.3478 1460.5840
 ##        uq       max neval
-##   638.452 12780.192   100
-##  1485.697  5921.712   100
+##   641.650 14210.108   100
+##  1521.653  5641.559   100
 \end{verbatim}
 
 And our relative speedup is:
@@ -10994,7 +10951,7 @@ We ended up with the following data, with log-transformed discipline rates for e
 
 \begin{verbatim}
 ## Rows: 27 Columns: 6
-## -- Column specification ------
+## -- Column specification ----------------------------------------------------------------------------
 ## Delimiter: ","
 ## chr (1): Code
 ## dbl (5): 2015, 2016, 2017, 2018, 2019
@@ -11133,7 +11090,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-306-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-304-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -11375,7 +11332,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-312-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-310-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -11907,42 +11864,27 @@ This driver also stores the finite sample ATE for future reference:
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
 ## rerun(3, {
-## dat = mutate(dat, Z = 0 +
-## (sample(n) <= n / 2),
-## Yobs = ifelse(Z == 1, Y1,
-## Y0))
-## mod = lm(Yobs ~ Z, data =
-## dat)
-## tibble(ATE_hat =
-## coef(mod)[["Z"]], SE_hat =
-## arm::se.coef(
+## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
+## Yobs = ifelse(Z == 1, Y1, Y0))
+## mod = lm(Yobs ~ Z, data = dat)
+## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
 ## mod)[["Z"]])
 ## })
 ## 
 ##   # Now
 ## map(1:3, ~ {
-## dat = mutate(dat, Z = 0 +
-## (sample(n) <= n / 2),
-## Yobs = ifelse(Z == 1, Y1,
-## Y0))
-## mod = lm(Yobs ~ Z, data =
-## dat)
-## tibble(ATE_hat =
-## coef(mod)[["Z"]], SE_hat =
-## arm::se.coef(
+## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
+## Yobs = ifelse(Z == 1, Y1, Y0))
+## mod = lm(Yobs ~ Z, data = dat)
+## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
 ## mod)[["Z"]])
 ## })
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
-## generated.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
 \end{verbatim}
 
 \begin{verbatim}
@@ -11964,22 +11906,15 @@ We then run a bunch of finite runs.
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(500,
-##   one_finite_run())
+##   rerun(500, one_finite_run())
 ## 
 ##   # Now
-##   map(1:500, ~
-##   one_finite_run())
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
-## generated.
+##   map(1:500, ~ one_finite_run())
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
 \end{verbatim}
 
 We use \texttt{.id} because we will need to separate out each finite run and analyze separately, and then aggregate.
