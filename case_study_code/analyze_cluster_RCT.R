@@ -54,9 +54,9 @@ estimate_Tx_Fx <- function(
 ) {
   
   dplyr::bind_rows(
-    MLM = analysis_MLM( dat ),
-    OLS = analysis_OLS( dat, se_type = CR_se_type),
-    agg = analysis_agg( dat, se_type = agg_se_type),
+    MLM = analysis_MLM( data ),
+    OLS = analysis_OLS( data, se_type = CR_se_type),
+    agg = analysis_agg( data, se_type = agg_se_type),
     .id = "estimator"
   )
   
