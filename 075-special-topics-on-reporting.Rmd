@@ -70,12 +70,14 @@ Before we plot, however, we calculate MCSEs and add them to the plot as error ba
 
 ```{r}
 sres_sub <- sres %>%
-  filter( n_bar == 320, J == 20 )
+  filter( n_bar == 320, J == 20 ) %>%
+  mutate( bias.mcse = SE / sqrt( R ) )
 ggplot( sres_sub, aes( as.factor(alpha), bias, 
                        col=method, pch=method, group=method ) ) +
   facet_grid( size_coef ~ ICC, labeller = label_both ) +
   geom_point() + 
-  geom_errorbar( aes( ymin = bias - 2*bias.mcse, ymax = bias + 2*bias.mcse ), 
+  geom_errorbar( aes( ymin = bias - 2*bias.mcse, 
+                      ymax = bias + 2*bias.mcse ), 
                  width = 0 ) +
   geom_line() +
   geom_hline( yintercept = 0 ) +
@@ -139,6 +141,24 @@ Visually, we see that several factors appear to impact bias, but we might want t
 In particular, does the population vs sample cutoff option matter, on average, for bias, across all the simulation factors considered?
 
 We can fit a regression model to see:
+
+```{r, include=FALSE}
+load("data/d2r results.rData")
+allResults$n <- ordered(allResults$n)
+allResults$p.inv <- allResults$p1
+allResults$p1 <- ordered(allResults$p1, 
+                labels = paste("p1 = 1/",unique(allResults$p1), sep=""))
+allResults$fixed <- factor(allResults$fixed, levels=c("TRUE","FALSE"), 
+                labels = c("Fixed percentiles","Sample percentiles"))
+
+r_F <- allResults %>%
+  filter(stat=="r.i" & design=="Extreme Group") %>%
+  droplevels()
+levels(r_F$fixed) <- c("Pop. cutoff","Sample cutoff")
+r_F$bias <- r_F$mean - r_F$rho
+r_F$bias.sm <- r_F$mean.sm - r_F$rho
+r_F$rmse <- sqrt(r_F$bias^2 + r_F$var)
+```
 
 ```{r modeling_demonstration, warning=FALSE}
 options(scipen = 5)
