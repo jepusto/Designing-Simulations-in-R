@@ -115,7 +115,8 @@ analysis_agg <- function( dat ) {
     group_by( sid, Z ) %>%
     summarise( 
       Ybar = mean( Yobs ),
-      n = n() 
+      n = n(),
+      .groups = "drop"
     )
   
   stopifnot( nrow( datagg ) == length(unique(dat$sid) ) )
@@ -166,7 +167,7 @@ run_CRT_sim <- function(reps,
   if (!is.null(seed)) set.seed(seed)
   
   res <- 
-    purrr::rerun( reps, {
+    simhelpers::repeat_and_stack( reps, {
       dat <- gen_dat_model( n_bar = n_bar, J = J, p = p,
                             gamma_0 = 0, gamma_1 = ATE, gamma_2 = size_coef,
                             sigma2_u = ICC, sigma2_e = 1 - ICC,
@@ -181,6 +182,6 @@ if ( FALSE ) {
   
   dat <- gen_dat_model( 5, 3 )
   dat
-  
+  run_CRT_sim( reps = 5 )
 }
 

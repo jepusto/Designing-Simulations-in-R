@@ -494,16 +494,31 @@ saveRDS( res, file = "results/simulation_CRT.rds" )
 
 ```{r secret_run_full_CRT, include=FALSE}
 if ( !file.exists( "results/simulation_CRT.rds" ) ) {
-  # Secret Run code in parallel for speedup
+ 
+   # Secret Run code in parallel for speedup
   library( tidyverse )
-  library(future)
-  library(furrr)
+  library( future )
+  library( furrr )
 
   source( "case_study_code/clustered_data_simulation.R")
+
+  crt_design_factors <- list(
+    n_bar = c( 20, 80, 320 ),
+    J = c( 5, 20, 80 ),
+    ATE = c( 0.2 ),
+    size_coef = c( 0, 0.2 ),
+    ICC = c( 0, 0.2, 0.4, 0.6, 0.8 ),
+    alpha = c( 0, 0.5, 0.8 )
+  )
+  
+  params <- expand_grid(!!!crt_design_factors)
+
+  params$seed = 1:nrow(params) * 17 + 100000
+  params
   
   plan(multisession, workers = parallel::detectCores() - 2)
   params$res = future_pmap(params, .f = run_CRT_sim,
-                           reps = 100,
+                           reps = 1000,
                            .options = furrr_options(seed = NULL),
                            .progress = TRUE )
   plan(sequential)
