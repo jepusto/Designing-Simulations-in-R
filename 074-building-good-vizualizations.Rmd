@@ -43,19 +43,20 @@ summary( sres$R )
 
 Visualization should nearly always be the first step in analyzing simulation results.
 In the prior chapter, we saw a series of visualizations that showed overall trends across a variety of examples.
-Those visualizations are not the initial ones that were created for those research projects.
+Those visualizations were not the initial ones created for those research projects.
 In practice, making a visualization often requires creating a _bunch_ of graphs to look at different aspects of the data.
 From that pile of graphs, you would then refine ones that communicate the overall results most cleanly, and include those in your main write-up.
-In our work, we find we often generate a series of R Markdown reports that load the simulation results and generate collections visualizations targeting our various research questions.
+
+In our work, we find we often generate a series of R Markdown reports with comprehensive simulation results targeting our various research questions.
 These initial documents are then discussed internally by the research team.
 
-In this chapter we dive into how to create visualizations, and discuss a set of common tools that we use to explore our simulation results.
+In this chapter we discuss a set of common tools that we frequently use to explore our simulation results.
 In particular, we focus on four essential tools:
 
 1. **Subsetting**: Multifactor simulations can be complex and confusing. Sometimes it is easier to first explore a subset of the simulation results, such as a single factor level.
-2. **Many small multiples**: plotting all of the results in a single plot, with facets to break up the results by simulation factors.
-3. **Bundling**: grouping the results by a primary factor of interest, and then plotting the performance measure as a boxplot so you can see how much variation there is within that factor level.
-4. **Aggregation**: averaging the performance measure across some of the simulation factors, so you can see overall trends.
+2. **Many small multiples**: Plot many results in a single plot, with facets to break up the results by simulation factors.
+3. **Bundling**: Group the results by a primary factor of interest, and then plotting the performance measure as a boxplot so you can see how much variation there is within that factor level.
+4. **Aggregation**: Average the performance measure across some of the simulation factors, so you can see overall trends.
 
 <!--These tools are often used in combination.
 To get a sense of an overall trend, you can aggregate across factors, averaging your performance metrics and then making line charts or scatterplots.
@@ -65,7 +66,7 @@ Do this especially if entire sets of simulation results are on radically differe
 You can further use color, shape, and line type to encode different factors.
 -->
 
-We next walk through these techniques using our running example of comparing methods for analyzing a Cluster RCT.
+To illustrate these tools, we walk through them using our running example of comparing methods for analyzing a Cluster RCT.
 We will start with an investigation of bias.
 
 As a reminder, in our Cluster RCT example, we have three methods for estimating the average treatment effect: linear regression of the student-level outcome onto treatment (with cluster-robust standard errors); aggregation, where we regress the cluster-level average outcome onto treatment (with heteroskedastic robust standard errors); and multilevel modeling with random effects.
@@ -81,9 +82,9 @@ This is because, with a facet grid, you can plot five things easily: two for the
 We usually use two of these for method and outcome, giving three factors to explore.
 
 For example, for our simulation, we might examine an ICC of 0.20 only, taking it as a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
-We migth further pick $n_bar = 80$ so we do not have to worry about it too much.
+We might further pick $\bar{n} = 80$, as our middle level for that factor.
 This leaves three factors, allowing us to plot all of our simulation results.
-We the bias as a function of `J`, with different lines for the different methods, and facets for the different levels of `size_coef` and `alpha`.
+We plot bias as a function of `J`, with different lines for the different methods, and facets for the different levels of `size_coef` and `alpha`.
 
 ```{r}
 sres_sub <- sres %>%
@@ -106,8 +107,8 @@ We immediately see that when there is a lot of site variation, and it relates to
 <!--Again, we are showing five variables: our facets are organized by two (alpha and the size coefficient), and within each facet we have three (J, our outcome of bias, and the methods themselves).-->
 
 Subsetting is a very useful tool, especially when the scope of the simulation feels overwhelming.
-It can also be used as a quick validity check, we can subset to a known context where we know nothing exciting should be happening, and then check that indeed nothing is there.
-For example, in our context we might subset to the scenarios with no variation in site size or relationship between size and outcome:
+It can also be used as a quick validity check: we can subset to a known context where we know nothing exciting should be happening, and then check that indeed nothing is there.
+For example, in our context we might subset to those scenarios with no variation in site size or relationship between size and outcome:
 
 ```{r}
 sres_null <- sres %>%
@@ -115,7 +116,7 @@ sres_null <- sres %>%
 ```
 
 So, for our null check, we have three factors and can plot the them all:
-```{r}
+```{r null_clusterRCT_plot}
 ggplot( sres_null, aes( ICC, bias, 
                        col=method, pch=method, group=method ) ) +
   facet_grid( J ~ n_bar, labeller = label_both ) +
@@ -125,7 +126,7 @@ ggplot( sres_null, aes( ICC, bias,
 ```
 
 As predicted, nothing is happening.
-Interestingly, we see that all methods are identical when there is no site variation, regardless of ICC, J, or `n_bar`.
+Interestingly, we further see that all methods give identical estimates when there is no site variation, regardless of ICC, J, or `n_bar`.
 
 Subsetting allows for a deep dive into a specific context.
 It also can make it easier to think through what is happening in a complex context.
@@ -135,22 +136,22 @@ In this case, we would consider the other levels as a "sensitivity" analysis vag
 It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
 In our case, as we see below, we will see little effect of the ICC on how one model performs relative to another; we thus might be able to safely ignore the ICC factor in our main report.
 
-But if you do want to look at all your simulation results at once, you need to somehow aggregate your results to make them all fit on the plot.
-We next present bundling, a way of using the core idea of small multiples for showing all of the raw results, but which does so in a semi-aggregated way.
+Subsetting is useful, but if you do want to look at all your simulation results at once, you need to somehow aggregate your results to make them all fit on the plot.
+We next present bundling, a way of using the core idea of small multiples for showing all of the raw results, but in a semi-aggregated way.
 
 
 ## Bundling
 
-When faced with many simulation factors, we can _bundle_ bundle the simulations into groups defined by a selected primary factor of interest, and then plot each bundle with a boxplot of a selected performance criteria.
-Each boxplot then shows the central measure of how well an estimator worked across those scenarios, along with a sense of how much that performance varied across those simulations.
+When faced with many simulation factors, we can _bundle_  the simulations into groups defined by a selected primary factor of interest, and then plot each bundle with a boxplot of the distribution of a selected performance criteria.
+Each boxplot shows the central measure of how well an estimator worked across a set of scenarios, along with a sense of how much that performance varied across those scenarios.
 If the boxes are narrow, then we know that the variation across simulations within the box did not impact performance much.
 If the boxes are wide, then we know that the factors that vary within the box matter a lot for performance.
 
 With bundling, we generally need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable (wider) than the truth.
-(Consider a case where the simulations within a box all would have the same performance, but the MCSE is large; in this case we would see a wide boxplot when we should not.)
+(Consider a case where all the scenarios within a box have zero bias; if MCSE were large, we would see a wide boxplot when we should not.)
 
-To illustrate, group our Cluster RCT results by method, ICC, the size coefficient (how strong the cluster size to treatment impact relationship is), and alpha (how much the cluster sizes vary).
-For a specific ICC, size, and alpha, we will put the boxes for the three methods side-by-side to directly compare the methods:
+To illustrate bundling, we group our Cluster RCT results by method, ICC, the size coefficient (how strong the cluster size to treatment impact relationship is), and alpha (how much the cluster sizes vary).
+For a specific ICC, size, and alpha, we will put the boxes for the three methods side-by-side to directly compare them:
 
 ```{r clusterRCT_plot_bias_v1}
 ggplot( sres, aes( as.factor(alpha), bias, col=method, group=paste0(ICC,method) ) ) +
@@ -189,7 +190,7 @@ ggplot( sres, aes( as.factor(n_bar), bias, col=method, group=paste0(n_bar,method
 No progress there; we have long tails suggesting something is allowing for large bias in some contexts.
 This could be MCSE, with some of our bias estimates being large due to random chance.
 Or it could be some specific combination of factors allows for large bias (e.g., perhaps small sample sizes makes our estimators more vulnerable to bias).
-In an actual analysis, we would make a note to investigate these anomalies a bit further, later on.
+In an actual analysis, we would make a note to investigate these anomalies later on.
 
 In general, playing around with factors so that the boxes are generally narrow is a good idea; it means that you have found a representation of the data where the variation within your bundles is less important.
 This might not always be possible, if all your factors matter; in this case the width of your boxes tells you to what extent the bundled factors matter relative to the factors explicitly present in your plot.
@@ -203,7 +204,7 @@ Instead of bundling, we can therefore aggregate, where we average all the scenar
 This will show us overall trends rather than individual simulation variation.
 
 When we aggregate, and average over some of the factors, we collapse our simulation results down to fewer moving parts.
-Aggregation across factors is better than having not had those factors in the first place!
+Aggregation across factors is better than having not having varied those factors in the first place!
 A performance measure averaged over a factor is a more general answer of how things work in practice than having not varied the factor at all.
 
 For example, if we average across ICC and site variation, and see that our methods had different degrees of bias as a function of $J$, we would know that the found trend is a general trend across a range of scenarios defined by different ICC and site variation levels, rather than a specific one tied to a single ICC and amount of site variation.
@@ -211,7 +212,7 @@ Our conclusions would then be more general: if we had not explored more scenario
 
 That said, if some of our scenarios had no bias, and some had large bias, when we aggregated we would report that there is generally a moderate amount of bias.
 This would not be entirely faithful to the actual results.
-If, however, the initial boxplots show ranges generally positive or generally negative, then aggregation will be more faithful to the spirit of the results.
+If, however, the initial boxplots show results generally in one direction or another, then aggregation will be more faithful to the spirit of the results.
 
 Also, aggregated results can be misleading if you have scaling issues or extreme outliers.
 With bias, our scale is fairly well set, so we are good.
@@ -219,7 +220,7 @@ But if we were aggregating standard errors over different sample sizes, then the
 Usually, with aggregation, we want to average over something we believe does not change massively over the marginalized-out factors.
 To achieve this, we can often average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
 
-A major advantage of aggregation over the bundling approach is we can have a smaller number of replications per factor combination with aggregation.
+A major advantage of aggregation over the bundling approach is we can have fewer replications per scenario.
 If the number of replicates within each scenario is small, then the performance measures for each scenario is estimated with a lot of error; the aggregate, by contrast, will be an average across many more replicates and thus give a good sense of _average_ performance.
 The averaging, in effect, gives a lot more replications per aggregated performance measure.
 
@@ -231,13 +232,12 @@ ssres <-
   group_by( method, ICC, alpha, size_coef ) %>%
   summarise( bias = mean( bias ),
              n = n() )
-ssres
 ```
 
 We now have a single bias estimate for each combination of ICC, alpha, and size_coef; we have collapsed 9 scenarios into one overall scenario that generalizes bias across different sizes of experiment.
 We can then plot, using many small multiples:
 
-```{r}
+```{r agg_bias_plot_clusterRCT}
 ggplot( ssres, aes( ICC, bias, col=method ) ) +
   facet_grid( size_coef ~  alpha, labeller = label_both ) +
   geom_point( alpha=0.75 ) + 
@@ -253,10 +253,10 @@ We also see that all the estimators have near zero bias when there is no variati
 
 If you have many levels of a factor, as we do with ICC, you can let ggplot aggregate directly by taking advantage of the smoothing options:
 
-```{r, messages=FALSE}
+```{r, message=FALSE, warning=FALSE}
 ggplot( sres, aes( ICC, bias, col=method ) ) +
   facet_grid( alpha ~  size_coef, labeller = label_both ) +
-    geom_point( alpha=0.15,
+    geom_point( alpha=0.10,
               position = position_dodge(width = 0.04) ) +
   geom_smooth( se=FALSE ) + 
   geom_hline( yintercept = 0 ) +
@@ -283,7 +283,7 @@ agg_perf <- sres %>%
 
 Because bias is linear, you do not need to worry about the bias of the standard error.
 But if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
-In this case, looking at average bias, not $|bias|$, is safer.
+In this case, looking at average bias, not average $|bias|$, is safer.
 
 
 <!--
@@ -327,7 +327,13 @@ The other two methods seem less impacted.
 
 ## Exercises
 
-1) For our cluster RCT, use the simulation results to assess how much better (or worse) the different methods are to each other in terms of confidence interval coverage. What scenarios tend to result in the worst coverage?
+
+1) Add monte carlo standard errors to the initial subset small multiples plot.  Now add monte carlo standard errors to the final aggregated plot.
+
+2) Make a single plot that clearly answers the question of whether and when some methods are more precise than other methods.  As an extra step, add MCSEs to the plot to show if the differences are significant or possibly just due to not having sufficient numbers of replications in the simulation.
+
+2) For our cluster RCT, use the simulation results to assess how much better (or worse) the different methods are to each other in terms of confidence interval coverage. What scenarios tend to result in the worst coverage?
+
 
 
 
