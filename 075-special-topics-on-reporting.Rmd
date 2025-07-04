@@ -272,6 +272,59 @@ ggplot( m_resL,
 This clearly shows that the methods are basically the same in terms of uncertainty estimation.
 
 
+## Finding important factors with regression trees
+
+Sometimes with more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher what is running what.
+Another tool one might use to explore is to fit a regression tree on the simulation results.
+
+
+```{r}
+source( here::here( "code/create_analysis_tree.R" ) )
+set.seed(4344443)
+create_analysis_tree( sres_f,
+                      outcome = "bias",
+                      predictor_vars = c("method", "n_bar", "J",
+                                         "size_coef", "ICC", "alpha"),
+                      tree_title = "Cluster RCT Bias Analysis Tree" )
+```
+
+We will not walk through the tree code, but you can review it [here](code/create_analysis_tree.R).
+This function is a wrapper of the `rpart` package.
+
+The default pruning is based on a cross-fitting evaluation, and our sample size is not too terribly high (just the number of simulation scenarios fit).
+Rerunning the code with a different seed can give a different tree.
+In general, it might be worth forcibly simplifying the tree.
+Trees are built greedily, so forcibly trimming often gives you the big things.
+For example:
+
+```{r}
+create_analysis_tree( sres_f,
+                      outcome = "bias",
+                      predictor_vars = c("method", "n_bar", "J",
+                                         "size_coef", "ICC", "alpha"),
+                      tree_title = "Smaller Cluster RCT Bias Analysis Tree" )
+```
+
+A very straightforward story: if `size_coef` is not 0, we are using LR, and alpha is large, then we have large bias.
+
+We can also zero in on specific methods to understand how they engage with the simulation factors, like so:
+
+```{r}
+create_analysis_tree( filter( sres_f, method=="LR" ),
+                      outcome = "bias",
+                      min_leaves = 4,
+                      predictor_vars = c("n_bar", "J",
+                                         "size_coef", "ICC", "alpha"),
+                      tree_title = "Drivers of Bias for LR method" )
+```
+
+We force more leaves to get at some more nuance.
+We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient _and_ large alpha value.
+Then, when $J$ is small, bias is even larger.
+
+Generally we would not use a tree like this for a final reporting of results, but they can be important tools for _understanding_ your results, which leads to how to make and select more conventional figures for final reporting.
+
+
 ## Analyzing results with few iterations per scenario
 
 When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes), then running thousands of iterations for many scenarios may no longer be computationally feasible.

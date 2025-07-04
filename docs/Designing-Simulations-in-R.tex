@@ -153,7 +153,7 @@
 \title{Designing Monte Carlo Simulations in R}
 \author{Luke W. Miratrix and James E. Pustejovsky
 (Equal authors)}
-\date{2025-07-03}
+\date{2025-07-04}
 
 \begin{document}
 \maketitle
@@ -5036,21 +5036,15 @@ If we only had a couple of parameter combinations, it would be easy enough to ju
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(100, one_run(n, p,
-##   alpha, df))
+##   rerun(100, one_run(n, p, alpha, df))
 ## 
 ##   # Now
-##   map(1:100, ~ one_run(n, p,
-##   alpha, df))
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
+##   map(1:100, ~ one_run(n, p, alpha, df))
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
 ## generated.
 \end{verbatim}
 
@@ -5738,8 +5732,7 @@ As we saw above, nesting collapses a larger dataframe into a dataframe of datafr
 
 \begin{verbatim}
 ## # A tibble: 144 x 5
-## # Groups:   n, p, alpha, df
-## #   [144]
+## # Groups:   n, p, alpha, df [144]
 ##        n     p alpha    df alpha_sims        
 ##    <dbl> <dbl> <dbl> <dbl> <list>            
 ##  1    50     4   0.1     5 <tibble [500 x 4]>
@@ -5772,8 +5765,7 @@ Once nested, we can then use \texttt{map()} to apply a function to each element 
 
 \begin{verbatim}
 ## # A tibble: 576 x 7
-## # Groups:   n, p, alpha, df
-## #   [144]
+## # Groups:   n, p, alpha, df [144]
 ##        n     p alpha    df criterion           est
 ##    <dbl> <dbl> <dbl> <dbl> <chr>             <dbl>
 ##  1    50     4   0.1     5 alpha bias      -0.103 
@@ -7198,6 +7190,78 @@ Here we regress \(log(SE)\) onto the coefficients, and we rescale ICC to be on a
 
 This clearly shows that the methods are basically the same in terms of uncertainty estimation.
 
+\section{Finding important factors with regression trees}\label{finding-important-factors-with-regression-trees}
+
+Sometimes with more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher what is running what.
+Another tool one might use to explore is to fit a regression tree on the simulation results.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{source}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"code/create\_analysis\_tree.R"}\NormalTok{ ) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading required package: rpart
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{set.seed}\NormalTok{(}\DecValTok{4344443}\NormalTok{)}
+\FunctionTok{create\_analysis\_tree}\NormalTok{( sres\_f,}
+                      \AttributeTok{outcome =} \StringTok{"bias"}\NormalTok{,}
+                      \AttributeTok{predictor\_vars =} \FunctionTok{c}\NormalTok{(}\StringTok{"method"}\NormalTok{, }\StringTok{"n\_bar"}\NormalTok{, }\StringTok{"J"}\NormalTok{,}
+                                         \StringTok{"size\_coef"}\NormalTok{, }\StringTok{"ICC"}\NormalTok{, }\StringTok{"alpha"}\NormalTok{),}
+                      \AttributeTok{tree\_title =} \StringTok{"Cluster RCT Bias Analysis Tree"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-184-1} \end{center}
+
+We will not walk through the tree code, but you can review it \href{code/create_analysis_tree.R}{here}.
+This function is a wrapper of the \texttt{rpart} package.
+
+The default pruning is based on a cross-fitting evaluation, and our sample size is not too terribly high (just the number of simulation scenarios fit).
+Rerunning the code with a different seed can give a different tree.
+In general, it might be worth forcibly simplifying the tree.
+Trees are built greedily, so forcibly trimming often gives you the big things.
+For example:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{create\_analysis\_tree}\NormalTok{( sres\_f,}
+                      \AttributeTok{outcome =} \StringTok{"bias"}\NormalTok{,}
+                      \AttributeTok{predictor\_vars =} \FunctionTok{c}\NormalTok{(}\StringTok{"method"}\NormalTok{, }\StringTok{"n\_bar"}\NormalTok{, }\StringTok{"J"}\NormalTok{,}
+                                         \StringTok{"size\_coef"}\NormalTok{, }\StringTok{"ICC"}\NormalTok{, }\StringTok{"alpha"}\NormalTok{),}
+                      \AttributeTok{tree\_title =} \StringTok{"Smaller Cluster RCT Bias Analysis Tree"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-185-1} \end{center}
+
+A very straightforward story: if \texttt{size\_coef} is not 0, we are using LR, and alpha is large, then we have large bias.
+
+We can also zero in on specific methods to understand how they engage with the simulation factors, like so:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{create\_analysis\_tree}\NormalTok{( }\FunctionTok{filter}\NormalTok{( sres\_f, method}\SpecialCharTok{==}\StringTok{"LR"}\NormalTok{ ),}
+                      \AttributeTok{outcome =} \StringTok{"bias"}\NormalTok{,}
+                      \AttributeTok{min\_leaves =} \DecValTok{4}\NormalTok{,}
+                      \AttributeTok{predictor\_vars =} \FunctionTok{c}\NormalTok{(}\StringTok{"n\_bar"}\NormalTok{, }\StringTok{"J"}\NormalTok{,}
+                                         \StringTok{"size\_coef"}\NormalTok{, }\StringTok{"ICC"}\NormalTok{, }\StringTok{"alpha"}\NormalTok{),}
+                      \AttributeTok{tree\_title =} \StringTok{"Drivers of Bias for LR method"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-186-1} \end{center}
+
+We force more leaves to get at some more nuance.
+We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient \emph{and} large alpha value.
+Then, when \(J\) is small, bias is even larger.
+
+Generally we would not use a tree like this for a final reporting of results, but they can be important tools for \emph{understanding} your results, which leads to how to make and select more conventional figures for final reporting.
+
 \section{Analyzing results with few iterations per scenario}\label{analyzing-results-with-few-iterations-per-scenario}
 
 When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes), then running thousands of iterations for many scenarios may no longer be computationally feasible.
@@ -7239,7 +7303,7 @@ Before we plot, however, we calculate MCSEs and add them to the plot as error ba
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-184-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-187-1} \end{center}
 
 Aggregation should smooth out some of our uncertainty.
 When we aggregate across 9 scenarios, our number of replicates goes from 100 to 900; our MCSEs should be about a third the size.
@@ -7267,7 +7331,7 @@ Here is our aggregated bias plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-185-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-188-1} \end{center}
 
 To get aggregate MCSE, we aggregate our scenario-specific MCSEs as follows:
 \[ MCSE_{agg} = \sqrt{ \frac{1}{K^2} \sum_{k=1}^{K} MCSE_k^2 } \]
@@ -7390,19 +7454,13 @@ We also know that ICC is an important driver of when these convergence issues mi
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: There were 15 warnings in
-## `summarise()`.
+## Warning: There were 15 warnings in `summarise()`.
 ## The first warning was:
-## i In argument: `message =
-##   mean(message)`.
-## i In group 1: `method =
-##   "Agg"` `ICC = 0`.
+## i In argument: `message = mean(message)`.
+## i In group 1: `method = "Agg"` `ICC = 0`.
 ## Caused by warning in `mean.default()`:
 ## ! argument is not numeric or logical: returning NA
-## i Run
-##   `dplyr::last_dplyr_warnings()`
-##   to see the 14 remaining
-##   warnings.
+## i Run `dplyr::last_dplyr_warnings()` to see the 14 remaining warnings.
 \end{verbatim}
 
 \begin{verbatim}
@@ -7472,7 +7530,7 @@ We plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-190-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-193-1} \end{center}
 
 The above doesn't show differences clearly because all the SEs goes to zero as \(n\) increases.
 One move when we see heavy trends like this is to log our outcome, or otherwise rescale. The logging version shows differences are relatively constant given changing sample size.
@@ -7487,7 +7545,7 @@ One move when we see heavy trends like this is to log our outcome, or otherwise 
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-191-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-194-1} \end{center}
 
 One step better would be to rescale using our knowledge of standard errors.
 If we scale by the square root of sample size, we should get horizontal lines.
@@ -7508,7 +7566,7 @@ We now clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-193-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-196-1} \end{center}
 
 Overall, the scaled error of the mean is stable across the different distributions.
 The trimmed mean is a real advantage when the degrees of freedom are small (note the blue line is far below the red line on the left hand plot): we are cropping outliers that destabilize our estimate which leads to great wins.
@@ -7586,7 +7644,7 @@ As a diagnostic we can generate large datasets for each value of our simulation 
 \hline
 df0 & skew & mean & median & sd\\
 \hline
-3 & 0 & 0 & 0.00 & 1.00\\
+3 & 0 & 0 & 0.00 & 1.01\\
 \hline
 5 & 0 & 0 & 0.00 & 1.00\\
 \hline
@@ -7594,7 +7652,7 @@ df0 & skew & mean & median & sd\\
 \hline
 30 & 0 & 0 & 0.00 & 1.00\\
 \hline
-3 & 10 & 0 & -0.25 & 0.99\\
+3 & 10 & 0 & -0.25 & 1.00\\
 \hline
 5 & 10 & 0 & -0.25 & 1.00\\
 \hline
@@ -7643,7 +7701,7 @@ We first look at boxplots:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-196-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-199-1} \end{center}
 
 We can also subset to look at how these trade-offs play out when \texttt{df0\ =\ 3}, where we are seeing the largest benefits from trimming in our prior analysis.
 We can then use lines to show the trends, which is a bit clearer:
@@ -7660,7 +7718,7 @@ We can then use lines to show the trends, which is a bit clearer:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-197-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-200-1} \end{center}
 
 Or maybe we can aggregate without losing too much information:
 
@@ -7678,7 +7736,7 @@ Or maybe we can aggregate without losing too much information:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-198-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-201-1} \end{center}
 
 In these \emph{Bias-SE-RMSE} plots, we see how different estimators have different biases and different
 uncertainties.
@@ -7714,11 +7772,11 @@ Because this function involves generating random numbers, re-running it with the
 \end{Shaded}
 
 \begin{verbatim}
-##         criterion         est        MCSE
-## 1      alpha bias -0.04817539 0.020692046
-## 2      alpha RMSE  0.07857681 0.004824673
-## 3 V relative bias  1.17812601 0.350368093
-## 4        coverage  1.00000000 0.068920244
+##         criterion         est       MCSE
+## 1      alpha bias -0.04065594 0.04765054
+## 2      alpha RMSE  0.14862056 0.01547550
+## 3 V relative bias  0.24721633 0.05479865
+## 4        coverage  0.70000000 0.06892024
 \end{verbatim}
 
 \begin{Shaded}
@@ -7728,11 +7786,11 @@ Because this function involves generating random numbers, re-running it with the
 \end{Shaded}
 
 \begin{verbatim}
-##         criterion        est       MCSE
-## 1      alpha bias -0.0765867 0.04021472
-## 2      alpha RMSE  0.1429004 0.01642214
-## 3 V relative bias  0.3997290 0.48151089
-## 4        coverage  0.7000000 0.06892024
+##         criterion         est        MCSE
+## 1      alpha bias -0.03536865 0.026463399
+## 2      alpha RMSE  0.08691228 0.005668101
+## 3 V relative bias  0.68234425 0.103084874
+## 4        coverage  0.90000000 0.068920244
 \end{verbatim}
 
 Of course, using a larger number of iterations will give us more precise estimates of the performance criteria. If we want to get the \emph{exact} same results, however, we have to control the random process.
@@ -7949,12 +8007,12 @@ The \texttt{microbenchmark} function runs each expression 100 times (by default)
 
 \begin{verbatim}
 ## Unit: microseconds
-##       expr     min      lq      mean  median
-##  Rfunction 194.012 199.260 217.36232 202.089
-##     direct  83.558  87.822  92.05443  90.282
+##       expr     min       lq      mean   median
+##  Rfunction 198.522 203.5240 223.36636 206.3325
+##     direct  84.829  88.2115  93.58332  91.1225
 ##        uq      max neval
-##  206.4145 1421.306   100
-##   92.6395  204.057   100
+##  213.2615 1349.884   100
+##   93.5825  216.808   100
 \end{verbatim}
 
 The direct function is 2.4 times faster than the built-in R function.
@@ -8230,12 +8288,12 @@ The reason this is important is we are now doing our group aggregation only once
 
 \begin{verbatim}
 ## Unit: microseconds
-##   expr      min        lq     mean    median
-##  noagg  553.623  578.8585  618.394  601.9005
-##    agg 1352.959 1382.9710 1499.520 1406.1360
+##   expr      min       lq      mean   median
+##  noagg  553.172  586.628  652.8319  597.739
+##    agg 1344.841 1384.734 1478.8142 1420.711
 ##        uq      max neval
-##   622.872 1974.396   100
-##  1452.548 5501.462   100
+##   623.282 3609.927   100
+##  1459.723 4099.139   100
 \end{verbatim}
 
 And our relative speedup is:
@@ -9618,7 +9676,7 @@ We ended up with the following data, with log-transformed discipline rates for e
 
 \begin{verbatim}
 ## Rows: 27 Columns: 6
-## -- Column specification ------
+## -- Column specification ---------------------------------------------------
 ## Delimiter: ","
 ## chr (1): Code
 ## dbl (5): 2015, 2016, 2017, 2018, 2019
@@ -9757,7 +9815,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-256-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-259-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -9999,7 +10057,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-262-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-265-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -10561,41 +10619,27 @@ This driver also stores the finite sample ATE for future reference:
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
 ## rerun(3, {
-## dat = mutate(dat, Z = 0 +
-## (sample(n) <= n / 2),
-## Yobs = ifelse(Z == 1, Y1,
-## Y0))
-## mod = lm(Yobs ~ Z, data =
-## dat)
-## tibble(ATE_hat =
-## coef(mod)[["Z"]], SE_hat =
-## arm::se.coef(
+## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
+## Yobs = ifelse(Z == 1, Y1, Y0))
+## mod = lm(Yobs ~ Z, data = dat)
+## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
 ## mod)[["Z"]])
 ## })
 ## 
 ##   # Now
 ## map(1:3, ~ {
-## dat = mutate(dat, Z = 0 +
-## (sample(n) <= n / 2),
-## Yobs = ifelse(Z == 1, Y1,
-## Y0))
-## mod = lm(Yobs ~ Z, data =
-## dat)
-## tibble(ATE_hat =
-## coef(mod)[["Z"]], SE_hat =
-## arm::se.coef(
+## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
+## Yobs = ifelse(Z == 1, Y1, Y0))
+## mod = lm(Yobs ~ Z, data = dat)
+## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
 ## mod)[["Z"]])
 ## })
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
 ## generated.
 \end{verbatim}
 
@@ -10618,21 +10662,15 @@ We then run a bunch of finite runs.
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in
-## purrr 1.0.0.
+## Warning: `rerun()` was deprecated in purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(500,
-##   one_finite_run())
+##   rerun(500, one_finite_run())
 ## 
 ##   # Now
-##   map(1:500, ~
-##   one_finite_run())
-## This warning is displayed
-## once every 8 hours.
-## Call
-## `lifecycle::last_lifecycle_warnings()`
-## to see where this warning was
+##   map(1:500, ~ one_finite_run())
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
 ## generated.
 \end{verbatim}
 
