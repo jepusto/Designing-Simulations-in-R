@@ -84,10 +84,13 @@ quiet_analysis_MLM <- function( dat ) {
   
   est = fixef( M1 )[["Z"]]
   se = se.fixef( M1 )[["Z"]]
-  pv = summary(M1)$coefficients["Z",5]
-  tibble( ATE_hat = est, SE_hat = se, p_value = pv,
+  sc = summary(M1)$coefficients
+  pv = sc["Z",5]
+  df = sc["Z", "df"]
+  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv,
           message = message1, warning = warning1 )
 }
+
 
 analysis_MLM <- function( dat ) {
   M1 = lmer( Yobs ~ 1 + Z + (1|sid),
@@ -95,9 +98,12 @@ analysis_MLM <- function( dat ) {
   
   est = fixef( M1 )[["Z"]]
   se = se.fixef( M1 )[["Z"]]
-  pv = summary(M1)$coefficients["Z",5]
-  tibble( ATE_hat = est, SE_hat = se, p_value = pv )
+  sc = summary(M1)$coefficients
+  pv = sc["Z",5]
+  df = sc["Z", "df"]
+  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv )
 }
+
 
 analysis_OLS <- function( dat ) {
   M2 <- lm_robust( Yobs ~ 1 + Z, 
@@ -105,7 +111,8 @@ analysis_OLS <- function( dat ) {
   est <- M2$coefficients[["Z"]]
   se  <- M2$std.error[["Z"]]
   pv <- M2$p.value[["Z"]]
-  tibble( ATE_hat = est, SE_hat = se, p_value = pv )
+  df <- M2$df[["Z"]]
+  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv )
 }
 
 
@@ -125,8 +132,9 @@ analysis_agg <- function( dat ) {
                    data=datagg, se_type = "HC2" )
   est <- M3$coefficients[["Z"]]
   se <- M3$std.error[["Z"]]
+  df <- M3$df[["Z"]]
   pv <- M3$p.value[["Z"]]
-  tibble( ATE_hat = est, SE_hat = se, p_value = pv )
+  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv )
 }
 
 
@@ -180,8 +188,14 @@ run_CRT_sim <- function(reps,
 
 if ( FALSE ) {
   
-  dat <- gen_dat_model( 5, 3 )
+  dat <- gen_dat_model( 20, 20, alpha=0.5 )
   dat
-  run_CRT_sim( reps = 5 )
+  
+  undebug( quiet_analysis_MLM )
+  quiet_analyze_data( dat )
+  
+  res <- run_CRT_sim( reps = 5, alpha=0.5 )
+  res
+  
 }
 

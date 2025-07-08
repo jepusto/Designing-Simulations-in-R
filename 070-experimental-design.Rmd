@@ -480,12 +480,13 @@ params <-
   )
 ```
 
-The seed is for reproducibility; we discuss this more in Section \@ref(sec-reproducability).
-
-We then run the simulation 100 times each for all our scenarios, and unnest to get our final data:
+To allow reproducibility, we give a different seed for each scenario just to avoid anything confusing about shared randomness across scenarios.
+<!--For more on is for reproducibility; we discuss this more in Section \@ref(sec-reproducability).-->
+<!-- LWM: Need to reference new location of reprod.  Does this section exist anymore? -->
+We then run the simulation 1000 times each for all our scenarios, and unnest to get our final data:
 
 ```{r run_the_CRT_simulation, eval=FALSE}
-params$res = pmap(params, .f = run_CRT_sim, reps = 100 )
+params$res = pmap(params, .f = run_CRT_sim, reps = 1000 )
 res = params %>% 
   unnest( cols=c(data) )
 saveRDS( res, file = "results/simulation_CRT.rds" )
@@ -495,42 +496,14 @@ saveRDS( res, file = "results/simulation_CRT.rds" )
 ```{r secret_run_full_CRT, include=FALSE}
 if ( !file.exists( "results/simulation_CRT.rds" ) ) {
  
-   # Secret Run code in parallel for speedup
-  library( tidyverse )
-  library( future )
-  library( furrr )
-
-  source( "case_study_code/clustered_data_simulation.R")
-
-  crt_design_factors <- list(
-    n_bar = c( 20, 80, 320 ),
-    J = c( 5, 20, 80 ),
-    ATE = c( 0.2 ),
-    size_coef = c( 0, 0.2 ),
-    ICC = c( 0, 0.2, 0.4, 0.6, 0.8 ),
-    alpha = c( 0, 0.5, 0.8 )
-  )
-  
-  params <- expand_grid(!!!crt_design_factors)
-
-  params$seed = 1:nrow(params) * 17 + 100000
-  params
-  
-  plan(multisession, workers = parallel::detectCores() - 2)
-  params$res = future_pmap(params, .f = run_CRT_sim,
-                           reps = 1000,
-                           .options = furrr_options(seed = NULL),
-                           .progress = TRUE )
-  plan(sequential)
-  gc()
-  res <- params %>% unnest( cols=c(res) )
-  saveRDS( res, file = "results/simulation_CRT.rds" )
+  source( here::here( "case_study_code/clustered_data_simulation_runner.R" ) )
 } else {
   res = readRDS("results/simulation_CRT.rds")
 }
 ```
 
 Normally we would do this in parallel for speed; we discuss how to do that in Section \@ref(parallel-processing).
+Even under parallel processing, this simulation took overnight to run.
 Our final results look like this:
 
 ```{r}
@@ -539,7 +512,7 @@ res
 
 We have a lot of rows of data!
 Our next step is to group our results by our simulation factors and calculate all our performance metrics at once.
-For example, here we calculate our main performance measures:
+For example, here we calculate our main performance measures by hand:
 
 ```{r, messages=FALSE}
 res <- readRDS( file = "results/simulation_CRT.rds" )
@@ -560,9 +533,28 @@ sres <-
 sres
 ```
 
+If we want MCSEs (we do), then we can do that by hand as well, or use the `simhelpers` package as so:
+```{r}
+library( simhelpers )
+sres <- res %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarise( calc_absolute( estimates = ATE_hat,
+                            true_param = ATE,
+                            criteria = c("bias","stddev",
+                                         "rmse")),
+             calc_relative_var( estimates = ATE_hat,
+                                var_estimates = SE_hat^2,
+                                criteria = "relative rmse" ) ) %>%
+  rename( SE = stddev,
+          SE_mcse = stddev_mcse ) %>%
+  dplyr::select( -K_absolute, -K_relvar )
+sres
+```
+
 
 ### Making analyze_data() quiet
 
+<!-- LWM: Does this section need to be reworked in light of revision of chapter 8 (I think 8?) on making things quiet and trapping errors? -->
 
 ```{r, include=FALSE}
 

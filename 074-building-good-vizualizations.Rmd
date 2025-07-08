@@ -20,22 +20,30 @@ source( "case_study_code/cronbach_alpha_simulation.R" )
 res <- readRDS( file = "results/simulation_CRT.rds" )
 res
 
-sres <- 
-  res %>% 
+library( simhelpers )
+sres <- res %>% 
   group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
-  summarise( 
-    bias = mean(ATE_hat - ATE),
-    SE = sd( ATE_hat ),
-    RMSE = sqrt( mean( (ATE_hat - ATE )^2 ) ),
-    ESE_hat = sqrt( mean( SE_hat^2 ) ),
-    SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
-    power = mean( p_value <= 0.05 ),
-    R = n(),
-    .groups = "drop"
-  )
+  summarise( calc_absolute( estimates = ATE_hat,
+                            true_param = ATE,
+                            criteria = c("bias","stddev",
+                                         "rmse")),
+             calc_relative_var( estimates = ATE_hat,
+                                var_estimates = SE_hat^2,
+                                criteria = "relative bias" ),
+             power = mean( p_value <= 0.05 ),
+             ESE_hat = sqrt( mean( SE_hat^2 ) ),
+             SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+             
+  ) %>%
+  rename( R = K_absolute,
+          RMSE = rmse,
+          RMSE_mcse = rmse_mcse,
+          SE = stddev,
+          SE_mcse = stddev_mcse ) %>%
+  dplyr::select(  -K_relvar )
 sres
 
-# 100 iterations per factor
+# 1000 iterations per factor
 summary( sres$R )
 ```
 
@@ -73,6 +81,10 @@ As a reminder, in our Cluster RCT example, we have three methods for estimating 
 We want to know if these methods are biased for our defined estimand, which is the cluster-average effect.
 We have five simulation factors: school size (`n_bar`), number of schools (`J`), the intraclass correlation (`ICC`), the degree of variation in school size (`alpha`), and the relationship between school size and treatment effect (`size_coef`).
 
+Once we go through the core tools, we continue our evaluation of our simulation to show how we can assess various performance metrics of interest (true standard error, RMSE, estimated standard errors, and coverage) using these tools.
+We do not dive deeply into validity or power; see Chapter \@ref(sec:power) for more on these measures.
+
+
 
 ## Subsetting and Many Small Multiples
 
@@ -102,31 +114,54 @@ We are looking at the raw results.
 We connect the points with lines to help us see trends within each of the small multiples.
 The lines help us visually track which group of points goes with which.
 
-We immediately see that when there is a lot of site variation, and it relates to outcome, linear regression is very different from the other two methods.  When there is no variation, or it does not relate to impact, nothing is particularly biased.
+We immediately see that when there is a lot of site variation, and it relates to outcome, linear regression is very different from the other two methods.
+We also see that when `alpha` is 0 and `size_coef` is 0, we may also have a negative bias.
+Before we get too excited about this surprising result, we calculate MCSEs to see if this is a real effect or just noise:
+
+```{r}
+ggplot( sres_sub, aes( as.factor(J), bias, 
+                       col=method, pch=method, group=method ) ) +
+  facet_grid( size_coef ~ alpha, labeller = label_both ) +
+  geom_point( position = position_dodge( width=0.3) ) +
+  geom_line(position = position_dodge( width=0.3)) +
+  geom_errorbar( aes( ymin = bias - 1.96*bias_mcse,
+                      ymax = bias + 1.96*bias_mcse ),
+                 position = position_dodge( width=0.3),
+                 width = 0 ) +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal() 
+```
+
+Our confidence intervals exclude zero!
+Our excitement mounts.
+We next check all the scenarios with `alpha = 0`, and `size_coef = 0` to see if this is a real effect.
+We can still plot all our data, as we only have three factors, `ICC`, `J_bar`, and `n_bar`, left to plot.
+
+```{r}
+null_sub <- sres %>%
+  dplyr::filter( alpha == 0, size_coef == 0 )
+ggplot( null_sub, aes( ICC, bias, 
+                       col=method, pch=method, group=method ) ) +
+  facet_grid( J ~ n_bar, labeller = label_both ) +
+  geom_point( position = position_dodge( width=0.03) ) +
+  geom_line( position = position_dodge( width=0.03) ) +
+  geom_errorbar( aes( ymin = bias - 1.96*bias_mcse,
+                      ymax = bias + 1.96*bias_mcse ),
+                 position = position_dodge( width=0.03),
+                 width = 0 ) +
+  geom_hline( yintercept = 0 ) +
+  theme_minimal() 
+```
+
+It appears that our `ICC=0.20` and `n_bar=80` scenario was just a fluke.
+Almost everything else easily covers 0, and we are not seeing any major trends.
+Overall we conclude that indeed, when there is no variation, or when the variation does not relate to impact, nothing is particularly biased.
+Interestingly, we further see that all methods seem to give identical estimates when there is no site variation, regardless of ICC, J, or `n_bar` (that is the easiest explanation of all the estimated biases and associated MCSEs being identical).
 
 <!--Again, we are showing five variables: our facets are organized by two (alpha and the size coefficient), and within each facet we have three (J, our outcome of bias, and the methods themselves).-->
 
 Subsetting is a very useful tool, especially when the scope of the simulation feels overwhelming.
-It can also be used as a quick validity check: we can subset to a known context where we know nothing exciting should be happening, and then check that indeed nothing is there.
-For example, in our context we might subset to those scenarios with no variation in site size or relationship between size and outcome:
-
-```{r}
-sres_null <- sres %>%
-  filter( size_coef == 0, alpha == 0 )
-```
-
-So, for our null check, we have three factors and can plot the them all:
-```{r null_clusterRCT_plot}
-ggplot( sres_null, aes( ICC, bias, 
-                       col=method, pch=method, group=method ) ) +
-  facet_grid( J ~ n_bar, labeller = label_both ) +
-  geom_point() + geom_line() +
-  geom_hline( yintercept = 0 ) +
-  theme_minimal()
-```
-
-As predicted, nothing is happening.
-Interestingly, we further see that all methods give identical estimates when there is no site variation, regardless of ICC, J, or `n_bar`.
+And as we just saw, it can also be used as a quick validity check: we can subset to a known context where we know nothing exciting should be happening, and then check that indeed nothing is there.
 
 Subsetting allows for a deep dive into a specific context.
 It also can make it easier to think through what is happening in a complex context.
@@ -256,7 +291,7 @@ If you have many levels of a factor, as we do with ICC, you can let ggplot aggre
 ```{r, message=FALSE, warning=FALSE}
 ggplot( sres, aes( ICC, bias, col=method ) ) +
   facet_grid( alpha ~  size_coef, labeller = label_both ) +
-    geom_point( alpha=0.10,
+  geom_point( alpha=0.10,
               position = position_dodge(width = 0.04) ) +
   geom_smooth( se=FALSE ) + 
   geom_hline( yintercept = 0 ) +
@@ -286,16 +321,370 @@ But if you are looking at the magnitude of bias ($|bias|$), then you can run int
 In this case, looking at average bias, not average $|bias|$, is safer.
 
 
+## Assessing true SEs
+
+We just did a deep dive into bias.  
+Uncertainty (standard errors) is another primary performance criterion of interest.
+
+As an initial exploration, we plot the standard error estimates from our Cluster RCT simulation, using smoothed lines to visualize trends. We use `ggplot`'s `geom_smooth` to aggregate over `size_coef` and `alpha`, which we leave out of the plot.
+We include individual data points to visualize variation around the smoothed estimates:
+
+```{r}
+ggplot( sres, aes( ICC, SE, col=method ) ) +
+  facet_grid( n_bar ~  J, labeller = label_both ) +
+  geom_jitter( height = 0, width = 0.05, alpha=0.5 ) +
+  geom_smooth( se=FALSE, alpha=0.5 ) +
+  theme_minimal()
+```
+
+We observe several broad trends in the standard error behavior.
+First, standard error increases with the intraclass correlation (ICC).
+This is as expected: greater similarity within clusters reduces the effective sample size.
+Second, standard error decreases as the number of clusters (J) increases, which reflects the benefit of having more independent units of analysis.
+In contrast, increasing the cluster size (n_bar) has relatively little effect on the standard error (the rows of our facets look about the same).
+Lastly, all methods show fairly similar levels of standard error overall.
+
+While we can extract all of these from the figure, the figure is still not ideal for _comparing_ our methods.
+The dominant influence of design features like ICC and sample size obscures our ability to detect meaningful differences between methods.
+In other words, even though SE changes across scenarios, it’s difficult to tell which method is actually performing better within each scenario.
+
+We can also view the same information using boxplots, effectively "bundling" over the left-out dimensions.
+We also put `n_bar` in our bundles because maybe it does not matter that much:
+```{r}
+ggplot( sres, aes( ICC, SE, col=method, group=paste0( ICC, method ) ) ) +
+  facet_grid( . ~  J, labeller = label_both ) +
+  geom_boxplot( width = 0.2, coef = Inf) + 
+  scale_x_continuous( breaks = unique( sres$ICC)) +
+  theme_minimal()
+```
+
+Our plots are still dominated by the strong effects of ICC and the number of clusters (J). When performance metrics like standard error vary systematically with design features, it becomes difficult to compare methods meaningfully across scenarios.
+
+To address this, we shift our focus through standardization. Instead of noting that:
+
+> “All my SEs are getting smaller,”
+
+we want to conclude that:
+
+> “Estimator 1 has systematically higher SEs than Estimator 2 across scenarios.”
+
+Simulation results are often driven by broad design effects, which can obscure the specific methodological questions we care about. Standardizing helps bring those comparisons to the forefront.
+Let's try that next.
+
+#### Standardizing to compare across simulation scenarios #####
+
+One straightforward strategy for standardization is to compare each method’s performance to a designated baseline. In this example, we use Linear Regression (LR) as our baseline.
+
+We focus on the standard error (SE) of each method’s estimate, rescaling it relative to LR.
+We do this by, for each simulation scenario, dividing each method’s SE by the SE of LR, to produce `SE.scale`.
+This relative measure, SE.scale, allows us to examine how much better or worse each method performs in terms of precision under varying conditions.
+
+```{r}
+ssres <- 
+  sres %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha ) %>%
+  mutate( SE.scale = SE / SE[method=="LR"]) %>%
+  ungroup()
+```
+
+We can then treat it as a measure like any other.
+Here we bundle:
+
+```{r}
+ggplot( ssres, aes( ICC, SE.scale, col=method,
+                    group = interaction(ICC, method) ) ) +
+  facet_grid( n_bar ~  J, labeller = label_both ) +
+  geom_boxplot( position="dodge", width=0.1 ) +
+  scale_y_continuous( labels = scales::percent_format() )
+```
+
+The figure above shows how each method compares to LR across simulation scenarios. We see that Aggregation performs worse than LR when the Intraclass Correlation Coefficient (ICC) is zero. However, when ICC is greater than zero, Aggregation yields improved precision.
+The Multilevel Model (MLM), in contrast, appears more adaptive. It captures the benefits of aggregation when ICC is high, but avoids the precision cost when ICC is zero. This adaptivity makes MLM appealing in practice when ICC is unknown or variable across contexts.
+
+Although faceting by n_bar and J helps reveal potential interaction effects, it may be more effective to collapse across these variables for a cleaner summary.
+We are also not seeing how site size variation is impacting these results, and we might think that matters, especially for aggregation.
+
+As a warning regarding Monte Carlo uncertainty: when standardizing results, it is important to remember that uncertainty in the baseline measure (here, LR) propagates to the standardized values. This should be considered when interpreting variability in the scaled results.
+Uncertaintly for relative performance is generally tricky to assess.
+
+To clarify the main patterns, we average our SE.scale across simulation settings---relative performance is on the same scale, so averaging is a natural thing to do.
+
+```{r}
+s2 <- 
+  ssres %>% 
+  group_by( ICC, alpha, method ) %>%
+  summarise( SE.scale = mean( SE.scale ) )
+
+ggplot( s2, aes( ICC, SE.scale, col=method ) ) +
+  facet_wrap( ~ alpha ) +
+  geom_point() + geom_line() +
+  scale_y_continuous( labels = scales::percent_format() ) +
+  labs( title = "Average relative SE to Linear Regression",
+        y = "Relative Standard Error" )
+```
+
+Our aggregated plot of precision of aggregation and MLM relative to Linear Regression gives a simple story clearly told.
+The performance of aggregation improves with ICC.
+MLM also has benefits over LR, and does not pay much cost when ICC is low.
+
+We can also visualize the variability in relative standard errors across simulation scenarios using boxplots.
+This allows us to examine how consistent each method’s performance is under different ICC conditions.
+
+```{r}
+ssres %>% 
+  filter( method != "LR" ) %>%
+  ggplot( aes( ICC, SE.scale, col=method, 
+               group = interaction(ICC, method) ) ) +
+  facet_wrap( ~ alpha, nrow=1) +
+  geom_hline( yintercept = 1  ) +
+  geom_boxplot( position="dodge", width=0.1 ) +
+  scale_y_continuous( breaks=seq(90, 125, by=5 ) ) 
+```
+
+These boxplots show the full distribution of relative standard errors across all simulated scenarios, separated by ICC level. We exclude LR as it is the reference method.
+
+The pattern is clear: when ICC = 0, Aggregation performs worse than LR, and MLM performs about the same. But as ICC increases, Aggregation and MLM both improve, and perform about the same to each other.
+This highlights the robustness of MLM across diverse conditions.
+
+We might also explore how uncertainty changes with other factors.
+Here, we see whether cluster size meaningfully helps:  
+
+```{r}
+sres %>%
+  filter( alpha == 0.8, size_coef == 0.2 ) %>%
+ggplot( aes( n_bar, SE, col=factor(ICC), group=ICC ) ) +
+  facet_grid( J ~ method, labeller = label_both, scales = "free") +
+  geom_point() + geom_line()
+```
+
+If the ICC is low, cluster size matters.  Otherwise, the benefits are much more slim.
+
+
+
+## The Bias-SE-RMSE plot
+
+We can also visualize bias and standard error together, along with RMSE, to get a fuller picture of performance.
+To illustrate, we subset to our biggest scenarios, in terms of sample size, and no ICC:
+
+```{r}
+bsr <- sres %>%
+  filter( n_bar == 320, J==80, ICC == 0 )
+
+bsr <- bsr %>%
+  dplyr::select( -R, -power, -ESE_hat, -SD_SE_hat ) %>%
+  pivot_longer( cols=c("bias","SE","RMSE"),
+                names_to = "measure",
+                values_to = "value" ) %>%
+  group_by( measure, size_coef, method, ICC, alpha ) %>%
+  summarise( value = mean( value ),
+             n = n() )
+
+bsr$measure = factor( bsr$measure, levels=c("bias", "SE", "RMSE"),
+                      labels =c("|bias|", "SE", "RMSE" ) )
+
+ggplot( bsr, aes( alpha, value, col=method )) +
+  facet_grid( size_coef ~ measure ) +
+  geom_line() + geom_point() +
+  labs( y = "", x = "Site Variation" )  +
+  geom_hline( yintercept = 0 ) +
+  theme( legend.position="bottom",
+         legend.direction="horizontal", 
+         legend.key.width=unit(1,"cm"),
+         panel.border = element_blank() )
+```
+
+The combination of bias, standard error, and RMSE provides a rich and informative view of estimator performance.
+
+As an illustration, in the above plot, we focus on a specific simulation scenario with n_bar = 320, J = 80, and ICC = 0. The top row represents settings where effect size is independent of cluster size, while the bottom row reflects a correlation between size and effect.
+
+These types of visualizations directly illustrates the canonical relationship:
+
+$$ \text{RMSE}^2 = \text{Bias}^2 + \text{SE}^2 $$
+
+In the plot we get overall performance (RMSE) clearly decomposed into into its two fundamental components: systematic error (bias) and variability (standard error).
+Jere we see how bias for LR, for example, is dominant when site variation is high.
+The differences in SE are not driving differences in overall estimator performance, bias is.
+
+Frankly, this is the kind of diagnostic plot I often wish were included in more applied simulation studies.
+
+
+
+## Assessing estimated SEs
+
+So far we have examined the performance of our _point estimators_.
+We next look at ways to assess our _estimated_ standard errors.
+A good first question is whether they are about the right size, on average, across all the scenarios.
+
+Here it is very important to see if they are _reliably_ the right size, so the bundling method is an especially important tool here.
+We first see if the average estimated SE, relative to the true SE, is usually around 1 across all scenarios:
+
+```{r}
+sres <- sres %>%
+  mutate( inflate = ESE_hat / SE  ) 
+
+ggplot( sres,
+        aes( ICC, inflate, col=method,
+             group = interaction(ICC,method) ) ) +
+    facet_grid( . ~ J, labeller = label_both) +
+  geom_boxplot( position="dodge" ) +
+  geom_hline( yintercept=1 ) +
+  labs( color="n" ) +
+  scale_y_continuous( labels = scales::percent_format() ) 
+
+```
+
+We see that our estimated SEs are about right, on average, across all scenarios.
+When ICC is 0 and J is small, the MLM SEs are a bit too high.
+When J  is 5, the LR estimator can be a bit low under some circumstances.
+We can start exploring these trends to dig into why our are wide (suggesting that other factors dictate when the SEs are biased).
+
+We can look at the $J = 80$ to see what MCSEs are like.
+The `simhelpers` `calc_relative_var()` method gives mcses for relative bias.
+
+```{r}
+se_res <- res %>%
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarize( calc_relative_var( estimates = ATE_hat,
+                     var_estimates = SE_hat^2,
+                     criteria = "relative bias" ) )
+se_res %>%
+  filter( J == 80, n_bar == 80 ) %>%
+  ggplot( aes( ICC, rel_bias_var, col=method ) ) +
+  facet_grid( size_coef ~ alpha  ) + 
+  geom_hline( yintercept = 1 ) +
+  geom_point( position = position_dodge( width=0.05) ) +
+  geom_line( position = position_dodge( width=0.05) ) +
+  geom_errorbar( aes( ymin = rel_bias_var - 1.96*rel_bias_var_mcse,
+                      ymax = rel_bias_var + 1.96*rel_bias_var_mcse ),
+                 position = position_dodge( width=0.05 ),
+                 width = 0 )
+```
+
+In looking at this plot, we see no real evidence of miscalibration.
+This makes us think the boxes in the prior plot are wide due to MCSE rather than other simulation factors driving some slight miscalibration in some scenarios when $J$ is high.
+We might then assume this applies to the $J = 20$ case as well.
+
+Finally, we can look at how stable the estimated SEs are, relative to the actual uncertainty.
+We calculate the standard deviation of the estimated standard errors and compare that to the standard deviation of the point estimate.
+
+```{r}
+sres <- mutate( sres,
+               SD_SE_hat_rat = SD_SE_hat / SE )
+
+ggplot( sres,
+        aes( ICC, SD_SE_hat_rat, col=method,
+             group = interaction(ICC,method) ) ) +
+    facet_grid( . ~ J, labeller = label_both) +
+  geom_boxplot( position="dodge" ) +
+  labs( color="n" ) +
+  scale_y_continuous( labels = scales::percent_format() ) 
+```
+
+It looks like MLM has more reliably estimated SEs than other methods when ICC is small.
+Aggregation has more trouble estimating uncertainty when J is small.
+Finally, LR's SEs are generally more unstable, relative to its performance, when $J$ is larger.
+
+Assessing the stability of standard errors is usually very in the weeds of a performance evaluation.
+It is a tricky measure: if the true SE is high for a method, then the relative instability will be lower, even if the absolute instability is the same.
+Thinking through what might be driving what can be difficult, and is often not central to the main purpose of an evaluation.
+
+People often look at confidence interval coverage and confidence interval width, instead, to assess the quality of estimated SEs.
+
+
+## Assessing confidence intervals
+
+Coverage is a blend of how accurate our estimates are and how good our estimated SEs are.
+To assess coverage, we first calculate confidence intervals using the estimated effect, estimated standard error, and degrees of freedom.
+Once we have our calculated t-based intervals, we can average them across runs to get average width and coverage using `simhelpers`.
+A good confidence interval estimator would be one which is generally relatively short while maintaining proper coverage.
+
+Our calculations are as so:
+```{r}
+res$df = res$J
+res <- mutate( res,
+               tstar = qt( 0.975, df=df ),
+               CI_low = ATE_hat - tstar*SE_hat,
+               CI_high = ATE_hat + tstar*SE_hat,
+               width = CI_high - CI_low )
+
+covres <- res %>% 
+  group_by( n_bar, J, ICC, alpha, size_coef, method, ATE ) %>%
+  summarise( calc_coverage( lower_bound = CI_low, 
+                            upper_bound = CI_high,
+                            true_param = ATE ) ) %>%
+  ungroup()
+```
+
+We then look at those simulations with a relationship of site size and impact.
+We subset to `n_bar = 80`, `size_coef = 0.2` and `alpha = 0.5` to simplify for our initial plot:
+
+```{r}
+c_sub <- covres %>%
+  dplyr::filter( size_coef != 0, n_bar == 80, alpha == 0.5 )
+
+ggplot( c_sub, aes( ICC, coverage, col=method, group=method ) ) +
+  facet_grid( . ~ J, labeller = label_both ) +
+  geom_line() +
+  geom_point() +
+  geom_errorbar( aes( ymax = coverage + 2*coverage_mcse, 
+                      ymin = coverage - 2*coverage_mcse ), width=0 ) +
+  geom_hline( yintercept = 0.95 )
+```
+
+Generally coverage is good unless $J$ is low or ICC is 0.
+Monte Carlo standard errors indicate that, in some settings, the observed coverage is reliably different from the nominal 95%, suggesting issues with estimator bias, standard error estimation, or both.
+We might want to see if these results are general across other settings (see exercises).
+
+For confidence interval width, we can calculate the average width relative to the width of LR across all scenarios:
+
+```{r}
+covres <- covres %>%
+  group_by( n_bar, J, ICC, alpha, size_coef ) %>%
+  mutate( width_rel = width / width[method=="LR"] ) %>%
+  ungroup()
+
+c_agg <- covres %>%
+  group_by( ICC, J, alpha, method ) %>%
+  summarise( coverage = mean( coverage ),
+             coverage_mcse = sqrt( mean( coverage_mcse^2 ) ) / n(),
+             width_rel = mean( width_rel ) ) %>%
+  filter( method != "LR" )
+  
+ggplot( c_agg, aes( ICC, width_rel, col=method, group=method ) ) +
+  facet_grid( J ~ alpha ) +
+  geom_hline( yintercept = 1 ) +
+  geom_line() + geom_point() +
+  labs( y = "Relative CI Width",
+        title = "Average Relative CI Width to Linear Regression" ) +
+  scale_y_continuous( labels = scales::percent_format() )
+```
+
+Confidence interval width serves as a proxy for precision. Narrow intervals suggest more precise estimates. 
+We see MLM has wider intervals, relative to LR, when ICC is low.  When there is site variation, both Agg and MLM have shorter intervals.
+
+
+
 
 
 ## Exercises
 
 
-1) Add monte carlo standard errors to the initial subset small multiples plot.  Now add monte carlo standard errors to the final aggregated plot.
+### Assessing uncertainty
+Select a plot from this chapter that does not have monte carlo standard errors.
+Add monte carlo standard errors to that selected plot.
 
-2) Make a single plot that clearly answers the question of whether and when some methods are more precise than other methods.  As an extra step, add MCSEs to the plot to show if the differences are significant or possibly just due to not having sufficient numbers of replications in the simulation.
+### Assessing power
+Make a plot showing how power changes as $J$ changes.
+As an extra step, add MCSEs to the plot to assess whether you have a reasonable numbers of replications in the simulation.
 
-2) For our cluster RCT, use the simulation results to assess how much better (or worse) the different methods are to each other in terms of confidence interval coverage. What scenarios tend to result in the worst coverage?
+### Going deeper with coverage
+For our cluster RCT, we saw coverage is low in some circumstances.
+Explore the full set of simulation results, possibly adding your own analyses, to ascertain why coverage is low.
+Is it due to estimator bias? Unreliably estimated standard errors?  Something else?
+Make a final plot and short write-up that captures how coverage is vulnerable for the three estimators.
+
+<!--use the simulation results to assess how much better (or worse) the different methods are to each other in terms of confidence interval coverage. What scenarios tend to result in the worst coverage?-->
+
 
 
 
