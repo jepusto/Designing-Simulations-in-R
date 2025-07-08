@@ -188,6 +188,16 @@ crt_design_factors <- list(
 
 Note our ATE factor only has one level: we could later expand this if we wanted to, but based on theoretical concerns we are fairly confident the ATE will not impact our research questions, so we leave it as it is, picked to capture what is a plausible "realistic" ATE.
 
+### Redundant factor combinations
+Also note that we have some redundancy.
+In particular, if `size_coef` is nonzero, but `alpha` is 0, then the cluster size will not impact the cluster average ATE as there is no variation in cluster size.
+We could drop those factors, which would make our simulation no longer fully crossed.
+This would save us simulation runs---in essence we are running the same simulation for `alpha=0` two times, once for each `size_coef` value, for each level of `ICC`, `n_bar` and `J`.
+We will leave this in as a sanity check to our results, however: we know we should get the same results and if we do not, then we either have uncontrolled uncertainty in our simulation or an error in our coding.
+
+Also, if computation is cheap, then keeping the multifactor structure will make analysis later on much easier.
+Otherwise our experiment is not balanced, and so when we average performance across some factors to see the effect of others, we can end up with surprising and misleading results.
+
 
 ## Using pmap to run multifactor simulations
 
@@ -511,6 +521,8 @@ res
 ```
 
 We have a lot of rows of data!
+
+### Calculating performance metrics
 Our next step is to group our results by our simulation factors and calculate all our performance metrics at once.
 For example, here we calculate our main performance measures by hand:
 
@@ -530,7 +542,6 @@ sres <-
     R = n(),
     .groups = "drop"
   )
-sres
 ```
 
 If we want MCSEs (we do), then we can do that by hand as well, or use the `simhelpers` package as so:
@@ -544,12 +555,15 @@ sres <- res %>%
                                          "rmse")),
              calc_relative_var( estimates = ATE_hat,
                                 var_estimates = SE_hat^2,
-                                criteria = "relative rmse" ) ) %>%
+                                criteria = "relative bias" ) ) %>%
   rename( SE = stddev,
           SE_mcse = stddev_mcse ) %>%
-  dplyr::select( -K_absolute, -K_relvar )
-sres
+  dplyr::select( -K_absolute, -K_relvar ) %>%
+  ungroup()
+colnames( sres )
 ```
+
+<!-- LWM: James, is the above best practice for using simhelpers? -->
 
 
 ### Making analyze_data() quiet

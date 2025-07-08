@@ -46,16 +46,16 @@ We first walk through some examples of how to do regression modeling.
 We then dive more deeply into what to do when you have only a few iterations per scenario, and then we discuss what to do when you are evaluating methods that sometimes fail to converge or give an answer.
 
 
-## How to analyze simulation results with regression
+## Using regression to analyze simulation results
 
 In Chapter \@ref(presentation-of-results) we saw some examples of using regression and ANOVA to analyze simulation results.
 We next provide some further in-depth examples that give the code for doing this sort of thing.
 
 ### Example 1: Biserial, revisited
 
-For our first example, we revisit the bias of the biserial correlation example from Chapter \@ref(presentation-of-results).
+We first give the code that produced the final ANOVA summary table for the biserial correlation example in Chapter \@ref(presentation-of-results).
 In the visualization there, we saw that several factors appeared to impact bias, but we might want to get a sense of how much.
-Under modeling of that same chapter, we saw a table that partialed out the variance across several factors so we could see whether the population vs sample cutoff option mattered, on average, for bias, across all the simulation factors considered.
+Under modeling of that same chapter, we saw a table that partialed out the variance across several factors so we could see which simulation factors mattered most for bias.
 
 To build that table, we first fit a regression model to see:
 
@@ -106,9 +106,17 @@ The table in Chapter \@ref(presentation-of-results) is a summary of this anova t
 ```{r, warning=FALSE, eval=FALSE}
 library(lsr)
 etaSquared(anova_table) %>%
+  as.data.frame() %>%
+  rownames_to_column("source") %>%
+  mutate( order = 1 + str_count(source, ":" ) ) %>%
+  group_by( order ) %>%
+  arrange( -eta.sq, .by_group = TRUE ) %>%
+  relocate( order ) %>%
   knitr::kable( digits = 2 )
 ```
 
+We group the results by the order of the interaction, so that we can see the main effects first, then two-way interactions, and so on.
+We then sort within each group to put the high importance factors first.
 The resulting variance decomposition table (see Chapter \@ref(presentation-of-results)) shows which factors are explaining how much of the variation.
 
 
@@ -118,7 +126,7 @@ The resulting variance decomposition table (see Chapter \@ref(presentation-of-re
 When we have several methods to compare, we can also use meta-regression to understand how these methods change as other simulation factors change.
 We next continue our running Cluster RCT example.
 
-We first turn our simulation levels (except for ICC) into factors, so R does not assume that sample size, for example, should be treated as a continuous variable:
+We first turn our simulation levels (except for ICC, which has several levels) into factors, so R does not assume that sample size, for example, should be treated as a continuous variable:
 
 ```{r}
 sres_f = sres %>%
@@ -135,10 +143,15 @@ stargazer::stargazer(M, type = "text",
 ```
 
 We can quickly generate a lot of regression coefficients, making our meta-regression somewhat hard to interpret.
-The above model one does not even have interactions of the simulation factors--which, given the found interactions from our plots, is a major concern!
+The above model does not even have interactions of the simulation factors--which, given the found interactions from our plots, is a major concern!
 That said, picking out the significant coefficients is a quick way to obtain a lot of clues as to what is driving performance.
-E.g., sp,e features interact with the LR method for bias.
+E.g., several features interact with the LR method for bias.
 The other two methods seem less impacted.
+
+
+#### Using LASSO to simplify the model
+
+<!-- LWM: Not sure if the following is completely off the rails.  Or what we want to say about modeling more broadly.  The Josh work also is in the background, possibly worth considering, about using random effects when number of simulations are few -->
 
 We can simplify our model using LASSO regression, to drop coefficients that are less relevant.
 This requires some work to make our model matrix of dummy variables with all the interactions.
@@ -165,7 +178,44 @@ coef(fit, s = "lambda.1se") %>%
   knitr::kable(digits = 3)
 ```
 
-We can also extend to allow for pairwise interactions:
+When using regression, and especially LASSO, which levels are baseline can impact the final results.
+Here "Agg" is our baseline method, and so our coefficients are showing how other methods differ from the Agg method.
+If we selected LR as baseline, then we might suddenly see Agg and MLM as having large coefficients.
+
+One trick is to give dummy variables for all the methods, and overload the `method` factor with the baseline method, so that it is always the first level.
+```{r}
+form <- bias ~ 0 + ( n_bar + J + size_coef + ICC + alpha) * method
+sres_f$method <- factor(sres_f$method)
+vars = c("n_bar", "J", "size_coef", "alpha", "method")
+contr.identity <- function(x) {
+  n = nlevels(x)
+  m <- diag(n)
+  rownames(m) <- colnames(m) <- levels(x)
+
+  m
+}
+contr.identity(sres_f$n_bar)
+X <- model.matrix(~ 0 + ( n_bar + J + size_coef  + alpha) * method, 
+                  data = sres_f,
+                  contrasts.arg = lapply(sres_f[,vars], 
+                                         \(x) contr.identity(x)))
+
+colnames(X)
+```
+
+Now do the LASSO on this colinear mess:
+```{r}
+fit <- cv.glmnet(X, sres_f$bias, alpha = 1)
+coef(fit, s = "lambda.1se") %>%
+  as.matrix() %>%
+  as.data.frame() %>%
+  rownames_to_column("term") %>%
+  filter(abs(s0) > 0) %>%
+  knitr::kable(digits = 3)
+```
+
+
+We can also extend to allow for pairwise interactions of simulation factors:
 ```{r}
 form2 <- bias ~ ( n_bar + J + size_coef + ICC + alpha)^2 * method
 ```
@@ -182,6 +232,8 @@ coef(fit2, s = "lambda.1se") %>%
   knitr::kable(digits = 3)
 ```
 
+
+#### Fitting models to each method
 We know each method responds differently to the simulation factors, so we could fit three models, one for each method, and compare them.
 
 ```{r}
@@ -227,15 +279,18 @@ ggplot( m_resL,
 Here we see how LR stands out, but also how MLM stands out under different simulation factor combinations.
 Staring at this provides some understanding of how the methods are similar, and dissimilar.
 
-For another example we have for the standard error.
-Here we regress $log(SE)$ onto the coefficients, and we rescale ICC to be on a 5 point scale to control it's relative coefficeint size:
+For another example we turn to the standard error.
+Here we regress $log(SE)$ onto the coefficients, and we rescale ICC to be on a 5 point scale to control it's relative coefficeint size to the dummy variables.
+We regress $log(SE)$ and then exponentiate the coefficients to get the relative change in SE.
+We can then interpret an exponentiated coefficient of, 0.64 for MLM for `n_bar80` as a 36% reduction of the standard error when we increase n_bar from the baseline of 20 to 80.
 
+Here we make a plot like above, but with these relative changes:
 ```{r, echo=FALSE}
 meth = c( "LR", "MLM", "Agg" )
 
-sres_f$ICC_10 = sres_f$ICC * 5 # rescale ICC to be on a 5 point scale
+sres_f$ICCsc = sres_f$ICC * 5 # rescale ICC to be on a 5 point scale
 models <- map( meth, function(m) {
-  M <- lm( log(SE) ~ (n_bar + J + size_coef + ICC_10 + alpha)^2, 
+  M <- lm( log(SE) ~ (n_bar + J + size_coef + ICCsc + alpha)^2, 
       data = sres_f %>% filter( method == m ) )
   tidy( M ) %>%
     mutate( estimate =exp(estimate) - 1 )
@@ -270,9 +325,11 @@ ggplot( m_resL,
 ```
 
 This clearly shows that the methods are basically the same in terms of uncertainty estimation.
+We also see some interesting trends, such as the impact of `n_bar` declines when ICC is higher (see the interaction terms at rigth of plot).
 
 
-## Finding important factors with regression trees
+
+## Using regression trees to find important factors
 
 Sometimes with more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher what is running what.
 Another tool one might use to explore is to fit a regression tree on the simulation results.

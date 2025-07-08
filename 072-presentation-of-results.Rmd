@@ -571,7 +571,7 @@ They can also include interactions between simulation factors, which allows us t
 
 For example, consider the bias of the biserial correlation estimates from above.
 Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
-In particular, does the population vs sample cutoff option matter, on average, for bias, across all the simulation factors considered?
+In particular, how much does the population vs sample cutoff option matter for bias, across all the simulation factors considered?
 
 
 ```{r setup_modeling_demonstration, warning=FALSE, include=FALSE}
@@ -590,26 +590,30 @@ The main effects are summaries of trends across contexts.
 For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
 -->
 
-We can use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+We can use ANOVA to decompos the variation in bias into components predicted by various combinations of the simulation factors.
+Using ANOVA we can identify which factors have negligible/minor influence on the bias of an estimator, and which factors drive the variation we see.
 We can then summarise our anova table to see the contribution of the various factors and interactions to the total amount of variation in performance:
 
-```{r anova_example2, warning=FALSE, include=FALSE}
-anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
-broom::tidy(anova_table)
-```
-
-<!--The advantage here is the multiple levels of our categorical factors get bundled together in our table of results, making a tidier display.-->
-
 ```{r, warning=FALSE, echo=FALSE}
+anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
+
+#broom::tidy(anova_table)
+
 library(lsr)
 etaSquared(anova_table) %>%
+  as.data.frame() %>%
+  rownames_to_column("source") %>%
+  mutate( order = 1 + str_count(source, ":" ) ) %>%
+  group_by( order ) %>%
+  arrange( -eta.sq, .by_group = TRUE ) %>%
+  relocate( order ) %>%
   knitr::kable( digits = 2 )
 ```
 
 Here we see which factors are explaining the most variation.  E.g., `p1` is explaining 21% of the variation in bias across simulations.
-The contribution of the three way interactions is fairly minimal, by comparison, and could be dropped to simplify our model.
+The contribution of any of the three- or four-way interactions are fairly minimal, by comparison, and could be dropped to simplify our model.
 
-Modeling can summarize overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
+Modeling summarizes overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
 We could fit a regression model or ANOVA model for each performance measure in turn, to understand what drives our results.
 
 ### Example 2: Comparing methods for cross-classified data
