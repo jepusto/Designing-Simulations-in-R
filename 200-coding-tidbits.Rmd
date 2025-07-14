@@ -9,7 +9,7 @@ library( blkvar )
 
 This chapter is not specifically about simulation, but it does have a few tips and tricks regarding coding that are worth attending to.
 
-## How to repeat yourself {#repeating-oneself}
+## How to repeat yourself {#more-repeating-oneself}
 
 At the heart of simulation is replication: we want to do the same task over and over. In this book we have showcased a variety of tools to replicate a random process. In this section we give a formal presentation of these tools.
 
@@ -156,31 +156,7 @@ args( generate_blocked_data )
 The documentation will tell us more, but if we just need some sample data, we can quickly assess our method before having to do much reading and understanding.
 Only once we have identified what we need do we have to turn to the documentation itself.
 
-
-## Testing and debugging code in your scripts
-
-If you have an extended script with a list of functions, you might have a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
-One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
-
-```{r}
-if ( FALSE ) {
-  res <- my_function( 10, 20, 30 )
-  res
-  # Some notes as to what I want to see.
-  
-  sd( res )
-  # This should be around 20
-}
-```
-
-You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
-If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
-
-
-
-
-
-## The source command and keeping things organized
+## The source command and keeping things organized {#about-source-command}
 
 Simulations have two general phases: generate your results and analyze your results.
 The ending of the first phase should be to save the generated results.
@@ -238,8 +214,26 @@ Also, as we debugged our estimators and tweaked them, we immediately could re-ru
 
 Modular programming is key.
 
+## Testing and debugging code in your scripts {#about-keeping-tests-with-FALSE}
 
-## Debugging with browser
+If you have an extended script with a list of functions, you might have a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
+
+```{r}
+if ( FALSE ) {
+  res <- my_function( 10, 20, 30 )
+  res
+  # Some notes as to what I want to see.
+  
+  sd( res )
+  # This should be around 20
+}
+```
+
+You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
+If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
+
+## Debugging with browser {#about-browser-debugging}
 
 Consider the following code taken from a simulation:
 
@@ -251,4 +245,59 @@ Consider the following code taken from a simulation:
 
 The `browser()` command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
 Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.
+
+## Protecting your functions with "stop" {#about-stopifnot}
+
+When writing functions, especially those that take a lot of parameters, it is often wise to include `stopifnot()` statements at the top to verify the function is getting what it expects.
+These are sometimes called "assert statements" and are a tool for making errors show up as early as possible.
+For example, look at this (fake) example of generating data with different means and variances
+
+```{r assert_demo}
+make_groups <- function( means, sds ) {
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
+}
+```
+
+If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:
+```{r}
+make_groups( c(100,200,300,400), c(1,100,10000) )
+```
+
+If this function was used in our data generating code, we would see the warnings but might not know exactly what they were.
+We can instead protect our function by putting an *assert statements* in our function like this:
+```{r}
+make_groups <- function( means, sds ) {
+  stopifnot( length(means) == length(sds) )
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
+}
+```
+
+This ensures your code is getting called as you intended.
+What is nasty about this possible error is nothing is telling you something is wrong!
+You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
+You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.
+
+These statements can also serve as a sort of documentation as to what you expect.
+Consider, for example:
+```{r}
+make_xy <- function( N, mu_x, mu_y, rho ) {
+  stopifnot( -1 <= rho && rho <= 1 )
+  X = mu_x + rnorm( N )
+  Y = mu_y + rho * X + sqrt(1-rho^2)*rnorm(N)
+  tibble(X = X, Y=Y)
+}
+```
+Here we see that rho should be between -1 and 1 quite clearly.
+A good reminder of what the parameter is for.
+
+This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
+Consider:
+```{r, error=TRUE}
+a <- make_xy( 10, 2, 3, 0.75 )
+b <- make_xy( 10, 0.75, 2, 3 )
+c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
+```
+
 

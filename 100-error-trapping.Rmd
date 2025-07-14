@@ -1,0 +1,67 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r, include =FALSE}
+library( purrr )
+set.seed(4043)
+library( tidyverse )
+```
+
+
+# Error trapping and other headaches
+
+
+### What to do with warnings in simulations
+
+Sometimes our analytic strategy might give some sort of warning (or fail altogether).
+For example, from the cluster randomized experiment case study we have:
+
+```{r, include=FALSE}
+source( "case_study_code/clustered_data_simulation.R" )
+```
+
+```{r}
+set.seed(101012)  # (I picked this to show a warning.)
+dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
+mod <- lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+```
+
+We have to make a deliberate decision as to what to do about this:
+ 
+ - Keep these "weird" trials?
+ - Drop them?
+
+If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
+If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn't give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+
+If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
+Especially if you drop some trials, it is important to see how often things are acting pecularly.
+
+The main tool for doing this is the `quietly()` function:
+```{r}
+quiet_lmer = quietly( lmer )
+qmod <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+qmod
+```
+
+You then might have, in your analyzing code:
+```{r, eval=FALSE}
+analyze_data <- function( dat ) {
+    
+    M1 <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+    message1 = ifelse( length( M1$message ) > 0, 1, 0 )
+    warning1 = ifelse( length( M1$warning ) > 0, 1, 0 )
+
+    # Compile our results
+    tibble( ATE_hat = coef(M1)["Z"],
+            SE_hat = se.coef(M1)["Z"],
+            message = message1,
+            warning = warning1 )
+}
+```
+
+Now you have your primary estimates, and also flags for whether there was a convergence issue.
+In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
+

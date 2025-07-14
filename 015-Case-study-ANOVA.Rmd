@@ -182,7 +182,7 @@ table_1 %>%
 To replicate the Brown and Forsythe simulation, we will first write functions to generate data for a specified scenario and evaluate data of a given structure.
 We will then use these functions to evaluate the hypothesis testing procedures in a specific scenario with a particular set of parameters (e.g., sample sizes, number of groups, and so forth). We will then scale up to execute the simulations for a range of scenarios that vary the parameters of the data-generating model, just as reported in Brown and Forsythe's paper.
 
-## The data-generating model
+## The data-generating model {#case-anova-DGP}
 
 In the heteroskedastic one-way ANOVA simulation, there are three sets of parameter values: population means, population variances, and sample sizes.
 Rather than attempting to write a general data-generating function immediately, it is often easier to write code for a specific case first and then use that code as a starting point for developing a function.
@@ -237,21 +237,7 @@ If you can find a way to accomplish your task at all, then that's often enough (
 Because we will need to generate datasets over and over, we will wrap our code in a function.
 The inputs to the function will be the parameters of the model that we specified at the very beginning: the set of population means `mu`, the population variances `sigma_sq`, and sample sizes `sample_size`. We make these quantities arguments of the data-generating function so that we can make datasets of different sizes and shapes:
 
-```{r generate_data_block}
-generate_data <- function(mu, sigma_sq, sample_size) {
-
-  N <- sum(sample_size)
-  G <- length(sample_size)
-
-  group <- factor(rep(1:G, times = sample_size))
-  mu_long <- rep(mu, times = sample_size)
-  sigma_long <- rep(sqrt(sigma_sq), times = sample_size)
-
-  x <- rnorm(N, mean = mu_long, sd = sigma_long)
-  sim_data <- tibble(group = group, x = x)
-
-  return(sim_data)
-}
+```{r generate_data_block, file = "case_study_code/generate_ANOVA_data.R"}
 ```
 
 The function is simply the code we built previously, all bundled up.
@@ -261,7 +247,7 @@ Once we have turned the code into a function, we can call it to get a new set of
 For example, to generate a dataset with the same parameters as before, we can do:
 
 ```{r}
-sim_data <- generate_data(
+sim_data <- generate_ANOVA_data(
   mu = mu, 
   sigma_sq = sigma_sq,
   sample_size = sample_size
@@ -273,7 +259,7 @@ str(sim_data)
 To generate one with population means of zero in all the groups, but the same group variances and sample sizes as before, we can do:
 
 ```{r}
-sim_data_null <- generate_data(
+sim_data_null <- generate_ANOVA_data(
   mu = c( 0, 0, 0, 0 ),
   sigma_sq = sigma_sq, 
   sample_size = sample_size
@@ -283,7 +269,7 @@ str(sim_data)
 ```
 
 Following the principles of tidy, modular simulation, we have written a function that returns a rectangular dataset for further analysis. 
-Also note that the dataset returned by `generate_data()` only includes the variables `group` and `x`, but not `mu_long` or `sd_long`. 
+Also note that the dataset returned by `generate_ANOVA_data()` only includes the variables `group` and `x`, but not `mu_long` or `sd_long`. 
 This is by design. 
 Including `mu_long` or `sd_long` would amount to making the population parameters available for use in the data analysis procedures, which is not something that happens when analyzing real data.
 
@@ -309,7 +295,7 @@ We start with the conventional one-way ANOVA that mistakenly assumes homoskedast
 R's `oneway.test` function will calculate this test automatically:
 
 ```{r}
-sim_data <- generate_data(
+sim_data <- generate_ANOVA_data(
   mu = mu, 
   sigma_sq = sigma_sq,
   sample_size = sample_size
@@ -325,21 +311,12 @@ Welch_F
 ```
 The main results we need here are the $p$-values of the tests, which will let us assess Type-I error and power for a given nominal $\alpha$-level. The following function takes simulated data as input and returns as output the $p$-values from the one-way ANOVA test and Welch test:
 
+```{r, file = "case_study_code/ANOVA_Welch_F.R"}
+```
 ```{r}
-ANOVA_Welch_F <- function(data) {
-  anova_F <- oneway.test(x ~ group, data = data, var.equal = TRUE)
-  Welch_F <- oneway.test(x ~ group, data = data, var.equal = FALSE)
-  
-  result <- tibble(
-    ANOVA = anova_F$p.value,
-    Welch = Welch_F$p.value
-  )
-  
-  return(result)
-}
-
 ANOVA_Welch_F(sim_data)
 ```
+
 Following our tidy, modular simulation principles, this function returns a small dataset with the p-values from both tests. 
 Eventually, we might want to use this function on some real data.
 Our estimation function does not care if the data are simulated or not; we call the input `data` rather than `sim_data` to reflect this.
@@ -352,17 +329,13 @@ For further discussion of the trade-offs, see Chapter \@ref(optimize-code), wher
 ## Running the simulation
 
 We now have functions that implement steps 2 and 3 of the simulation.
-Given some parameters, `generate_data` produces a simulated dataset and, given some data, `ANOVA_Welch_F`  calculates $p$-values two different ways.
+Given some parameters, `generate_ANOVA_data` produces a simulated dataset and, given some data, `ANOVA_Welch_F`  calculates $p$-values two different ways.
 We now want to know which way is better, and by how much.
 To answer this question, we will need to repeat the chain of generate-and-analyze calculations a bunch of times.
 To facilitate repetition, we first put the components together into a single function:
 ```{r}
 one_run = function( mu, sigma_sq, sample_size ) {
-  sim_data <- generate_data(
-    mu = mu, 
-    sigma_sq = sigma_sq,
-    sample_size = sample_size
-  )
+  sim_data <- generate_ANOVA_data( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size )
   ANOVA_Welch_F(sim_data)
 }
 
@@ -377,11 +350,7 @@ The following uses `repeat_and_stack()` from `simhelpers` to evaluate `one_run()
 library(simhelpers)
 
 sim_data <- repeat_and_stack(4, 
-  one_run(
-    mu = mu, 
-    sigma_sq = sigma_sq, 
-    sample_size = sample_size
-  )
+  one_run( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size)
 )
 sim_data
 ```

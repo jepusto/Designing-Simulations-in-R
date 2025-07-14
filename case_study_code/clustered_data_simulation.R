@@ -19,7 +19,7 @@ scat = function( str, ... ) {
 }
 
 
-gen_dat_model <- function( n_bar = 10,
+gen_cluster_RCT <- function( n_bar = 10,
                            J = 30,
                            p = 0.5,
                            gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
@@ -176,7 +176,7 @@ run_CRT_sim <- function(reps,
   
   res <- 
     simhelpers::repeat_and_stack( reps, {
-      dat <- gen_dat_model( n_bar = n_bar, J = J, p = p,
+      dat <- gen_cluster_RCT( n_bar = n_bar, J = J, p = p,
                             gamma_0 = 0, gamma_1 = ATE, gamma_2 = size_coef,
                             sigma2_u = ICC, sigma2_e = 1 - ICC,
                             alpha = alpha )
@@ -188,7 +188,8 @@ run_CRT_sim <- function(reps,
 
 if ( FALSE ) {
   
-  dat <- gen_dat_model( 20, 20, alpha=0.5 )
+
+  dat <- gen_cluster_RCT( 5, 3 )
   dat
   
   undebug( quiet_analysis_MLM )
