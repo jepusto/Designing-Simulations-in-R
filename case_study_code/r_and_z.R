@@ -6,5 +6,5 @@ r_and_z <- function(data) {
   ci_z <- z + c(-1, 1) * qnorm(.975) * se_z
   ci_r <- tanh(ci_z)
   
-  tibble( r = r, z = z, CI_lo = ci_r[1], CI_hi = ci_r[2] )
+  data.frame( r = r, z = z, CI_lo = ci_r[1], CI_hi = ci_r[2] )
 }
