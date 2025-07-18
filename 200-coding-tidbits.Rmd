@@ -1,6 +1,8 @@
 ```{r, include=FALSE}
 library( tidyverse )
 library( blkvar )
+
+source( here::here( "case_study_code/clustered_data_simulation.R" ) )
 ```
 
 # (APPENDIX) Appendices {-}
@@ -158,6 +160,136 @@ The documentation will tell us more, but if we just need some sample data, we ca
 Only once we have identified what we need do we have to turn to the documentation itself.
 
 
+## Profiling Code
+
+Simulations can be extremely time intensive.
+With a large simulation it can also be hard to determine _why_, exactly, the simulation is as long as it is.
+Is it one of the methods?
+Is it just that as sample size grows, the time grows far more rapidly than one might expect?
+Knowing the answer to these questions can allow you to plan out your simulation and, sometimes, make some hard choices as to what things you want to include.
+
+There are a variety of tools for timing code.
+We are going to go through a few useful ones here.
+
+### Using `Sys.time()` and `system.time()`
+The simplest way to time code is to use the `system.time()` function.
+This function takes an expression and returns the time it took to run that expression.
+For example:
+
+```{r}
+time <- system.time( rnorm( 1000000 ) )
+time
+```
+Elapsed time is how much time actually passed.
+The user time is how much time your computer spent on the task at hand, not including if it paused to do something else (like deal with a mouse click or pop-up message).
+With current computers with multiple cores, you would expect user and elapsed time to be very similar.
+
+You can also start and stop a clock by checking the system time:
+```{r}
+start_time <- Sys.time()
+A = rnorm( 1000000 )
+mean(A)
+sd(A)
+end_time <- Sys.time()
+tot_time <- end_time - start_time
+tot_time
+```
+
+This can be useful, but be careful, as the time is stored along with the units.  If your simulation takes a long time, it will flip from a lot of seconds to a few minutes, and you can end up thinking something that took much, much longer was actually fast.
+
+### The `tictoc` package
+
+The `tictoc` package is a very simple way to time code.
+It has two functions, `tic()` and `toc()`, which you can use to mark the start and end of a block of code.
+```{r}
+library( tictoc )
+tic("Generating data")
+A = rnorm( 1000000 )
+toc()
+```
+
+It is basically like `Sys.time()` but it has a few more features, such as being able to label the time you are measuring.
+
+### The `bench` package
+The `bench` package provides some powerful tools for timing code, and is in particular good for comparing different ways of doing the same (or similar) thing.
+`bench::mark()` runs each expression 10 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings.
+For example, we can time how long it takes to analyze some data from our cluster RCT experiment:
+
+```{r}
+library( bench )
+dat <- gen_cluster_RCT(n_bar=100, J = 100)
+timings <- mark(
+      MLM = quiet_analysis_MLM(dat),
+      OLS = analysis_OLS(dat),
+      agg = analysis_agg(dat),
+      check = FALSE
+)
+timings
+```
+You can even get a viz of how long everything took:
+```{r, fig.height = 3}
+plot( timings )
+```
+
+The "gc" coloring in the above indicates runs where "garbage collection" took place, meaning R paused to empty out some used memory.
+
+You can also use `bench::press()` to run a variety of configurations to explore how timing works under changed parameters.
+To illustrate, let's compare how long each method for the cluster RCT running example takes:
+
+```{r, results="none", cache=TRUE}
+source( here::here("case_study_code/clustered_data_simulation.R" ) )
+timings <- bench::press(
+  n_bar = c( 10, 100 ),
+  J = c( 10, 100 ),
+  {
+    dat <- gen_cluster_RCT(n_bar=n_bar, J = J)
+    bench::mark(
+      MLM = quiet_analysis_MLM(dat),
+      OLS = analysis_OLS(dat),
+      agg = analysis_agg(dat),
+      check = FALSE
+    )
+  }
+)
+```
+
+And we can make our custom plot of time:
+```{r}
+timings$name = attr( timings$expression, "description" )
+ggplot( timings, aes( n_bar, median, color = as.factor(J) ) ) +
+  facet_wrap( ~ name ) +
+  geom_point() + geom_line()
+```
+
+Note the `timings` object is not quite a classic tibble, and the expression at start captures the code run.  The "name" line grabs the names given in the initial evaluation so we can make the plot the way we want.
+
+
+### Profiling with `profvis`
+
+Sometimes you don't have a head to head comparison in mind, but are instead trying to find out _where_ in your full simulation the time is being spent.
+The `profvis` package allows for exploring this sort of question.
+You "profile" a block of code and then you can explore the results in a browser inside of RStudio.
+
+For example, you might have the following:
+
+```{r, eval=FALSE}
+profvis( {
+  replicate( 10, { 
+    data <- gen_cluster_RCT( n_bar = 100, J = 100 )
+    res1 <- quiet_analysis_MLM(data)
+    res2 <- analysis_OLS(data)
+    res3 <- analysis_agg(data)
+  } )
+} )
+```
+
+In the browser you will get the code you ran, and you can see how long each line took to run.
+You will get little "time" bars---the bigger the bar, the greater fraction of time that line took versus the other lines.
+
+You can also click on the "Data" tab and it will give you a series of cascades of function calls, so you can see how long each function took to run.
+You click on a function to expand it, and it will show you how long each part inside took.
+
+
 
 
 ## Optimizing code (and why you often shouldn't) {#optimize-code}
@@ -231,6 +363,7 @@ one_run = function( mu, sigma_sq, sample_size ) {
 
 ```
 
+
 Optimizing code is when you spend a bit more human effort to write code that will run faster on your computer.
 In some cases, this can be a critical boost to running a simulation, where you inherently will be doing things a lot of times.
 Cutting runtime down will always be tempting, as it allows you to run more replicates and get more precisely estimated performance measures for your simulation.
@@ -240,15 +373,18 @@ Optimizing as you go usually means you will spend a lot of time wrestling with c
 For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code will not help shorten the overall run time of a simulation much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
 Keep things simple; in general your time is more important than the computer's time.
 
-In the next sections we will look at a few optimization efforts applied to the ANOVA example in the prior chapters.
+Overall, computational efficiency should usually be a secondary consideration when you are starting to design a simulation study.
+It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
+
+That warning made, in the next sections we will look at a few optimization efforts applied to the ANOVA example from Section \@ref(case-ANOVA) to illustrate some principles of optimization that come up a lot in simulation projects.
 
 ### Hand-building functions
-In the Welch example above, we used the system-implemented ANOVA.
+In our initial ANOVA simulation we used the system-implemented ANOVA.
 An alternative approach would be to "hand roll" the ANOVA F statistic and test directly.
 Doing so by hand can set you up to implement modified versions of these tests later on.
 Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.
 
-Following the formulas on p. 129 of Brown and Forsythe (1974) we have (using data as generated in Chapter \@ref(data-generating-processes):
+Following the formulas on p. 129 of Brown and Forsythe (1974) we write our own function as so:
 
 ```{r}
 ANOVA_F <- function(sim_data) {
@@ -268,25 +404,25 @@ ANOVA_F <- function(sim_data) {
 
   return(pval)
 }
-
-ANOVA_F(sim_data)
 ```
 
-To see the difference between our version and R's version, we can use an R package called `microbenchmark` to test how long the computations take for each version of the function.
-The `microbenchmark` function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:
+We are using data as generated in Chapter \@ref(data-generating-processes).
+To see the difference between our version and R's version, we benchmark:
 
 ```{r}
-library(microbenchmark)
-timings <- microbenchmark(Rfunction = ANOVA_F_aov(sim_data),
+timings <- bench::mark(Rfunction = ANOVA_F_aov(sim_data),
                           direct    = ANOVA_F(sim_data))
-timings
+summary( timings )[1:4] %>%
+  mutate( speed_up = as.numeric( max(median)/median ) ) %>%
+  knitr::kable( digits = 2 )
 ```
 
-The direct function is `r with(summary(timings), round(mean[1] / mean[2], 1))` times faster than the built-in R function.
+The direct function is `r with(summary(timings), as.numeric(round(median[[1]] / median[[2]], 1)))` times faster than the built-in R function.
 
 This result is not unusual.
 Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
 Here we can skip them by doing the calculations directly.
+
 In general, however, this is a trade-off: writing something yourself gives you a lot of chance to do something wrong, throwing off all your simulations.
 It might be faster, but you may pay dearly for it in terms of extra hours coding and debugging.
 Optimize only if you need to!
@@ -295,7 +431,7 @@ Optimize only if you need to!
 
 ### Computational efficiency versus simplicity {#sec_comp_efficiency}
 
-An alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates _multiple_ sets of simulated data all at once. 
+On the data generation side, an alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates _multiple_ sets of simulated data all at once. 
 
 For example, for our ANOVA example we could specify that we want `R` replications of the study and have the function spit out a matrix with `R` columns, one for each simulated dataset:
 
@@ -322,46 +458,46 @@ generate_data_matrix(mu = mu, sigma_sq = sigma_sq,
 
 This approach is a bit more computationally efficient because the setup calculations (getting `N`, `g`, `group`, `mu_full`, and `sigma_full`) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to `rnorm()`. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
 Furthermore, if the number of replicates `R` is large and each replication produces a large dataset, this "all-at-once" approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
-On balance, we recommend the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise). 
+On balance, we recommend the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise).
+It is usually the case that most time spent in the simulation is the _analyzing_ of the data, not the generating it, so these savings are usually not worth the bother.
 
 
 
 ### Reusing code to speed up computation
 
-Computational and programming efficiency should usually be a secondary consideration when you are starting to design a simulation study.
-It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
-All that said, there is some glaring redundancy in the two functions used for the ANOVA simulation.
-Both `ANOVA_F` and `Welch_F` start by taking the simulated data and calculating summary statistics for each group, using the following code:
+Once we have our own ANOVA method to go with our own Welch method, we see some glaring redundancies.
+In particular, both `ANOVA_F` and `Welch_F` start by taking the simulated data and calculating summary statistics for each group, using the following code:
 
 ```{r, eval=FALSE}
 x_bar <- with(sim_data, tapply(x, group, mean))
 s_sq <- with(sim_data, tapply(x, group, var))
 n <- table(sim_data$group)
-g <- length(x_bar)
 ```
 
 In the interest of not repeating ourselves, it would better to pull this code out as a separate function and then re-write the `ANOVA_F` and `Welch_F` functions to take the summary statistics as input. Here is a function that takes simulated data and returns a list of summary statistics:
 
 ```{r}
 summarize_data <- function(sim_data) {
-  
-  res <- sim_data %>% 
-    group_by( group ) %>%
-    summarise( x_bar = mean( x ),
-               s_sq = var( x ),
-               n = n() )
-  res
+  x_bar <- with(sim_data, tapply(x, group, mean))
+  s_sq <- with(sim_data, tapply(x, group, var))
+  n <- table(sim_data$group)
+
+  list(
+    x_bar = as.numeric( x_bar ),
+    s_sq = as.numeric( s_sq ),
+    n = as.numeric( n )
+  )
 }
 ```
 
-We just packaged the code from above, and puts our results in a nice table (and thus pivoted to using tidyverse to calculate these things):
+We just packaged the code from above:
 
 ```{r}
 sim_data = generate_data(mu=mu, sigma_sq=sigma_sq, sample_size=sample_size)
 summarize_data(sim_data)
 ```
 
-Now we can re-write both $F$-test functions to use the output of this function:
+Now we can re-write both our $F$-test functions to use the output of this function:
 
 ```{r}
 ANOVA_F_agg <- function(x_bar, s_sq, n) {
@@ -397,7 +533,7 @@ Welch_F_agg <- function(x_bar, s_sq, n) {
   return(pval)
 }
 
-with(summary_stats, ANOVA_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
+with(summary_stats, Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
 ```
 
 The results are the same as before. 
@@ -439,8 +575,7 @@ He also reports $W = 3.35$ and $f = 22.6$. Replicating the calculations with our
 Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n)
 ```
 
-We get slightly different results! But we know that our function is correct---or at least consistent with `oneway.test`---so what's going on? It turns out that there was an error in some of Welch's intermediate calculations, which can only be spotted because he reported all of his work in the paper. 
-
+We get slightly different results! But we know that our function is correct---or at least consistent with `oneway.test`---so what's going on? It turns out that there was an error in some of Welch's intermediate calculations, which can only be spotted because he reported all of his work in the paper.
 
 We then put all these pieces in our revised `one_run()` method as so:
 
@@ -460,21 +595,21 @@ one_run_fast( mu = mu, sigma_sq = sigma_sq,
               sample_size = sample_size )
 ```
 
-The reason this is important is we are now doing our group aggregation only once, rather than once per method.  We can use our microbenchmark to see our speedup:
+The reason this is important is we are now doing our group aggregation only once, rather than once per method.
+We benchmark to see our speedup:
 
 ```{r}
-library(microbenchmark)
-timings <- microbenchmark(noagg = one_run(mu = mu, sigma_sq = sigma_sq, 
+timings <- bench::mark(original = one_run(mu = mu, sigma_sq = sigma_sq, 
                                           sample_size = sample_size),
-                          agg = one_run_fast(mu = mu, sigma_sq = sigma_sq, 
-                                             sample_size = sample_size) )
-timings
+                       one_agg = one_run_fast(mu = mu, sigma_sq = sigma_sq, 
+                                              sample_size = sample_size),
+                       check=FALSE)
+timings[1:4] %>%
+  mutate( speed_up = as.numeric( max(median) / median ) ) %>%
+  knitr::kable( digits = 2 )
 ```
 
-And our relative speedup is:
-```{r}
-with(summary(timings), round(mean[1] / mean[2], 1))
-```
+Our improvement is fairly modest.
 
 To recap, there are two advantages of this kind of coding:
 
@@ -482,4 +617,6 @@ To recap, there are two advantages of this kind of coding:
  
  2. Saving the results of calculations can speed up your computation since you are saving your partial work.  This can be useful to reduce calculations that are particularly time intensive.
  
+That said, optimizing code is dangerous (it is an easy way to introduce bugs into your simulation workflow) and time consuming for you (thinking through and writing all the fancy code is time you are not doing something else).
+But it sure can be satisfying to spend an extra weekend hacking away at this sort of thing!
 

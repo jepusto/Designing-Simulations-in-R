@@ -1843,7 +1843,7 @@ We will discuss multiple-scenario simulations in Part III (starting with Chapter
   Look back at the \(t\)-test simulation presented in Chapter \ref{t-test-simulation}. The code presented there did not entirely follow the formal structure outlined in this chapter. Revise the code by creating separate functions for each of four components in the simulation skeleton. Using the functions, re-run the simulation and recreate one or more graphs from the exercises in the previous chapter.
 \end{enumerate}
 
-\chapter{Case Study: Heteroskedastic ANOVA}\label{case-ANOVA}
+\chapter{Case Study: Heteroskedastic ANOVA and Welch}\label{case-ANOVA}
 
 In this chapter, we present another detailed example of a simulation study to demonstrate how to put the principles of tidy, modular simulation into practice.
 To illustrate the process of programming a simulation, we reconstruct the simulations from \citet{brown1974SmallSampleBehavior}.
@@ -11709,6 +11709,146 @@ Consider:
 \end{Highlighting}
 \end{Shaded}
 
+\section{Testing your code}\label{testing-your-code}
+
+Testing your code is a good way to ensure that it does what you expect.
+We have seen some demonstration of testing code early on, such as when we made plots of our simulated data to see if it looked like we expected.
+This kind of code could be stored in the script with the functions being tested, so that you can run it again later to see if the code still works as expected, using the \texttt{FALSE} trick discussed in Section \ref{about-keeping-tests-with-FALSE}.
+
+That sort of testing is important, but it can be hard to bring oneself to go and rerun it after making what seems like a trivial change to the core code.
+It can also be hard to track down the ripple effects of changing a low-level method that is used by many other methods.
+
+This is why people developed ``unit testing,'' an approach to testing where you write code that you can just run whenever you want, code which runs a series of tests on your code and prints out which tests work as expected, and which do not.
+In R, the most common way of doing this is the \texttt{testthat} package.
+
+There are two general aspects to \texttt{testthat} that can be useful, the \texttt{expect\_*()} methods and the \texttt{test\_that()} function.
+
+Consider the following simple DGP to generate an X and Y variable that have a given relationship:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{my\_DGP }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( N, mu, beta ) \{}
+  \FunctionTok{stopifnot}\NormalTok{( N }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{, beta }\SpecialCharTok{\textless{}=} \DecValTok{1}\NormalTok{ )}
+\NormalTok{  dat }\OtherTok{=} \FunctionTok{tibble}\NormalTok{( }\AttributeTok{X =} \FunctionTok{rnorm}\NormalTok{( N, }\AttributeTok{mean =} \DecValTok{0}\NormalTok{, }\AttributeTok{sd =} \DecValTok{1}\NormalTok{ ),}
+                \AttributeTok{Y =}\NormalTok{ mu }\SpecialCharTok{+}\NormalTok{ beta }\SpecialCharTok{*}\NormalTok{ X }\SpecialCharTok{+} \FunctionTok{rnorm}\NormalTok{( N, }\AttributeTok{sd =} \DecValTok{1}\SpecialCharTok{{-}}\NormalTok{beta}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ ) )}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+We can write test code as so:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(testthat)}
+\FunctionTok{set.seed}\NormalTok{(}\DecValTok{44343}\NormalTok{)}
+\FunctionTok{test\_that}\NormalTok{(}\StringTok{"my\_DGP works as expected"}\NormalTok{, \{}
+\NormalTok{  dta }\OtherTok{\textless{}{-}} \FunctionTok{my\_DGP}\NormalTok{(}\DecValTok{10}\NormalTok{, }\DecValTok{0}\NormalTok{, }\FloatTok{0.5}\NormalTok{)}
+  \CommentTok{\# Check that the output is a tibble}
+  \FunctionTok{expect\_s3\_class}\NormalTok{(dta, }\StringTok{"tbl\_df"}\NormalTok{)}
+  
+  \CommentTok{\# Check that the output has the right number of rows}
+  \FunctionTok{expect\_equal}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(dta), }\DecValTok{10}\NormalTok{)}
+  
+  \CommentTok{\# Check that the output has the right columns}
+  \FunctionTok{expect\_true}\NormalTok{(}\FunctionTok{all}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"X"}\NormalTok{, }\StringTok{"Y"}\NormalTok{) }\SpecialCharTok{\%in\%} \FunctionTok{colnames}\NormalTok{(dta)))}
+  
+  \CommentTok{\# Check that the mean of Y is close to mu}
+\NormalTok{  dta2 }\OtherTok{=} \FunctionTok{my\_DGP}\NormalTok{(}\DecValTok{1000}\NormalTok{, }\DecValTok{2}\NormalTok{, }\FloatTok{0.5}\NormalTok{)}
+  \FunctionTok{expect\_equal}\NormalTok{(}\FunctionTok{mean}\NormalTok{(dta2}\SpecialCharTok{$}\NormalTok{Y), }\DecValTok{2}\NormalTok{, }\AttributeTok{tolerance =} \FloatTok{0.1}\NormalTok{)}
+  
+  \CommentTok{\# Check we get an error when we should}
+  \FunctionTok{expect\_error}\NormalTok{(}\FunctionTok{my\_DGP}\NormalTok{(}\SpecialCharTok{{-}}\DecValTok{10}\NormalTok{, }\DecValTok{0}\NormalTok{, }\FloatTok{0.5}\NormalTok{, }\FloatTok{0.5}\NormalTok{) )}
+\NormalTok{\})}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Test passed
+\end{verbatim}
+
+This code will run the tests, and if they all pass, it will print out a happy message.
+
+If our test fails, we will get an error message that tells us what went wrong:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{test\_that}\NormalTok{(}\StringTok{"my\_DGP works as expected (test 2)"}\NormalTok{, \{}
+\NormalTok{  dta }\OtherTok{\textless{}{-}} \FunctionTok{my\_DGP}\NormalTok{(}\DecValTok{10000}\NormalTok{, }\DecValTok{2}\NormalTok{, }\SpecialCharTok{{-}}\DecValTok{2}\NormalTok{)}
+  \FunctionTok{expect\_equal}\NormalTok{( }\FunctionTok{sd}\NormalTok{( dta}\SpecialCharTok{$}\NormalTok{X ), }\DecValTok{1}\NormalTok{, }\AttributeTok{tolerance =} \FloatTok{0.02}\NormalTok{ )}
+  
+\NormalTok{  dta }\OtherTok{\textless{}{-}} \FunctionTok{my\_DGP}\NormalTok{(}\DecValTok{10000}\NormalTok{, }\DecValTok{2}\NormalTok{, }\FloatTok{0.5}\NormalTok{)}
+  \FunctionTok{expect\_equal}\NormalTok{( }\FunctionTok{var}\NormalTok{(dta}\SpecialCharTok{$}\NormalTok{Y), }\DecValTok{1}\NormalTok{, }\AttributeTok{tolerance =} \FloatTok{0.02}\NormalTok{ )}
+  
+\NormalTok{  M }\OtherTok{=} \FunctionTok{lm}\NormalTok{( Y }\SpecialCharTok{\textasciitilde{}}\NormalTok{ X, }\AttributeTok{data=}\NormalTok{dta )}
+  \FunctionTok{expect\_equal}\NormalTok{( }\FunctionTok{coef}\NormalTok{(M)[[}\DecValTok{2}\NormalTok{]], }\FloatTok{0.5}\NormalTok{, }\AttributeTok{tolerance =} \FloatTok{0.02}\NormalTok{ )}
+\NormalTok{\} )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## -- Warning: my_DGP works as expected (test 2) ----------------------------------
+## NAs produced
+## Backtrace:
+##     x
+##  1. +-global my_DGP(10000, 2, -2)
+##  2. | \-tibble::tibble(...)
+##  3. |   \-tibble:::tibble_quos(xs, .rows, .name_repair)
+##  4. |     \-rlang::eval_tidy(xs[[j]], mask)
+##  5. \-stats::rnorm(N, sd = 1 - beta^2)
+## 
+## -- Failure: my_DGP works as expected (test 2) ----------------------------------
+## var(dta$Y) not equal to 1.
+## 1/1 mismatches
+## [1] 0.792 - 1 == -0.208
+\end{verbatim}
+
+\begin{verbatim}
+## Error:
+## ! Test failed
+\end{verbatim}
+
+You put all of these tests in a file, and then you can run them all at once:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{test\_file}\NormalTok{(here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"code/demo\_test\_file.R"}\NormalTok{ ) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [ FAIL 0 | WARN 0 | SKIP 0 | PASS 0 ][ FAIL 0 | WARN 0 | SKIP 0 | PASS 1 ][ FAIL 0 | WARN 0 | SKIP 0 | PASS 2 ][ FAIL 0 | WARN 0 | SKIP 0 | PASS 3 ][ FAIL 0 | WARN 0 | SKIP 0 | PASS 4 ][ FAIL 0 | WARN 0 | SKIP 0 | PASS 5 ][ FAIL 0 | WARN 1 | SKIP 0 | PASS 5 ][ FAIL 0 | WARN 1 | SKIP 0 | PASS 6 ][ FAIL 1 | WARN 1 | SKIP 0 | PASS 6 ][ FAIL 1 | WARN 1 | SKIP 0 | PASS 7 ]
+## 
+## -- Warning ('demo_test_file.R:35:3'): my_DGP works as expected (test 2) --------
+## NAs produced
+## Backtrace:
+##     x
+##  1. +-my_DGP(10000, 2, -2) at demo_test_file.R:35:3
+##  2. | \-tibble::tibble(...) at demo_test_file.R:7:3
+##  3. |   \-tibble:::tibble_quos(xs, .rows, .name_repair)
+##  4. |     \-rlang::eval_tidy(xs[[j]], mask)
+##  5. \-stats::rnorm(N, sd = 1 - beta^2)
+## 
+## -- Failure ('demo_test_file.R:39:3'): my_DGP works as expected (test 2) --------
+## var(dta$Y) not equal to 1.
+## 1/1 mismatches
+## [1] 0.792 - 1 == -0.208
+## [ FAIL 1 | WARN 1 | SKIP 0 | PASS 7 ]
+\end{verbatim}
+
+It will give an overall printout of all the tests made, and list which passed, which gave warnings, and which were skipped.
+You can also run the test from inside RStudio: at the top-right you should see ``Run Tests''--if you click on it, it will start an entirely new work session, and source the file to test it.
+
+This means it is important to make the test file stand-alone: it should source the code you want to test, and load any needed libraries, before running the testing code.
+
+You can finally make an entire directory of these testing files, and run them all at once with \texttt{test\_dir()}.
+The usual way to store the files is in a \texttt{tests/testthat/} directory inside your project.
+You can then have a \texttt{tests/testthat.R} file that runs \texttt{test\_dir()} on the \texttt{tests/testthat/} directory.
+
+Once you have your unit testing all set up, you can work on your project, and then run the unit tests to see if you broke anything.
+Even more important, if you are working with a collaborator, you can both run unit tests to ensure you have not broken something that someone else was counting on!
+Furthermore, you can use the test code as a reference for how the code should be used, and what the expected output is.
+For any reasonably complex project, having test code can be of enormous benefit.
+
 \part{Complex Data Structures}\label{part-complex-data-structures}
 
 \chapter{Using simulation as a power calculator}\label{sec:power}
@@ -11885,7 +12025,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-317-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-322-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -12127,7 +12267,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-323-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-328-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -13274,6 +13414,224 @@ Next we can see that there are many things we might tune:
 The documentation will tell us more, but if we just need some sample data, we can quickly assess our method before having to do much reading and understanding.
 Only once we have identified what we need do we have to turn to the documentation itself.
 
+\section{Profiling Code}\label{profiling-code}
+
+Simulations can be extremely time intensive.
+With a large simulation it can also be hard to determine \emph{why}, exactly, the simulation is as long as it is.
+Is it one of the methods?
+Is it just that as sample size grows, the time grows far more rapidly than one might expect?
+Knowing the answer to these questions can allow you to plan out your simulation and, sometimes, make some hard choices as to what things you want to include.
+
+There are a variety of tools for timing code.
+We are going to go through a few useful ones here.
+
+\subsection{\texorpdfstring{Using \texttt{Sys.time()} and \texttt{system.time()}}{Using Sys.time() and system.time()}}\label{using-sys.time-and-system.time}
+
+The simplest way to time code is to use the \texttt{system.time()} function.
+This function takes an expression and returns the time it took to run that expression.
+For example:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{time }\OtherTok{\textless{}{-}} \FunctionTok{system.time}\NormalTok{( }\FunctionTok{rnorm}\NormalTok{( }\DecValTok{1000000}\NormalTok{ ) )}
+\NormalTok{time}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    user  system elapsed 
+##   0.026   0.000   0.026
+\end{verbatim}
+
+Elapsed time is how much time actually passed.
+The user time is how much time your computer spent on the task at hand, not including if it paused to do something else (like deal with a mouse click or pop-up message).
+With current computers with multiple cores, you would expect user and elapsed time to be very similar.
+
+You can also start and stop a clock by checking the system time:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{start\_time }\OtherTok{\textless{}{-}} \FunctionTok{Sys.time}\NormalTok{()}
+\NormalTok{A }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( }\DecValTok{1000000}\NormalTok{ )}
+\FunctionTok{mean}\NormalTok{(A)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] -0.0006836837
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sd}\NormalTok{(A)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 1.000656
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{end\_time }\OtherTok{\textless{}{-}} \FunctionTok{Sys.time}\NormalTok{()}
+\NormalTok{tot\_time }\OtherTok{\textless{}{-}}\NormalTok{ end\_time }\SpecialCharTok{{-}}\NormalTok{ start\_time}
+\NormalTok{tot\_time}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time difference of 0.03175497 secs
+\end{verbatim}
+
+This can be useful, but be careful, as the time is stored along with the units. If your simulation takes a long time, it will flip from a lot of seconds to a few minutes, and you can end up thinking something that took much, much longer was actually fast.
+
+\subsection{\texorpdfstring{The \texttt{tictoc} package}{The tictoc package}}\label{the-tictoc-package}
+
+The \texttt{tictoc} package is a very simple way to time code.
+It has two functions, \texttt{tic()} and \texttt{toc()}, which you can use to mark the start and end of a block of code.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{( tictoc )}
+\FunctionTok{tic}\NormalTok{(}\StringTok{"Generating data"}\NormalTok{)}
+\NormalTok{A }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( }\DecValTok{1000000}\NormalTok{ )}
+\FunctionTok{toc}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Generating data: 0.044 sec elapsed
+\end{verbatim}
+
+It is basically like \texttt{Sys.time()} but it has a few more features, such as being able to label the time you are measuring.
+
+\subsection{\texorpdfstring{The \texttt{bench} package}{The bench package}}\label{the-bench-package}
+
+The \texttt{bench} package provides some powerful tools for timing code, and is in particular good for comparing different ways of doing the same (or similar) thing.
+\texttt{bench::mark()} runs each expression 10 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings.
+For example, we can time how long it takes to analyze some data from our cluster RCT experiment:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{( bench )}
+\NormalTok{dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_cluster\_RCT}\NormalTok{(}\AttributeTok{n\_bar=}\DecValTok{100}\NormalTok{, }\AttributeTok{J =} \DecValTok{100}\NormalTok{)}
+\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{mark}\NormalTok{(}
+      \AttributeTok{MLM =} \FunctionTok{quiet\_analysis\_MLM}\NormalTok{(dat),}
+      \AttributeTok{OLS =} \FunctionTok{analysis\_OLS}\NormalTok{(dat),}
+      \AttributeTok{agg =} \FunctionTok{analysis\_agg}\NormalTok{(dat),}
+      \AttributeTok{check =} \ConstantTok{FALSE}
+\NormalTok{)}
+\NormalTok{timings}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 3 x 6
+##   expression      min   median `itr/sec` mem_alloc
+##   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>
+## 1 MLM         64.99ms  68.17ms      14.3   25.73MB
+## 2 OLS         36.34ms  42.37ms      21.5    2.52MB
+## 3 agg          2.66ms   2.71ms     365.   415.28KB
+## # i 1 more variable: `gc/sec` <dbl>
+\end{verbatim}
+
+You can even get a viz of how long everything took:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{( timings )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-362-1} \end{center}
+
+The ``gc'' coloring in the above indicates runs where ``garbage collection'' took place, meaning R paused to empty out some used memory.
+
+You can also use \texttt{bench::press()} to run a variety of configurations to explore how timing works under changed parameters.
+To illustrate, let's compare how long each method for the cluster RCT running example takes:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{source}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{(}\StringTok{"case\_study\_code/clustered\_data\_simulation.R"}\NormalTok{ ) )}
+\NormalTok{timings }\OtherTok{\textless{}{-}}\NormalTok{ bench}\SpecialCharTok{::}\FunctionTok{press}\NormalTok{(}
+  \AttributeTok{n\_bar =} \FunctionTok{c}\NormalTok{( }\DecValTok{10}\NormalTok{, }\DecValTok{100}\NormalTok{ ),}
+  \AttributeTok{J =} \FunctionTok{c}\NormalTok{( }\DecValTok{10}\NormalTok{, }\DecValTok{100}\NormalTok{ ),}
+\NormalTok{  \{}
+\NormalTok{    dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_cluster\_RCT}\NormalTok{(}\AttributeTok{n\_bar=}\NormalTok{n\_bar, }\AttributeTok{J =}\NormalTok{ J)}
+\NormalTok{    bench}\SpecialCharTok{::}\FunctionTok{mark}\NormalTok{(}
+      \AttributeTok{MLM =} \FunctionTok{quiet\_analysis\_MLM}\NormalTok{(dat),}
+      \AttributeTok{OLS =} \FunctionTok{analysis\_OLS}\NormalTok{(dat),}
+      \AttributeTok{agg =} \FunctionTok{analysis\_agg}\NormalTok{(dat),}
+      \AttributeTok{check =} \ConstantTok{FALSE}
+\NormalTok{    )}
+\NormalTok{  \}}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Running with:
+##   n_bar     J
+\end{verbatim}
+
+\begin{verbatim}
+## 1    10    10
+\end{verbatim}
+
+\begin{verbatim}
+## 2   100    10
+\end{verbatim}
+
+\begin{verbatim}
+## 3    10   100
+\end{verbatim}
+
+\begin{verbatim}
+## 4   100   100
+\end{verbatim}
+
+And we can make our custom plot of time:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{timings}\SpecialCharTok{$}\NormalTok{name }\OtherTok{=} \FunctionTok{attr}\NormalTok{( timings}\SpecialCharTok{$}\NormalTok{expression, }\StringTok{"description"}\NormalTok{ )}
+\FunctionTok{ggplot}\NormalTok{( timings, }\FunctionTok{aes}\NormalTok{( n\_bar, median, }\AttributeTok{color =} \FunctionTok{as.factor}\NormalTok{(J) ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{( }\SpecialCharTok{\textasciitilde{}}\NormalTok{ name ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-364-1} \end{center}
+
+Note the \texttt{timings} object is not quite a classic tibble, and the expression at start captures the code run. The ``name'' line grabs the names given in the initial evaluation so we can make the plot the way we want.
+
+\subsection{\texorpdfstring{Profiling with \texttt{profvis}}{Profiling with profvis}}\label{profiling-with-profvis}
+
+Sometimes you don't have a head to head comparison in mind, but are instead trying to find out \emph{where} in your full simulation the time is being spent.
+The \texttt{profvis} package allows for exploring this sort of question.
+You ``profile'' a block of code and then you can explore the results in a browser inside of RStudio.
+
+For example, you might have the following:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{profvis}\NormalTok{( \{}
+  \FunctionTok{replicate}\NormalTok{( }\DecValTok{10}\NormalTok{, \{ }
+\NormalTok{    data }\OtherTok{\textless{}{-}} \FunctionTok{gen\_cluster\_RCT}\NormalTok{( }\AttributeTok{n\_bar =} \DecValTok{100}\NormalTok{, }\AttributeTok{J =} \DecValTok{100}\NormalTok{ )}
+\NormalTok{    res1 }\OtherTok{\textless{}{-}} \FunctionTok{quiet\_analysis\_MLM}\NormalTok{(data)}
+\NormalTok{    res2 }\OtherTok{\textless{}{-}} \FunctionTok{analysis\_OLS}\NormalTok{(data)}
+\NormalTok{    res3 }\OtherTok{\textless{}{-}} \FunctionTok{analysis\_agg}\NormalTok{(data)}
+\NormalTok{  \} )}
+\NormalTok{\} )}
+\end{Highlighting}
+\end{Shaded}
+
+In the browser you will get the code you ran, and you can see how long each line took to run.
+You will get little ``time'' bars---the bigger the bar, the greater fraction of time that line took versus the other lines.
+
+You can also click on the ``Data'' tab and it will give you a series of cascades of function calls, so you can see how long each function took to run.
+You click on a function to expand it, and it will show you how long each part inside took.
+
 \section{Optimizing code (and why you often shouldn't)}\label{optimize-code}
 
 Optimizing code is when you spend a bit more human effort to write code that will run faster on your computer.
@@ -13285,16 +13643,19 @@ Optimizing as you go usually means you will spend a lot of time wrestling with c
 For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code will not help shorten the overall run time of a simulation much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
 Keep things simple; in general your time is more important than the computer's time.
 
-In the next sections we will look at a few optimization efforts applied to the ANOVA example in the prior chapters.
+Overall, computational efficiency should usually be a secondary consideration when you are starting to design a simulation study.
+It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
+
+That warning made, in the next sections we will look at a few optimization efforts applied to the ANOVA example from Section \ref{case-ANOVA} to illustrate some principles of optimization that come up a lot in simulation projects.
 
 \subsection{Hand-building functions}\label{hand-building-functions}
 
-In the Welch example above, we used the system-implemented ANOVA.
+In our initial ANOVA simulation we used the system-implemented ANOVA.
 An alternative approach would be to ``hand roll'' the ANOVA F statistic and test directly.
 Doing so by hand can set you up to implement modified versions of these tests later on.
 Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.
 
-Following the formulas on p.~129 of Brown and Forsythe (1974) we have (using data as generated in Chapter \ref{data-generating-processes}:
+Following the formulas on p.~129 of Brown and Forsythe (1974) we write our own function as so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -13315,61 +13676,45 @@ Following the formulas on p.~129 of Brown and Forsythe (1974) we have (using dat
 
   \FunctionTok{return}\NormalTok{(pval)}
 \NormalTok{\}}
-
-\FunctionTok{ANOVA\_F}\NormalTok{(sim\_data)}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{verbatim}
-## [1] 0.002497797
-\end{verbatim}
-
-To see the difference between our version and R's version, we can use an R package called \texttt{microbenchmark} to test how long the computations take for each version of the function.
-The \texttt{microbenchmark} function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:
+We are using data as generated in Chapter \ref{data-generating-processes}.
+To see the difference between our version and R's version, we benchmark:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(microbenchmark)}
-\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{microbenchmark}\NormalTok{(}\AttributeTok{Rfunction =} \FunctionTok{ANOVA\_F\_aov}\NormalTok{(sim\_data),}
+\NormalTok{timings }\OtherTok{\textless{}{-}}\NormalTok{ bench}\SpecialCharTok{::}\FunctionTok{mark}\NormalTok{(}\AttributeTok{Rfunction =} \FunctionTok{ANOVA\_F\_aov}\NormalTok{(sim\_data),}
                           \AttributeTok{direct    =} \FunctionTok{ANOVA\_F}\NormalTok{(sim\_data))}
+\FunctionTok{summary}\NormalTok{( timings )[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{4}\NormalTok{] }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{speed\_up =} \FunctionTok{as.numeric}\NormalTok{( }\FunctionTok{max}\NormalTok{(median)}\SpecialCharTok{/}\NormalTok{median ) ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{2}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{verbatim}
-## Warning in microbenchmark(Rfunction =
-## ANOVA_F_aov(sim_data), direct =
-## ANOVA_F(sim_data)): less accurate nanosecond
-## times to avoid potential integer overflows
-\end{verbatim}
+\begin{tabular}{l|r|r|r|r}
+\hline
+expression & min & median & itr/sec & speed\_up\\
+\hline
+Rfunction & 193.6us & 203.4us & 4793.02 & 1.00\\
+\hline
+direct & 83.4us & 86.1us & 11455.98 & 2.36\\
+\hline
+\end{tabular}
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{timings}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## Unit: microseconds
-##       expr     min       lq     mean   median
-##  Rfunction 195.160 203.2575 240.4105 213.8765
-##     direct  83.886  91.6760 102.7107  96.1245
-##       uq      max neval
-##  234.725 1727.535   100
-##  103.443  349.115   100
-\end{verbatim}
-
-The direct function is 2.3 times faster than the built-in R function.
+The direct function is 2.4 times faster than the built-in R function.
 
 This result is not unusual.
 Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
 Here we can skip them by doing the calculations directly.
+
 In general, however, this is a trade-off: writing something yourself gives you a lot of chance to do something wrong, throwing off all your simulations.
 It might be faster, but you may pay dearly for it in terms of extra hours coding and debugging.
 Optimize only if you need to!
 
 \subsection{Computational efficiency versus simplicity}\label{sec_comp_efficiency}
 
-An alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates \emph{multiple} sets of simulated data all at once.
+On the data generation side, an alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates \emph{multiple} sets of simulated data all at once.
 
 For example, for our ANOVA example we could specify that we want \texttt{R} replications of the study and have the function spit out a matrix with \texttt{R} columns, one for each simulated dataset:
 
@@ -13401,41 +13746,39 @@ For example, for our ANOVA example we could specify that we want \texttt{R} repl
 ##  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
 ## 
 ## $x_mat
-##             [,1]      [,2]       [,3]      [,4]
-##  [1,] -1.1790632 0.7805722  0.7711074 1.2753672
-##  [2,]  2.4160302 3.1073488 -1.6081629 0.4196167
-##  [3,]  0.4950409 4.1031245  2.7664053 1.7352006
-##  [4,]  2.4804740 1.6636922  3.9830638 4.1231762
-##  [5,]  0.7434552 1.2039138  0.2647096 1.6756596
-##  [6,]  3.2185066 0.3496457  2.3249747 2.1554411
-##  [7,]  4.0411462 2.4233487  2.5393216 1.4254521
-##  [8,]  3.7780351 0.7254293  4.0446210 0.5131817
-##  [9,]  2.6685690 1.6684263  2.1747235 3.0994807
-## [10,]  6.4508882 5.1857268  4.8141904 8.4568769
-## [11,]  1.8542667 3.8682330  2.4237823 5.4617181
-## [12,]  5.7922912 6.2489447  5.6722027 6.3249945
-## [13,]  5.5627116 6.2221245  5.9849752 4.6089806
-## [14,]  6.0355414 7.1686699  5.7994605 4.8935517
-## [15,]  6.1857938 7.2068300  7.1912594 5.4974888
+##            [,1]      [,2]      [,3]       [,4]
+##  [1,] 1.7890934 0.5787730 3.1088395 -0.1044853
+##  [2,] 1.2560915 1.6356378 3.0241079  3.3857989
+##  [3,] 3.1082634 4.5599794 3.0296195  2.9148600
+##  [4,] 1.6999006 1.4600617 0.3741283  2.0418761
+##  [5,] 0.6184703 3.7919170 2.7764266  1.8471053
+##  [6,] 2.4573580 1.2358740 2.7884168  0.8913075
+##  [7,] 3.5583619 1.4743698 3.3604770 -0.5287193
+##  [8,] 2.2783225 0.7939506 2.3668509  2.3742925
+##  [9,] 3.0131651 0.5168183 0.4265654  2.6925975
+## [10,] 5.2702260 7.6553643 7.9627340  5.4946371
+## [11,] 1.4019789 8.1539637 5.6228295  7.2305720
+## [12,] 6.1833212 6.5875492 6.0134265  3.6896713
+## [13,] 5.3484918 5.7169196 7.6754618  5.2515665
+## [14,] 6.1304408 4.2112145 5.4688904  6.7804692
+## [15,] 6.4375398 5.7671919 6.8403447  5.9680375
 \end{verbatim}
 
 This approach is a bit more computationally efficient because the setup calculations (getting \texttt{N}, \texttt{g}, \texttt{group}, \texttt{mu\_full}, and \texttt{sigma\_full}) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to \texttt{rnorm()}. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
 Furthermore, if the number of replicates \texttt{R} is large and each replication produces a large dataset, this ``all-at-once'' approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
 On balance, we recommend the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise).
+It is usually the case that most time spent in the simulation is the \emph{analyzing} of the data, not the generating it, so these savings are usually not worth the bother.
 
 \subsection{Reusing code to speed up computation}\label{reusing-code-to-speed-up-computation}
 
-Computational and programming efficiency should usually be a secondary consideration when you are starting to design a simulation study.
-It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
-All that said, there is some glaring redundancy in the two functions used for the ANOVA simulation.
-Both \texttt{ANOVA\_F} and \texttt{Welch\_F} start by taking the simulated data and calculating summary statistics for each group, using the following code:
+Once we have our own ANOVA method to go with our own Welch method, we see some glaring redundancies.
+In particular, both \texttt{ANOVA\_F} and \texttt{Welch\_F} start by taking the simulated data and calculating summary statistics for each group, using the following code:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, mean))}
 \NormalTok{s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, var))}
 \NormalTok{n }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{group)}
-\NormalTok{g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(x\_bar)}
 \end{Highlighting}
 \end{Shaded}
 
@@ -13444,18 +13787,20 @@ In the interest of not repeating ourselves, it would better to pull this code ou
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{summarize\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(sim\_data) \{}
-  
-\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ sim\_data }\SpecialCharTok{\%\textgreater{}\%} 
-    \FunctionTok{group\_by}\NormalTok{( group ) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{summarise}\NormalTok{( }\AttributeTok{x\_bar =} \FunctionTok{mean}\NormalTok{( x ),}
-               \AttributeTok{s\_sq =} \FunctionTok{var}\NormalTok{( x ),}
-               \AttributeTok{n =} \FunctionTok{n}\NormalTok{() )}
-\NormalTok{  res}
+\NormalTok{  x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, mean))}
+\NormalTok{  s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, var))}
+\NormalTok{  n }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{group)}
+
+  \FunctionTok{list}\NormalTok{(}
+    \AttributeTok{x\_bar =} \FunctionTok{as.numeric}\NormalTok{( x\_bar ),}
+    \AttributeTok{s\_sq =} \FunctionTok{as.numeric}\NormalTok{( s\_sq ),}
+    \AttributeTok{n =} \FunctionTok{as.numeric}\NormalTok{( n )}
+\NormalTok{  )}
 \NormalTok{\}}
 \end{Highlighting}
 \end{Shaded}
 
-We just packaged the code from above, and puts our results in a nice table (and thus pivoted to using tidyverse to calculate these things):
+We just packaged the code from above:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -13465,16 +13810,17 @@ We just packaged the code from above, and puts our results in a nice table (and 
 \end{Shaded}
 
 \begin{verbatim}
-## # A tibble: 4 x 4
-##   group x_bar  s_sq     n
-##   <int> <dbl> <dbl> <int>
-## 1     1 0.817 6.28      3
-## 2     2 2.18  3.33      6
-## 3     3 3.62  0.165     2
-## 4     4 5.96  0.102     4
+## $x_bar
+## [1] 0.9572937 2.8977164 4.0535648 6.0810441
+## 
+## $s_sq
+## [1] 2.442256 1.407249 6.522931 2.277270
+## 
+## $n
+## [1] 3 6 2 4
 \end{verbatim}
 
-Now we can re-write both \(F\)-test functions to use the output of this function:
+Now we can re-write both our \(F\)-test functions to use the output of this function:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -13497,7 +13843,7 @@ Now we can re-write both \(F\)-test functions to use the output of this function
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.007878319
+## [1] 0.006413296
 \end{verbatim}
 
 \begin{Shaded}
@@ -13519,12 +13865,12 @@ Now we can re-write both \(F\)-test functions to use the output of this function
   \FunctionTok{return}\NormalTok{(pval)}
 \NormalTok{\}}
 
-\FunctionTok{with}\NormalTok{(summary\_stats, }\FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
+\FunctionTok{with}\NormalTok{(summary\_stats, }\FunctionTok{Welch\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.007878319
+## [1] 0.09621512
 \end{verbatim}
 
 The results are the same as before.
@@ -13612,45 +13958,38 @@ We then put all these pieces in our revised \texttt{one\_run()} method as so:
 
 \begin{verbatim}
 ## # A tibble: 1 x 2
-##       ANOVA   Welch
-##       <dbl>   <dbl>
-## 1 0.0000835 0.00116
+##       ANOVA    Welch
+##       <dbl>    <dbl>
+## 1 0.0000807 0.000354
 \end{verbatim}
 
-The reason this is important is we are now doing our group aggregation only once, rather than once per method. We can use our microbenchmark to see our speedup:
+The reason this is important is we are now doing our group aggregation only once, rather than once per method.
+We benchmark to see our speedup:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(microbenchmark)}
-\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{microbenchmark}\NormalTok{(}\AttributeTok{noagg =} \FunctionTok{one\_run}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
+\NormalTok{timings }\OtherTok{\textless{}{-}}\NormalTok{ bench}\SpecialCharTok{::}\FunctionTok{mark}\NormalTok{(}\AttributeTok{original =} \FunctionTok{one\_run}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
                                           \AttributeTok{sample\_size =}\NormalTok{ sample\_size),}
-                          \AttributeTok{agg =} \FunctionTok{one\_run\_fast}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
-                                             \AttributeTok{sample\_size =}\NormalTok{ sample\_size) )}
-\NormalTok{timings}
+                       \AttributeTok{one\_agg =} \FunctionTok{one\_run\_fast}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
+                                              \AttributeTok{sample\_size =}\NormalTok{ sample\_size),}
+                       \AttributeTok{check=}\ConstantTok{FALSE}\NormalTok{)}
+\NormalTok{timings[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{4}\NormalTok{] }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{speed\_up =} \FunctionTok{as.numeric}\NormalTok{( }\FunctionTok{max}\NormalTok{(median) }\SpecialCharTok{/}\NormalTok{ median ) ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{2}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{verbatim}
-## Unit: microseconds
-##   expr      min       lq      mean    median
-##  noagg  563.545  622.216  855.8635  658.4805
-##    agg 1366.489 1504.351 1714.5036 1588.7705
-##        uq      max neval
-##   721.436 14493.13   100
-##  1745.001  5950.33   100
-\end{verbatim}
+\begin{tabular}{l|r|r|r|r}
+\hline
+expression & min & median & itr/sec & speed\_up\\
+\hline
+original & 540us & 558us & 1765.41 & 1.0\\
+\hline
+one\_agg & 447us & 465us & 1694.43 & 1.2\\
+\hline
+\end{tabular}
 
-And our relative speedup is:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{with}\NormalTok{(}\FunctionTok{summary}\NormalTok{(timings), }\FunctionTok{round}\NormalTok{(mean[}\DecValTok{1}\NormalTok{] }\SpecialCharTok{/}\NormalTok{ mean[}\DecValTok{2}\NormalTok{], }\DecValTok{1}\NormalTok{))}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 0.5
-\end{verbatim}
+Our improvement is fairly modest.
 
 To recap, there are two advantages of this kind of coding:
 
@@ -13661,6 +14000,9 @@ To recap, there are two advantages of this kind of coding:
 \item
   Saving the results of calculations can speed up your computation since you are saving your partial work. This can be useful to reduce calculations that are particularly time intensive.
 \end{enumerate}
+
+That said, optimizing code is dangerous (it is an easy way to introduce bugs into your simulation workflow) and time consuming for you (thinking through and writing all the fancy code is time you are not doing something else).
+But it sure can be satisfying to spend an extra weekend hacking away at this sort of thing!
 
 \chapter{Further readings and resources}\label{further-readings-and-resources}
 
