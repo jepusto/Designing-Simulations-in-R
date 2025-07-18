@@ -7134,15 +7134,22 @@ If we only had a couple of parameter combinations, it would be easy enough to ju
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in purrr 1.0.0.
+## Warning: `rerun()` was deprecated in
+## purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(100, one_run(n, p, alpha, df))
+##   rerun(100, one_run(n, p,
+##   alpha, df))
 ## 
 ##   # Now
-##   map(1:100, ~ one_run(n, p, alpha, df))
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
+##   map(1:100, ~ one_run(n, p,
+##   alpha, df))
+## This warning is displayed
+## once every 8 hours.
+## Call
+## `lifecycle::last_lifecycle_warnings()`
+## to see where this warning was
+## generated.
 \end{verbatim}
 
 \begin{verbatim}
@@ -7840,7 +7847,8 @@ As we saw above, nesting collapses a larger dataframe into a dataframe of datafr
 
 \begin{verbatim}
 ## # A tibble: 144 x 5
-## # Groups:   n, p, alpha, df [144]
+## # Groups:   n, p, alpha, df
+## #   [144]
 ##        n     p alpha    df alpha_sims        
 ##    <dbl> <dbl> <dbl> <dbl> <list>            
 ##  1    50     4   0.1     5 <tibble [500 x 4]>
@@ -7873,7 +7881,8 @@ Once nested, we can then use \texttt{map()} to apply a function to each element 
 
 \begin{verbatim}
 ## # A tibble: 576 x 7
-## # Groups:   n, p, alpha, df [144]
+## # Groups:   n, p, alpha, df
+## #   [144]
 ##        n     p alpha    df criterion           est
 ##    <dbl> <dbl> <dbl> <dbl> <chr>             <dbl>
 ##  1    50     4   0.1     5 alpha bias      -0.103 
@@ -8920,8 +8929,9 @@ We include individual data points to visualize variation around the smoothed est
 \end{Shaded}
 
 \begin{verbatim}
-## `geom_smooth()` using method = 'loess' and
-## formula = 'y ~ x'
+## `geom_smooth()` using method
+## = 'loess' and formula = 'y ~
+## x'
 \end{verbatim}
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-242-1} \end{center}
@@ -10127,14 +10137,102 @@ Residual & 0.33 & 0.75\\
 The above model is a multilevel model that allows us to estimate how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
 The random variation for \texttt{simID} captures unexplained variation due to the interactions of the simulation factors. We see a large value, indicating that many interactions are present, and our main effects are not fully capturing all trends.
 
-\section{Analyzing results when some trials have failed}\label{analyzing-results-when-some-trials-have-failed}
+\section{What to do with warnings in simulations}\label{what-to-do-with-warnings-in-simulations}
 
-If the method you are evaluating sometimes fail, then when they tend to fail is something to investigate in its own right.
+Sometimes our analytic strategy might give some sort of warning (or fail altogether).
+For example, from the cluster randomized experiment case study we have:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{set.seed}\NormalTok{(}\DecValTok{101012}\NormalTok{)  }\CommentTok{\# (I picked this to show a warning.)}
+\NormalTok{dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_cluster\_RCT}\NormalTok{( }\AttributeTok{J =} \DecValTok{50}\NormalTok{, }\AttributeTok{n\_bar =} \DecValTok{100}\NormalTok{, }\AttributeTok{sigma2\_u =} \DecValTok{0}\NormalTok{ )}
+\NormalTok{mod }\OtherTok{\textless{}{-}} \FunctionTok{lmer}\NormalTok{( Yobs }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ Z }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{sid), }\AttributeTok{data=}\NormalTok{dat )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## boundary (singular) fit: see help('isSingular')
+\end{verbatim}
+
+We have to make a deliberate decision as to what to do about this:
+
+\begin{itemize}
+\tightlist
+\item
+  Keep these ``weird'' trials?
+\item
+  Drop them?
+\end{itemize}
+
+Generally, when a method fails or gives a warning is something to investigate in its own right.
 Ideally, failure would not be too common, meaning we could drop those trials, or keep them, without really impacting our overall results.
 But one should at least know what one is ignoring.
 
-For example, in our cluster RCT running example, we know that our multilevel model, at least sometimes, has convergence issues.
-We also know that ICC is an important driver of when these convergence issues might occur, so we can explore how often we get a convergence message by ICC level:
+If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
+If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn't give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+
+If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
+Especially if you drop some trials, it is important to see how often things are acting pecularly.
+
+As discussed earlier, the main tool for doing this is the \texttt{quietly()} function:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{quiet\_lmer }\OtherTok{=} \FunctionTok{quietly}\NormalTok{( lmer )}
+\NormalTok{qmod }\OtherTok{\textless{}{-}} \FunctionTok{quiet\_lmer}\NormalTok{( Yobs }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ Z }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{sid), }\AttributeTok{data=}\NormalTok{dat )}
+\NormalTok{qmod}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## $result
+## Linear mixed model fit by REML ['lmerModLmerTest']
+## Formula: ..1
+##    Data: ..2
+## REML criterion at convergence: 14026.44
+## Random effects:
+##  Groups   Name        Std.Dev.
+##  sid      (Intercept) 0.0000  
+##  Residual             0.9828  
+## Number of obs: 5000, groups:  sid, 50
+## Fixed Effects:
+## (Intercept)            Z  
+##   -0.013930    -0.008804  
+## optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings 
+## 
+## $output
+## [1] ""
+## 
+## $warnings
+## character(0)
+## 
+## $messages
+## [1] "boundary (singular) fit: see help('isSingular')\n"
+\end{verbatim}
+
+You then might have, in your analyzing code:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{analyze\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( dat ) \{}
+    
+\NormalTok{    M1 }\OtherTok{\textless{}{-}} \FunctionTok{quiet\_lmer}\NormalTok{( Yobs }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ Z }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{sid), }\AttributeTok{data=}\NormalTok{dat )}
+\NormalTok{    message1 }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( }\FunctionTok{length}\NormalTok{( M1}\SpecialCharTok{$}\NormalTok{message ) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{ )}
+\NormalTok{    warning1 }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( }\FunctionTok{length}\NormalTok{( M1}\SpecialCharTok{$}\NormalTok{warning ) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{ )}
+
+    \CommentTok{\# Compile our results}
+    \FunctionTok{tibble}\NormalTok{( }\AttributeTok{ATE\_hat =} \FunctionTok{coef}\NormalTok{(M1)[}\StringTok{"Z"}\NormalTok{],}
+            \AttributeTok{SE\_hat =} \FunctionTok{se.coef}\NormalTok{(M1)[}\StringTok{"Z"}\NormalTok{],}
+            \AttributeTok{message =}\NormalTok{ message1,}
+            \AttributeTok{warning =}\NormalTok{ warning1 )}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+Now you have your primary estimates, and also flags for whether there was a convergence issue.
+In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
+
+For example, in our cluster RCT running example, we know that ICC is an important driver of when these convergence issues might occur, so we can explore how often we get a convergence message by ICC level:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -10146,13 +10244,19 @@ We also know that ICC is an important driver of when these convergence issues mi
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: There were 15 warnings in `summarise()`.
+## Warning: There were 15 warnings in
+## `summarise()`.
 ## The first warning was:
-## i In argument: `message = mean(message)`.
-## i In group 1: `method = "Agg"` `ICC = 0`.
+## i In argument: `message =
+##   mean(message)`.
+## i In group 1: `method =
+##   "Agg"` `ICC = 0`.
 ## Caused by warning in `mean.default()`:
 ## ! argument is not numeric or logical: returning NA
-## i Run `dplyr::last_dplyr_warnings()` to see the 14 remaining warnings.
+## i Run
+##   `dplyr::last_dplyr_warnings()`
+##   to see the 14 remaining
+##   warnings.
 \end{verbatim}
 
 \begin{verbatim}
@@ -10222,7 +10326,7 @@ We plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-276-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-280-1} \end{center}
 
 The above doesn't show differences clearly because all the SEs goes to zero as \(n\) increases.
 One move when we see heavy trends like this is to log our outcome, or otherwise rescale. The logging version shows differences are relatively constant given changing sample size.
@@ -10237,7 +10341,7 @@ One move when we see heavy trends like this is to log our outcome, or otherwise 
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-277-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-281-1} \end{center}
 
 One step better would be to rescale using our knowledge of standard errors.
 If we scale by the square root of sample size, we should get horizontal lines.
@@ -10258,7 +10362,7 @@ We now clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-279-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-283-1} \end{center}
 
 Overall, the scaled error of the mean is stable across the different distributions.
 The trimmed mean is a real advantage when the degrees of freedom are small (note the blue line is far below the red line on the left hand plot): we are cropping outliers that destabilize our estimate which leads to great wins.
@@ -10336,7 +10440,7 @@ As a diagnostic we can generate large datasets for each value of our simulation 
 \hline
 df0 & skew & mean & median & sd\\
 \hline
-3 & 0 & 0 & 0.00 & 1.01\\
+3 & 0 & 0 & 0.00 & 1.00\\
 \hline
 5 & 0 & 0 & 0.00 & 1.00\\
 \hline
@@ -10344,13 +10448,13 @@ df0 & skew & mean & median & sd\\
 \hline
 30 & 0 & 0 & 0.00 & 1.00\\
 \hline
-3 & 10 & 0 & -0.25 & 1.00\\
+3 & 10 & 0 & -0.25 & 1.07\\
 \hline
 5 & 10 & 0 & -0.25 & 1.00\\
 \hline
 15 & 10 & 0 & -0.21 & 1.00\\
 \hline
-30 & 10 & 0 & -0.21 & 1.00\\
+30 & 10 & 0 & -0.20 & 1.00\\
 \hline
 \end{tabular}
 
@@ -10393,7 +10497,7 @@ We first look at boxplots:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-282-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-286-1} \end{center}
 
 We can also subset to look at how these trade-offs play out when \texttt{df0\ =\ 3}, where we are seeing the largest benefits from trimming in our prior analysis.
 We can then use lines to show the trends, which is a bit clearer:
@@ -10410,7 +10514,7 @@ We can then use lines to show the trends, which is a bit clearer:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-283-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-287-1} \end{center}
 
 Or maybe we can aggregate without losing too much information:
 
@@ -10428,7 +10532,7 @@ Or maybe we can aggregate without losing too much information:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-284-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-288-1} \end{center}
 
 In these \emph{Bias-SE-RMSE} plots, we see how different estimators have different biases and different
 uncertainties.
@@ -10450,505 +10554,299 @@ Next steps would be to also examine the associated estimated standard errors
 for the estimators, seeing if these estimates of estimator uncertainty are
 good or poor. This leads to investigation of coverage rates and similar.
 
-\part{Computational Considerations}\label{part-computational-considerations}
-
-\chapter{Optimizing code (and why you often shouldn't)}\label{optimize-code}
-
-Optimizing code is when you spend a bit more human effort to write code that will run faster on your computer.
-In some cases, this can be a critical boost to running a simulation, where you inherently will be doing things a lot of times.
-Cutting runtime down will always be tempting, as it allows you to run more replicates and get more precisely estimated performance measures for your simulation.
-
-That being said, beyond a few obvious coding tricks we will discuss, one should optimize code only after you discover you need to.
-Optimizing as you go usually means you will spend a lot of time wrestling with code far more complicated than it needs to be.
-For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code won't help overall simulation runtimes much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
-Keep things simple; in general your time is more important than the computer's time.
-
-In the next sections we will look at a few optimization efforts applied to the ANOVA example in the prior chapters.
-
-\section{Hand-building functions}\label{hand-building-functions}
-
-In the Welch example above, we used the system-implemented ANOVA.
-An alternative approach would be to ``hand roll'' the ANOVA F statistic and test directly.
-Doing so by hand can set you up to implement modified versions of these tests later on.
-Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.
-
-Following the formulas on p.~129 of Brown and Forsythe (1974) we have (using data as generated in Chapter \ref{data-generating-processes}:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{ANOVA\_F }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(sim\_data) \{}
-
-\NormalTok{  x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, mean))}
-\NormalTok{  s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, var))}
-\NormalTok{  n }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{group)}
-\NormalTok{  g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(x\_bar)}
-
-\NormalTok{  df1 }\OtherTok{\textless{}{-}}\NormalTok{ g }\SpecialCharTok{{-}} \DecValTok{1}
-\NormalTok{  df2 }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n) }\SpecialCharTok{{-}}\NormalTok{ g}
-
-\NormalTok{  msbtw }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n }\SpecialCharTok{*}\NormalTok{ (x\_bar }\SpecialCharTok{{-}} \FunctionTok{mean}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{x))}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ df1}
-\NormalTok{  mswn }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{((n }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{) }\SpecialCharTok{*}\NormalTok{ s\_sq) }\SpecialCharTok{/}\NormalTok{ df2}
-\NormalTok{  fstat }\OtherTok{\textless{}{-}}\NormalTok{ msbtw }\SpecialCharTok{/}\NormalTok{ mswn}
-\NormalTok{  pval }\OtherTok{\textless{}{-}} \FunctionTok{pf}\NormalTok{(fstat, df1, df2, }\AttributeTok{lower.tail =} \ConstantTok{FALSE}\NormalTok{)}
-
-  \FunctionTok{return}\NormalTok{(pval)}
-\NormalTok{\}}
-
-\FunctionTok{ANOVA\_F}\NormalTok{(sim\_data)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 0.005592759
-\end{verbatim}
-
-To see the difference between our version and R's version, we can use an R package called \texttt{microbenchmark} to test how long the computations take for each version of the function.
-The \texttt{microbenchmark} function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(microbenchmark)}
-\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{microbenchmark}\NormalTok{(}\AttributeTok{Rfunction =} \FunctionTok{ANOVA\_F\_aov}\NormalTok{(sim\_data),}
-                          \AttributeTok{direct    =} \FunctionTok{ANOVA\_F}\NormalTok{(sim\_data))}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## Warning in microbenchmark(Rfunction =
-## ANOVA_F_aov(sim_data), direct =
-## ANOVA_F(sim_data)): less accurate nanosecond
-## times to avoid potential integer overflows
-\end{verbatim}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{timings}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## Unit: microseconds
-##       expr     min       lq     mean   median
-##  Rfunction 198.358 208.9975 254.8330 222.0970
-##     direct  85.280  91.3480 102.9026  94.9765
-##       uq      max neval
-##  253.913 1723.681   100
-##  106.313  284.171   100
-\end{verbatim}
-
-The direct function is 2.5 times faster than the built-in R function.
-
-This result is not unusual.
-Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
-Here we can skip them by doing the calculations directly.
-In general, however, this is a trade-off: writing something yourself gives you a lot of chance to do something wrong, throwing off all your simulations. It might be faster, but you may pay dearly for it in terms of extra hours coding and debugging.
-Optimize only if you need to!
-
-\section{Computational efficiency versus simplicity}\label{sec_comp_efficiency}
-
-An alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates \emph{multiple} sets of simulated data all at once.
-
-For example, for our ANOVA example we could specify that we want \texttt{R} replications of the study and have the function spit out a matrix with \texttt{R} columns, one for each simulated dataset:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{generate\_data\_matrix }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(mu, sigma\_sq, sample\_size, R) \{}
-
-\NormalTok{  N }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(sample\_size) }
-\NormalTok{  g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(sample\_size) }
-  
-\NormalTok{  group }\OtherTok{\textless{}{-}} \FunctionTok{rep}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{g, }\AttributeTok{times =}\NormalTok{ sample\_size) }
-\NormalTok{  mu\_long }\OtherTok{\textless{}{-}} \FunctionTok{rep}\NormalTok{(mu, }\AttributeTok{times =}\NormalTok{ sample\_size)}
-\NormalTok{  sigma\_long }\OtherTok{\textless{}{-}} \FunctionTok{rep}\NormalTok{(}\FunctionTok{sqrt}\NormalTok{(sigma\_sq), }\AttributeTok{times =}\NormalTok{ sample\_size) }
-
-\NormalTok{  x\_mat }\OtherTok{\textless{}{-}} \FunctionTok{matrix}\NormalTok{(}\FunctionTok{rnorm}\NormalTok{(N }\SpecialCharTok{*}\NormalTok{ R, }\AttributeTok{mean =}\NormalTok{ mu\_long, }\AttributeTok{sd =}\NormalTok{ sigma\_long),}
-                  \AttributeTok{nrow =}\NormalTok{ N, }\AttributeTok{ncol =}\NormalTok{ R)}
-\NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\AttributeTok{group =}\NormalTok{ group, }\AttributeTok{x\_mat =}\NormalTok{ x\_mat)}
-    
-  \FunctionTok{return}\NormalTok{(sim\_data)}
-\NormalTok{\}}
-
-\FunctionTok{generate\_data\_matrix}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
-                     \AttributeTok{sample\_size =}\NormalTok{ sample\_size, }\AttributeTok{R =} \DecValTok{4}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## $group
-##  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
-## 
-## $x_mat
-##             [,1]        [,2]       [,3]
-##  [1,]  0.2007038  0.55202288 -0.3716824
-##  [2,]  0.8886311 -0.34015438  1.2758735
-##  [3,]  2.4990447  2.49565317 -0.6292902
-##  [4,]  3.7923075  1.14330823  0.5866849
-##  [5,]  3.0501859  2.92749074  0.9433202
-##  [6,] -1.4890299  0.85343865  3.6200851
-##  [7,]  3.6497938 -0.03992918  4.2915738
-##  [8,]  1.8245705  0.47116552  0.6985161
-##  [9,] -0.2932896  3.19720126  2.6155790
-## [10,]  3.6727712  5.37825328  2.8381041
-## [11,]  7.7199336  3.06397735 10.3289459
-## [12,]  7.1597831  5.80183619  5.6159060
-## [13,]  5.4242602  6.16104326  7.8091158
-## [14,]  8.0332745  6.31225172  5.8501830
-## [15,]  5.8591123  6.85932438  4.5463443
-##             [,4]
-##  [1,] -0.5189416
-##  [2,]  5.3460025
-##  [3,] -1.0001435
-##  [4,]  4.3866342
-##  [5,]  0.7046359
-##  [6,]  1.4789733
-##  [7,]  1.3602908
-##  [8,] -0.7137100
-##  [9,]  2.2365947
-## [10,]  5.7051739
-## [11,]  8.7166634
-## [12,]  5.7240777
-## [13,]  7.0635907
-## [14,]  6.1220793
-## [15,]  6.2478905
-\end{verbatim}
-
-This approach is a bit more computationally efficient because the setup calculations (getting \texttt{N}, \texttt{g}, \texttt{group}, \texttt{mu\_full}, and \texttt{sigma\_full}) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to \texttt{rnorm()}. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
-Furthermore, if the number of replicates \texttt{R} is large and each replication produces a large dataset, this ``all-at-once'' approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
-On balance, we recommend the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise).
-
-\section{Reusing code to speed up computation}\label{reusing-code-to-speed-up-computation}
-
-Computational and programming efficiency should usually be a secondary consideration when you are starting to design a simulation study.
-It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
-All that said, there is some glaring redundancy in the two functions used for the ANOVA simulation.
-Both \texttt{ANOVA\_F} and \texttt{Welch\_F} start by taking the simulated data and calculating summary statistics for each group, using the following code:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, mean))}
-\NormalTok{s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, var))}
-\NormalTok{n }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{group)}
-\NormalTok{g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(x\_bar)}
-\end{Highlighting}
-\end{Shaded}
-
-In the interest of not repeating ourselves, it would better to pull this code out as a separate function and then re-write the \texttt{ANOVA\_F} and \texttt{Welch\_F} functions to take the summary statistics as input. Here is a function that takes simulated data and returns a list of summary statistics:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{summarize\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(sim\_data) \{}
-  
-\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ sim\_data }\SpecialCharTok{\%\textgreater{}\%} 
-    \FunctionTok{group\_by}\NormalTok{( group ) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{summarise}\NormalTok{( }\AttributeTok{x\_bar =} \FunctionTok{mean}\NormalTok{( x ),}
-               \AttributeTok{s\_sq =} \FunctionTok{var}\NormalTok{( x ),}
-               \AttributeTok{n =} \FunctionTok{n}\NormalTok{() )}
-\NormalTok{  res}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-We just packaged the code from above, and puts our results in a nice table (and thus pivoted to using tidyverse to calculate these things):
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{sim\_data }\OtherTok{=} \FunctionTok{generate\_data}\NormalTok{(}\AttributeTok{mu=}\NormalTok{mu, }\AttributeTok{sigma\_sq=}\NormalTok{sigma\_sq, }\AttributeTok{sample\_size=}\NormalTok{sample\_size)}
-\FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## # A tibble: 4 x 4
-##   group x_bar  s_sq     n
-##   <int> <dbl> <dbl> <int>
-## 1     1  1.50 0.573     3
-## 2     2  2.23 1.40      6
-## 3     3  4.53 3.76      2
-## 4     4  6.23 0.227     4
-\end{verbatim}
-
-Now we can re-write both \(F\)-test functions to use the output of this function:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{ANOVA\_F\_agg }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x\_bar, s\_sq, n) \{}
-\NormalTok{  g }\OtherTok{=} \FunctionTok{length}\NormalTok{(x\_bar)}
-\NormalTok{  df1 }\OtherTok{\textless{}{-}}\NormalTok{ g }\SpecialCharTok{{-}} \DecValTok{1}
-\NormalTok{  df2 }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n) }\SpecialCharTok{{-}}\NormalTok{ g}
-  
-\NormalTok{  msbtw }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n }\SpecialCharTok{*}\NormalTok{ (x\_bar }\SpecialCharTok{{-}} \FunctionTok{weighted.mean}\NormalTok{(x\_bar, }\AttributeTok{w =}\NormalTok{ n))}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ df1}
-\NormalTok{  mswn }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{((n }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{) }\SpecialCharTok{*}\NormalTok{ s\_sq) }\SpecialCharTok{/}\NormalTok{ df2}
-\NormalTok{  fstat }\OtherTok{\textless{}{-}}\NormalTok{ msbtw }\SpecialCharTok{/}\NormalTok{ mswn}
-\NormalTok{  pval }\OtherTok{\textless{}{-}} \FunctionTok{pf}\NormalTok{(fstat, df1, df2, }\AttributeTok{lower.tail =} \ConstantTok{FALSE}\NormalTok{)}
- 
-  \FunctionTok{return}\NormalTok{(pval)}
-\NormalTok{\}}
-
-\NormalTok{summary\_stats }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
-\FunctionTok{with}\NormalTok{(summary\_stats, }\FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 0.0002798876
-\end{verbatim}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{Welch\_F\_agg }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x\_bar, s\_sq, n) \{}
-\NormalTok{  g }\OtherTok{=} \FunctionTok{length}\NormalTok{(x\_bar)}
-\NormalTok{  w }\OtherTok{\textless{}{-}}\NormalTok{ n }\SpecialCharTok{/}\NormalTok{ s\_sq}
-\NormalTok{  u }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(w)}
-\NormalTok{  x\_tilde }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(w }\SpecialCharTok{*}\NormalTok{ x\_bar) }\SpecialCharTok{/}\NormalTok{ u}
-\NormalTok{  msbtw }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(w }\SpecialCharTok{*}\NormalTok{ (x\_bar }\SpecialCharTok{{-}}\NormalTok{ x\_tilde)}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (g }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}
-
-\NormalTok{  G }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{((}\DecValTok{1} \SpecialCharTok{{-}}\NormalTok{ w }\SpecialCharTok{/}\NormalTok{ u)}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{/}\NormalTok{ (n }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{))}
-\NormalTok{  denom }\OtherTok{\textless{}{-}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{  G }\SpecialCharTok{*} \DecValTok{2} \SpecialCharTok{*}\NormalTok{ (g }\SpecialCharTok{{-}} \DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (g}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}
-\NormalTok{  W }\OtherTok{\textless{}{-}}\NormalTok{ msbtw }\SpecialCharTok{/}\NormalTok{ denom}
-\NormalTok{  f }\OtherTok{\textless{}{-}}\NormalTok{ (g}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{{-}} \DecValTok{1}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (}\DecValTok{3} \SpecialCharTok{*}\NormalTok{ G)}
-
-\NormalTok{  pval }\OtherTok{\textless{}{-}} \FunctionTok{pf}\NormalTok{(W, }\AttributeTok{df1 =}\NormalTok{ g }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{, }\AttributeTok{df2 =}\NormalTok{ f, }\AttributeTok{lower.tail =} \ConstantTok{FALSE}\NormalTok{)}
-
-  \FunctionTok{return}\NormalTok{(pval)}
-\NormalTok{\}}
-
-\FunctionTok{with}\NormalTok{(summary\_stats, }\FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 0.0002798876
-\end{verbatim}
-
-The results are the same as before.
-
-We should always test any optimized code against something we know is stable, since optimization is an easy way to get bad bugs.
-Here we check against R's implementation:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{summary\_stats }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
-\NormalTok{F\_results }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats,}
-                  \FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
-\NormalTok{aov\_results }\OtherTok{\textless{}{-}} \FunctionTok{oneway.test}\NormalTok{(x }\SpecialCharTok{\textasciitilde{}} \FunctionTok{factor}\NormalTok{(group), }\AttributeTok{data =}\NormalTok{ sim\_data, }
-                           \AttributeTok{var.equal =} \ConstantTok{TRUE}\NormalTok{)}
-\FunctionTok{all.equal}\NormalTok{(aov\_results}\SpecialCharTok{$}\NormalTok{p.value, F\_results)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] TRUE
-\end{verbatim}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{W\_results }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats,}
-                  \FunctionTok{Welch\_F\_agg}\NormalTok{( }\AttributeTok{x\_bar =}\NormalTok{ x\_bar,}
-                               \AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
-\NormalTok{aov\_results }\OtherTok{\textless{}{-}} \FunctionTok{oneway.test}\NormalTok{(x }\SpecialCharTok{\textasciitilde{}} \FunctionTok{factor}\NormalTok{(group),}
-                           \AttributeTok{data =}\NormalTok{ sim\_data, }
-                           \AttributeTok{var.equal =} \ConstantTok{FALSE}\NormalTok{)}
-\FunctionTok{all.equal}\NormalTok{(aov\_results}\SpecialCharTok{$}\NormalTok{p.value, W\_results)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] TRUE
-\end{verbatim}
-
-Here we are able to check against a known baseline.
-Checking estimation functions can be a bit more difficult for procedures that are not already implemented in R. For example, the two other procedures examined by Brown and Forsythe, the James' test and Brown and Forsythe's \(F*\) test, are not available in base R.
-They are, however, available in the user-contributed package \texttt{onewaytests}, found by searching for ``Brown-Forsythe'' at \url{http://rseek.org/}. We could benchmark our calculations against this package, but of course there is some risk that the package might not be correct. Another route is to verify your results on numerical examples reported in authoritative papers, on the assumption that there's less risk of an error there. In the original paper that proposed the test, Welch (1951) provides a worked numerical example of the procedure. He reports the following summary statistics:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{g }\OtherTok{\textless{}{-}} \DecValTok{3}
-\NormalTok{x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FloatTok{27.8}\NormalTok{, }\FloatTok{24.1}\NormalTok{, }\FloatTok{22.2}\NormalTok{)}
-\NormalTok{s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FloatTok{60.1}\NormalTok{, }\FloatTok{6.3}\NormalTok{, }\FloatTok{15.4}\NormalTok{)}
-\NormalTok{n }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\DecValTok{20}\NormalTok{, }\DecValTok{20}\NormalTok{, }\DecValTok{10}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-He also reports \(W = 3.35\) and \(f = 22.6\). Replicating the calculations with our \texttt{Welch\_F\_agg} function:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{Welch\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 0.05479049
-\end{verbatim}
-
-We get slightly different results! But we know that our function is correct---or at least consistent with \texttt{oneway.test}---so what's going on? It turns out that there was an error in some of Welch's intermediate calculations, which can only be spotted because he reported all of his work in the paper.
-
-We then put all these pieces in our revised \texttt{one\_run()} method as so:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{one\_run\_fast }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( mu, sigma\_sq, sample\_size ) \{}
-\NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{generate\_data}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
-                            \AttributeTok{sample\_size =}\NormalTok{ sample\_size)}
-\NormalTok{  summary\_stats }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
-\NormalTok{  anova\_p }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats, }
-                  \FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar,}\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
-\NormalTok{  Welch\_p }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats, }
-                  \FunctionTok{Welch\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
-  \FunctionTok{tibble}\NormalTok{(}\AttributeTok{ANOVA =}\NormalTok{ anova\_p, }\AttributeTok{Welch =}\NormalTok{ Welch\_p)}
-\NormalTok{\}}
-
-\FunctionTok{one\_run\_fast}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
-              \AttributeTok{sample\_size =}\NormalTok{ sample\_size )}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## # A tibble: 1 x 2
-##       ANOVA   Welch
-##       <dbl>   <dbl>
-## 1 0.0000904 0.00871
-\end{verbatim}
-
-The reason this is important is we are now doing our group aggregation only once, rather than once per method. We can use our microbenchmark to see our speedup:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(microbenchmark)}
-\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{microbenchmark}\NormalTok{(}\AttributeTok{noagg =} \FunctionTok{one\_run}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
-                                          \AttributeTok{sample\_size =}\NormalTok{ sample\_size),}
-                          \AttributeTok{agg =} \FunctionTok{one\_run\_fast}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
-                                             \AttributeTok{sample\_size =}\NormalTok{ sample\_size) )}
-\NormalTok{timings}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## Unit: microseconds
-##   expr      min        lq      mean   median
-##  noagg  556.411  612.2735  846.9067  645.463
-##    agg 1399.986 1480.2845 1720.1550 1544.696
-##         uq       max neval
-##   703.4165 16714.798   100
-##  1691.1065  6088.418   100
-\end{verbatim}
-
-And our relative speedup is:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{with}\NormalTok{(}\FunctionTok{summary}\NormalTok{(timings), }\FunctionTok{round}\NormalTok{(mean[}\DecValTok{1}\NormalTok{] }\SpecialCharTok{/}\NormalTok{ mean[}\DecValTok{2}\NormalTok{], }\DecValTok{1}\NormalTok{))}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 0.5
-\end{verbatim}
-
-To recap, there are two advantages of this kind of coding:
+\chapter{Simulations as evidence}\label{simulations-as-evidence}
+
+We began this book with an acknowledgement that simulation is fraught with the potential for misuse: \emph{simulations are doomed to succeed}.
+We close by reiterating this point, and then discuss several ways researchers might design their simulations so they more arguably produce real evidence on how well things might work.
+
+When our work is done, ideally we will have generated simulations that provide a sort of ``consumer product testing'' for the study designs and statistical methods we are exploring.
+Clearly, it is important to do some consumer product tests that are grounded in how consumers will actually use the product in real life---but before you get to that point, it can be helpful to cover an array of conditions that are probably more extreme than what will be experienced in practice (like dropping things off buildings or driving over them with cars or whatever else).
+These extreme contexts give us more clear results, and can help us understand the limits of our methods.
+These extreme contexts are also usually best-case (or at least optimistic) scenarios for when our estimator of interest will excel, giving in effect an upper bound on how well things could go.
+
+Extreme and clear simulations are also usually easier to write, manipulate, and understand.
+Such simulations can help us learn about the estimators themselves.
+For example, simulation can help uncover how different aspects of a data generating process affect the performance of an estimator.
+To discover this, you need a data generation process with clear levers controlling those aspects.
+Simple simulations can be used to push theory further---we can experiment to gain an inclination of whether a model is a good idea at all, or to verify we are right about an intuition or derivation about how well an estimator can work.
+
+But such simulations cannot be the end of our journey.
+In general, a researcher should work to ensure their simulation evidence is \emph{relevant}.
+A set of simulations only using unreaslistic data generating processes may not be that useful.
+Unless the estimators being tested have truly universally stable properties, we will not learn much from a simulation that is not relevant to the problem at hand.
+We have to circle back to providing testing of the sorts of situations an eventual user of our methods might encounter in practice.
+So how can we make our simulations more relevant?
+
+\section{Strategies for making relevant simulations}\label{strategies-for-making-relevant-simulations}
+
+In the following subsections we go through a range of general strategies for making relevant simulations:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
+\tightlist
 \item
-  Code reuse is generally good because when you have the same code in multiple places it can make it harder to read and understand your code. If you see two blocks of code you might worry they are only mostly similar, not exactly similar, and waste time trying to differentiate. If you have a single, well-named function, you immediately know what a block of code is doing.
+  Use extensive multi-factor simulations
 \item
-  Saving the results of calculations can speed up your computation since you are saving your partial work. This can be useful to reduce calculations that are particularly time intensive.
+  Generate simulations based on prior literature.
+\item
+  Pick simulation factors based on real data
+\item
+  Resample real data directly to get authentic distributions
+\item
+  Design a fully calibrated simulation
 \end{enumerate}
 
-\chapter{Error trapping and other headaches}\label{error-trapping-and-other-headaches}
+\subsection{Make your simulation general with an extensive multi-factor experiment}\label{make-your-simulation-general-with-an-extensive-multi-factor-experiment}
 
-\subsection{What to do with warnings in simulations}\label{what-to-do-with-warnings-in-simulations}
+``If a single simulation is not convincing, use more of them,'' is one principle a researcher might take.
+By conducting extensive multifactor simulations, once can explore a large space of possible data generating scenarios.
+If, across the full range of scenarios, a general story bears out, then perhaps that will be more convincing than a narrower range.
 
-Sometimes our analytic strategy might give some sort of warning (or fail altogether).
-For example, from the cluster randomized experiment case study we have:
+Of course, the critic will claim that some aspect that is not varying is the real culprit.
+If this aspect is unrealistic, then the findings, across the board, may be less relevant.
+Thus, pick the factors one varies with care.
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{set.seed}\NormalTok{(}\DecValTok{101012}\NormalTok{)  }\CommentTok{\# (I picked this to show a warning.)}
-\NormalTok{dat }\OtherTok{\textless{}{-}} \FunctionTok{gen\_cluster\_RCT}\NormalTok{( }\AttributeTok{J =} \DecValTok{50}\NormalTok{, }\AttributeTok{n\_bar =} \DecValTok{100}\NormalTok{, }\AttributeTok{sigma2\_u =} \DecValTok{0}\NormalTok{ )}
-\NormalTok{mod }\OtherTok{\textless{}{-}} \FunctionTok{lmer}\NormalTok{( Yobs }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ Z }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{sid), }\AttributeTok{data=}\NormalTok{dat )}
-\end{Highlighting}
-\end{Shaded}
+\subsection{Use previously published simulations to beat them at their own game}\label{use-previously-published-simulations-to-beat-them-at-their-own-game}
 
-\begin{verbatim}
-## boundary (singular) fit: see help('isSingular')
-\end{verbatim}
+If a relevant prior paper uses a simulation to make a case, one approach is to replicate that simulation, adding in the new estimator one wants to evaluate.
+This makes it (more) clear that you are not fishing: you are using something established in the literature as a published benchmark.
+By constraining oneself to published simulations, one has less wiggle room to cherry pick a data generating process that works the way you want.
 
-We have to make a deliberate decision as to what to do about this:
+\subsection{Calibrate simulation factors to real data}\label{calibrate-simulation-factors-to-real-data}
+
+Use real data to inform choice of factor levels or other data generation features.
+For example, in James's work on designing methods for meta-analysis, there is often a question of how big sample sizes should be and how many different outcomes per study there should be when simulating effect size estimates from hypothetical studies to be included in a hypothetical meta-analysis.
+To make the simulations realistic, James obtained data from a set of past real meta-analyses and fit parametric models to these features, and used the resulting parameter estimates as benchmarks for how large and how varied the simulated meta analyses should be.
+
+In this case, one would probably not use the exact estimated values, but instead use them as a point of reference and possibly explore a range of values around them.
+For instance, say we find that the distribution of study sizes fits a Poisson(63) pretty well.
+We might then then simulate study sizes using a Poisson with mean parameters of 40, 60, or 80 (where 40, 60, and 80 would be one factor in our multifactor experiment).
+
+\subsection{Use real data to obtain directly}\label{use-real-data-to-obtain-directly}
+
+You can also use real data directly to avoid a parametric model.
+For example, say you need a population distribution for a slew of covariates.
+Rather than using something artificial (like multivariate normal), you can pull population data on a bunch of covariates from some administrative data and then use those data as a (finite) population distribution.
+You then simple sample (possibly with replacement) rows from your reference population to generate your simulationsample.
+
+The appeal here is that your covariates will then have distributions that are much more authentic than some multivariate normal--they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.
+
+As an illustration of this approach, an old paper on heteroscedasticity-robust standard errors (Long and Irvin, 2000) does something similar.
+It was important in the context that they're studying because the behavior of heteroscedasticity-robust SEs is influenced by leverage, which is a function of the covariate distribution.
+Getting authentic leverage was hard to do with a parametric model, so getting examples of it from real life made the simulation more relevant.
+
+\subsection{Fully calibrated simulations}\label{fully-calibrated-simulations}
+
+Extending some of the prior ideas even further, one practice in increasing vogue is to generate \emph{calibrated simulations}.
+These are simulations tailored to a specific applied contexts, where we design our simulation study to more narrowly inform what assumptions and structures are necessary in order to make progress in that specific context.
+
+Often we would do this by building our simulations out of existing data.
+For an example from above, one might sample, with replacement, from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.
+
+But this is not far enough.
+We also need to generate a realistic relationship between our covariates and outcome to truly assess how well the estimators work in practice.
+It is very easy to accidentally put a very simple model in place for this final component, thus making a calibrated simulation quite naive in, perhaps, the very way that counts.
+
+We next walk through how you might calibrate further in the context of evaluating estimators for some sort of causal inference context where we are assessing methods of estimating a treatment effect of some binary treatment.
+If we just resample our covariates, but then layer a constant treatment effect on top, we may be missing critical aspects of how our estimators might fail in practice.
+
+In the area of causal inference, the potential outcomes framework provides a natural path for generating calibrated simulations \citep{Kern_calibrated}.
+Also see \ref{potential-outcomes} for more discussion of simulations in the potential outcomes framework.
+Under this framework, we would take an existing randomized experiment or observational study and then impute all the missing potential outcomes under some specific scheme.
+This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then fully known.
+For our simulation we then synthetically, and repeatedly, randomize and ``observe'\,' outcomes to be analyzed with the methods we are testing.
+We could also resample from our dataset to generate datasets of different size, or to have a superpopulation target as our estimand.
+
+The key feature here is the imputation step: how do we build our full set of covariates and outcomes?
+One baseline method one can use is to generate a matched-pairs dataset by, for each unit, finding a close match given all the demographic and other covariate information of the sample. We then use the matched unit as the imputed potential outcome.\\
+By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population, with all outcomes being ``real,'' as they are taken from actual data.
+Such matching can preserve complex relationships in the data that are not model dependent.
+In particular, if outcomes tend to be coarsely defined (e.g., on an integer scale) or have specific clumps (such as zero-inflation or rounding), this structure will be preserved.
+
+One concern with this approach is the noise in the matching could in general dilute the structure of the treatment effect as the control- and treatment-side potential outcomes may be very unrelated, creating a lot of so-called idiosyncratic treatment variation (unit-to-unit variation in the treatment effects that is not explained by the covariates).
+This is akin to measurement error diluting found relationships in linear models.
+We could reduce such variation by first imputing missing outcomes using some model (e.g., a random forest) fit to the original data, and then matching on all units including the imputed potential outcome as a hidden ``covariate.''
+This is not a data analysis strategy, but instead a method of generating synthetic data that both has a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.
+
+A second approach that allows for varying the level of a systematic effect is to specify a treatment effect model, predict treatment effects for all units and use those to impute the treatment potential outcome for all control units.
+This will perfectly preserve the complex structure between the covariates and the \(Y_i(0)\)s.
+Unfortunately, this would also give no idiosyncratic treatment variation .
+To add in idiosyncratic variation we could then need to generate a distribution of perturbations and add these to the imputed outcomes just as an error term in a regression model.
+
+Regardless of how we generate them, once we have a ``fully observed'' sample with the full set of treatment and control potential outcomes for all of our units, we can calculate any target estimands we like on our population, and then compare our estimators to these ground truths (even if they have no parametric analog) as desired.
+
+Clearly, these calibration games can be fairly complex.
+They do not lend themselves to a clear factor-based structure that have levers that change targeted aspects of the data generating process (although sometimes you can build in controls to make such levers possible).
+In exchange, we end up with a simulation that might be more faithfully capturing aspects of a specific context, making our simulations more relevant to answering the narrower question of ``how will things work here?''
+
+\part{Computational Considerations}\label{part-computational-considerations}
+
+\chapter{Organizing a simulation project}\label{organizing-a-simulation-project}
+
+As we saw earlier, a full multifactor simulation can generate a lot of output that can be hard to navigate.
+They are complex, multifaceted projects by design.
+This means that the project itself can be hard to manage.
+It can be easy to become overwhelmed by a steady accumulation of scripts that generate data, analyze data, run simulations, and so on.
+
+This section is designed to give you the computational skills and ideas that will make it easier to handle complex simulation projects.
+We start with a discussion of file and project management, then turn to parallel processing, and finally close with some core programming habits that we have found useful for keeping on top of this type of sprawling complexity.
+
+Simulations have two general phases: generate your results and analyze your results.
+The ending of the first phase should be to save the generated results.
+The beginning of the second phase should then be to load the results from a file and analyze them.
+These phases can be in a separate `.R' files.
+Dividing your simulations in this way allows for easily changing how one \emph{analyzes} an experiment without re-running the entire thing.
+
+This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
+
+For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
 
 \begin{itemize}
 \tightlist
 \item
-  Keep these ``weird'' trials?
+  Code for generating data
 \item
-  Drop them?
+  Code for analyzing data
+\item
+  Code for running a single simulation scenario
 \end{itemize}
 
-If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
-If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn't give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+If each of these pieces is large and complex, you might consider putting them in three different \texttt{.R} files.
+To do this, we need to talk about what kinds of R scripts exist, and also talk about how you can tell one script to load another script.
 
-If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
-Especially if you drop some trials, it is important to see how often things are acting pecularly.
+\section{Well structured R scripts}\label{well-structured-r-scripts}
 
-The main tool for doing this is the \texttt{quietly()} function:
+In R, there are two critical file types that can hold R code: \texttt{.R} files (scripts) and \texttt{.Rmd} (or \texttt{.qmd}) markdown files.
+The former just holds R code, while the latter holds a mix of R code and text.
+The latter is what you would render (or knit) to make a final report--it will run the code, and mix the results in with the text to give a nicely formatted report with code, figures, tables, and other printout nicely embedded.
+These are what is typically used for smaller projects---all the code and discussion of code would be in a single, convienent place.
+
+For larger projects, you will be more dependant on the first type of file, the \texttt{.R} script.
+Ideally, the principle of modular programming would be applied to these files.
+Each \texttt{.R} file would hold a collection of code that is related to a single task.
+There are two main types of of \texttt{.R} script: those that \emph{just} have functions that can be used for other purposes (meaning that if you run them, the only thing that happens is you end up with some new functions in your current workspace), and those that are traditional scripts such that when you run them, R will do a variety of specified tasks.
+
+\subsection{The source command}\label{about-source-command}
+
+Inside of an R script you can ``source'' other \texttt{.R} files.
+The \texttt{source()} command essentially ``cuts and pastes'' the contents of the given file into your R work session.
+E.g.,
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{quiet\_lmer }\OtherTok{=} \FunctionTok{quietly}\NormalTok{( lmer )}
-\NormalTok{qmod }\OtherTok{\textless{}{-}} \FunctionTok{quiet\_lmer}\NormalTok{( Yobs }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ Z }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{sid), }\AttributeTok{data=}\NormalTok{dat )}
-\NormalTok{qmod}
+\FunctionTok{source}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"R/data\_generators.R"}\NormalTok{ ) )}
+\FunctionTok{source}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"R/estimators.R"}\NormalTok{ ) )}
+\FunctionTok{source}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"R/simulation\_support.R"}\NormalTok{ ) )}
 \end{Highlighting}
 \end{Shaded}
 
+If the named file has code to run, it will run it.
+If the named file has a list of methods, those methods will now be available for use.
+The \texttt{here::here()} command is a convenience function that allows you to specify a file path relative to your R project root directory, so you can easily find your files.
+
+You can even source files inside files that are sourced.
+For example, \texttt{simulation\_support.R} could, inside it, source the other two files.
+You would then only source the single simulation support file in your primary simulation script.
+
+One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, see below), testing each of your components.
+Then, when you are not focused on that component, you don't have to look at that testing code.
+
+Another good reason for this type of modular organizing is you can then allow for a whole simulation universe, writing a variety of data generators that together form a library of options.
+You can then easily create different simulations that use your different pieces, in your larger project.
+
+For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
+Our \texttt{data\_generators.R} code file then had several methods.
+When we sourced it, we end up wit the following list of methods:
+
 \begin{verbatim}
-## $result
-## Linear mixed model fit by REML ['lmerModLmerTest']
-## Formula: ..1
-##    Data: ..2
-## REML criterion at convergence: 14026.44
-## Random effects:
-##  Groups   Name        Std.Dev.
-##  sid      (Intercept) 0.0000  
-##  Residual             0.9828  
-## Number of obs: 5000, groups:  sid, 50
-## Fixed Effects:
-## (Intercept)            Z  
-##   -0.013930    -0.008804  
-## optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings 
-## 
-## $output
-## [1] ""
-## 
-## $warnings
-## character(0)
-## 
-## $messages
-## [1] "boundary (singular) fit: see help('isSingular')\n"
+> ls()
+[1] "describe_sim_data"  "make_dat"           "make.dat_1side"     
+[4] "make_dat_1side_old" "make_dat_orig"      "make_dat_simple"
+[7] "make_dat_tuned"     "rand_exp"           "summarize_sim_data"
 \end{verbatim}
 
-You then might have, in your analyzing code:
+The \texttt{describe()} and \texttt{summarize()} methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
+We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
+
+Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that single file and use those estimators on our actual data.
+This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
+Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
+
+Modular programming is key.
+
+\subsection{Putting headers in your .R file}\label{putting-headers-in-your-.r-file}
+
+When you write a \texttt{.R} script, it is a good idea to put a header at the top of the file, giving a description of the file's purpose.
+Then, you can also put dividers in your file, e.g.,
+
+\begin{verbatim}
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data generating functions ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+\end{verbatim}
+
+Note the \texttt{-\/-\/-\/-} at the end of the middle line: if you add those trailing dashes, then if you click on the dropdown at the bottom of your RStudio, you will see a pop-up table of contents that allows you to quickly navigate to different parts of your source file.
+
+\subsection{Storing testing code in your scripts}\label{about-keeping-tests-with-FALSE}
+
+If you have an extended \texttt{.R} file with a list of functions, you might also want to store a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a ``FALSE block,'' that might look like so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{analyze\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( dat ) \{}
-    
-\NormalTok{    M1 }\OtherTok{\textless{}{-}} \FunctionTok{quiet\_lmer}\NormalTok{( Yobs }\SpecialCharTok{\textasciitilde{}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{ Z }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{sid), }\AttributeTok{data=}\NormalTok{dat )}
-\NormalTok{    message1 }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( }\FunctionTok{length}\NormalTok{( M1}\SpecialCharTok{$}\NormalTok{message ) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{ )}
-\NormalTok{    warning1 }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( }\FunctionTok{length}\NormalTok{( M1}\SpecialCharTok{$}\NormalTok{warning ) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{ )}
-
-    \CommentTok{\# Compile our results}
-    \FunctionTok{tibble}\NormalTok{( }\AttributeTok{ATE\_hat =} \FunctionTok{coef}\NormalTok{(M1)[}\StringTok{"Z"}\NormalTok{],}
-            \AttributeTok{SE\_hat =} \FunctionTok{se.coef}\NormalTok{(M1)[}\StringTok{"Z"}\NormalTok{],}
-            \AttributeTok{message =}\NormalTok{ message1,}
-            \AttributeTok{warning =}\NormalTok{ warning1 )}
+\CommentTok{\# My testing code {-}{-}{-}{-}}
+\ControlFlowTok{if}\NormalTok{ ( }\ConstantTok{FALSE}\NormalTok{ ) \{}
+\NormalTok{  res }\OtherTok{\textless{}{-}} \FunctionTok{my\_function}\NormalTok{( }\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{, }\DecValTok{30}\NormalTok{ )}
+\NormalTok{  res}
+  \CommentTok{\# Some notes as to what I want to see.}
+  
+  \FunctionTok{sd}\NormalTok{( res )}
+  \CommentTok{\# This should be around 20}
 \NormalTok{\}}
 \end{Highlighting}
 \end{Shaded}
 
-Now you have your primary estimates, and also flags for whether there was a convergence issue.
-In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
+You can then, when you open and look at the script, paste the code inside the block into the console when you want to run it.
+If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
+This is a good way to keep your testing code with the code it is testing.
+When you want to work on just the part of the project captured by your script, you can work inside the single file very easily, ignoring the other parts of your project.
 
-\chapter{Saving files and results}\label{saving-files}
+You can also (or instead) write testing code, which we will talk about further below.
+
+\section{Principled directory structures}\label{principled-directory-structures}
+
+We \emph{strongly advocate} keeping a well-organized directory for your simulation.
+We recommend using RStudio, or a similar IDE, and having a directory structure like the following:
+
+\begin{verbatim}
+my_project/
+  proj.Rproj
+  README.md
+  R/
+  data/
+  results/
+  scripts/
+  test/
+\end{verbatim}
+
+For those who have written R pacakges, this structure will look familiar.
+The \texttt{R/} directory is where you put your core R code.
+We will have \texttt{.R} scripts that just hold our core methods; we can then ``load'' these scripts into our workspace as needed to gain access to those methods.
+Saved methods might include the methods you have developed that you are planning on testing (unless they are in a separate package), and methods to generate data.
+We \emph{do not} put the scripts that run the actual simulation here. The \texttt{R/} folder is to store the building blocks of our simulation only, not the final scripts that use those blocks to run and analyze our simulations themselves.
+
+The \texttt{data/} directory is where you put any data files you are using in your simulation.
+The \texttt{results/} directory is where you will save any generated results of your simulation.
+Sometimes it might be worth having \texttt{raw\_results} and \texttt{results}, where \texttt{raw\_results} are what you save as soon as you finish running the simulation, and \texttt{results} have final results where you may have merged and summarized the raw results.
+
+The \texttt{scripts/} directory is where you put your scripts that run the simulation and analyze simulation results.
+You will likely have one script that runs the simulation, and one or more scripts that analyze the results.
+
+Finally, the \texttt{test/} directory is where you put any testing code you have written to test your methods.
+You can even use the \texttt{testthat} package to write unit tests for your methods, and put those in the \texttt{test/} directory.
+This structure is not required, but it is a good idea to have a well-organized project of some type.
+
+\section{Saving simulation results}\label{saving-files}
 
 Always save your simulation results to a file.
 Simulations are painful and time consuming to run, and you will invariably want to analyze the results of them in a variety of different ways, once you have looked at your preliminary analysis.
@@ -10956,7 +10854,7 @@ We advocate saving your simulation as soon as it is complete.
 But there are some ways to do better than that, such as saving as you go.
 This can protect you if your simulation occasionally crashes, or if you want to rerun only parts of your simulation for some reason.
 
-\section{Saving simulations in general}\label{saving-simulations-in-general}
+\subsection{Saving simulations in general}\label{saving-simulations-in-general}
 
 Once your simulation has completed, you can save it like so:
 
@@ -10979,12 +10877,13 @@ You can then load it, just before analysis, as so:
 \end{Shaded}
 
 There are two general tools for saving. The \texttt{read/write\_csv} methods save your file in a way where you can open it with a spreadsheet program and look at it.
-But your results should be in a vanilla format (non-fancy data frame without list columns).
+But your results should be in a vanilla, rectangular format (non-fancy data frame without list columns).
 
 Alternatively, you can use the \texttt{saveRDS()} and \texttt{readRDS()} methods; these save objects to a file such that when you load them, they are as you left them.
-(The simpler format of a csv file means your factors, if you have them, may not preseve as factors, and so forth.)
+The RDS saving keeps your R object as given.
+The simpler format of a csv file means your factors, if you have them, may not preserve as factors, and so forth.
 
-\section{Saving simulations as you go}\label{saving-simulations-as-you-go}
+\subsection{Saving simulations as you go}\label{saving-simulations-as-you-go}
 
 If you are not sure you have time to run your entire simulation, or you think your computer might crash half way through, or something similar, you can save each chunk you run as you go, in its own file. You then stack those files at the end to get your final results.
 With clever design, you can even then selectively delete files to rerun only parts of your larger simulation---but be sure to rerun everything from scratch before you run off and publish your results, to avoid embarrassing errors.
@@ -10996,7 +10895,7 @@ Due to modular programming, we can see what this script does, even without those
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{source}\NormalTok{( }\StringTok{"pack\_simulation\_functions.R"}\NormalTok{ )}
+\FunctionTok{source}\NormalTok{( }\StringTok{"R/simulation\_functions.R"}\NormalTok{ )}
 
 \ControlFlowTok{if}\NormalTok{ ( }\SpecialCharTok{!}\FunctionTok{file.exists}\NormalTok{(}\StringTok{"results/frags"}\NormalTok{ ) ) \{}
     \FunctionTok{dir.create}\NormalTok{(}\StringTok{"results/frags"}\NormalTok{)}
@@ -11055,18 +10954,11 @@ Our function is then going to either do the simulation (and save the result to d
 \end{Highlighting}
 \end{Shaded}
 
-Note how we wrap our core \texttt{run\_sim} method in \texttt{safely}; it was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
+Note how we wrap our core \texttt{run\_sim} method (that takes all our simulation factors and runs a simulation for those factors) in \texttt{safely}; \texttt{run\_sim()} was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
+Our method cleverly either loads a saved result, or generates it, for a given chunk.
+This means from whatever is calling the function, it will look exactly the same whether it is loading a saved result or generating a new one.
 
-We next run the simulation.
-We shuffle the rows of our task list so that which process gets what task is randomized.
-If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
-
-We have an \texttt{if-then} structure to easily switch between parallel and nonparallel code.
-This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
-Plus it would be all mixed up since multiple processes are working simultaneously.
-
-This overall structure allows the researcher to delete one of the ``fragment'' files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
-This means the researcher can insert a \texttt{browser()} command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+We next run the simulation by calling \texttt{file\_saving\_sim()} for all of our simulation scenarios.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -11097,7 +10989,17 @@ This means the researcher can insert a \texttt{browser()} command somewhere insi
 \end{Highlighting}
 \end{Shaded}
 
-Our method cleverly loads files in, or generates them, for each chunk.
+Note how we shuffle the rows of our task list so that which process gets what task is randomized.
+If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
+See \ref{parallel-processing} for more on parallel processing.
+
+The \texttt{if-then} structure allows us to easily switch between parallel and nonparallel code.
+This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
+Plus it would be all mixed up since multiple processes are working simultaneously.
+
+The above overall structure allows the researcher to delete one of the ``fragment'' files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
+This means the researcher can insert a \texttt{browser()} command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+
 The seed setting ensures reproducibility.
 Once we are done, we need to clean up our results:
 
@@ -11115,11 +11017,13 @@ Once we are done, we need to clean up our results:
 \end{Highlighting}
 \end{Shaded}
 
-\section{Dynamically making directories}\label{dynamically-making-directories}
+Our final \texttt{simulation\_results.rds} file will have all the results from our simulation, made by stacking all of the fragments of our simulation together.
+
+\subsection{Dynamically making directories}\label{dynamically-making-directories}
 
 If you are generating a lot of files, then you should put them somewhere.
 But where?
-It is nice to dynamically generate a directory for your files on fly.
+It can be nice to dynamically generate a directory for your files on fly.
 One way to do this is to write a function that will make any needed directory, if it doesn't exist, and then put your file in that spot.
 For example, you might have your own version of \texttt{write\_csv} as:
 
@@ -11138,14 +11042,14 @@ For example, you might have your own version of \texttt{write\_csv} as:
 This will look for a path (starting from your R Project, by taking advantage of the \texttt{here} package), and put your data file in that spot.
 If the spot doesn't exist, it will make it for you.
 
-\section{Loading and combining files of simulation results}\label{loading-and-combining-files-of-simulation-results}
+\subsection{Loading and combining files of simulation results}\label{loading-and-combining-files-of-simulation-results}
 
 Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
 This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{load.all.sims }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( }\AttributeTok{filehead=}\StringTok{"results/"}\NormalTok{ ) \{}
+\NormalTok{load.all.sims }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( }\AttributeTok{filehead=}\StringTok{"raw\_results/"}\NormalTok{ ) \{}
   
 \NormalTok{  files }\OtherTok{=} \FunctionTok{list.files}\NormalTok{( filehead, }\AttributeTok{full.names=}\ConstantTok{TRUE}\NormalTok{)}
   
@@ -11164,7 +11068,8 @@ You would use as so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{results }\OtherTok{=} \FunctionTok{load.all.sims}\NormalTok{( }\AttributeTok{filehead=}\StringTok{"raw\_results/"}\NormalTok{ )}
+\NormalTok{results }\OtherTok{\textless{}{-}} \FunctionTok{load.all.sims}\NormalTok{( }\AttributeTok{filehead=}\StringTok{"raw\_results/"}\NormalTok{ )}
+\NormalTok{results }\OtherTok{\textless{}{-}} \FunctionTok{bind\_rows}\NormalTok{( results )}
 \end{Highlighting}
 \end{Shaded}
 
@@ -11610,130 +11515,199 @@ Other clusters should have similar documents giving needed guidance for their sp
 
 Some of the above material is based on tutorials built by Kristen Hunter and Zach Branson, past doctoral students of Harvard's statistics department.
 
-\chapter{Simulations as evidence}\label{simulations-as-evidence}
+\chapter{Debugging and Testing}\label{debugging-and-testing}
 
-We began this book with an acknowledgement that simulation is fraught with the potential for misuse: \emph{simulations are doomed to succeed}.
-We close by reiterating this point, and then discuss several ways researchers might design their simulations so they more arguably produce real evidence on how well things might work.
+Writing code is not too hard.
+Writing \emph{correct} code, however, can be quite challenging.
 
-When our work is done, ideally we will have generated simulations that provide a sort of ``consumer product testing'' for the study designs and statistical methods we are exploring.
-Clearly, it is important to do some consumer product tests that are grounded in how consumers will actually use the product in real life---but before you get to that point, it can be helpful to cover an array of conditions that are probably more extreme than what will be experienced in practice (like dropping things off buildings or driving over them with cars or whatever else).
-These extreme contexts give us more clear results, and can help us understand the limits of our methods.
-These extreme contexts are also usually best-case (or at least optimistic) scenarios for when our estimator of interest will excel, giving in effect an upper bound on how well things could go.
+It is often the case that you will write code that does not do what you expect, or that does not work at all.
+Trying to figure out why can be enormously frustrating and time consuming.
+There are some tools, however, that can mitigate that to some extent.
 
-Extreme and clear simulations are also usually easier to write, manipulate, and understand.
-Such simulations can help us learn about the estimators themselves.
-For example, simulation can help uncover how different aspects of a data generating process affect the performance of an estimator.
-To discover this, you need a data generation process with clear levers controlling those aspects.
-Simple simulations can be used to push theory further---we can experiment to gain an inclination of whether a model is a good idea at all, or to verify we are right about an intuition or derivation about how well an estimator can work.
+\section{\texorpdfstring{Debugging with \texttt{print()}}{Debugging with print()}}\label{about-print}
 
-But such simulations cannot be the end of our journey.
-In general, a researcher should work to ensure their simulation evidence is \emph{relevant}.
-A set of simulations only using unreaslistic data generating processes may not be that useful.
-Unless the estimators being tested have truly universally stable properties, we will not learn much from a simulation that is not relevant to the problem at hand.
-We have to circle back to providing testing of the sorts of situations an eventual user of our methods might encounter in practice.
-So how can we make our simulations more relevant?
+When you follow modular design, you will often have methods you wrote calling other methods you wrote, which call even more methods you wrote.
+When you get an error, you might not be sure where to look, or what is happening.
 
-\section{Strategies for making relevant simulations}\label{strategies-for-making-relevant-simulations}
+A simple method (a method often reviled by professional programmers, but which is still useful for more ordinary folks) for debugging is to use \texttt{print()} statements in your code.
+For example, consider the following code:
 
-In the following subsections we go through a range of general strategies for making relevant simulations:
+\begin{Shaded}
+\begin{Highlighting}[]
+    \ControlFlowTok{if}\NormalTok{ ( }\FunctionTok{any}\NormalTok{( }\FunctionTok{is.na}\NormalTok{( rs}\SpecialCharTok{$}\NormalTok{estimate ) ) ) \{}
+        \FunctionTok{cat}\NormalTok{( }\StringTok{"There are NAs in the estimates!}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{ )}
+\NormalTok{    \}}
+\end{Highlighting}
+\end{Shaded}
 
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  Use extensive multi-factor simulations
-\item
-  Generate simulations based on prior literature.
-\item
-  Pick simulation factors based on real data
-\item
-  Resample real data directly to get authentic distributions
-\item
-  Design a fully calibrated simulation
-\end{enumerate}
+Here we are printing something out that we suspect might be something we want to check.
 
-\subsection{Make your simulation general with an extensive multi-factor experiment}\label{make-your-simulation-general-with-an-extensive-multi-factor-experiment}
+There are a few methods for printing to the console: \texttt{print()}, which takes any object and prints it out. You can print a dataframe, variable, or a string:
 
-``If a single simulation is not convincing, use more of them,'' is one principle a researcher might take.
-By conducting extensive multifactor simulations, once can explore a large space of possible data generating scenarios.
-If, across the full range of scenarios, a general story bears out, then perhaps that will be more convincing than a narrower range.
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{print}\NormalTok{( }\StringTok{"My var is "}\NormalTok{, my\_var, }\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{ )}
+\FunctionTok{print}\NormalTok{( my\_tibble )}
+\end{Highlighting}
+\end{Shaded}
 
-Of course, the critic will claim that some aspect that is not varying is the real culprit.
-If this aspect is unrealistic, then the findings, across the board, may be less relevant.
-Thus, pick the factors one varies with care.
+You can use \texttt{cat()}, which is designed to print strings:
 
-\subsection{Use previously published simulations to beat them at their own game}\label{use-previously-published-simulations-to-beat-them-at-their-own-game}
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cat}\NormalTok{( }\StringTok{"My var is "}\NormalTok{, my\_var, }\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
 
-If a relevant prior paper uses a simulation to make a case, one approach is to replicate that simulation, adding in the new estimator one wants to evaluate.
-This makes it (more) clear that you are not fishing: you are using something established in the literature as a published benchmark.
-By constraining oneself to published simulations, one has less wiggle room to cherry pick a data generating process that works the way you want.
+You can use the \texttt{cli} package, which gives a bit of a nicer printout, and allows for easier formatting:
 
-\subsection{Calibrate simulation factors to real data}\label{calibrate-simulation-factors-to-real-data}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{cli}\SpecialCharTok{::}\FunctionTok{cli\_alert}\NormalTok{(}\StringTok{"My var is \{my\_var\}"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
 
-Use real data to inform choice of factor levels or other data generation features.
-For example, in James's work on designing methods for meta-analysis, there is often a question of how big sample sizes should be and how many different outcomes per study there should be when simulating effect size estimates from hypothetical studies to be included in a hypothetical meta-analysis.
-To make the simulations realistic, James obtained data from a set of past real meta-analyses and fit parametric models to these features, and used the resulting parameter estimates as benchmarks for how large and how varied the simulated meta analyses should be.
+The problem with printing is it is easy to have a lot of printout statements, and then when you run your code you get a wall of text.
+For simulations, it is easy to print so much that it will meaningfully slow your simulation down!
+You can use \texttt{print()} statements to help you figure out what is going on, but it is often better to use a more interactive debugging tool, such as the \texttt{browser()} function or \texttt{stopifnot()} statements, which we will discuss next.
 
-In this case, one would probably not use the exact estimated values, but instead use them as a point of reference and possibly explore a range of values around them.
-For instance, say we find that the distribution of study sizes fits a Poisson(63) pretty well.
-We might then then simulate study sizes using a Poisson with mean parameters of 40, 60, or 80 (where 40, 60, and 80 would be one factor in our multifactor experiment).
+\section{Debugging with browser}\label{about-browser-debugging}
 
-\subsection{Use real data to obtain directly}\label{use-real-data-to-obtain-directly}
+Consider the following code taken from a simulation:
 
-You can also use real data directly to avoid a parametric model.
-For example, say you need a population distribution for a slew of covariates.
-Rather than using something artificial (like multivariate normal), you can pull population data on a bunch of covariates from some administrative data and then use those data as a (finite) population distribution.
-You then simple sample (possibly with replacement) rows from your reference population to generate your simulationsample.
+\begin{Shaded}
+\begin{Highlighting}[]
+    \ControlFlowTok{if}\NormalTok{ ( }\FunctionTok{any}\NormalTok{( }\FunctionTok{is.na}\NormalTok{( rs}\SpecialCharTok{$}\NormalTok{estimate ) ) ) \{}
+        \FunctionTok{browser}\NormalTok{()}
+\NormalTok{    \}}
+\end{Highlighting}
+\end{Shaded}
 
-The appeal here is that your covariates will then have distributions that are much more authentic than some multivariate normal--they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.
+The \texttt{browser()} command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
+Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.
 
-As an illustration of this approach, an old paper on heteroscedasticity-robust standard errors (Long and Irvin, 2000) does something similar.
-It was important in the context that they're studying because the behavior of heteroscedasticity-robust SEs is influenced by leverage, which is a function of the covariate distribution.
-Getting authentic leverage was hard to do with a parametric model, so getting examples of it from real life made the simulation more relevant.
+The interactive console allows you to look at the current state of the code, and you can type in commands to see what is going on.
+It is just like a normal R workspace, but if you look at the Environment, you will only see what the code has available at the time \texttt{browser()} was called.
+If you are inside a function, for example, you will only see the things passed to the function, and the variables the function has made.
 
-\subsection{Fully calibrated simulations}\label{fully-calibrated-simulations}
+This can be very important to, for example, check what values were passed to your function--many bugs are due to the wrong thing getting passed to some code that would otherwise work.
 
-Extending some of the prior ideas even further, one practice in increasing vogue is to generate \emph{calibrated simulations}.
-These are simulations tailored to a specific applied contexts, where we design our simulation study to more narrowly inform what assumptions and structures are necessary in order to make progress in that specific context.
+Once in a browser, you can say \texttt{q} to quit out.
+You can also type \texttt{n} to go to the next line of code.
+This allows you to walk through the code step by step, seeing what happens as you move along.
+Much of the time, RStudio will even jump to the part of your script where you paused, so you can see the code that will be run with each step.
 
-Often we would do this by building our simulations out of existing data.
-For an example from above, one might sample, with replacement, from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.
+\section{Debugging with debug}\label{debugging-with-debug}
 
-But this is not far enough.
-We also need to generate a realistic relationship between our covariates and outcome to truly assess how well the estimators work in practice.
-It is very easy to accidentally put a very simple model in place for this final component, thus making a calibrated simulation quite naive in, perhaps, the very way that counts.
+Another useful debugging tool is the \texttt{debug()} function.
+This function allows you to set a breakpoint in your code, so that when you call the function, it will stop at the beginning of the function and put you in the same browser discussed above.
+You use it like this:
 
-We next walk through how you might calibrate further in the context of evaluating estimators for some sort of causal inference context where we are assessing methods of estimating a treatment effect of some binary treatment.
-If we just resample our covariates, but then layer a constant treatment effect on top, we may be missing critical aspects of how our estimators might fail in practice.
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{debug}\NormalTok{( gen\_dat )}
+\FunctionTok{run\_simulation}\NormalTok{( some\_parameters )}
+\end{Highlighting}
+\end{Shaded}
 
-In the area of causal inference, the potential outcomes framework provides a natural path for generating calibrated simulations \citep{Kern_calibrated}.
-Also see \ref{potential-outcomes} for more discussion of simulations in the potential outcomes framework.
-Under this framework, we would take an existing randomized experiment or observational study and then impute all the missing potential outcomes under some specific scheme.
-This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then fully known.
-For our simulation we then synthetically, and repeatedly, randomize and ``observe'\,' outcomes to be analyzed with the methods we are testing.
-We could also resample from our dataset to generate datasets of different size, or to have a superpopulation target as our estimand.
+Now, when \texttt{run\_simulation()} eventually calls \texttt{gen\_dat} the script will stop, and you can see exactly what was passed to \texttt{gen\_dat} and also then walk through \texttt{gen\_dat} line by line to see what is going on.
 
-The key feature here is the imputation step: how do we build our full set of covariates and outcomes?
-One baseline method one can use is to generate a matched-pairs dataset by, for each unit, finding a close match given all the demographic and other covariate information of the sample. We then use the matched unit as the imputed potential outcome.\\
-By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population, with all outcomes being ``real,'' as they are taken from actual data.
-Such matching can preserve complex relationships in the data that are not model dependent.
-In particular, if outcomes tend to be coarsely defined (e.g., on an integer scale) or have specific clumps (such as zero-inflation or rounding), this structure will be preserved.
+\section{Protecting your functions with ``stop''}\label{about-stopifnot}
 
-One concern with this approach is the noise in the matching could in general dilute the structure of the treatment effect as the control- and treatment-side potential outcomes may be very unrelated, creating a lot of so-called idiosyncratic treatment variation (unit-to-unit variation in the treatment effects that is not explained by the covariates).
-This is akin to measurement error diluting found relationships in linear models.
-We could reduce such variation by first imputing missing outcomes using some model (e.g., a random forest) fit to the original data, and then matching on all units including the imputed potential outcome as a hidden ``covariate.''
-This is not a data analysis strategy, but instead a method of generating synthetic data that both has a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.
+When writing functions, especially those that take a lot of parameters, it is often wise to include \texttt{stopifnot()} statements at the top to verify the function is getting what it expects.
+These are sometimes called ``assert statements'' and are a tool for making errors show up as early as possible.
+For example, look at this (fake) example of generating data with different means and variances
 
-A second approach that allows for varying the level of a systematic effect is to specify a treatment effect model, predict treatment effects for all units and use those to impute the treatment potential outcome for all control units.
-This will perfectly preserve the complex structure between the covariates and the \(Y_i(0)\)s.
-Unfortunately, this would also give no idiosyncratic treatment variation .
-To add in idiosyncratic variation we could then need to generate a distribution of perturbations and add these to the imputed outcomes just as an error term in a regression model.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{make\_groups }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( means, sds ) \{}
+\NormalTok{  Y }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( }\FunctionTok{length}\NormalTok{(means), }\AttributeTok{mean=}\NormalTok{means, }\AttributeTok{sd =}\NormalTok{ sds )}
+  \FunctionTok{round}\NormalTok{( Y )}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
 
-Regardless of how we generate them, once we have a ``fully observed'' sample with the full set of treatment and control potential outcomes for all of our units, we can calculate any target estimands we like on our population, and then compare our estimators to these ground truths (even if they have no parametric analog) as desired.
+If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:
 
-Clearly, these calibration games can be fairly complex.
-They do not lend themselves to a clear factor-based structure that have levers that change targeted aspects of the data generating process (although sometimes you can build in controls to make such levers possible).
-In exchange, we end up with a simulation that might be more faithfully capturing aspects of a specific context, making our simulations more relevant to answering the narrower question of ``how will things work here?''
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{make\_groups}\NormalTok{( }\FunctionTok{c}\NormalTok{(}\DecValTok{100}\NormalTok{,}\DecValTok{200}\NormalTok{,}\DecValTok{300}\NormalTok{,}\DecValTok{400}\NormalTok{), }
+             \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{100}\NormalTok{,}\DecValTok{10000}\NormalTok{) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1]   101   204 17426   400
+\end{verbatim}
+
+What is nasty about this possible error is nothing is telling you that something is wrong!
+You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
+You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.
+
+If this function was used in our data generating code, we might eventually see some warning that something is off, but this would still not tell us where things went off the rails.
+We can instead protect our function by putting in an \emph{assert statement} using \texttt{stopifnot()}:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{make\_groups }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( means, sds ) \{}
+  \FunctionTok{stopifnot}\NormalTok{( }\FunctionTok{length}\NormalTok{(means) }\SpecialCharTok{==} \FunctionTok{length}\NormalTok{(sds) )}
+\NormalTok{  Y }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( }\FunctionTok{length}\NormalTok{(means), }\AttributeTok{mean=}\NormalTok{means, }\AttributeTok{sd =}\NormalTok{ sds )}
+  \FunctionTok{round}\NormalTok{( Y )}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+Now we get this:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{make\_groups}\NormalTok{( }\FunctionTok{c}\NormalTok{(}\DecValTok{100}\NormalTok{,}\DecValTok{200}\NormalTok{,}\DecValTok{300}\NormalTok{,}\DecValTok{400}\NormalTok{), }
+             \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{100}\NormalTok{,}\DecValTok{10000}\NormalTok{) )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Error in make_groups(c(100, 200, 300, 400), c(1, 100, 10000)): length(means) == length(sds) is not TRUE
+\end{verbatim}
+
+The \texttt{stopifnot()} command ensures your code is getting called as you intended.
+
+These statements can also serve as a sort of documentation as to what you expect.
+Consider, for example:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{make\_xy }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( N, mu\_x, mu\_y, rho ) \{}
+  \FunctionTok{stopifnot}\NormalTok{( }\SpecialCharTok{{-}}\DecValTok{1} \SpecialCharTok{\textless{}=}\NormalTok{ rho }\SpecialCharTok{\&\&}\NormalTok{ rho }\SpecialCharTok{\textless{}=} \DecValTok{1}\NormalTok{ )}
+\NormalTok{  X }\OtherTok{=}\NormalTok{ mu\_x }\SpecialCharTok{+} \FunctionTok{rnorm}\NormalTok{( N )}
+\NormalTok{  Y }\OtherTok{=}\NormalTok{ mu\_y }\SpecialCharTok{+}\NormalTok{ rho }\SpecialCharTok{*}\NormalTok{ X }\SpecialCharTok{+} \FunctionTok{sqrt}\NormalTok{(}\DecValTok{1}\SpecialCharTok{{-}}\NormalTok{rho}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{)}\SpecialCharTok{*}\FunctionTok{rnorm}\NormalTok{(N)}
+  \FunctionTok{tibble}\NormalTok{(}\AttributeTok{X =}\NormalTok{ X, }\AttributeTok{Y=}\NormalTok{Y)}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+Here we see that rho should be between -1 and 1 quite clearly.
+A good reminder of what the parameter is for.
+
+This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
+Consider:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{a }\OtherTok{\textless{}{-}} \FunctionTok{make\_xy}\NormalTok{( }\DecValTok{10}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{, }\FloatTok{0.75}\NormalTok{ )}
+\NormalTok{b }\OtherTok{\textless{}{-}} \FunctionTok{make\_xy}\NormalTok{( }\DecValTok{10}\NormalTok{, }\FloatTok{0.75}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Error in make_xy(10, 0.75, 2, 3): -1 <= rho && rho <= 1 is not TRUE
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{c }\OtherTok{\textless{}{-}} \FunctionTok{make\_xy}\NormalTok{( }\DecValTok{10}\NormalTok{, }\AttributeTok{rho =} \FloatTok{0.75}\NormalTok{, }\AttributeTok{mu\_x =} \DecValTok{2}\NormalTok{, }\AttributeTok{mu\_y =} \DecValTok{3}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
 
 \part{Complex Data Structures}\label{part-complex-data-structures}
 
@@ -11772,7 +11746,7 @@ We ended up with the following data, with log-transformed discipline rates for e
 
 \begin{verbatim}
 ## Rows: 27 Columns: 6
-## -- Column specification ----------------------------------------------------------------------------------
+## -- Column specification ------
 ## Delimiter: ","
 ## chr (1): Code
 ## dbl (5): 2015, 2016, 2017, 2018, 2019
@@ -11911,7 +11885,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-321-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-317-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -12153,7 +12127,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-327-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-323-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -12691,27 +12665,42 @@ This driver also stores the finite sample ATE for future reference:
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in purrr 1.0.0.
+## Warning: `rerun()` was deprecated in
+## purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
 ## rerun(3, {
-## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
-## Yobs = ifelse(Z == 1, Y1, Y0))
-## mod = lm(Yobs ~ Z, data = dat)
-## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
+## dat = mutate(dat, Z = 0 +
+## (sample(n) <= n / 2),
+## Yobs = ifelse(Z == 1, Y1,
+## Y0))
+## mod = lm(Yobs ~ Z, data =
+## dat)
+## tibble(ATE_hat =
+## coef(mod)[["Z"]], SE_hat =
+## arm::se.coef(
 ## mod)[["Z"]])
 ## })
 ## 
 ##   # Now
 ## map(1:3, ~ {
-## dat = mutate(dat, Z = 0 + (sample(n) <= n / 2),
-## Yobs = ifelse(Z == 1, Y1, Y0))
-## mod = lm(Yobs ~ Z, data = dat)
-## tibble(ATE_hat = coef(mod)[["Z"]], SE_hat = arm::se.coef(
+## dat = mutate(dat, Z = 0 +
+## (sample(n) <= n / 2),
+## Yobs = ifelse(Z == 1, Y1,
+## Y0))
+## mod = lm(Yobs ~ Z, data =
+## dat)
+## tibble(ATE_hat =
+## coef(mod)[["Z"]], SE_hat =
+## arm::se.coef(
 ## mod)[["Z"]])
 ## })
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was generated.
+## This warning is displayed
+## once every 8 hours.
+## Call
+## `lifecycle::last_lifecycle_warnings()`
+## to see where this warning was
+## generated.
 \end{verbatim}
 
 \begin{verbatim}
@@ -12733,16 +12722,22 @@ We then run a bunch of finite runs.
 \end{Shaded}
 
 \begin{verbatim}
-## Warning: `rerun()` was deprecated in purrr 1.0.0.
+## Warning: `rerun()` was deprecated in
+## purrr 1.0.0.
 ## i Please use `map()` instead.
 ##   # Previously
-##   rerun(500, one_finite_run())
+##   rerun(500,
+##   one_finite_run())
 ## 
 ##   # Now
-##   map(1:500, ~ one_finite_run())
-## This warning is displayed once every 8 hours.
-## Call `lifecycle::last_lifecycle_warnings()` to
-## see where this warning was generated.
+##   map(1:500, ~
+##   one_finite_run())
+## This warning is displayed
+## once every 8 hours.
+## Call
+## `lifecycle::last_lifecycle_warnings()`
+## to see where this warning was
+## generated.
 \end{verbatim}
 
 We use \texttt{.id} because we will need to separate out each finite run and analyze separately, and then aggregate.
@@ -12964,9 +12959,9 @@ Especially considering the small number of observations, it is going to be a mor
 \appendix
 
 
-\chapter{Coding tidbits}\label{coding-tidbits}
+\chapter{Coding Reference}\label{coding-tidbits}
 
-This chapter is not specifically about simulation, but it does have a few tips and tricks regarding coding that are worth attending to.
+In this appendix chapter we give a bit more detail on some core programming skills that we use throughout the book.
 
 \section{How to repeat yourself}\label{more-repeating-oneself}
 
@@ -13172,11 +13167,11 @@ Anonymous functions, as these are called, can be useful to connect your pieces o
 In the past, there was a tidyverse method called \texttt{rerun()}, but it is currently out of favor.
 Originally, \texttt{rerun()} did exactly that: you gave it a number and a block of code, and it would rerun the block of code that many times, giving you the results as a list.
 \texttt{rerun()} and \texttt{replicate()} are near equivalents.
-As we saw, \texttt{replicate()} does what its name suggests---it replicates the result of an expression a specified number of times. Setting \texttt{simplify\ =\ FALSE} returns the output as a list (just like \texttt{rerun()}.
+As we saw, \texttt{replicate()} does what its name suggests---it replicates the result of an expression a specified number of times. Setting \texttt{simplify\ =\ FALSE} returns the output as a list (just like \texttt{rerun()} did).
 
 \section{Default arguments for functions}\label{default-arguments}
 
-To write functions that are both easy to use and configurable, we find it helpful to set default arguments.
+To write functions that are both easy to use and configurable, set default arguments.
 For example,
 
 \begin{Shaded}
@@ -13279,189 +13274,393 @@ Next we can see that there are many things we might tune:
 The documentation will tell us more, but if we just need some sample data, we can quickly assess our method before having to do much reading and understanding.
 Only once we have identified what we need do we have to turn to the documentation itself.
 
-\section{The source command and keeping things organized}\label{about-source-command}
+\section{Optimizing code (and why you often shouldn't)}\label{optimize-code}
 
-Simulations have two general phases: generate your results and analyze your results.
-The ending of the first phase should be to save the generated results.
-The beginning of the second phase should then be to load the results from a file and analyze them.
-These phases can be in a separate `.R' files.
-Dividing your simulations in this way allows for easily changing how one \emph{analyzes} an experiment without re-running the entire thing.
+Optimizing code is when you spend a bit more human effort to write code that will run faster on your computer.
+In some cases, this can be a critical boost to running a simulation, where you inherently will be doing things a lot of times.
+Cutting runtime down will always be tempting, as it allows you to run more replicates and get more precisely estimated performance measures for your simulation.
 
-This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
+That being said, generally optimize code only after discovering you need to.
+Optimizing as you go usually means you will spend a lot of time wrestling with code far more complicated than it needs to be.
+For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code will not help shorten the overall run time of a simulation much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
+Keep things simple; in general your time is more important than the computer's time.
 
-For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
+In the next sections we will look at a few optimization efforts applied to the ANOVA example in the prior chapters.
 
-\begin{itemize}
-\tightlist
-\item
-  Code for generating data
-\item
-  Code for analyzing data
-\item
-  Code for running a single simulation scenario
-\end{itemize}
+\subsection{Hand-building functions}\label{hand-building-functions}
 
-If each of these pieces is large and complex, you might consider putting them in three different \texttt{.R} files.
-Then, in your primary simulation driver, you could source these files.
-E.g.,
+In the Welch example above, we used the system-implemented ANOVA.
+An alternative approach would be to ``hand roll'' the ANOVA F statistic and test directly.
+Doing so by hand can set you up to implement modified versions of these tests later on.
+Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.
+
+Following the formulas on p.~129 of Brown and Forsythe (1974) we have (using data as generated in Chapter \ref{data-generating-processes}:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{source}\NormalTok{( }\StringTok{"pack\_data\_generators.R"}\NormalTok{ )}
-\FunctionTok{source}\NormalTok{( }\StringTok{"pack\_estimators.R"}\NormalTok{ )}
-\FunctionTok{source}\NormalTok{( }\StringTok{"pack\_simulation\_support.R"}\NormalTok{ )}
+\NormalTok{ANOVA\_F }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(sim\_data) \{}
+
+\NormalTok{  x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, mean))}
+\NormalTok{  s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, var))}
+\NormalTok{  n }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{group)}
+\NormalTok{  g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(x\_bar)}
+
+\NormalTok{  df1 }\OtherTok{\textless{}{-}}\NormalTok{ g }\SpecialCharTok{{-}} \DecValTok{1}
+\NormalTok{  df2 }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n) }\SpecialCharTok{{-}}\NormalTok{ g}
+
+\NormalTok{  msbtw }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n }\SpecialCharTok{*}\NormalTok{ (x\_bar }\SpecialCharTok{{-}} \FunctionTok{mean}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{x))}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ df1}
+\NormalTok{  mswn }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{((n }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{) }\SpecialCharTok{*}\NormalTok{ s\_sq) }\SpecialCharTok{/}\NormalTok{ df2}
+\NormalTok{  fstat }\OtherTok{\textless{}{-}}\NormalTok{ msbtw }\SpecialCharTok{/}\NormalTok{ mswn}
+\NormalTok{  pval }\OtherTok{\textless{}{-}} \FunctionTok{pf}\NormalTok{(fstat, df1, df2, }\AttributeTok{lower.tail =} \ConstantTok{FALSE}\NormalTok{)}
+
+  \FunctionTok{return}\NormalTok{(pval)}
+\NormalTok{\}}
+
+\FunctionTok{ANOVA\_F}\NormalTok{(sim\_data)}
 \end{Highlighting}
 \end{Shaded}
 
-The \texttt{source()} command essentially ``cuts and pastes'' the contents of the given file into your R work session.
-If the file has code to run, it will run it.
-If the file has a list of methods, those methods will now be available for use.
-
-Alternatively, \texttt{pack\_simulation\_support.R} could, inside it, source the other two files.
-You would then only source the single simulation support file in your primay file.
-
-One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, like described above), testing each of your components.
-Then, when you are not focused on that component, you don't have to look at that testing code.
-
-Another good reason for this type of modular organizing is you can then have a variety of data generators, forming a library of options.
-You can then easily create different simulations that use different pieces, in a larger project.
-
-For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
-Our data generation code file then had several methods:
-
 \begin{verbatim}
-> ls()
-[1] "describe_sim_data"  "make_dat"           "make.dat.1side"     
-[4] "make.dat.1side.old" "make.dat.orig"      "make.dat.simple"
-[7] "make.dat.tuned"     "rand.exp"           "summarize_sim_data"
+## [1] 0.002497797
 \end{verbatim}
 
-The describe and summarize methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
-We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
-
-Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that file and use those estimators on our actual data.
-This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
-Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
-
-Modular programming is key.
-
-\section{Testing and debugging code in your scripts}\label{about-keeping-tests-with-FALSE}
-
-If you have an extended script with a list of functions, you might have a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
-One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a ``FALSE block,'' that might look like so:
+To see the difference between our version and R's version, we can use an R package called \texttt{microbenchmark} to test how long the computations take for each version of the function.
+The \texttt{microbenchmark} function runs each expression 100 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\ControlFlowTok{if}\NormalTok{ ( }\ConstantTok{FALSE}\NormalTok{ ) \{}
-\NormalTok{  res }\OtherTok{\textless{}{-}} \FunctionTok{my\_function}\NormalTok{( }\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{, }\DecValTok{30}\NormalTok{ )}
-\NormalTok{  res}
-  \CommentTok{\# Some notes as to what I want to see.}
+\FunctionTok{library}\NormalTok{(microbenchmark)}
+\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{microbenchmark}\NormalTok{(}\AttributeTok{Rfunction =} \FunctionTok{ANOVA\_F\_aov}\NormalTok{(sim\_data),}
+                          \AttributeTok{direct    =} \FunctionTok{ANOVA\_F}\NormalTok{(sim\_data))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in microbenchmark(Rfunction =
+## ANOVA_F_aov(sim_data), direct =
+## ANOVA_F(sim_data)): less accurate nanosecond
+## times to avoid potential integer overflows
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{timings}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Unit: microseconds
+##       expr     min       lq     mean   median
+##  Rfunction 195.160 203.2575 240.4105 213.8765
+##     direct  83.886  91.6760 102.7107  96.1245
+##       uq      max neval
+##  234.725 1727.535   100
+##  103.443  349.115   100
+\end{verbatim}
+
+The direct function is 2.3 times faster than the built-in R function.
+
+This result is not unusual.
+Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
+Here we can skip them by doing the calculations directly.
+In general, however, this is a trade-off: writing something yourself gives you a lot of chance to do something wrong, throwing off all your simulations.
+It might be faster, but you may pay dearly for it in terms of extra hours coding and debugging.
+Optimize only if you need to!
+
+\subsection{Computational efficiency versus simplicity}\label{sec_comp_efficiency}
+
+An alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates \emph{multiple} sets of simulated data all at once.
+
+For example, for our ANOVA example we could specify that we want \texttt{R} replications of the study and have the function spit out a matrix with \texttt{R} columns, one for each simulated dataset:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{generate\_data\_matrix }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(mu, sigma\_sq, sample\_size, R) \{}
+
+\NormalTok{  N }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(sample\_size) }
+\NormalTok{  g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(sample\_size) }
   
-  \FunctionTok{sd}\NormalTok{( res )}
-  \CommentTok{\# This should be around 20}
+\NormalTok{  group }\OtherTok{\textless{}{-}} \FunctionTok{rep}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\NormalTok{g, }\AttributeTok{times =}\NormalTok{ sample\_size) }
+\NormalTok{  mu\_long }\OtherTok{\textless{}{-}} \FunctionTok{rep}\NormalTok{(mu, }\AttributeTok{times =}\NormalTok{ sample\_size)}
+\NormalTok{  sigma\_long }\OtherTok{\textless{}{-}} \FunctionTok{rep}\NormalTok{(}\FunctionTok{sqrt}\NormalTok{(sigma\_sq), }\AttributeTok{times =}\NormalTok{ sample\_size) }
+
+\NormalTok{  x\_mat }\OtherTok{\textless{}{-}} \FunctionTok{matrix}\NormalTok{(}\FunctionTok{rnorm}\NormalTok{(N }\SpecialCharTok{*}\NormalTok{ R, }\AttributeTok{mean =}\NormalTok{ mu\_long, }\AttributeTok{sd =}\NormalTok{ sigma\_long),}
+                  \AttributeTok{nrow =}\NormalTok{ N, }\AttributeTok{ncol =}\NormalTok{ R)}
+\NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{list}\NormalTok{(}\AttributeTok{group =}\NormalTok{ group, }\AttributeTok{x\_mat =}\NormalTok{ x\_mat)}
+    
+  \FunctionTok{return}\NormalTok{(sim\_data)}
 \NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
 
-You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
-If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
-
-\section{Debugging with browser}\label{about-browser-debugging}
-
-Consider the following code taken from a simulation:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-    \ControlFlowTok{if}\NormalTok{ ( }\FunctionTok{any}\NormalTok{( }\FunctionTok{is.na}\NormalTok{( rs}\SpecialCharTok{$}\NormalTok{estimate ) ) ) \{}
-        \FunctionTok{browser}\NormalTok{()}
-\NormalTok{    \}}
-\end{Highlighting}
-\end{Shaded}
-
-The \texttt{browser()} command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
-Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.
-
-\section{Protecting your functions with ``stop''}\label{about-stopifnot}
-
-When writing functions, especially those that take a lot of parameters, it is often wise to include \texttt{stopifnot()} statements at the top to verify the function is getting what it expects.
-These are sometimes called ``assert statements'' and are a tool for making errors show up as early as possible.
-For example, look at this (fake) example of generating data with different means and variances
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{make\_groups }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( means, sds ) \{}
-\NormalTok{  Y }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( }\FunctionTok{length}\NormalTok{(means), }\AttributeTok{mean=}\NormalTok{means, }\AttributeTok{sd =}\NormalTok{ sds )}
-  \FunctionTok{round}\NormalTok{( Y )}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{make\_groups}\NormalTok{( }\FunctionTok{c}\NormalTok{(}\DecValTok{100}\NormalTok{,}\DecValTok{200}\NormalTok{,}\DecValTok{300}\NormalTok{,}\DecValTok{400}\NormalTok{), }\FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{,}\DecValTok{100}\NormalTok{,}\DecValTok{10000}\NormalTok{) )}
+\FunctionTok{generate\_data\_matrix}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
+                     \AttributeTok{sample\_size =}\NormalTok{ sample\_size, }\AttributeTok{R =} \DecValTok{4}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## [1]  100  206 8034  398
+## $group
+##  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
+## 
+## $x_mat
+##             [,1]      [,2]       [,3]      [,4]
+##  [1,] -1.1790632 0.7805722  0.7711074 1.2753672
+##  [2,]  2.4160302 3.1073488 -1.6081629 0.4196167
+##  [3,]  0.4950409 4.1031245  2.7664053 1.7352006
+##  [4,]  2.4804740 1.6636922  3.9830638 4.1231762
+##  [5,]  0.7434552 1.2039138  0.2647096 1.6756596
+##  [6,]  3.2185066 0.3496457  2.3249747 2.1554411
+##  [7,]  4.0411462 2.4233487  2.5393216 1.4254521
+##  [8,]  3.7780351 0.7254293  4.0446210 0.5131817
+##  [9,]  2.6685690 1.6684263  2.1747235 3.0994807
+## [10,]  6.4508882 5.1857268  4.8141904 8.4568769
+## [11,]  1.8542667 3.8682330  2.4237823 5.4617181
+## [12,]  5.7922912 6.2489447  5.6722027 6.3249945
+## [13,]  5.5627116 6.2221245  5.9849752 4.6089806
+## [14,]  6.0355414 7.1686699  5.7994605 4.8935517
+## [15,]  6.1857938 7.2068300  7.1912594 5.4974888
 \end{verbatim}
 
-If this function was used in our data generating code, we would see the warnings but might not know exactly what they were.
-We can instead protect our function by putting an \emph{assert statements} in our function like this:
+This approach is a bit more computationally efficient because the setup calculations (getting \texttt{N}, \texttt{g}, \texttt{group}, \texttt{mu\_full}, and \texttt{sigma\_full}) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to \texttt{rnorm()}. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
+Furthermore, if the number of replicates \texttt{R} is large and each replication produces a large dataset, this ``all-at-once'' approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
+On balance, we recommend the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise).
+
+\subsection{Reusing code to speed up computation}\label{reusing-code-to-speed-up-computation}
+
+Computational and programming efficiency should usually be a secondary consideration when you are starting to design a simulation study.
+It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
+All that said, there is some glaring redundancy in the two functions used for the ANOVA simulation.
+Both \texttt{ANOVA\_F} and \texttt{Welch\_F} start by taking the simulated data and calculating summary statistics for each group, using the following code:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{make\_groups }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( means, sds ) \{}
-  \FunctionTok{stopifnot}\NormalTok{( }\FunctionTok{length}\NormalTok{(means) }\SpecialCharTok{==} \FunctionTok{length}\NormalTok{(sds) )}
-\NormalTok{  Y }\OtherTok{=} \FunctionTok{rnorm}\NormalTok{( }\FunctionTok{length}\NormalTok{(means), }\AttributeTok{mean=}\NormalTok{means, }\AttributeTok{sd =}\NormalTok{ sds )}
-  \FunctionTok{round}\NormalTok{( Y )}
+\NormalTok{x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, mean))}
+\NormalTok{s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(sim\_data, }\FunctionTok{tapply}\NormalTok{(x, group, var))}
+\NormalTok{n }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(sim\_data}\SpecialCharTok{$}\NormalTok{group)}
+\NormalTok{g }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(x\_bar)}
+\end{Highlighting}
+\end{Shaded}
+
+In the interest of not repeating ourselves, it would better to pull this code out as a separate function and then re-write the \texttt{ANOVA\_F} and \texttt{Welch\_F} functions to take the summary statistics as input. Here is a function that takes simulated data and returns a list of summary statistics:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{summarize\_data }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(sim\_data) \{}
+  
+\NormalTok{  res }\OtherTok{\textless{}{-}}\NormalTok{ sim\_data }\SpecialCharTok{\%\textgreater{}\%} 
+    \FunctionTok{group\_by}\NormalTok{( group ) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{summarise}\NormalTok{( }\AttributeTok{x\_bar =} \FunctionTok{mean}\NormalTok{( x ),}
+               \AttributeTok{s\_sq =} \FunctionTok{var}\NormalTok{( x ),}
+               \AttributeTok{n =} \FunctionTok{n}\NormalTok{() )}
+\NormalTok{  res}
 \NormalTok{\}}
 \end{Highlighting}
 \end{Shaded}
 
-This ensures your code is getting called as you intended.
-What is nasty about this possible error is nothing is telling you something is wrong!
-You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
-You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.
-
-These statements can also serve as a sort of documentation as to what you expect.
-Consider, for example:
+We just packaged the code from above, and puts our results in a nice table (and thus pivoted to using tidyverse to calculate these things):
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{make\_xy }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( N, mu\_x, mu\_y, rho ) \{}
-  \FunctionTok{stopifnot}\NormalTok{( }\SpecialCharTok{{-}}\DecValTok{1} \SpecialCharTok{\textless{}=}\NormalTok{ rho }\SpecialCharTok{\&\&}\NormalTok{ rho }\SpecialCharTok{\textless{}=} \DecValTok{1}\NormalTok{ )}
-\NormalTok{  X }\OtherTok{=}\NormalTok{ mu\_x }\SpecialCharTok{+} \FunctionTok{rnorm}\NormalTok{( N )}
-\NormalTok{  Y }\OtherTok{=}\NormalTok{ mu\_y }\SpecialCharTok{+}\NormalTok{ rho }\SpecialCharTok{*}\NormalTok{ X }\SpecialCharTok{+} \FunctionTok{sqrt}\NormalTok{(}\DecValTok{1}\SpecialCharTok{{-}}\NormalTok{rho}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{)}\SpecialCharTok{*}\FunctionTok{rnorm}\NormalTok{(N)}
-  \FunctionTok{tibble}\NormalTok{(}\AttributeTok{X =}\NormalTok{ X, }\AttributeTok{Y=}\NormalTok{Y)}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-Here we see that rho should be between -1 and 1 quite clearly.
-A good reminder of what the parameter is for.
-
-This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
-Consider:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{a }\OtherTok{\textless{}{-}} \FunctionTok{make\_xy}\NormalTok{( }\DecValTok{10}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{, }\FloatTok{0.75}\NormalTok{ )}
-\NormalTok{b }\OtherTok{\textless{}{-}} \FunctionTok{make\_xy}\NormalTok{( }\DecValTok{10}\NormalTok{, }\FloatTok{0.75}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{ )}
+\NormalTok{sim\_data }\OtherTok{=} \FunctionTok{generate\_data}\NormalTok{(}\AttributeTok{mu=}\NormalTok{mu, }\AttributeTok{sigma\_sq=}\NormalTok{sigma\_sq, }\AttributeTok{sample\_size=}\NormalTok{sample\_size)}
+\FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## Error in make_xy(10, 0.75, 2, 3): -1 <= rho && rho <= 1 is not TRUE
+## # A tibble: 4 x 4
+##   group x_bar  s_sq     n
+##   <int> <dbl> <dbl> <int>
+## 1     1 0.817 6.28      3
+## 2     2 2.18  3.33      6
+## 3     3 3.62  0.165     2
+## 4     4 5.96  0.102     4
+\end{verbatim}
+
+Now we can re-write both \(F\)-test functions to use the output of this function:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{ANOVA\_F\_agg }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x\_bar, s\_sq, n) \{}
+\NormalTok{  g }\OtherTok{=} \FunctionTok{length}\NormalTok{(x\_bar)}
+\NormalTok{  df1 }\OtherTok{\textless{}{-}}\NormalTok{ g }\SpecialCharTok{{-}} \DecValTok{1}
+\NormalTok{  df2 }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n) }\SpecialCharTok{{-}}\NormalTok{ g}
+  
+\NormalTok{  msbtw }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(n }\SpecialCharTok{*}\NormalTok{ (x\_bar }\SpecialCharTok{{-}} \FunctionTok{weighted.mean}\NormalTok{(x\_bar, }\AttributeTok{w =}\NormalTok{ n))}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ df1}
+\NormalTok{  mswn }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{((n }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{) }\SpecialCharTok{*}\NormalTok{ s\_sq) }\SpecialCharTok{/}\NormalTok{ df2}
+\NormalTok{  fstat }\OtherTok{\textless{}{-}}\NormalTok{ msbtw }\SpecialCharTok{/}\NormalTok{ mswn}
+\NormalTok{  pval }\OtherTok{\textless{}{-}} \FunctionTok{pf}\NormalTok{(fstat, df1, df2, }\AttributeTok{lower.tail =} \ConstantTok{FALSE}\NormalTok{)}
+ 
+  \FunctionTok{return}\NormalTok{(pval)}
+\NormalTok{\}}
+
+\NormalTok{summary\_stats }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
+\FunctionTok{with}\NormalTok{(summary\_stats, }\FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.007878319
 \end{verbatim}
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{c }\OtherTok{\textless{}{-}} \FunctionTok{make\_xy}\NormalTok{( }\DecValTok{10}\NormalTok{, }\AttributeTok{rho =} \FloatTok{0.75}\NormalTok{, }\AttributeTok{mu\_x =} \DecValTok{2}\NormalTok{, }\AttributeTok{mu\_y =} \DecValTok{3}\NormalTok{ )}
+\NormalTok{Welch\_F\_agg }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x\_bar, s\_sq, n) \{}
+\NormalTok{  g }\OtherTok{=} \FunctionTok{length}\NormalTok{(x\_bar)}
+\NormalTok{  w }\OtherTok{\textless{}{-}}\NormalTok{ n }\SpecialCharTok{/}\NormalTok{ s\_sq}
+\NormalTok{  u }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(w)}
+\NormalTok{  x\_tilde }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(w }\SpecialCharTok{*}\NormalTok{ x\_bar) }\SpecialCharTok{/}\NormalTok{ u}
+\NormalTok{  msbtw }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(w }\SpecialCharTok{*}\NormalTok{ (x\_bar }\SpecialCharTok{{-}}\NormalTok{ x\_tilde)}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (g }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}
+
+\NormalTok{  G }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{((}\DecValTok{1} \SpecialCharTok{{-}}\NormalTok{ w }\SpecialCharTok{/}\NormalTok{ u)}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{/}\NormalTok{ (n }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{))}
+\NormalTok{  denom }\OtherTok{\textless{}{-}} \DecValTok{1} \SpecialCharTok{+}\NormalTok{  G }\SpecialCharTok{*} \DecValTok{2} \SpecialCharTok{*}\NormalTok{ (g }\SpecialCharTok{{-}} \DecValTok{2}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (g}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{{-}} \DecValTok{1}\NormalTok{)}
+\NormalTok{  W }\OtherTok{\textless{}{-}}\NormalTok{ msbtw }\SpecialCharTok{/}\NormalTok{ denom}
+\NormalTok{  f }\OtherTok{\textless{}{-}}\NormalTok{ (g}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{{-}} \DecValTok{1}\NormalTok{) }\SpecialCharTok{/}\NormalTok{ (}\DecValTok{3} \SpecialCharTok{*}\NormalTok{ G)}
+
+\NormalTok{  pval }\OtherTok{\textless{}{-}} \FunctionTok{pf}\NormalTok{(W, }\AttributeTok{df1 =}\NormalTok{ g }\SpecialCharTok{{-}} \DecValTok{1}\NormalTok{, }\AttributeTok{df2 =}\NormalTok{ f, }\AttributeTok{lower.tail =} \ConstantTok{FALSE}\NormalTok{)}
+
+  \FunctionTok{return}\NormalTok{(pval)}
+\NormalTok{\}}
+
+\FunctionTok{with}\NormalTok{(summary\_stats, }\FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
 \end{Highlighting}
 \end{Shaded}
+
+\begin{verbatim}
+## [1] 0.007878319
+\end{verbatim}
+
+The results are the same as before.
+
+We should always test any optimized code against something we know is stable, since optimization is an easy way to get bad bugs.
+Here we check against R's implementation:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{summary\_stats }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
+\NormalTok{F\_results }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats,}
+                  \FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
+\NormalTok{aov\_results }\OtherTok{\textless{}{-}} \FunctionTok{oneway.test}\NormalTok{(x }\SpecialCharTok{\textasciitilde{}} \FunctionTok{factor}\NormalTok{(group), }\AttributeTok{data =}\NormalTok{ sim\_data, }
+                           \AttributeTok{var.equal =} \ConstantTok{TRUE}\NormalTok{)}
+\FunctionTok{all.equal}\NormalTok{(aov\_results}\SpecialCharTok{$}\NormalTok{p.value, F\_results)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] TRUE
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{W\_results }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats,}
+                  \FunctionTok{Welch\_F\_agg}\NormalTok{( }\AttributeTok{x\_bar =}\NormalTok{ x\_bar,}
+                               \AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
+\NormalTok{aov\_results }\OtherTok{\textless{}{-}} \FunctionTok{oneway.test}\NormalTok{(x }\SpecialCharTok{\textasciitilde{}} \FunctionTok{factor}\NormalTok{(group),}
+                           \AttributeTok{data =}\NormalTok{ sim\_data, }
+                           \AttributeTok{var.equal =} \ConstantTok{FALSE}\NormalTok{)}
+\FunctionTok{all.equal}\NormalTok{(aov\_results}\SpecialCharTok{$}\NormalTok{p.value, W\_results)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] TRUE
+\end{verbatim}
+
+Here we are able to check against a known baseline.
+Checking estimation functions can be a bit more difficult for procedures that are not already implemented in R. For example, the two other procedures examined by Brown and Forsythe, the James' test and Brown and Forsythe's \(F*\) test, are not available in base R.
+They are, however, available in the user-contributed package \texttt{onewaytests}, found by searching for ``Brown-Forsythe'' at \url{http://rseek.org/}. We could benchmark our calculations against this package, but of course there is some risk that the package might not be correct. Another route is to verify your results on numerical examples reported in authoritative papers, on the assumption that there's less risk of an error there. In the original paper that proposed the test, Welch (1951) provides a worked numerical example of the procedure. He reports the following summary statistics:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{g }\OtherTok{\textless{}{-}} \DecValTok{3}
+\NormalTok{x\_bar }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FloatTok{27.8}\NormalTok{, }\FloatTok{24.1}\NormalTok{, }\FloatTok{22.2}\NormalTok{)}
+\NormalTok{s\_sq }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\FloatTok{60.1}\NormalTok{, }\FloatTok{6.3}\NormalTok{, }\FloatTok{15.4}\NormalTok{)}
+\NormalTok{n }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\DecValTok{20}\NormalTok{, }\DecValTok{20}\NormalTok{, }\DecValTok{10}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+He also reports \(W = 3.35\) and \(f = 22.6\). Replicating the calculations with our \texttt{Welch\_F\_agg} function:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{Welch\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.05479049
+\end{verbatim}
+
+We get slightly different results! But we know that our function is correct---or at least consistent with \texttt{oneway.test}---so what's going on? It turns out that there was an error in some of Welch's intermediate calculations, which can only be spotted because he reported all of his work in the paper.
+
+We then put all these pieces in our revised \texttt{one\_run()} method as so:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{one\_run\_fast }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( mu, sigma\_sq, sample\_size ) \{}
+\NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{generate\_data}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
+                            \AttributeTok{sample\_size =}\NormalTok{ sample\_size)}
+\NormalTok{  summary\_stats }\OtherTok{\textless{}{-}} \FunctionTok{summarize\_data}\NormalTok{(sim\_data)}
+\NormalTok{  anova\_p }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats, }
+                  \FunctionTok{ANOVA\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar,}\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
+\NormalTok{  Welch\_p }\OtherTok{\textless{}{-}} \FunctionTok{with}\NormalTok{(summary\_stats, }
+                  \FunctionTok{Welch\_F\_agg}\NormalTok{(}\AttributeTok{x\_bar =}\NormalTok{ x\_bar, }\AttributeTok{s\_sq =}\NormalTok{ s\_sq, }\AttributeTok{n =}\NormalTok{ n))}
+  \FunctionTok{tibble}\NormalTok{(}\AttributeTok{ANOVA =}\NormalTok{ anova\_p, }\AttributeTok{Welch =}\NormalTok{ Welch\_p)}
+\NormalTok{\}}
+
+\FunctionTok{one\_run\_fast}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
+              \AttributeTok{sample\_size =}\NormalTok{ sample\_size )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 1 x 2
+##       ANOVA   Welch
+##       <dbl>   <dbl>
+## 1 0.0000835 0.00116
+\end{verbatim}
+
+The reason this is important is we are now doing our group aggregation only once, rather than once per method. We can use our microbenchmark to see our speedup:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(microbenchmark)}
+\NormalTok{timings }\OtherTok{\textless{}{-}} \FunctionTok{microbenchmark}\NormalTok{(}\AttributeTok{noagg =} \FunctionTok{one\_run}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
+                                          \AttributeTok{sample\_size =}\NormalTok{ sample\_size),}
+                          \AttributeTok{agg =} \FunctionTok{one\_run\_fast}\NormalTok{(}\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
+                                             \AttributeTok{sample\_size =}\NormalTok{ sample\_size) )}
+\NormalTok{timings}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Unit: microseconds
+##   expr      min       lq      mean    median
+##  noagg  563.545  622.216  855.8635  658.4805
+##    agg 1366.489 1504.351 1714.5036 1588.7705
+##        uq      max neval
+##   721.436 14493.13   100
+##  1745.001  5950.33   100
+\end{verbatim}
+
+And our relative speedup is:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{with}\NormalTok{(}\FunctionTok{summary}\NormalTok{(timings), }\FunctionTok{round}\NormalTok{(mean[}\DecValTok{1}\NormalTok{] }\SpecialCharTok{/}\NormalTok{ mean[}\DecValTok{2}\NormalTok{], }\DecValTok{1}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.5
+\end{verbatim}
+
+To recap, there are two advantages of this kind of coding:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  Code reuse is generally good because when you have the same code in multiple places it can make it harder to read and understand your code. If you see two blocks of code you might worry they are only mostly similar, not exactly similar, and waste time trying to differentiate. If you have a single, well-named function, you immediately know what a block of code is doing.
+\item
+  Saving the results of calculations can speed up your computation since you are saving your partial work. This can be useful to reduce calculations that are particularly time intensive.
+\end{enumerate}
 
 \chapter{Further readings and resources}\label{further-readings-and-resources}
 

@@ -1,0 +1,248 @@
+
+```{r, include=FALSE}
+library( tidyverse )
+library( testthat )
+```
+
+
+# Debugging and Testing
+
+Writing code is not too hard.
+Writing _correct_ code, however, can be quite challenging.
+
+It is often the case that you will write code that does not do what you expect, or that does not work at all.
+Trying to figure out why can be enormously frustrating and time consuming.
+There are some tools, however, that can mitigate that to some extent.
+
+
+
+## Debugging with `print()` {#about-print}
+
+When you follow modular design, you will often have methods you wrote calling other methods you wrote, which call even more methods you wrote.
+When you get an error, you might not be sure where to look, or what is happening.
+
+A simple method (a method often reviled by professional programmers, but which is still useful for more ordinary folks) for debugging is to use `print()` statements in your code.
+For example, consider the following code:
+
+```{r demo_print, eval=FALSE}
+    if ( any( is.na( rs$estimate ) ) ) {
+        cat( "There are NAs in the estimates!\n" )
+    }
+```
+
+Here we are printing something out that we suspect might be something we want to check.
+
+There are a few methods for printing to the console: `print()`, which takes any object and prints it out.  You can print a dataframe, variable, or a string:
+```{r, eval=FALSE}
+print( "My var is ", my_var, "\n" )
+print( my_tibble )
+```
+
+You can use `cat()`, which is designed to print strings:
+```{r, eval=FALSE}
+cat( "My var is ", my_var, "\n" )
+```
+
+You can use the `cli` package, which gives a bit of a nicer printout, and allows for easier formatting:
+```{r, eval=FALSE}
+cli::cli_alert("My var is {my_var}")
+```
+
+The problem with printing is it is easy to have a lot of printout statements, and then when you run your code you get a wall of text.
+For simulations, it is easy to print so much that it will meaningfully slow your simulation down!
+You can use `print()` statements to help you figure out what is going on, but it is often better to use a more interactive debugging tool, such as the `browser()` function or `stopifnot()` statements, which we will discuss next.
+
+
+
+## Debugging with browser {#about-browser-debugging}
+
+Consider the following code taken from a simulation:
+
+```{r demo_browser, eval=FALSE}
+    if ( any( is.na( rs$estimate ) ) ) {
+        browser()
+    }
+```
+
+The `browser()` command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
+Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.
+
+The interactive console allows you to look at the current state of the code, and you can type in commands to see what is going on.
+It is just like a normal R workspace, but if you look at the Environment, you will only see what the code has available at the time  `browser()` was called.
+If you are inside a function, for example, you will only see the things passed to the function, and the variables the function has made.
+
+This can be very important to, for example, check what values were passed to your function--many bugs are due to the wrong thing getting passed to some code that would otherwise work.
+
+Once in a browser, you can say `q` to quit out.
+You can also type `n` to go to the next line of code.
+This allows you to walk through the code step by step, seeing what happens as you move along.
+Much of the time, RStudio will even jump to the part of your script where you paused, so you can see the code that will be run with each step.
+
+## Debugging with debug
+
+Another useful debugging tool is the `debug()` function.
+This function allows you to set a breakpoint in your code, so that when you call the function, it will stop at the beginning of the function and put you in the same browser discussed above.
+You use it like this:
+
+```{r, eval=FALSE}
+debug( gen_dat )
+run_simulation( some_parameters )
+```
+
+Now, when `run_simulation()` eventually calls `gen_dat` the script will stop, and you can see exactly what was passed to `gen_dat` and also then walk through `gen_dat` line by line to see what is going on.
+
+
+
+## Protecting your functions with "stop" {#about-stopifnot}
+
+When writing functions, especially those that take a lot of parameters, it is often wise to include `stopifnot()` statements at the top to verify the function is getting what it expects.
+These are sometimes called "assert statements" and are a tool for making errors show up as early as possible.
+For example, look at this (fake) example of generating data with different means and variances
+
+```{r assert_demo}
+make_groups <- function( means, sds ) {
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
+}
+```
+
+If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:
+```{r}
+make_groups( c(100,200,300,400), 
+             c(1,100,10000) )
+```
+What is nasty about this possible error is nothing is telling you that something is wrong!
+You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
+You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.
+
+If this function was used in our data generating code, we might eventually see some warning that something is off, but this would still not tell us where things went off the rails.
+We can instead protect our function by putting in an *assert statement* using `stopifnot()`:
+```{r}
+make_groups <- function( means, sds ) {
+  stopifnot( length(means) == length(sds) )
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
+}
+```
+
+Now we get this:
+```{r, error=TRUE}
+make_groups( c(100,200,300,400), 
+             c(1,100,10000) )
+```
+
+The `stopifnot()` command ensures your code is getting called as you intended.
+
+These statements can also serve as a sort of documentation as to what you expect.
+Consider, for example:
+```{r}
+make_xy <- function( N, mu_x, mu_y, rho ) {
+  stopifnot( -1 <= rho && rho <= 1 )
+  X = mu_x + rnorm( N )
+  Y = mu_y + rho * X + sqrt(1-rho^2)*rnorm(N)
+  tibble(X = X, Y=Y)
+}
+```
+Here we see that rho should be between -1 and 1 quite clearly.
+A good reminder of what the parameter is for.
+
+This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
+Consider:
+```{r, error=TRUE}
+a <- make_xy( 10, 2, 3, 0.75 )
+b <- make_xy( 10, 0.75, 2, 3 )
+c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
+```
+
+
+## Testing your code
+
+Testing your code is a good way to ensure that it does what you expect.
+We have seen some demonstration of testing code early on, such as when we made plots of our simulated data to see if it looked like we expected.
+This kind of code could be stored in the script with the functions being tested, so that you can run it again later to see if the code still works as expected, using the `FALSE` trick discussed in Section \@ref(about-keeping-tests-with-FALSE).
+
+That sort of testing is important, but it can be hard to bring oneself to go and rerun it after making what seems like a trivial change to the core code.
+It can also be hard to track down the ripple effects of changing a low-level method that is used by many other methods.
+
+This is why people developed "unit testing," an approach to testing where you write code that you can just run whenever you want, code which runs a series of tests on your code and prints out which tests work as expected, and which do not.
+In R, the most common way of doing this is the `testthat` package.
+
+There are two general aspects to `testthat` that can be useful, the `expect_*()` methods and the `test_that()` function.
+
+Consider the following simple DGP to generate an X and Y variable that have a given relationship:
+```{r}
+my_DGP <- function( N, mu, beta ) {
+  stopifnot( N > 0, beta <= 1 )
+  dat = tibble( X = rnorm( N, mean = 0, sd = 1 ),
+                Y = mu + beta * X + rnorm( N, sd = 1-beta^2 ) )
+}
+```
+
+We can write test code as so:
+
+```{r}
+library(testthat)
+set.seed(44343)
+test_that("my_DGP works as expected", {
+  dta <- my_DGP(10, 0, 0.5)
+  # Check that the output is a tibble
+  expect_s3_class(dta, "tbl_df")
+  
+  # Check that the output has the right number of rows
+  expect_equal(nrow(dta), 10)
+  
+  # Check that the output has the right columns
+  expect_true(all(c("X", "Y") %in% colnames(dta)))
+  
+  # Check that the mean of Y is close to mu
+  dta2 = my_DGP(1000, 2, 0.5)
+  expect_equal(mean(dta2$Y), 2, tolerance = 0.1)
+  
+  # Check we get an error when we should
+  expect_error(my_DGP(-10, 0, 0.5, 0.5) )
+})
+```
+
+This code will run the tests, and if they all pass, it will print out a happy message.
+
+If our test fails, we will get an error message that tells us what went wrong:
+
+```{r, warning=TRUE, error=TRUE}
+test_that("my_DGP works as expected (test 2)", {
+  dta <- my_DGP(10000, 2, -2)
+  expect_equal( sd( dta$X ), 1, tolerance = 0.02 )
+  
+  dta <- my_DGP(10000, 2, 0.5)
+  expect_equal( var(dta$Y), 1, tolerance = 0.02 )
+  
+  M = lm( Y ~ X, data=dta )
+  expect_equal( coef(M)[[2]], 0.5, tolerance = 0.02 )
+} )
+```
+
+You put all of these tests in a file, and then you can run them all at once:
+
+```{r}
+test_file(here::here( "code/demo_test_file.R" ) )
+```
+
+It will give an overall printout of all the tests made, and list which passed, which gave warnings, and which were skipped.
+You can also run the test from inside RStudio: at the top-right you should see "Run Tests"--if you click on it, it will start an entirely new work session, and source the file to test it.
+
+This means it is important to make the test file stand-alone: it should source the code you want to test, and load any needed libraries, before running the testing code.
+
+You can finally make an entire directory of these testing files, and run them all at once with `test_dir()`.
+The usual way to store the files is in a `tests/testthat/` directory inside your project.
+You can then have a `tests/testthat.R` file that runs `test_dir()` on the `tests/testthat/` directory.
+
+Once you have your unit testing all set up, you can work on your project, and then run the unit tests to see if you broke anything.
+Even more important, if you are working with a collaborator, you can both run unit tests to ensure you have not broken something that someone else was counting on!
+Furthermore, you can use the test code as a reference for how the code should be used, and what the expected output is.
+For any reasonably complex project, having test code can be of enormous benefit.
+
+
+
+
+
+
+
