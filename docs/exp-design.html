@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2025-07-18" />
+<meta name="date" content="2025-07-19" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -56,9 +56,8 @@
 
 
 <style type="text/css">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -68,7 +67,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -684,7 +683,7 @@ We can bundle <code>r_bivariate_Poisson()</code>, <code>r_and_z()</code>, and <c
 <pre><code>## # A tibble: 1 × 5
 ##   K_coverage coverage coverage_mcse width width_mcse
 ##        &lt;int&gt;    &lt;dbl&gt;         &lt;dbl&gt; &lt;dbl&gt;      &lt;dbl&gt;
-## 1       1000    0.944       0.00727  1.09    0.00584</code></pre>
+## 1       1000    0.949       0.00696  1.11    0.00544</code></pre>
 <p>In order to call <code>Pearson_sim()</code>, we will need to ensure that the columns of the <code>params</code> dataset correspond to the arguments of the function.
 Because we re-parameterized the model in terms of <span class="math inline">\(\lambda\)</span>, we will first need to compute the parameter value for <span class="math inline">\(\mu_2\)</span> and remove the <code>lambda</code> variable because it is not an argument of <code>Pearson_sim()</code>:</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="exp-design.html#cb12-1" tabindex="-1"></a>params_mod <span class="ot">&lt;-</span> </span>
@@ -748,9 +747,13 @@ To turn into normal data we can use <code>unnest()</code> to expand the <code>re
 <span id="cb20-8"><a href="exp-design.html#cb20-8" tabindex="-1"></a>    <span class="at">res =</span> <span class="fu">pmap</span>(dplyr<span class="sc">::</span><span class="fu">select</span>(., <span class="sc">-</span>lambda), <span class="at">.f =</span> Pearson_sim)</span>
 <span id="cb20-9"><a href="exp-design.html#cb20-9" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
 <span id="cb20-10"><a href="exp-design.html#cb20-10" tabindex="-1"></a>  <span class="fu">unnest</span>(<span class="at">cols =</span> res)</span></code></pre></div>
-<p>If you like, you can simply use the <code>simhelpers</code> package:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="exp-design.html#cb21-1" tabindex="-1"></a>sim_results <span class="ot">&lt;-</span> <span class="fu">evaluate_by_row</span>(params_mod, Pearson_sim, <span class="at">reps =</span> <span class="dv">1000</span>)</span></code></pre></div>
-<p>One advantage of <code>evaluate_by_row()</code> is that it makes it easy to run the calculations in parallel; see Section <a href="parallel-processing.html#parallel-processing">18</a>.</p>
+<p>If you like, you can simply use the <code>evaluate_by_row()</code> function from the <code>simhelpers</code> package:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="exp-design.html#cb21-1" tabindex="-1"></a>sim_results <span class="ot">&lt;-</span> </span>
+<span id="cb21-2"><a href="exp-design.html#cb21-2" tabindex="-1"></a>  params <span class="sc">%&gt;%</span></span>
+<span id="cb21-3"><a href="exp-design.html#cb21-3" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">mu2 =</span> mu1 <span class="sc">*</span> lambda ) <span class="sc">%&gt;%</span></span>
+<span id="cb21-4"><a href="exp-design.html#cb21-4" tabindex="-1"></a>  <span class="fu">evaluate_by_row</span>( Pearson_sim, <span class="at">reps =</span> <span class="dv">1000</span> )</span></code></pre></div>
+<p>An advantage of <code>evaluate_by_row()</code> is that the input dataset can include extra variables (such as <code>lambda</code>)
+Another advantage is that it makes it easy to run the calculations in parallel; see Section <a href="parallel-processing.html#parallel-processing">18</a>.</p>
 <p>We finally save our results using tidyverse’s <code>write_rds()</code>; see <a href="https://r4ds.hadley.nz/data-import.html#sec-writing-to-a-file">R for Data Science, Section 7.5</a>.
 We first ensure we have a directory by making one via <code>dir.create()</code> (see Section <a href="saving-files.html#saving-files">17</a> for more on files):</p>
 <div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="exp-design.html#cb22-1" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;results&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span> )</span>
@@ -784,11 +787,11 @@ The primary disadvantage the outside approach is that it produces large amounts 
 Thus, the outside strategy maximizes flexibility, at the cost of increased dataset size.</p>
 <p>In our Pearson correlation simulation, we initially followed the inside strategy. To move to the outside strategy, we can set the <code>summarize</code> argument of <code>Pearson_sim()</code> to <code>FALSE</code> so that the simulation driver returns a row for every replication:</p>
 <div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="exp-design.html#cb23-1" tabindex="-1"></a><span class="fu">Pearson_sim</span>(<span class="at">reps =</span> <span class="dv">4</span>, <span class="at">N =</span> <span class="dv">15</span>, <span class="at">mu1 =</span> <span class="dv">5</span>, <span class="at">mu2 =</span> <span class="dv">5</span>, <span class="at">rho =</span> <span class="fl">0.5</span>, <span class="at">summarize =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
-<pre><code>##           r         z        CI_lo     CI_hi
-## 1 0.4520254 0.4872428 -0.078388889 0.7829838
-## 2 0.2331262 0.2374928 -0.316992484 0.6658696
-## 3 0.4025174 0.4266495 -0.138252335 0.7584018
-## 4 0.5138974 0.5680115  0.002218625 0.8123173</code></pre>
+<pre><code>##           r         z       CI_lo     CI_hi
+## 1 0.5206731 0.5772628  0.01146941 0.8154405
+## 2 0.6590333 0.7911028  0.22157323 0.8756711
+## 3 0.4600192 0.4973356 -0.06835055 0.7868583
+## 4 0.6813300 0.8315921  0.25971171 0.8847851</code></pre>
 <p>We then save the entire set of estimates, rather than the performance summaries.
 This result file will have <span class="math inline">\(R\)</span> times as many rows as the older file. In practice, these results can quickly get to be extremely large.
 But disk space is cheap!
@@ -971,7 +974,6 @@ We then run the simulation 1000 times each for scenario, then unnest to get our 
 <p>Normally, we would speed up these calculations using parallel processing; we discuss how to do so in Chapter <a href="parallel-processing.html#parallel-processing">18</a>.
 Even under parallel processing, this simulation took overnight to run.
 Our final results look like this:</p>
-<div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb39-1"><a href="exp-design.html#cb39-1" tabindex="-1"></a>res</span></code></pre></div>
 <pre><code>## # A tibble: 810,000 × 13
 ##    n_bar     J   ATE size_coef   ICC alpha  reps   seed runID method ATE_hat
 ##    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;    &lt;dbl&gt;
@@ -993,42 +995,42 @@ Our final results look like this:</p>
 <h3><span class="header-section-number">10.4.4</span> Calculating performance metrics<a href="exp-design.html#calculating-performance-metrics" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>Our next step is to group our results by our simulation factors and calculate all our performance metrics at once.
 For example, here we calculate our primary performance measures by hand:</p>
-<div class="sourceCode" id="cb41"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb41-1"><a href="exp-design.html#cb41-1" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">readRDS</span>( <span class="at">file =</span> <span class="st">&quot;results/simulation_CRT.rds&quot;</span> )</span>
+<div class="sourceCode" id="cb40"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb40-1"><a href="exp-design.html#cb40-1" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">readRDS</span>( <span class="at">file =</span> <span class="st">&quot;results/simulation_CRT.rds&quot;</span> )</span>
+<span id="cb40-2"><a href="exp-design.html#cb40-2" tabindex="-1"></a></span>
+<span id="cb40-3"><a href="exp-design.html#cb40-3" tabindex="-1"></a>sres <span class="ot">&lt;-</span> </span>
+<span id="cb40-4"><a href="exp-design.html#cb40-4" tabindex="-1"></a>  res <span class="sc">%&gt;%</span> </span>
+<span id="cb40-5"><a href="exp-design.html#cb40-5" tabindex="-1"></a>  <span class="fu">group_by</span>( n_bar, J, ATE, size_coef, ICC, alpha, method ) <span class="sc">%&gt;%</span></span>
+<span id="cb40-6"><a href="exp-design.html#cb40-6" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb40-7"><a href="exp-design.html#cb40-7" tabindex="-1"></a>    <span class="at">bias =</span> <span class="fu">mean</span>(ATE_hat <span class="sc">-</span> ATE),</span>
+<span id="cb40-8"><a href="exp-design.html#cb40-8" tabindex="-1"></a>    <span class="at">SE =</span> <span class="fu">sd</span>( ATE_hat ),</span>
+<span id="cb40-9"><a href="exp-design.html#cb40-9" tabindex="-1"></a>    <span class="at">RMSE =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( (ATE_hat <span class="sc">-</span> ATE )<span class="sc">^</span><span class="dv">2</span> ) ),</span>
+<span id="cb40-10"><a href="exp-design.html#cb40-10" tabindex="-1"></a>    <span class="at">ESE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
+<span id="cb40-11"><a href="exp-design.html#cb40-11" tabindex="-1"></a>    <span class="at">SD_SE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">sd</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
+<span id="cb40-12"><a href="exp-design.html#cb40-12" tabindex="-1"></a>    <span class="at">power =</span> <span class="fu">mean</span>( p_value <span class="sc">&lt;=</span> <span class="fl">0.05</span> ),</span>
+<span id="cb40-13"><a href="exp-design.html#cb40-13" tabindex="-1"></a>    <span class="at">R =</span> <span class="fu">n</span>(),</span>
+<span id="cb40-14"><a href="exp-design.html#cb40-14" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb40-15"><a href="exp-design.html#cb40-15" tabindex="-1"></a>  )</span></code></pre></div>
+<p>If we want MCSEs (as we usually do), then we could do that by hand or use the <code>simhelpers</code> package as so:</p>
+<div class="sourceCode" id="cb41"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb41-1"><a href="exp-design.html#cb41-1" tabindex="-1"></a><span class="fu">library</span>( simhelpers )</span>
 <span id="cb41-2"><a href="exp-design.html#cb41-2" tabindex="-1"></a></span>
 <span id="cb41-3"><a href="exp-design.html#cb41-3" tabindex="-1"></a>sres <span class="ot">&lt;-</span> </span>
 <span id="cb41-4"><a href="exp-design.html#cb41-4" tabindex="-1"></a>  res <span class="sc">%&gt;%</span> </span>
 <span id="cb41-5"><a href="exp-design.html#cb41-5" tabindex="-1"></a>  <span class="fu">group_by</span>( n_bar, J, ATE, size_coef, ICC, alpha, method ) <span class="sc">%&gt;%</span></span>
 <span id="cb41-6"><a href="exp-design.html#cb41-6" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
-<span id="cb41-7"><a href="exp-design.html#cb41-7" tabindex="-1"></a>    <span class="at">bias =</span> <span class="fu">mean</span>(ATE_hat <span class="sc">-</span> ATE),</span>
-<span id="cb41-8"><a href="exp-design.html#cb41-8" tabindex="-1"></a>    <span class="at">SE =</span> <span class="fu">sd</span>( ATE_hat ),</span>
-<span id="cb41-9"><a href="exp-design.html#cb41-9" tabindex="-1"></a>    <span class="at">RMSE =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( (ATE_hat <span class="sc">-</span> ATE )<span class="sc">^</span><span class="dv">2</span> ) ),</span>
-<span id="cb41-10"><a href="exp-design.html#cb41-10" tabindex="-1"></a>    <span class="at">ESE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
-<span id="cb41-11"><a href="exp-design.html#cb41-11" tabindex="-1"></a>    <span class="at">SD_SE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">sd</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
-<span id="cb41-12"><a href="exp-design.html#cb41-12" tabindex="-1"></a>    <span class="at">power =</span> <span class="fu">mean</span>( p_value <span class="sc">&lt;=</span> <span class="fl">0.05</span> ),</span>
-<span id="cb41-13"><a href="exp-design.html#cb41-13" tabindex="-1"></a>    <span class="at">R =</span> <span class="fu">n</span>(),</span>
-<span id="cb41-14"><a href="exp-design.html#cb41-14" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
-<span id="cb41-15"><a href="exp-design.html#cb41-15" tabindex="-1"></a>  )</span></code></pre></div>
-<p>If we want MCSEs (as we usually do), then we could do that by hand or use the <code>simhelpers</code> package as so:</p>
-<div class="sourceCode" id="cb42"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb42-1"><a href="exp-design.html#cb42-1" tabindex="-1"></a><span class="fu">library</span>( simhelpers )</span>
-<span id="cb42-2"><a href="exp-design.html#cb42-2" tabindex="-1"></a></span>
-<span id="cb42-3"><a href="exp-design.html#cb42-3" tabindex="-1"></a>sres <span class="ot">&lt;-</span> </span>
-<span id="cb42-4"><a href="exp-design.html#cb42-4" tabindex="-1"></a>  res <span class="sc">%&gt;%</span> </span>
-<span id="cb42-5"><a href="exp-design.html#cb42-5" tabindex="-1"></a>  <span class="fu">group_by</span>( n_bar, J, ATE, size_coef, ICC, alpha, method ) <span class="sc">%&gt;%</span></span>
-<span id="cb42-6"><a href="exp-design.html#cb42-6" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
-<span id="cb42-7"><a href="exp-design.html#cb42-7" tabindex="-1"></a>    <span class="fu">calc_absolute</span>( </span>
-<span id="cb42-8"><a href="exp-design.html#cb42-8" tabindex="-1"></a>      <span class="at">estimates =</span> ATE_hat, <span class="at">true_param =</span> ATE, </span>
-<span id="cb42-9"><a href="exp-design.html#cb42-9" tabindex="-1"></a>      <span class="at">criteria =</span> <span class="fu">c</span>(<span class="st">&quot;bias&quot;</span>,<span class="st">&quot;stddev&quot;</span>,<span class="st">&quot;rmse&quot;</span>)</span>
-<span id="cb42-10"><a href="exp-design.html#cb42-10" tabindex="-1"></a>    ),</span>
-<span id="cb42-11"><a href="exp-design.html#cb42-11" tabindex="-1"></a>    <span class="fu">calc_relative_var</span>( </span>
-<span id="cb42-12"><a href="exp-design.html#cb42-12" tabindex="-1"></a>      <span class="at">estimates =</span> ATE_hat, <span class="at">var_estimates =</span> SE_hat<span class="sc">^</span><span class="dv">2</span>,</span>
-<span id="cb42-13"><a href="exp-design.html#cb42-13" tabindex="-1"></a>      <span class="at">criteria =</span> <span class="st">&quot;relative bias&quot;</span></span>
-<span id="cb42-14"><a href="exp-design.html#cb42-14" tabindex="-1"></a>    ) </span>
-<span id="cb42-15"><a href="exp-design.html#cb42-15" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb42-16"><a href="exp-design.html#cb42-16" tabindex="-1"></a>  <span class="fu">rename</span>( <span class="at">SE =</span> stddev, <span class="at">SE_mcse =</span> stddev_mcse ) <span class="sc">%&gt;%</span></span>
-<span id="cb42-17"><a href="exp-design.html#cb42-17" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>K_absolute, <span class="sc">-</span>K_relvar ) <span class="sc">%&gt;%</span></span>
-<span id="cb42-18"><a href="exp-design.html#cb42-18" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
-<span id="cb42-19"><a href="exp-design.html#cb42-19" tabindex="-1"></a></span>
-<span id="cb42-20"><a href="exp-design.html#cb42-20" tabindex="-1"></a><span class="fu">glimpse</span>( sres )</span></code></pre></div>
+<span id="cb41-7"><a href="exp-design.html#cb41-7" tabindex="-1"></a>    <span class="fu">calc_absolute</span>( </span>
+<span id="cb41-8"><a href="exp-design.html#cb41-8" tabindex="-1"></a>      <span class="at">estimates =</span> ATE_hat, <span class="at">true_param =</span> ATE, </span>
+<span id="cb41-9"><a href="exp-design.html#cb41-9" tabindex="-1"></a>      <span class="at">criteria =</span> <span class="fu">c</span>(<span class="st">&quot;bias&quot;</span>,<span class="st">&quot;stddev&quot;</span>,<span class="st">&quot;rmse&quot;</span>)</span>
+<span id="cb41-10"><a href="exp-design.html#cb41-10" tabindex="-1"></a>    ),</span>
+<span id="cb41-11"><a href="exp-design.html#cb41-11" tabindex="-1"></a>    <span class="fu">calc_relative_var</span>( </span>
+<span id="cb41-12"><a href="exp-design.html#cb41-12" tabindex="-1"></a>      <span class="at">estimates =</span> ATE_hat, <span class="at">var_estimates =</span> SE_hat<span class="sc">^</span><span class="dv">2</span>,</span>
+<span id="cb41-13"><a href="exp-design.html#cb41-13" tabindex="-1"></a>      <span class="at">criteria =</span> <span class="st">&quot;relative bias&quot;</span></span>
+<span id="cb41-14"><a href="exp-design.html#cb41-14" tabindex="-1"></a>    ) </span>
+<span id="cb41-15"><a href="exp-design.html#cb41-15" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb41-16"><a href="exp-design.html#cb41-16" tabindex="-1"></a>  <span class="fu">rename</span>( <span class="at">SE =</span> stddev, <span class="at">SE_mcse =</span> stddev_mcse ) <span class="sc">%&gt;%</span></span>
+<span id="cb41-17"><a href="exp-design.html#cb41-17" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>K_absolute, <span class="sc">-</span>K_relvar ) <span class="sc">%&gt;%</span></span>
+<span id="cb41-18"><a href="exp-design.html#cb41-18" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb41-19"><a href="exp-design.html#cb41-19" tabindex="-1"></a></span>
+<span id="cb41-20"><a href="exp-design.html#cb41-20" tabindex="-1"></a><span class="fu">glimpse</span>( sres )</span></code></pre></div>
 <pre><code>## Rows: 810
 ## Columns: 15
 ## $ n_bar             &lt;dbl&gt; 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, …
@@ -1046,16 +1048,17 @@ For example, here we calculate our primary performance measures by hand:</p>
 ## $ rmse_mcse         &lt;dbl&gt; 0.005468829, 0.005468829, 0.005468829, 0.005593494, …
 ## $ rel_bias_var      &lt;dbl&gt; 0.9834635, 0.9834635, 1.2690185, 1.0454224, 1.037165…
 ## $ rel_bias_var_mcse &lt;dbl&gt; 0.05290317, 0.05290317, 0.05794198, 0.05122740, 0.05…</code></pre>
+<!-- JEP: We need a conclusions section. -->
 </div>
 </div>
 <div id="exercises-7" class="section level2 hasAnchor" number="10.5">
 <h2><span class="header-section-number">10.5</span> Exercises<a href="exp-design.html#exercises-7" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <div id="brown-and-forsythe-redux" class="section level3 hasAnchor" number="10.5.1">
 <h3><span class="header-section-number">10.5.1</span> Brown and Forsythe redux<a href="exp-design.html#brown-and-forsythe-redux" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p>Take another look at Table <a href="#tab:BF-Scenarios"><strong>??</strong></a>, which is excerpted from <span class="citation">Brown and Forsythe (<a href="#ref-brown1974SmallSampleBehavior">1974</a>)</span>.
+<p>Take another look at Table <a href="case-ANOVA.html#tab:BF-Scenarios">5.1</a>, which is excerpted from <span class="citation">Brown and Forsythe (<a href="#ref-brown1974SmallSampleBehavior">1974</a>)</span>.
 Create a tibble with one row for each of the 20 scenarios that they evaluated.
 Then create a function for running the full simulation process (see Exercise <a href="running-the-simulation-process.html#Welch-simulation">8.5.1</a>).
-Use <code>pmap()</code> or <code>evaluate_by_row()</code> to run simulations of all 20 scenarios and reproduce the results in Table <a href="#tab:BF-table1"><strong>??</strong></a> of Chapter <a href="case-ANOVA.html#case-ANOVA">5</a>.</p>
+Use <code>pmap()</code> or <code>evaluate_by_row()</code> to run simulations of all 20 scenarios and reproduce the results in Table <a href="case-ANOVA.html#tab:BF-table1">5.2</a> of Chapter <a href="case-ANOVA.html#case-ANOVA">5</a>.</p>
 </div>
 <div id="meta-regression" class="section level3 hasAnchor" number="10.5.2">
 <h3><span class="header-section-number">10.5.2</span> Meta-regression<a href="exp-design.html#meta-regression" class="anchor-section" aria-label="Anchor link to header"></a></h3>
@@ -1072,9 +1075,9 @@ To do this, you should break building this simulation evaluation down into funct
 This will allow you to extend the same framework to more complicated simulation studies.
 This extended exercise illustrates how methodologists might compare different estimation strategies, as you might see in the “simulation” section of a stats paper.</p>
 <p>As the data-generation function, use a scaled <span class="math inline">\(t\)</span>-distribution so that the standard deviation will always be 1 but will have different fatness of tails (high chance of outliers):</p>
-<div class="sourceCode" id="cb44"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb44-1"><a href="exp-design.html#cb44-1" tabindex="-1"></a>gen_scaled_t <span class="ot">&lt;-</span> <span class="cf">function</span>( n, mu, df0 ) {</span>
-<span id="cb44-2"><a href="exp-design.html#cb44-2" tabindex="-1"></a>    mu <span class="sc">+</span> <span class="fu">rt</span>( n, <span class="at">df=</span>df0 ) <span class="sc">/</span> <span class="fu">sqrt</span>( df0 <span class="sc">/</span> (df0<span class="dv">-2</span>) )</span>
-<span id="cb44-3"><a href="exp-design.html#cb44-3" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="exp-design.html#cb43-1" tabindex="-1"></a>gen_scaled_t <span class="ot">&lt;-</span> <span class="cf">function</span>( n, mu, df0 ) {</span>
+<span id="cb43-2"><a href="exp-design.html#cb43-2" tabindex="-1"></a>    mu <span class="sc">+</span> <span class="fu">rt</span>( n, <span class="at">df=</span>df0 ) <span class="sc">/</span> <span class="fu">sqrt</span>( df0 <span class="sc">/</span> (df0<span class="dv">-2</span>) )</span>
+<span id="cb43-3"><a href="exp-design.html#cb43-3" tabindex="-1"></a>}</span></code></pre></div>
 <p>The variance of a <span class="math inline">\(t\)</span> distribution is <span class="math inline">\(df/(df-2)\)</span>, so when we divide our observations by the
 square root of this, we standardize them so they have unit variance.</p>
 <ol style="list-style-type: decimal">
