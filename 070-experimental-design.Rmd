@@ -27,7 +27,7 @@ dat <- gen_cluster_RCT( n=5, J=3, p=0.5,
 
 # (PART) Multifactor Simulations {-}
 
-# Designing the multifactor simulation experiment {#exp-design}
+# Designing and executing multifactor simulations {#exp-design}
 
 Thus far, we have created code that will run a simulation for a single combination of parameter values.
 In practice, simulation studies typically examine a range of different values, including varying the levels of the focal parameter values, auxiliary parameters, sample size, and possibly other design parameters, to explore a range of different scenarios.
@@ -36,15 +36,15 @@ A single simulation gives us no hint as to either of these questions.
 It is only by looking across a range of settings that we can hope to understand trade-offs, general rules, and limits.
 Let's now look at the remaining piece of the simulation puzzle: the study's experimental design. 
 
-Simulation studies often take the form of __full factorial__ designed experiments. In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of the factors and levels being explored. 
+Simulation studies often take the form of __full factorial__ designed experiments. In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of the factors and levels to be explored. 
 
 For example, consider a simulation study examining the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution. 
 We examined this data-generating model in Section \@ref(BVPois-example), implementing it in the function `r_bivariate_Poisson()`. The model has three parameters (the means of each variate, $\mu_1, \mu_2$ and the correlation $\rho$) and there is one design parameter (sample size, $N$). 
-Thus, we might in principle examine up to four factors. 
+Thus, we could in principle examine up to four factors. 
 
-Using these parameters as factors in the simulation design will lead to considerable redundancy because of the symmetry of the variates: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
+Using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
 It is useful to re-parameterize to reduce redundancy and simply things.
-We will therefore define the simulation conditions by always treating $\mu1$ as the larger variate and by specifying the ratio of the smaller to the larger mean as $\lambda = \mu_2 / \mu_1$.
+We will therefore define the simulation conditions by always treating $\mu_1$ as the larger variate and by specifying the ratio of the smaller to the larger mean as $\lambda = \mu_2 / \mu_1$.
 We might then examine the following factors:
 
 * the sample size, with values of $N = 10, 20$, or $30$
@@ -54,7 +54,7 @@ We might then examine the following factors:
 
 The above parameters describe a $3 \times 3 \times 2 \times 8$ factorial design, where each element is the number of levels for that factor. This is a four-factor experiment, because we have four different things we are varying.
 
-To implement this design in code, we first save the simulation parameters as a list with one entry per factor, and each entry consists of the levels that we would like to explore.
+To implement this design in code, we first save the simulation parameters as a list with one entry per factor, where each entry consists of the levels that we would like to explore.
 We will run a simulation for every possible combination of these values.
 Here is code that generates all of the scenarios given the above design, storing these combinations in a data frame, `params`, that represents the full experimental design:
 
@@ -85,7 +85,7 @@ With multifactor experiments, it is easy to end up running a lot of experiments!
       rho = seq(0.0, 0.7, 0.1)
     )
     ```
-    However, we generally find it useful to create a list of design factors before creating the full grid of parameter values, so we prefer to make `design_factors` first. To use `expand_grid()` on a list, we need to use `!!!`, the splice operator from the `rlang` package, which treats `design_factors` as a set of arguments to be passed to `expand_grid`. The syntax may look a bit wacky, but it's succinct and useful. 
+    However, we generally find it useful to create a list of design factors before creating the full grid of parameter values, so we prefer to make `design_factors` first. To use `expand_grid()` on a list, we need to use `!!!`, the splice operator from the `rlang` package, which treats `design_factors` as a set of arguments to be passed to `expand_grid`. The syntax may look a bit wacky, but it is succinct and useful. 
 
 
 ## Choosing parameter combinations
@@ -93,11 +93,14 @@ With multifactor experiments, it is easy to end up running a lot of experiments!
 How do we go about choosing parameter values to examine?
 Choosing which parameters to use is a central part of good simulation design because the primary limitation of simulation studies is always their _generalizability_.
 On the one hand, it is difficult to extrapolate findings from a simulation study beyond the set of simulation conditions that were examined. On the other hand, it is often difficult or impossible to examine the full space of all possible parameter values, except for very simple problems.
-Even in the relatively straightforward Pearson correlation simulation, we have four factors, and the last three could, in principle, each take an infinite number of different levels.
+Even in the relatively straightforward Pearson correlation simulation, we have four factors and the last three could each take on an infinite number of possible levels.
 How can we come up with a defensible set of levels to examine?
 
-The choice of simulation conditions needs to be made in the context of the problem or model that you are studying, so it is a bit difficult to offer valid, decontextualized advice.
-We provide a few observations all the same:
+Broadly, you generally want to vary parameters that you believe matter, or that you think other people will believe matter.
+The first is so you can learn.
+The second is to build your case.
+The choice of simulation conditions needs to be made in the context of the problem or model that you are studying, so it is difficult to identify valid but acontextual principles.
+We nonetheless offer a few points of advice, informed by our experience conducting and reading simulation studies:
 
 1. For research simulations, it often is important to be able to relate your findings to previous research. This suggests that you should select parameter levels to make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (actually, there are a lot of really crummy ones out there!), and so prior work should not generally be your sole guide or justification.
 
@@ -105,44 +108,41 @@ We provide a few observations all the same:
 
 3. It is also important to explore breakdown points (e.g., what sample size is too small for a method to work?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.
 
-An important point regarding (2) is that you can be more comprehensive and then have fewer replications per scenario.
-For example, say you were planning on doing 1000 simulations per scenario, but then you realize there is some new factor that you do not think matters, but that you believe other researchers will worry about.
+On point (2), comprehensiveness will generally increase the amount of computing required for a simulation. However, this can be tempered by reducing the number of replications per scenario.
+For example, say you were planning on doing 1000 simulations per scenario, but then you realize there is some other factor that you do not think matters, but that you believe other researchers will worry about.
 You could add in that factor, say with four levels, and then do 250 simulations per scenario.
 The total work remains the same.
-
 When analyzing the final simulation you would first verify you do not see trends along this new factor, and then marginalize out that factor in your summaries of results.
-Marginalizing out a factor (i.e., averaging your performance metrics across the additional factor) is a powerful technique of making a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario; this comes up in the next chapter on presenting results.
+Marginalizing out a factor (i.e., averaging your performance metrics across the additional factor) is a powerful technique of making a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario.
+We will discuss it further in Chapter \@ref(presentation-of-results).
 
-Overall, you generally want to vary parameters that you believe matter, or that you think other people will believe matter.
-The first is so you can learn.
-The second is to build your case.
 
 Once you have identified your parameters, you then have to decide on the levels of the parameter you will include in the simulation.
 There are three strategies you might take:
 
 1. Vary a parameter over as much of its range as you can.
-2. Choose parameter levels to represent a realistic practical range. These ranges would ideally be empirically justified based on systematic reviews of prior applications. They may also simply come from ones informal impressions of what is realistic in practice.
+2. Choose parameter levels to represent a realistic practical range. These ranges would ideally be empirically justified based on systematic reviews of prior applications. Lacking such empirical evidence, you may need to rely on informal impressions of what is realistic in practice.
 3. Choose parameters to emulate an important known application or context.
 
-Of these choices, (1) is the most general---but is also the most computationally intensive.
-Option (2) focuses attention, ideally, on what is of practical relevance to a practitioner.
+Of these choices, option (1) is the most general but also the most computationally intensive.
+In the ideal, option (2) focuses attention on what is of practical relevance to a practitioner.
 Option (3) is usually coupled with a subsequent applied data analysis, and in this case the simulation is often used to enrich that analysis.
 In particular, if the simulation shows the methods work for data with the given form of the target application, people may be more willing to believe the application's findings.
 
 Regardless of how you select your primary parameters, you should also vary nuisance parameters (at least a little) to test the sensitivity of your results to these other aspects.
-While simulations will (generally) never be fully generalizable, you can certainly make them so they avoid the obvious things a critic might identify as an easy dismissal of your findings.
+While simulations will (generally) never be fully generalizable, you can certainly make them so they avoid the obvious things a critic might identify as a basis for dismissing your findings.
 
 To recap, as you think about your parameter selection, always keep the following design principles and acknowledgements:
 
-- The primary limitation of simulation studies is __generalizability__.
+- The primary limitation of simulation studies is generalizability.
 - Choose conditions that allow you to relate your findings to previous work.
 - Err towards being comprehensive. Your goal should be to build an understanding of the major moving parts, and you can always tailor your final presentation of results to give the simplified story, once you find it.
-- Explore breakdown points (e.g., what sample size is too small for applying a given method?).
+- Explore breakdown points and boundary conditions (e.g., what sample size is too small for applying a given method?).
 
-Finally, you should fully expect to add and subtract from your set of simulation factors as you get your initial simulation results!  No one ever runs just a single simulation.
+Finally, you should fully expect to add and subtract from your set of simulation factors as you get your initial simulation results. Rarely does anyone nail the choice of parameters on the first pass.
 
 
-## Using pmap to run multifactor simulations
+## Using pmap to run multifactor simulations {#using-pmap-to-run-multifactor-simulations}
 
 Once we have selected factors and levels for simulation, we now need to run the simulation code across all of our factor combinations.
 One way to do this is by using `pmap()` from the `purrr` package.
@@ -221,8 +221,8 @@ sim_results <- params
 sim_results$res <- pmap(params_mod, Pearson_sim, reps = 1000 )
 ```
 
-The above code calls our `run_alpha_sim()` method for each row of our list of scenarios we want to explore.
-Even better, we are storing the results __as a new variable in the same dataset__.
+The above code calls our `run_alpha_sim()` method for each row in the list of scenarios we want to explore.
+Conveniently, we can store the results __as a new variable in the same dataset__.
 
 ```{r}
 sim_results
@@ -268,22 +268,22 @@ sim_results <-
   evaluate_by_row( Pearson_sim, reps = 1000 )
 ```
 An advantage of `evaluate_by_row()` is that the input dataset can include extra variables (such as `lambda`) 
-Another advantage is that it makes it easy to run the calculations in parallel; see Section \@ref(parallel-processing).
+Another advantage is that it is easy to run the calculations in parallel; see Chapter \@ref(parallel-processing).
 
-We finally save our results using tidyverse's `write_rds()`; see [R for Data Science, Section 7.5](https://r4ds.hadley.nz/data-import.html#sec-writing-to-a-file).
-We first ensure we have a directory by making one via `dir.create()` (see Section \@ref(saving-files) for more on files):
+As a final step, we save our results using tidyverse's `write_rds()`; see [R for Data Science, Section 7.5](https://r4ds.hadley.nz/data-import.html#sec-writing-to-a-file).
+We first ensure we have a directory by making one via `dir.create()` (see Chapter \@ref(saving-files) for more on files):
 
 ```{r, eval=FALSE}
-dir.create("results", showWarnings = FALSE )
+dir.create( "results", showWarnings = FALSE )
 write_rds( sim_results, file = "results/Pearson_Poisson_results.rds" )
 ```
 
-Our simulation results for all our scenarios are now saved!
+We now have a complete set of simulation results for all of the scenarios we specified.
 
-## When to calculate performance metrics when running multiple simulations
+## When to calculate performance metrics
 
 For a single scenario simulation, we repeatedly generate and analyze data, and then assess the performance across the repetitions.
-When we extend to multifactor simulations, we have a choice: do we compute performance measures for each simulation scenario as we go (inside) or do we compute all of them after we get all of our individual results (outside)?
+When we extend this process to multifactor simulations, we have a choice: do we compute performance measures for each simulation scenario as we go (inside) or do we compute all of them after we get all of our individual results (outside)?
 There are pros and cons to each approach.
 
 ### Aggregate as you simulate (inside)
@@ -291,12 +291,12 @@ There are pros and cons to each approach.
 The *inside* approach runs a stand-alone simulation for each scenario of interest. For each combination of factors, we simulate data, apply our estimators, assess performance, and return a table with summary performance measures. We can then stack these tables to get a dataset with all of the results, ready for analysis.
 
 This is the approach we illustrated above. It is straightforward and streamlined: we already have a method to run simulations for a single scenario, and we just repeat it across multiple scenarios and combine the outputs.
-After calling `pmap()` (or `evaluate_by_row()`) and stacking the results, we end up with a dataset containing all the simulation conditions, one simulation context per row (or maybe we have sets of several rows for each simulation context, with one row for each method), with the columns being our factors and measured performance outcomes.
+After calling `pmap()` (or `evaluate_by_row()`) and stacking the results, we end up with a dataset containing all the simulation conditions, one simulation context per row (or maybe we have sets of several rows for each simulation context, with one row for each method), with the columns consisting of the simulation factors and measured performance outcomes.
 This table of performance is ideally all we need to conduct further analysis and write up the results.
 
 The primary advantages of the inside strategy are that it is easy to modularize the simulation code and it produces a compact dataset of results, minimizing the number and size of files that need to be stored.
 On the con side, calculating summary performance measures inside of the simulation driver limits our ability to add new performance measures on the fly or to examine the distribution of individual estimates.
-For example, say we wanted to check if the distribution of Fisher-z estimates in a particular scenario was right skewed, perhaps because we are worried that the estimator sometimes breaks down.
+For example, say we wanted to check if the distribution of Fisher-z estimates in a particular scenario was right-skewed, perhaps because we are worried that the estimator sometimes breaks down.
 We might want to make a histogram of the point estimates, or calculate the skew of the estimates as a performance measure.
 Because the individual estimates are not saved, we would have no way of investigating these questions without rerunning the simulation for that condition.
 In short, the inside strategy minimizes disk space but constrains our ability to explore or revise performance calculations.
@@ -317,7 +317,7 @@ Pearson_sim(reps = 4, N = 15, mu1 = 5, mu2 = 5, rho = 0.5, summarize = FALSE)
 We then save the entire set of estimates, rather than the performance summaries.
 This result file will have $R$ times as many rows as the older file. In practice, these results can quickly get  to be extremely large.
 But disk space is cheap!
-Here we run the same experiment with our more complete storage.
+Here we run the same experiment as in Section \@ref(using-pmap-to-run-multifactor-simulations), but storing the individual replications instead of just the summarized results.
 
 Note how the `pmap_df` stacks the multiple rows from each run, giving us everything nicely bundled up:
 
@@ -347,11 +347,12 @@ if ( !file.exists( "results/Pearson_Poisson_results_full.rds" ) ) {
 }
 ```
 
-```{r Pearson_alpha_sim_all_rows, eval=FALSE}
-params$res <- params %>% 
-    pmap( run_alpha_sim_raw, iterations = 500 )
-sim_results_full <- unnest( params,
-                            cols = res ) 
+```{r Pearson_all_rows, eval=FALSE}
+sim_results_full <- 
+  params %>%
+  mutate( mu2 = mu1 * lambda ) %>%
+  evaluate_by_row( Pearson_sim, reps = 1000, summarize = FALSE )
+
 write_rds( sim_results_full, file = "results/Pearson_Poisson_results_full.rds" )
 ```
 
@@ -372,7 +373,7 @@ The first is several kilobytes, the second is several megabytes.
 
 ### Getting raw results ready for analysis
 
-If we generated raw results then we need to do the performance calculations across replications within each simulation context so that we can explore the trends across the simulation factors.
+If we generate raw results, we then need to do the performance calculations across replications within each simulation context so that we can explore the trends across simulation factors.
 
 One way to do this is to use `group_by()` and `summarize()` to carry out the performance calculations:
 ```{r}
@@ -398,30 +399,31 @@ Note how each row of our nested data has a little tibble containing the results 
 Once nested, we can then use `map2()` to apply a function to each element of `res`:
 
 ```{r}
-results <- 
+results_summary <- 
   results %>%
   mutate( performance = map2( res, rho, evaluate_CIs ) ) %>%
   dplyr::select( -res ) %>%
   unnest( cols="performance" ) 
-results
+results_summary
 ```
 
 We have built our final performance table _after_ running the entire simulation, rather than running it on each simulation scenario in turn.
 
 Now, if we want to add a performance metric, we can simply change `evaluate_CIs` and recalculate, without having to recompute the entire simulation.
 Summarizing during the simulation vs. after, as we just did, leads to the same set of results.
-In fact, if we use the same seed, we would _exactly_ the same results.
+In fact, if we use the same seed, we should obtain _exactly_ the same results.
 Allowing yourself the flexibility to re-calculate performance measures can be very advantageous, and we tend to follow this outside strategy for any simulations involving more complex estimation procedures.
 
-## A multifactor evaluation of Cluster RCT estimators
+## A multifactor evaluation of cluster RCT estimators
+
 
 Let us return to the case study presented in Section \@ref(case-cluster) and consider how to expand it into a multi-factor simulation.
-
-### Choosing parameters for the Clustered RCT
-
+<!-- JEP: Perhaps a little bit more context here, to remind readers of the problem set-up if it has been a while since they read chapter 6? -->
 So far, we have only investigated a single scenario at a time, but the modular functions that we have designed make it relatively straightforward to explore a range of scenarios by re-calling our simulation function.
 But how do our findings generalize? Under what conditions do the various estimation methods perform better or worse? 
 To answer these questions, we need to extend to a multifactor simulation to _systematically_ explore how our three estimators behave across a range of contexts.
+
+### Choosing parameters for the Clustered RCT
 
 We begin by identifying some potential research questions suggested by our preliminary exploration.
 Regarding bias, we noticed in our initial simulation that Linear Regression targets a person-weighted average effect, so it would be considered biased for the cluster-average average treatment effect.
@@ -453,7 +455,7 @@ Before proceeding, we reflect on our research questions, speculate as to what is
  - Correlation of cluster size and cluster impact: Will correlation cause bias?
  - Cross cluster variation: Does the amount of cluster variation matter?
  
-When selecting factors to manipulate, it is important to ensure each factor is isolated, so that changing one of them should not change other aspects of the data-generating process that might impact performance.
+When selecting factors to manipulate, it is important to ensure the each factor is isolated, so that changing one of them should not change other aspects of the data-generating process that might impact performance.
 For example, if we simply added more cross-cluster variation by directly increasing the random effects for the clusters, the total variation in the outcome will also increase.
 If we then see that the performance of an estimator deteriorates as variation increases, we have a confound: is the cross-cluster variation causing the problem, or is it the total variation?
 To avoid this confound, we should vary cluster variation while holding the total variation fixed; this is why we use the ICC parameterization, as discussed in Section \@ref(case-cluster).
@@ -530,8 +532,8 @@ We have a lot of rows of data!
 
 ### Calculating performance metrics
 
-Our next step is to group our results by our simulation factors and calculate all our performance metrics at once.
-For example, here we calculate our primary performance measures by hand:
+Our next step is to group the results by the simulation factors and calculate the performance metrics across the replications of each simulation condition.
+Here we calculate our primary performance measures by hand:
 
 ```{r, messages=FALSE}
 res <- readRDS( file = "results/simulation_CRT.rds" )
@@ -575,7 +577,9 @@ sres <-
 glimpse( sres )
 ```
 
-<!-- JEP: We need a conclusions section. -->
+<!-- JEP: Do we need a brief conclusion to the section? -->
+
+<!-- JEP: Do we need a conclusions section for the overall chapter? -->
 
 ## Exercises
 
