@@ -15,7 +15,6 @@ theme_set( theme_classic() )
 
 ### Code for one of the running examples
 source( "case_study_code/clustered_data_simulation.R" )
-source( "case_study_code/cronbach_alpha_simulation.R" )
 
 res <- readRDS( file = "results/simulation_CRT.rds" )
 res
@@ -61,20 +60,27 @@ To build that table, we first fit a regression model to see:
 
 ```{r, include=FALSE}
 load("data/d2r results.rData")
-allResults$n <- ordered(allResults$n)
-allResults$p.inv <- allResults$p1
-allResults$p1 <- ordered(allResults$p1, 
-                labels = paste("p1 = 1/",unique(allResults$p1), sep=""))
-allResults$fixed <- factor(allResults$fixed, levels=c("TRUE","FALSE"), 
-                labels = c("Fixed percentiles","Sample percentiles"))
 
-r_F <- allResults %>%
+allResults <- 
+  allResults %>%
+  mutate(
+    n = ordered(n),
+    p_inv = p1,
+    p1 = factor(p1, levels = c(2:5,8)) |>
+      fct_relabel(\(x) paste0("p1 = 1/", x)),
+    fixed = factor(fixed, levels = c(TRUE,FALSE), c("Fixed percentiles","Sample percentiles"))
+  )
+
+r_F <- 
+  allResults %>%
   filter(stat=="r.i" & design=="Extreme Group") %>%
-  droplevels()
-levels(r_F$fixed) <- c("Pop. cutoff","Sample cutoff")
-r_F$bias <- r_F$mean - r_F$rho
-r_F$bias.sm <- r_F$mean.sm - r_F$rho
-r_F$rmse <- sqrt(r_F$bias^2 + r_F$var)
+  droplevels() %>%
+  mutate(
+    fixed = fct_recode(fixed, "Pop. cut-off" = "Fixed percentiles", "Sample cut-off" = "Sample percentiles"),
+    bias = mean - rho,
+    bias.sm = mean.sm - rho,
+    rmse = sqrt(bias^2 + var)
+  )
 ```
 
 ```{r modeling_demonstration, warning=FALSE}
@@ -117,7 +123,7 @@ etaSquared(anova_table) %>%
 
 We group the results by the order of the interaction, so that we can see the main effects first, then two-way interactions, and so on.
 We then sort within each group to put the high importance factors first.
-The resulting variance decomposition table (see Chapter \@ref(presentation-of-results)) shows which factors are explaining how much of the variation.
+The resulting variance decomposition table (see Chapter \@ref(presentation-of-results)) shows the amount of variation explained by each combination of factors.
 
 
 
@@ -129,23 +135,26 @@ We next continue our running Cluster RCT example.
 We first turn our simulation levels (except for ICC, which has several levels) into factors, so R does not assume that sample size, for example, should be treated as a continuous variable:
 
 ```{r}
-sres_f = sres %>%
-  mutate( across( c( n_bar, J, size_coef, alpha ), factor ) )
-sres_f$ICC = as.numeric( sres_f$ICC )
+
+sres_f <-
+  sres %>%
+  mutate( 
+    across( c( n_bar, J, size_coef, alpha ), factor ),
+    ICC = as.numeric(ICC)
+  )
 
 # Run the regression
 M <- lm( bias ~ (n_bar + J + size_coef + ICC + alpha) * method, 
          data = sres_f )
 
 # View the results
-stargazer::stargazer(M, type = "text",
-                     single.row = TRUE )
+stargazer::stargazer(M, type = "text", single.row = TRUE )
 ```
 
 We can quickly generate a lot of regression coefficients, making our meta-regression somewhat hard to interpret.
-The above model does not even have interactions of the simulation factors--which, given the found interactions from our plots, is a major concern!
-That said, picking out the significant coefficients is a quick way to obtain a lot of clues as to what is driving performance.
-E.g., several features interact with the LR method for bias.
+The above model does not even have interactions of the simulation factors, even though the plots we have seen strongly suggest interactions among the simulation factors. 
+That said, picking out the significant coefficients is a quick way to obtain clues as to what is driving performance.
+For instance, several features interact with the LR method for bias.
 The other two methods seem less impacted.
 
 
@@ -258,7 +267,7 @@ m_res %>%
   knitr::kable( digits = 2 )
 ```
 
-Of course, this is a hard to read table.  We could instead plot, or use LASSO to simplify.
+Of course, this is table is hard to read. Better to instead plot the coefficients or use LASSO to simplify the model specification.
 
 
 ```{r}
@@ -335,8 +344,8 @@ We also see some interesting trends, such as the impact of `n_bar` declines when
 
 ## Using regression trees to find important factors
 
-Sometimes with more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher what is running what.
-Another tool one might use to explore is to fit a regression tree on the simulation results.
+With more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher which factors are important and identify stable patterns.
+Another approach we might use to explore is to fit a regression tree on the simulation results.
 
 
 ```{r}
@@ -388,14 +397,12 @@ Generally we would not use a tree like this for a final reporting of results, bu
 
 ## Analyzing results with few iterations per scenario
 
-When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes), then running thousands of iterations for many scenarios may no longer be computationally feasible.
-In this case you will have very noisy estimates of estimator performance.
-
-For a given scenario, if the methods being evaluated are substantially different, then even with a few iterations you may be able to demonstrate what you need to, but in general the Monte Carlo Standard Errors (MCSEs) may be so large that you will have a hard time telling if something is going on, or if it is just noise in the simulation itself.
+When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes), then running thousands of iterations for many scenarios may not be computationally feasible.
+But running simulations with a smaller number of iterations will yield very noisy estimates of estimator performance.
+For a given scenario, if the methods being evaluated are substantially different, then the main patterns in performance might become evident even with only a few iterations. More generally, however, the Monte Carlo Standard Errors (MCSEs) may be so large that you will have a hard time discriminating between systematic patterns and noise.
 
 One tool to handle this is aggregation: if you use visualization methods that average across scenarios, those averages will have more precise estimates of (average) performance.
 Do not, by contrast, trust the bundling approaches--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
-
 Regression approaches can be particularly useful: the regressions will effectively average performance across scenario, and give summaries of overall trends.
 You can even fit random effects regression, specifically accounting for the noise in the scenario-specific performance measures.
 For more on this approach see @gilbert2024multilevel.
@@ -410,9 +417,11 @@ First, we look at our single plot of the raw results.
 Before we plot, however, we calculate MCSEs and add them to the plot as error bars.
 
 ```{r}
-sres_sub <- sres %>%
+sres_sub <- 
+  sres %>%
   filter( n_bar == 320, J == 20 ) %>%
   mutate( bias.mcse = SE / sqrt( R ) )
+
 ggplot( sres_sub, aes( as.factor(alpha), bias, 
                        col=method, pch=method, group=method ) ) +
   facet_grid( size_coef ~ ICC, labeller = label_both ) +
@@ -430,12 +439,15 @@ When we aggregate across 9 scenarios, our number of replicates goes from 100 to 
 Here is our aggregated bias plot:
 
 ```{r}
-sres_sub2 <- sres %>%
+sres_sub2 <- 
+  sres %>%
   mutate( bias.mcse = SE / sqrt( R ) ) %>%
   group_by( n_bar, J ) %>%
-  summarise( bias = mean( bias ),
-             bias.mcse = sqrt( mean( bias.mcse^2 )) / sqrt(n()),
-             .groups = "drop" )
+  summarise( 
+    bias = mean( bias ),
+    bias.mcse = sqrt( mean( bias.mcse^2 )) / sqrt(n()),
+    .groups = "drop" 
+  )
 
 ggplot( sres_sub, aes( as.factor(alpha), bias, 
                        col=method, pch=method, group=method ) ) +
@@ -460,28 +472,35 @@ Even with the additional replicates per point, we see noticable noise in our plo
 Note how our three methods track each other up and down in the zero-bias scenarios, giving a sense of a shared bias in some cases.
 This is because all methods are analyzing the same set of datasets; they have shared uncertainty.
 This uncertainty can be deceptive.
-It can also be a boon: if we are explicitly comparing the performance of one method vs another, the shared uncertainty can be subtracted out, similar to having a blocked experiment @gilbert2024multilevel.
+It can also be a boon: if we are explicitly comparing the performance of one method vs another, the shared uncertainty can be subtracted out, similar to what happens in a blocked experiment [@gilbert2024multilevel].
 
 Here we fit a multilevel model to the data.
 
 ```{r}
 library(lme4)
-sub_res = filter( res, runID <= 100 ) %>%
-  mutate( error = ATE_hat - ATE,
-          simID = paste0( n_bar, "_", J, "_", size_coef, "_", ICC, "_", alpha ),
-          J = as.factor(J),
-          n_bar = as.factor(n_bar),
-          alpha = as.factor(alpha),
-          size_coef = as.factor(size_coef) )
+sub_res <-
+  res %>% 
+  filter( runID <= 100 ) %>%
+  mutate(
+    error = ATE_hat - ATE,
+    simID = paste(n_bar, J, size_coef, ICC, alpha, sep = "_"),
+    J = as.factor(J),
+    n_bar = as.factor(n_bar),
+    alpha = as.factor(alpha),
+    size_coef = as.factor(size_coef)
+  )
 
-M <- lmer( error ~ method*(J + n_bar + ICC + alpha + size_coef) + (1|runID) + (1|simID),
-           data = sub_res )
+M <- lmer( 
+  error ~ method*(J + n_bar + ICC + alpha + size_coef) + (1|runID) + (1|simID),
+  data = sub_res 
+)
 arm::display(M)
 ```
 
 We can look at the random effects:
 ```{r}
-ranef_vars <- as.data.frame(VarCorr(M)) %>%
+ranef_vars <-
+  as.data.frame(VarCorr(M)) %>%
   dplyr::select(grp = grp, sd = vcov) %>%
   mutate( sd = sqrt(sd),
           ICC = sd^2 / sum(sd^2 ) )
@@ -503,6 +522,8 @@ But one should at least know what one is ignoring.
 
 For example, in our cluster RCT running example, we know that our multilevel model, at least sometimes, has convergence issues.
 We also know that ICC is an important driver of when these convergence issues might occur, so we can explore how often we get a convergence message by ICC level:
+
+<!-- JEP: The results seem to be missing the `message` variable, so these calculations are broken. -->
 
 ```{r examine_convergence_rates}
 res %>% 
