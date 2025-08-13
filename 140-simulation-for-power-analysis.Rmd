@@ -390,3 +390,85 @@ sres2 %>%
 Corresponding with our findings regarding precision, above, the twopost estimator is the most sensitive, finding the smallest effects.
 
 
+## Power for Multilevel Data
+
+```{r, include=FALSE}
+library( mlmpower )
+library( lme4 )
+
+```
+
+Many power analyses are regarding fitting some sort of multilevel model to some type of structured data.
+For example, researchers frequently want to calculate power for multisite randomized trials, where each of a series of sites has students randomized to treatment, or not.
+Our earlier cluster RCT case study is another example of this.
+
+We can use the same simulation framework to calculate power for these types of models.
+We write a data generation function that generates our data given our target structure, and then repeatidly generate and analyze data to assess power, just as we have done.
+
+As we saw earlier, however, it can be sometimes tricky to write code that properly has covariates that relate to the different levels of our model, or that divides variance appropriately across levels.
+For example, in a multisite experiment, we might want a covariate that has a different mean value within each cluster, but also has variation within cluster.
+
+Instead of immediately writing our own data generation function when faced with such a project, it might be worth looking to the literature to see what tools are available.
+In this case, for example, we might come across @enders2023simple, which showcases a package, `mlmpower`, designed to generate data according to a flexible range of multilevel models.
+
+```{r}
+library( mlmpower )
+model <- outcome('Y') +
+  within_predictor('X') +
+  between_predictor('W') +
+  effect_size(icc = 0.1,
+              within = 0.2 )
+
+set.seed(4232345)
+
+dat <- generate( model, 
+                 n_within = 5, 
+                 n_between = 3 ) %>%
+  as_tibble()
+dat
+cor( dat$X, dat$Y )
+```
+
+It even provides methods for calculating power, using a lmer for the estimator (it makes the estimator less visible to the user).
+The method in fact runs a multifactor experiment:
+
+```{r mlmpow_calc, echo=FALSE}
+pow <- power_analysis(
+  model = model,
+  replications = 100,
+  n_within = c(10,20),
+  n_between = c(5,10)
+)
+pow$power[[1]]
+```
+
+We have estimated 93% power for detecting the effect of the within-level predictor, `X`, with 10 students per site and 5 sites, given the parameters we set.
+We refer the reader to the package documentation for how to use this specific package.
+The broader point is it is sometimes worth digging into provided code to get material for generating data or even running simulations.
+That said, each package is designed for a specific purpose, and has its own language.
+Here, for example, the effect size defined as `within` is due to the package paying much attention to how covariates are centered and incorporated in the model.
+Tying its parameterization to classic regression coefficients may be non-obvious.
+It is thus sometimes easy to use a package to get data that looks like data, but does not actually have the structure you intend.
+As always, do diagnostics and verification to ensure the tools are working as you expect.
+
+Here, for example, we might generate a very large dataset to get estimated coefficients as a sanity check:
+
+```{r}
+dat <- generate( model, 
+                 n_within = 100, 
+                 n_between = 100 ) %>%
+  as_tibble()
+M = lme4::lmer( Y ~ X + W + (1|`_id`), data=dat )
+arm::display(M)
+```
+
+We can check our ICC:
+```{r}
+sigma2_2 = VarCorr(M)$`_id`[1]
+sigma2_1 = attr(VarCorr(M), "sc")^2
+sigma2_2 / (sigma2_2 + sigma2_1)
+```
+
+Close to the listed 0.10.  More testing is needed.
+
+
