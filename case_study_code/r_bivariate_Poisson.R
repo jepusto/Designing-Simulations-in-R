@@ -1,4 +1,4 @@
-r_bivariate_Poisson <- function(N, rho, mu1, mu2) {
+r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
   
   # covariance term, equal to E(Z_3)
   EZ3 <- rho * sqrt(mu1 * mu2) 
