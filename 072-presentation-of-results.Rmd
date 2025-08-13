@@ -1,0 +1,671 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Exploring and presenting simulation results {#presentation-of-results}
+
+```{r, include=FALSE}
+library( tidyverse )
+
+res <- readRDS( file = "results/simulation_CRT.rds" )
+res
+
+sres <- 
+  res %>% 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  summarise( 
+    bias = mean(ATE_hat - ATE),
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE )^2 ) ),
+    ESE_hat = sqrt( mean( SE_hat^2 ) ),
+    SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+    power = mean( p_value <= 0.05 ),
+    R = n(),
+    .groups = "drop"
+  )
+sres
+
+```
+
+Once we have our performance measures for each method examined for each of scenario of our study's design, the computationally challenging parts of a simulation study are complete, but several intellectually challenging tasks remain.
+The goal of a simulation study is to provide evidence to address a research question or questions, but
+performance measures (like numbers more generally) do not analyze themselves.
+Rather, they require interpretation, analysis, and communication in order to identify findings and broad, potentially generalizable patterns of results that are relevant the research question(s).
+Good analysis will provide a clear understanding of how one or more of the simulation factors influence key performance measures of interest, the circumstances where a data analysis method works well or breaks down, and---in simulations that examine multiple methods---the conditions where a method performs better or worse than alternatives.
+
+In multi-factor simulations, the major challenge in analyzing simulation results is dealing with the multiplicity and dimensional nature of the results.
+For instance, in our cluster RCT simulation, we calculated performance metrics in each of `r prettyNum( nrow(sres) / 3, big.mark=",")` different simulation scenarios, which vary along several factors.
+For each scenario, we calculated a whole suite of performance measures (bias, SE, RMSE, coverage, ...), and we have these performance measures for each of three estimation methods under consideration.
+We organizeed all these results as a table with `r prettyNum( nrow(sres), big.mark=",")` rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
+Navigating all of this can feel somewhat overwhelming.
+How do we understand trends in this complex, multi-factor data structure?
+
+In this chapter, we survey three main categories of analytic tools that can be used for exploring and presenting simulation results:
+
+1. Tabulation
+2. Visualization
+3. Modeling
+
+For each category of tools, we describe the logic behind how it can be applied, provide high-level examples drawn from the literature and our own work, and discuss the strengths and limitations of the approach. 
+
+In this and subsequent chapters, we assume that you will be sharing the findings from your simulations with an audience beyond yourself. Depending on your context, that might be a broad audience of researchers and data analysts, with whom you will communicate through a scholarly article in a peer-reviewed methodology journal; it might be colleagues who are evaluating your proposal for an empirical study, where the simulations serve to justify the data analysis protocol; it might be a small group of collaborators, who will use the simulations to make decisions about how to design a study; or it might be fellow students of statistics, interested to read a blog post that discusses how a particular model or method works.
+These contexts differ in the format and level of formality used, but with any of them, you will probably need to create a written explanation of your findings, which summarizes what you found and presents evidence to support your assertions and interpretations.
+We close the chapter with a discussion about creating such write-ups and distilling your analysis into a set of exhibits for presentation.
+
+## Tabulation 
+
+Traditionally, simulation study results are presented in big tables.
+In general, we believe tables rarely make the take-aways of a simulation readily apparent.
+Perhaps tables are fine if...
+
+ - they involve only a few numbers, and a few targeted comparisons.
+ - it is important to report _exact_ values for some quantities.
+
+Unfortunately, simulations usually produce lots of numbers and require making many comparisons.
+You are going to want to show, for example, the relative performance of alternative estimators, or the performance of your estimators under different conditions for the data-generating model.
+This means a lot of rows, and a lot of dimensions.
+Tables can do two dimensions; when you try to cram more than that into a table, no one is particularly well served.
+
+Furthermore, in simulation, exact values for your bias/RMSE/type-I error, or whatever, are not usually of interest. And in fact, we rarely have them due to Monte Carlo simulation error.
+The tables provide a false sense of security, unless you include uncertainty, which clutters your table even further.
+
+Overall, tables and simulations do not particularly well mix.
+In particular, if you are ever tempted into putting your table in landscape mode to get it to fit on the page, think again.
+It is often more useful and insightful to present results in graphs [@gelman2002let].
+
+To illustrate, consider the following table of simulation results showing the false rejection rate, against an $\alpha$ of $0.10$, for an estimator of an average treatment impact.
+We have two factors of interest, the treatment and control group sizes.
+
+<!--```{r unused_code, eval=FALSE, echo=FALSE}
+fakesim <- tribble( ~n, ~p, ~bias, ~se, ~rmse, ~ext,
+                    10, 10, 0.0, 0.01, 0.02, 0.03,
+                    10, 20, 0.0, 0.02, 0.03, 0.04,
+                    10, 40, 0.0, 0.03, 0.04, 0.05,
+                    20, 10, 0.0, 0.04, 0.05, 0.06,
+                    20, 20, 0.0, 0.05, 0.06, 0.07,
+                    20, 40, 0.0, 0.06, 0.07, 0.08,
+                  )
+fakesim <- fakesim %>%
+  mutate( se = sqrt( 1 / (n*p) ) + rnorm(n(), sd=0.05 ),
+          bias = sqrt( n ) + rnorm( n(), sd=0.1 ),
+          rmse = sqrt( se^2 + bias^2 ) ) %>%
+  dplyr::select( -ext )
+```
+-->
+
+
+```{r, echo=FALSE}
+exp.res = readRDS( file="results/Neyman_RCT_results.rds" )
+# summary( exp.res$power )
+exp.res.rej <- exp.res %>% 
+  filter( tau == 0 ) %>%
+  group_by( nC, nT ) %>%
+  summarize( reject = mean( power ),
+             n = n(), .groups = "drop" ) %>%
+    filter( nC %in% c( 2, 4, 10, 50, 500 ),
+            nT %in% c( 2, 10, 500 ) )
+
+  
+exp.res.rej = mutate( exp.res.rej, reject = round( reject * 100 ) )
+
+exp.res.rej %>%
+  dplyr::select( nT, nC, reject ) %>%
+  arrange( nT, nC ) %>%
+  knitr::kable()
+```
+
+We can see that the rejection rates are often well above 10%, and that if there are few treatment units, the rates are all way too high.
+Because of the ordering of rows, it is a bit harder to see how the number of control units impacts the rate, and understanding the joint relationship between number of treatment and number of control requires extra thinking.
+But this is a classic type of table you might see in a paper: the table is a group of tables indexed by one factor, with the second varying within each group.
+
+By contrast, a plot of these exact same numbers (this is an "interaction plot" showing the "interaction" of nT and nC) can make trends much more clear:
+
+```{r, echo=FALSE}
+nlevels = n_distinct( exp.res.rej$nT )
+ggplot( exp.res.rej, aes( x=as.factor(nC), y=reject, col=as.factor(nT),
+                          group = nT ) ) +
+  geom_point() + geom_line( linewidth=0.5 ) +
+  geom_hline( yintercept = 5, lty=2 ) +
+  scale_y_continuous( limits = c( 0, 40 ) ) +
+  #scale_x_log10( breaks = unique( exp.res.rej$nC ) ) +
+  scale_color_manual(values = c( "red", "orange", "darkgreen" ) ) + #colorRampPalette(c("red", "black"))(nlevels+2)) +
+  labs( x = "# Control", y = "Rejection Rate", colour = "# Treated" ) +
+  theme_minimal()
+          
+```
+
+Now we immediately see that only if both nC and nT are above 50 do we achieve anything close to valid tests.
+Even if nC is 500, we are elevated if nT is only 10.  When nT is 2, then increasing nC actually _increases_ the rejection rate, meaning larger samples are worse; this is not obvious from looking at the raw table results.
+
+### Example: estimators of treatment variation
+
+Tables do have some purpose.
+For example, tables can be used a bit more effectively to show average performance across a range of simulation scenarios.
+In general, tables are more plausibly useful for displaying a summary of findings. Do not use them for raw results.
+
+For example, in ongoing work, Miratrix has been studying the performance of a suite of estimators designed to estimate individual treatment effects.
+To test which estimators perform better or worse than the others, we designed a series of scenarios where we varied the data-generating model by a variety of factors.
+We then, for each scenario, calculated the relative performance of each estimator to the median of all estimators considered.
+
+We can then ask, do some methods perform better than their peers on average across all scenarios considered?
+The following table gives an answer to this question: we evaluate each method, averaged across all scenarios, along four metrics: relative bias, relative se, relative rmse, and $R^2$.
+To easily see who is good and who is bad, we order the methods from highest average relative RMSE to lowest:
+
+```{r, echo=FALSE}
+df_rel = read_rds( here::here( "data/MLIV_sim_results.rds" ) )
+
+df_rel_sum <- df_rel %>%
+  filter( model != "OLS S INT" ) %>%
+  group_by( model, measure ) %>%
+  summarise( level = mean( value ),
+             level_sd = sd( value ),
+             perf = mean( rel_perf ),
+             sdperf = sd( rel_perf ),
+             perf_ab = mean( value ),
+             sd_ab = sd( value ),
+             .groups="drop" )
+
+#df_rel_sum
+
+df_BSR = filter( df_rel_sum,
+                 measure %in% c( "rmse", "se", "bias", "R2" ) )
+
+# Copy over R2 to be not relative but absolute
+df_BSR$perf[ df_BSR$measure == "R2" ] <- df_BSR$perf_ab[ df_BSR$measure == "R2" ]
+df_BSR$sdperf[ df_BSR$measure == "R2" ] <- df_BSR$sd_ab[ df_BSR$measure == "R2" ]
+
+# Make overall performance table and canonical ordering of models ----
+overall_performance_table <- df_BSR %>%
+  dplyr::select( model, measure, perf, sdperf ) %>%
+  pivot_wider( names_from = measure, 
+               values_from = c( perf, sdperf ) ) %>%
+  
+  arrange( perf_rmse ) %>%
+  mutate( across(starts_with("perf_") | starts_with("sdperf_"), 
+                ~ round(. * 100)) ) %>%
+  mutate( across(3:5, ~ . - 100 ) ) 
+
+
+names(overall_performance_table) <- gsub("sdperf_", "sd_",
+                                         names(overall_performance_table))
+names(overall_performance_table) <- gsub("perf_", "",
+                                         names(overall_performance_table))
+
+overall_performance_table$R2 <- overall_performance_table$R2 / 100
+overall_performance_table$sd_R2 <- overall_performance_table$sd_R2 / 100
+
+overall_performance_table$R2[ overall_performance_table$model == "ATE"] = NA
+overall_performance_table$sd_R2[ overall_performance_table$model == "ATE"] = NA
+
+overall_performance_table <- overall_performance_table %>%
+  relocate( model, bias, se, rmse, sd_bias, sd_se, sd_rmse, R2, sd_R2 )
+
+knitr::kable( overall_performance_table, digits = 2 )
+
+n_sims = n_distinct(df_rel$set_id) * n_distinct(df_rel$queen)
+```
+
+We are summarizing `r n_sims` scenarios.
+The first columns show relative performance.
+To calculate these values we, for each method $m$, performance metric $Q$, and scenario $s$, calculate $P_{ms} = Q_{ms} / median( Q_{ms} )$, and then average the $P_{ms}$ across the scenarios to get $\bar{P}_m$.
+Each method also has an $R^2_{ms}$ value for each scenario; we simply take the average of these across all scenarios for the penultimate column.
+
+The standard deviation columns show the standard deviation of the performances across the full set of scenarios: they give some sense of how much the relative performance of a method changes from scenario to scenario.
+Seeing this variation more explicitly might be better done with a visualization; we explore that below.
+
+Overall, the table does give a nice summary of the results, but we still do not feel it makes the results particularly visceral.
+Visualization can make trends jump out much more clearly.
+That said, the table _is_ showing four performance measures, one of which (the $R^2$) is on a different scale than the others; this is hard to do with a single visualiztion.
+
+So much for tables.
+
+
+## Visualization
+
+We believe visualization to be the primary vehicle for communicating simulation results.
+To illustrate some illustration principles, we next present a series of visualizations, illustrating some different themes behind visualization that we believe are important.
+In the following chapters we talk about how to get to this final point by iteratively refining a series of plots.
+
+
+### Example 1: Biserial correlation estimation
+
+Our first example, from @pustejovsky2014converting, shows the bias of a biserial correlation estimate from an extreme groups design.
+This simulation was a 4-factor, $96 \times 2 \times 5 \times 5$ factorial design (factors being true correlation for a range of values, cut-off type, cut-off percentile, and sample size).
+The correlation, with 96 levels, forms the $x$-axis, giving us nice performance curves.
+We use line type for the sample size, allowing us to easily see how bias collapses as sample size increases.
+Finally, the facet grid gives our final factors of cut-off type and cut-off percentile.
+All our factors, and nearly 5000 explored simulation scenarios, are visible in a single plot.
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width = 10, fig.height = 4}
+load("data/d2r results.rData")
+allResults$n <- ordered(allResults$n)
+allResults$p.inv <- allResults$p1
+allResults$p1 <- ordered(allResults$p1, 
+                labels = paste("p1 = 1/",unique(allResults$p1), sep=""))
+allResults$fixed <- factor(allResults$fixed, levels=c("TRUE","FALSE"), 
+                labels = c("Fixed percentiles","Sample percentiles"))
+
+r_F <- allResults %>%
+  filter(stat=="r.i" & design=="Extreme Group") %>%
+  droplevels()
+levels(r_F$fixed) <- c("Pop. cutoff","Sample cutoff")
+r_F$bias <- r_F$mean - r_F$rho
+r_F$bias.sm <- r_F$mean.sm - r_F$rho
+r_F$rmse <- sqrt(r_F$bias^2 + r_F$var)
+
+library(ggplot2)
+ggplot(r_F, aes(rho, bias, linetype = n)) +
+  geom_smooth(method="loess", se=FALSE, color = "black") + 
+  facet_grid(fixed ~ p1) + theme_bw() +
+  labs(linetype = "n",
+       caption = "Source: Pustejovsky, J. E. (2014).") +
+  scale_y_continuous(name=expression(Bias(r[eg]))) + 
+  scale_x_continuous(name=expression(rho))
+```
+
+To make this figure, we smoothed the lines with respect to `rho` using `geom_smooth()`.
+Smoothing is a nice tool for taking some of the simulation jitter out of an analysis to show overall trends more directly.
+
+This style of plotting, with a bunch of small plots, is called
+"many small multiples" and is beloved by Edward Tufte, who has written extensively on best on information design (see, for example, @tufte1983visual).
+Tufte likes many small multiples, in part, because in a single plot we can display many different variables: here, our facets are organized by two (`p1` and the cut-off approach), and within each facet we have three (our outcome of bias, rho (x-axis), and $n$ (line type).
+We have five variables in total; this means we can fully show all combinations of our factors along with an outcome in a four factor experiment!
+
+
+
+### Example 2: Variance estimation and Meta-regression
+
+In our next example, from @tipton2015small, we explore Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression.
+The simulation aimed to compare 5 different small-sample corrections.
+
+This was another complex experimental design, varying several factors:
+
+ - sample size ($m$)
+ - dimension of hypothesis ($q$)
+ - covariates tested
+ - degree of model mis-specification
+
+```{r, echo=FALSE, fig.height=5, fig.width=9}
+load("data/RVE_simulation.Rdata")
+results <- results_large_m
+results <- within(results, {
+  type <- substr(contrast,1,1)
+  q <- as.numeric(substr(contrast,3,3))
+  p <- ifelse(type=="O",q + 1,6)  
+  q_lab <- factor(q)
+  levels(q_lab) <- paste("q =", levels(q_lab)) 
+  testname <- factor(test, levels = c("Chi-sq (Uncorrected)","Chi-sq","Naive F",
+                                      "Fay-Cornelius 2","Cai-Hayes 1","T-sq Z","T-sq B","T-sq A",
+                                      "Fay-Cornelius 1","Cai-Hayes 2","Cai-Hayes 3",
+                                      "Satterthwaite 1","Satterthwaite 2","Satterthwaite 3","Satterthwaite 4",
+                                      "PW-eigen","Zhang-eigen"))
+  levels(testname)[which(levels(testname)=="Chi-sq")] <- "Chi-sq (BRL)"
+  levels(testname)[which(levels(testname) %in% c("Fay-Cornelius 2","Cai-Hayes 1"))] <- c("EDF","EDT")
+  levels(testname)[which(levels(testname) %in% c("T-sq Z","T-sq B","T-sq A"))] <- c("T^2 Z","T^2 B","T^2 A")
+})
+
+iterations <- 5000
+MC_CI <- qnorm(0.975) * sqrt(0.05 * 0.95 / iterations)
+
+test_select <- c("EDT","EDF","T^2 A", "T^2 B","T^2 Z")
+m_select <- c(10, 20, 40, 80)
+
+labs = c("EDT" = "EDT", "EDF" = "EDF", 
+             "T^2 A" = expression(T[A]^2), 
+             "T^2 B" = expression(T[B]^2), 
+             "T^2 Z" = expression(T[Z]^2))
+
+ggplot(filter(results, 
+              testname %in% test_select,
+              m %in% m_select,
+              q < 5),
+       aes(testname, p05, fill = testname)) + 
+  geom_boxplot() + 
+  facet_grid(q ~ m, scales = "free_y",
+             labeller = "label_both") + 
+  scale_x_discrete(labels = labs) + 
+  labs(x = NULL, y = "Type I error", fill = "Test", 
+       caption = "Tipton, E., & Pustejovsky, J. E. (2015)") + 
+  geom_hline(yintercept= 0.05) + 
+  geom_hline(yintercept= 0.05 + MC_CI, linetype = "dashed") +
+  scale_fill_manual(
+  name = "Test",
+  values = c("EDT" = "#F8766D", "EDF" = "#7CAE00", "T^2 A" = "#00BFC4", "T^2 B" = "#C77CFF", "T^2 Z" = "#E69F00"),
+  labels = labs
+) +
+  theme_bw() 
+
+```
+
+Again using small multiples, we are able to show two of our simulation factors: sample size ($m$) and dimension of hypothesis ($q$).
+The $x$-axis shows each of our five methods we are comparing.
+The boxplots are "holding" the other factors, and show the Type-I error rates for the different small-sample corrections across the covariates tested and degree of model misspecification.
+We add a line at the target 0.05 rejection rate to ease comparison.
+The reach of the boxes shows how some methods are more or less vulnerable to different types of misspecification.
+Some estimators (e.g., $T^2_A$) are clearly hyper-conservitive, with very low rejection rates.
+Other methods (e.g., EDF), have a range of very high rejection rates when $m = 10$; the degree of rejection rate must depend on model mis-specification and number of covariates tested (the things in the boxes).
+
+
+### Example 3: Heat maps of coverage
+
+For data with many levels of two different factors, one option is to use a heat map.
+For example, the visualization below shows the coverage of parametric bootstrap confidence intervals for momentary time sampling data.
+In this simulation study the authors were comparing maximum likelihood estimators to posterior mode (penalized likelihood) estimators of prevalence.
+We have a 2-dimensional parameter space of prevalence (19 levels) by incidence (10 levels).
+We also have 12 levels of sample size.
+
+The plot shows the combinations of prevalence and incidence as a grid for each sample size level.
+We break coverage into ranges of interest, with green being "good" (near 95%) and yellow being "close" (92.5% or above).
+Blue and purple show conservative (above 95%) coverage.
+For this kind of plotting to work, we need our MCSE to be small enough that our coverage is estimated precisely enough to show structure.
+We have two plots, one for each of the methods being compared.
+
+
+```{r swan_example_setup, echo=FALSE, fig.height=5.5, fig.width = 10}
+
+load("data/MTS bootstrap performance.Rdata")
+
+MTS_results <- BSresults
+
+breaks_coverage <- c(0, 0.925, 0.94, 0.96, 0.975, 1)
+labels_coverage <- c("0-92.5%", "92.5-94%", "94-96%", "96-97.5%", "97.5-100%")
+coverage_colors <- c("0-92.5%" = "pink", "92.5-94%" = "yellow" , "94-96%" = "green", "96-97.5%" = "blue", "97.5-100%" = "purple")
+
+coverage_smoother <- function(results){
+  pcoverage_model <- loess(pcoverage ~ phi + zeta, data = results, span = 0.25)
+  zcoverage_model <- loess(zcoverage ~ phi + zeta, data = results, span = 0.25)
+  pcoverage_smooth <- predict(pcoverage_model, newdata = results)
+  zcoverage_smooth <- predict(zcoverage_model, newdata = results)
+  
+  return(cbind(results, pcoverage_smooth, zcoverage_smooth))
+}
+
+MTS_coverage <- MTS_results %>%
+  nest_by( K_intervals, k_priors, theta )
+MTS_coverage$res = map( MTS_coverage$data, coverage_smoother ) 
+MTS_coverage = unnest( MTS_coverage, cols = res )
+
+
+MTS_coverage2 <- MTS_coverage
+MTS_coverage2$phi <- 1 - MTS_coverage2$phi
+MTS_coverage <- rbind(MTS_coverage, MTS_coverage2)
+MTS_coverage$pcoverage_smooth <- ifelse(MTS_coverage$pcoverage_smooth > 1, 1, MTS_coverage$pcoverage_smooth)
+
+MTS_coverage$pcoverage_cut <- cut(MTS_coverage$pcoverage, breaks = breaks_coverage,
+                              labels = labels_coverage, include.lowest = TRUE)
+MTS_coverage$pcoverage_cut_smooth <- cut(MTS_coverage$pcoverage_smooth, breaks = breaks_coverage,
+                                     labels = labels_coverage, include.lowest = TRUE)
+
+MTS_coverage$zcoverage_smooth <- ifelse(MTS_coverage$zcoverage_smooth > 1, 1, MTS_coverage$zcoverage_smooth)
+
+MTS_coverage$zcoverage_cut <- cut(MTS_coverage$zcoverage, breaks = breaks_coverage,
+                              labels = labels_coverage, include.lowest = TRUE)
+MTS_coverage$zcoverage_cut_smooth <- cut(MTS_coverage$zcoverage_smooth, breaks = breaks_coverage,
+                                     labels = labels_coverage, include.lowest = TRUE)
+
+# MLE estimator
+ggplot(data = filter(MTS_coverage, theta == Inf, K_intervals >= 40),
+       aes( phi, zeta, fill = pcoverage_cut_smooth ) ) +
+  geom_tile() +
+  facet_wrap(~K_intervals, ncol = 4, scales = "free_y") +
+  scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+  scale_x_continuous(breaks=seq(.1, 1, .1)) +
+  scale_fill_manual(values = coverage_colors) + 
+  labs(title = "MLE estimator",
+       x = "Prevalence", y = "Incidence", fill = "Coverage") + theme_bw()+ 
+  theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
+```
+
+```{r, echo=FALSE, fig.height=5.5, fig.width = 10}
+# Penalized MLE estimator
+ggplot(data = subset(MTS_coverage, theta == 10 & K_intervals >= 40),
+       aes( phi, zeta, fill = pcoverage_cut_smooth ) ) +
+  geom_tile() +
+  facet_wrap(~K_intervals, ncol = 4, scales = "free_y") +
+  scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+  scale_x_continuous(breaks=seq(.1, 1, .1)) +
+  scale_fill_manual(values = coverage_colors) + 
+  labs(title = "Penalized MLE estimator",
+       x = "Prevalence", y = "Incidence", fill = "Coverage") + theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
+```
+
+For each plot, we can see clear trends, where coverage degrades for low incidence rates.
+We are _wrapping_ our small multiples by sample size--if you have many levels of a factor you can wrap to show all the levels, which is good, but wrapping does not take advantage of the two-dimensional aspect of having rows and columns of plots (such as we saw with Example 1 and Example 2).
+
+For comparing our two estimators, the prevelance of green in the bottom plot shows generally good behavior for the penalized MLE.  The upper plot has less green, showing worse coverage; the improvement of the penalized MLE over the simple MLE is clear.
+To see this plot in real life, see @pustejovsky2015four.
+
+### Example 4: Relative performance of treatment effect estimators
+
+Revisiting the example of different estimators for estimating treatment variation from the table example above, we can try to plot our results.
+
+As a starting point, we can use the same data we used for the table, and just plot the values as bars (after rescaling `R2` by 100 to put it on a similar scale to the other measures):
+
+```{r MLIV_bar_chart, echo=FALSE, warning=FALSE}
+
+# order the model by RMSE
+overall_performance_table <- overall_performance_table %>%
+  mutate( model = factor(model, levels = model ),
+          R2 = R2 * 100 )
+          
+opt <- overall_performance_table %>%
+  dplyr::select(model, bias, se, rmse, R2) %>%
+  pivot_longer(-model, names_to = "metric", values_to = "value")
+
+opt$value[ opt$value > 100 ] = 100
+opt$metric = factor( opt$metric, levels = c("rmse", "se", "bias", "R2") )
+
+ggplot( opt, aes(x = model, y = value, fill = metric)) +
+  facet_wrap( ~metric, nrow=1 ) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  labs(x = NULL, y = "Performance", fill = "Metric") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+Now we can more visually see how the trends of performance between the different methods correspond.
+This plot does not, however, show how variation across scenarios might play out.
+We can extend this plot by plotting boxplots of the actual performances across all scenarios.
+
+In the plot below, we show the range of relative performances for each estimator vs the median, across the simulations.
+We again order the methods from highest average RMSE to lowest, and plot the average performance across all the simulations as little circles (these would correspond to the bars, above).
+
+```{r, echo=FALSE}
+
+df_BSR_long <- df_rel %>%
+  filter( model != "OLS S INT",
+          measure %in% c( "rmse", "se", "bias" ) )
+
+df_BSR_long <- df_BSR_long %>%
+  mutate(measure = factor(measure, levels = c("rmse", "se", "bias")))
+
+df_BSR_long$model = factor( df_BSR_long$model, 
+                            levels = levels( overall_performance_table$model ) )
+
+
+df_BSR_long_agg <- df_BSR_long %>%
+  group_by(model, measure) %>%
+  summarise(
+    rel_perf = mean(rel_perf, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot( df_BSR_long, aes( model, rel_perf ) ) +
+  facet_wrap( ~ measure, nrow=1, scales="free_x" ) +
+  geom_boxplot( width = 0.15, fill = "black", outlier.size = 0.15, outlier.color = "grey" ) +
+  geom_point( data=df_BSR_long_agg, aes( model, rel_perf ),
+              size = 2, shape=21, fill="white" ) +
+  coord_flip( ylim=c(0.5, 2 ) ) +
+  theme_minimal() +
+  labs( x = "", y = "" ) +
+  geom_hline( yintercept = 1, lty=2 ) +
+  theme(plot.background = element_rect(fill = "white", color = NA)) + # Added white background
+  labs( title = "Relative performance across all simulation scenarios",
+        caption = "Cropped at 50% and 200%.") +
+  scale_y_log10( labels = c( "x1/4", "x1/2", "x3/4", "x1", "x1.5", "x2" ),
+                 #scales::percent_format(),
+                 breaks = c( 0.25, 0.5, 0.75, 1, 1.5, 2.0 ) )
+
+n_sims = n_distinct(df_BSR_long$set_id) * n_distinct(df_BSR_long$queen)
+```
+
+The simulation summarizes performance across `r n_sims` scenarios, now showing how much the relative performance can change from scenario to scenario.
+We truncate extreme values to make the plot more readable and bring focus to central tendencies.
+We are able to see three performance measures at the same time.
+The x-axis is on a log scale, again selected to navigate long tails and highlight relative performances.
+The log scaling also makes the scale of improved performance (less than x1) similar to worse performance (above x1).
+
+We dropped R2 for these plot, since the R2 measure was in percentage points, and, due to estimation uncertainty, included negative values; this was not compatible with the log scaling.
+We have lost something in order to gain something; what plot is best will often be a matter of aesthetic opinion.
+Pick your plot based on whether it is clearly communicating the message you are trying to get across.
+(We could also dive into complex plot management, making an R2 plot and adding it to the right of the above plot; we could do this with plot control packages such as `patchwork` or `cowplot`, but we do not do that here.)
+
+
+
+## Modeling
+
+Simulations are designed experiments, often with a full factorial structure.
+The results are datasets in their own right, just as if we had collected data in the wild.
+We can therefore leverage classic means for analyzing such full factorial experiments.
+For example, we can regress a performance measure against our factor levels to get the "main effects" of how the different levels impact performance, holding the other levels constant.
+This type of regression is called a "meta regression" (@kleijnen1981regression, @friedman1988metamodel, @gilbert2024multilevel), as we are regressing on already processed results.
+It also has ties to meta analysis (see, e.g., @borenstein2021introduction), where we look for trends across sets of experiments.
+
+In the language of a full factor experiment, we might be interested in the "main effects" and the "interaction effects."
+A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts performance.
+When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that our finding is relevant across the host of simulation contexts explored, rather than being an idiosyncratic aspect of a specific and narrow context
+
+If we are comparing multiple methods, we would include the method itself as a factor in our regression.
+Then the estimated main effects for each method will tell us if a method is, on average, higher or lower than the baseline method, averaging across all the simulation scenarios.
+The main effect of the simulation factors will tell us if that factor impacts the performance measure on average across the methods considered.
+We might expect, for example, that for all methods the true standard error goes down as sample size increases.
+
+Meta-regressions would also typically include interactions between method and factor, to see if some factors impact different methods differently.
+They can also include interactions between simulation factors, which allows us to explore how the impact of a factor can matter more or less, depending on other aspects of the context.
+
+
+### Example 1: Biserial, revisited
+
+For example, consider the bias of the biserial correlation estimates from above.
+Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
+In particular, how much does the population vs sample cutoff option matter for bias, across all the simulation factors considered?
+
+
+```{r setup_modeling_demonstration, warning=FALSE, include=FALSE}
+options(scipen = 5)
+mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
+broom::tidy(mod) %>%
+  knitr::kable( digits = c( 0,4,4,1,2 ) )
+```
+
+<!--The above printout gives main effects for each factor, averaged across other factors.
+Because `p1` and `n` are ordered factors, the `lm()` command automatically generates linear, quadradic, cubic and fourth order contrasts for them.
+We smooth our `rho` factor, which has many levels of a continuous measure, with a quadratic curve.
+We could instead use splines or some local linear regression if we were worried about model fit for a complex relationship.
+
+The main effects are summaries of trends across contexts.
+For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
+-->
+
+We can use ANOVA to decompose the variation in bias into components predicted by various combinations of the simulation factors.
+Using ANOVA we can identify which factors have negligible/minor influence on the bias of an estimator, and which factors drive the variation we see.
+We can then summarise our anova table to see the contribution of the various factors and interactions to the total amount of variation in performance:
+
+```{r, warning=FALSE, echo=FALSE}
+anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
+
+#broom::tidy(anova_table)
+
+library(lsr)
+etaSquared(anova_table) %>%
+  as.data.frame() %>%
+  rownames_to_column("source") %>%
+  mutate( order = 1 + str_count(source, ":" ) ) %>%
+  group_by( order ) %>%
+  arrange( -eta.sq, .by_group = TRUE ) %>%
+  relocate( order ) %>%
+  knitr::kable( digits = 2 )
+```
+
+Here we see which factors are explaining the most variation.  E.g., `p1` is explaining 21% of the variation in bias across simulations.
+The contribution of any of the three- or four-way interactions are fairly minimal, by comparison, and could be dropped to simplify our model.
+
+Modeling summarizes overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
+We could fit a regression model or ANOVA model for each performance measure in turn, to understand what drives our results.
+
+### Example 2: Comparing methods for cross-classified data
+
+@lee2023comparing were interested in evaluating how different modeling approaches perform when analyzing cross-classified data structures.
+To do this they conducted a multi-factor simulation to compare three methods: a method called CCREM, two-way OLS with cluster-robust variance estimation (CRVE), and two-way fixed effects with CRVE.
+The simulation was complex, involving several factors, so they fit an ANOVA model to understand which factors had the most influence on performance.
+In particular, they ran _four_ multifactor simulations, each in a different set of conditions.
+They then used ANOVA to explore how the simulation factors impacted bias within each of these contexts.
+
+One of their tables in the supplementary materials (Table S5.2, see [here](https://osf.io/hy73g), page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes), and the rows corresponding to factors manipulated within the simulation.
+Small, medium, and large effects are marked to make them jump out to the eye.
+
+**ANOVA Results on Parameter Bias**
+
+| Source                | Assumptions  | Homoscedasticity  | Exogeneity  | Rand Slope |
+|-----------------------|--------------|-------------------|-------------|---------|
+| Method                 | 0.000            | 0.006                      | 0.995 L              | 0.000          |
+| Effect Size (r)        | 0.131 M          | 0.008                      | 0.020 S              | 0.142 L        |
+| Number of Schools (H)  | 0.014 S          | 0.113 M                    | 0.188 L              | 0.001          |
+| Students per School (J)| 0.016 S          | 0.016 S                    | 0.747 L              | 0.110 M        |
+| IUCC                   | 0.007            | 0.007                      | 0.033 S              | 0.073 M        |
+| method × r             | 0.006            | 0.006                      | 0.007                | 0.012 S        |
+| method × H             | 0.004            | 0.002                      | 0.157 L              | 0.000          |
+| method × J             | 0.002            | 0.000                      | 0.878 L              | 0.010 S        |
+| method × IUCC          | 0.012 S          | 0.003                      | 0.037 S              | 0.000          |
+| r × H                  | 0.103 M          | 0.010 S                    | 0.059 S              | 0.377 L        |
+| r × J                  | 0.006            | 0.024 S                    | 0.008                | 0.051 S        |
+| r × IUCC               | 0.065 M          | 0.025 S                    | 0.084 M              | 0.136 M        |
+| H × J                  | 0.002            | 0.014 S                    | 0.062 M              | 0.105 M        |
+| H × IUCC               | 0.024 S          | 0.008                      | 0.034 S              | 0.137 M        |
+| J × IUCC               | 0.004            | 0.088 M                    | 0.013 S              | 0.029 S        |
+
+*Note: (S)mall = .01, (M)edium = .06, (L)arge = .14*
+
+
+We see that when model assumptions are met or only homoscedasticity is violated, choice of method (CCREM, two-way OLS-CRVE, FE-CRVE) has almost no impact on parameter bias ($\eta^2 = 0.000$ to 0.006).
+However, under an exogeneity violation, method choice has a large effect ($\eta^2 = 0.995$), indicating that some methods (like OLS-CRVE) have much more bias than others.
+Other factors such as the effect size of the parameter and the number of schools can also show moderate-to-large impacts on bias in several conditions.
+
+The table also shows how an interaction between simulation factors can matter.
+For example, interactions between method and number of schools, or students per school, can really impact bias under the Exogeniety Violated condition; this means the different methods respond differently as sample size changes.
+
+Overall, the table shows how some aspects of the DGP matter more, and some less.
+
+Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
+See @gilbert2024multilevel for more on this.
+
+## Reporting
+
+The final form of your report will typically 
+For your final write-up, you will not want to present everything.
+A wall of numbers and observations only serves to pummel the reader.
+Instead, present selected results that clearly illustrate the main findings from the study, along with anything unusual or anomalous.
+Your presentation will typically be best served with a few well-chosen figures.
+Then, in the text of your write-up, you might include a few specific numerical comparisons.
+Do not include too many of these, and be sure to say why the numerical comparisons you include are important.
+
+To form these final exhibits, you will likely have to generate a wide range of results that show different facets of your simulation.
+These are for you, and will help you deeply understand what is going on.
+You then try to simplify the story, in a way that is honest and transparent, by curating this full set of figures to your final ones.
+Some of the remainder will then become supplementary materials that contain further detail to both enrich your main narrative and demonstrate that you are not hiding anything.
+
+<!--If you want to be a moral person worthy of the awards of Heaven-->
+Results are by definition a simplified summary of a complex thing.
+The alert reader will know this, and will thus be suspicious about what you might have left out.
+To give a great legitimacy bump to your work, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct your analysis themselves, or perhaps rerun your simulation under different conditions.
+Even if no one touches your code, the code's existence and availability builds confidence.
+People will naturally think, "if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes."
+
+
+

@@ -7,6 +7,8 @@ output:
 ```{r include = FALSE}
 library(tidyverse)
 options(list(dplyr.summarise.inform = FALSE))
+source("case_study_code/gen_cluster_RCT_rev.R")
+
 cluster_RCT_res <- 
   readRDS("results/cluster_RCT_simulation.rds") %>%
   mutate(
@@ -551,6 +553,55 @@ The elevated power is also likely due to the upward bias in estimation.
 As discussed above, LR is targeting the person-average impact which, in this case, is not 0 even under our null because we have kept our impact heterogeniety parameter to its default of $\gamma_2=0.2$, meaning we have treatment variation around 0.
 We could run our simulation with truly null effects to see if the false rejection rate goes down.
 
+
+
+## Assessing Confidence Intervals {#assessing-confidence-intervals}
+
+Some estimation procedures result in confidence intervals (or sets) which are ranges of values that should contain the true answer with some specified degree of confidence.
+For example, a normal-based confidence interval is a combination of an estimator and its estimated uncertainty.
+
+We typically score a confidence interval along two dimensions, __coverage rate__ and __average length__.
+To calculate coverage rate, we score whether each interval "captured" the true parameter.
+A success is if the true parameter is inside the interval.
+To calculate average length, we record each confidence interval's length, and then average across simulation runs.
+We say an estimator has good properties if it has good coverage, i.e. it is capturing the true value at least $1-\alpha$ of the time, and if it is generally short (i.e.,  the average length of the interval is less than the average length for other methods).
+
+Confidence interval coverage is simultaneously evaluating the estimators in terms of how well they estimate (precision) and their inferential properties. 
+We have combined inference and estimation.
+
+Suppose that the confidence intervals are for the target parameter $\theta$ and have coverage level $\beta$.
+Let $A_r$ and $B_r$ denote the lower and upper end-points of the confidence interval from simulation replication $r$, and let $W_r = B_r - A_r$, all for $r = 1,...,R$.
+The coverage rate $\omega_\beta$ and average length $\text{E}(W)$ criteria are then as defined in the table below.
+
+| Criterion       | Definition                                         | Estimate             |
+|-----------------|-----------------------------|----------------------|
+| Coverage        | $\omega_\beta = \text{Pr}(A \leq \theta \leq B)$   | $\frac{1}{R}\sum_{r=1}^R I(A_r \leq \theta \leq B_r)$  |
+| Expected length | $\text{E}(W) = \text{E}(B - A)$                    | $\bar{W} = \bar{B} - \bar{A}$ |
+
+
+
+Just as with hypothesis testing, a strict statistical interpretation would deem a hypothesis testing procedure acceptable if it has actual coverage rate greater than or equal to $\beta$.
+If multiple tests satisfy this criterion, then the test with the lowest expected length would be preferable. Some analysts prefer to look at lower and upper coverage separately, where lower coverage is $\text{Pr}(A \leq \theta)$ and upper coverage is $\text{Pr}(\theta \leq B)$. 
+
+
+### Confidence Intervals in our Cluster RCT Example
+
+For our CRT simulation, we first have to calculate confidence intervals, and then assess coverage.
+We could have used methods such as `confint()` in the estimation approaches; this would be preferred if we wanted more accurately calculated confidence intervals that used $t$-distributions and so forth to account for the moderate number of clusters.
+
+But if we want to use normal assumption confidence intervals we can calculate them post-hoc:
+```{r}
+runs %>% mutate( CI_l = ATE_hat - 1.96*SE_hat,
+                 CI_h = ATE_hat + 1.96*SE_hat,
+                 covered = CI_l <= ATE & ATE <= CI_h,
+                 width = CI_h - CI_l ) %>%
+  group_by( method ) %>%
+  summarise( coverage = mean( covered ),
+             width = mean( width ))
+```
+Our coverage is about right for Agg and MLM, and around 5 percentage points too low for LR.
+Linear regression is taking a hit from the bias term.
+The CIs of LR are a bit wider than the other methods due to the estimated SEs being slightly larger.
 
 
 ## Additional Thoughts on Measuring Performance

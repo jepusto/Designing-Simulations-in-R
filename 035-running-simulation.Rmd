@@ -19,12 +19,12 @@ source("case_study_code/analyze_cluster_RCT.R")
 
 # Running the Simulation Process {#running-the-simulation-process}
 
-In the prior two chapters we saw how to write functions that generate data according to a particular model and functions that implement data-analysis procedures on the simulated data.
+In the prior two chapters we saw how to write functions that generate data according to a particular model and functions that implement data-analysis procedures on simulated data.
 The next step in a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, p-values, or other quantities) from many replications of the whole process.
 
 As with most things R-related, there are many different techniques that can be used to repeat a set of calculations over and over. 
-In this chapter, we will demonstrate several techniques for doing so.
-We will then explain how to ensure reproducibility of simulation results by setting the seed used by R's random number generator.
+In this chapter, we demonstrate several techniques for doing so.
+We then explain how to ensure reproducibility of simulation results by setting the seed used by R's random number generator.
 
 ## Repeating oneself {#repeating-oneself}
 
@@ -37,7 +37,7 @@ r_and_z(dat)
 ```
 To execute a simulation with these components, we need to repeat this set of calculations over and over.
 R has many different functions for doing exactly this.
-As one of many alternatives, the `{simhelpers}` package includes a function called `repeat_and_stack()`, which can be used to evaluate an arbitrary expression many times over.
+As one of many alternatives, the `simhelpers` package includes a function called `repeat_and_stack()`, which can be used to evaluate an arbitrary expression many times over.
 We can use it to generate five replications of our correlation coefficient:
 ```{r}
 library(simhelpers)
@@ -92,7 +92,7 @@ However, the wrapper technique can be useful for more complicated simulations, s
 
 Consider the cluster-randomized experiment case study presented in Section \@ref(case-cluster) and \@ref(multiple-estimation-procedures). 
 In this simulation, we are interested in comparing the performance of three different estimation methods: a multi-level model, a linear regression with clustered standard errors, and a linear regression on the data aggregated to the school level.
-A single replication of the simulation entails generating a dataset and then apply three different estimation functions to it.
+A single replication of the simulation entails generating a dataset and then applying three different estimation functions to it.
 Here is a function that takes our simulation parameters and runs a single trial of the full process:
 ```{r}
 one_run <- function( 
@@ -119,10 +119,10 @@ one_run( n_bar = 30, J = 20, alpha=0.5 )
 ```
 We organize the output in a tibble to make it easier to do subsequent data processing and analysis.
 The results for each method are organized in separate lines.
-For each method, we record the impact estimate, its (estimated) standard error, and a nominal $p$-value.
+For each method, we record the impact estimate, its estimated standard error, and a nominal $p$-value.
 Note how the `bind_rows()` method can take naming on the fly, and give us a column of `method`, which will be very useful for keeping track of which results come from which estimation.
 
-Once we have a function to execute a single run of the simulation, we can produce multiple results using `repeat_and_stack()`:
+Once we have a function to execute a single run, we can produce multiple results using `repeat_and_stack()`:
 
 ```{r secret_run_cluster_rand_sim, include=FALSE}
 R <- 1000
@@ -144,17 +144,18 @@ if ( !file.exists("results/cluster_RCT_simulation.rds") ) {
 ```{r cluster_rand_sim, eval=FALSE}
 R <- 1000
 ATE <- 0.30
-runs <- repeat_and_stack(R, one_run( n_bar = 30, J=20, gamma_1 = ATE ), id = "runID") 
+runs <- repeat_and_stack(R, 
+                         one_run( n_bar = 30, J=20, gamma_1 = ATE ),
+                         id = "runID") 
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
 Setting `id = "runID"` lets us keep track of which iteration number produced which result.
-Once our simulation is complete, we save our results to a file for future use.
-so that we can avoid having to re-run these calculations each time we want to explore the results.
+Once our simulation is complete, we save our results to a file so that we can avoid having to re-run the full simulation if we want to explore the results in some future work session.
 
 We now have results for each of our estimation methods applied to each of 1000 generated datasets.
 The next step is to evaluate how well the estimators did.
-For example, we will want to examine questions about bias, precision, and accuracy of the point estimators.
-In Chapter \@ref(performance-criteria), we look systematically at ways to quantify the performance of estimation methods.
+For example, we will want to examine questions about bias, precision, and accuracy of the three point estimators.
+In Chapter \@ref(performance-criteria), we will look systematically at ways to quantify the performance of estimation methods.
 
 ### Reparameterizing {#one-run-reparameterization}
 
@@ -189,7 +190,7 @@ In the revised `one_run()` function, we transform the `ICC` input parameter into
 We have not modified `gen_cluster_RCT()` at all: instead, we specify the parameters of the DGP function in terms of the parameters we want to directly control in the simulation.
 Here we have put our entire simulation into effect size units, and are now providing "knobs" to the simulation that are directly interpretable.
 
-## Bundling simulations with `{simhelpers}` {#bundle-sim-demo}
+## Bundling simulations with `simhelpers` {#bundle-sim-demo}
 
 The techniques that we have demonstrated for repeating a set of calculations each involve a very specific coding pattern, which will often have the same structure even if the details of the data-generating model or the names of the input parameters are very different from the examples we have presented. 
 The `simhelpers` package provides a function `bundle_sim()` that abstracts this common pattern and allows you to automatically stitch together (or "bundle") a DGP function and an estimation function, so that they can be run once or multiple times.
@@ -198,7 +199,9 @@ Thus, `bundle_sim()` provides a convenient alternative to writing your own `one_
 `bundle_sim()` takes a DGP function and an estimation function as inputs and gives us back a new function that will run a simulation using whatever parameters we give it.
 Here is a basic example, which creates a function for simulating Pearson correlation coefficients with a bivariate Poisson distribution:
 ```{r}
-sim_r_Poisson <- bundle_sim(f_generate = r_bivariate_Poisson, f_analyze = r_and_z, id = "rep")
+sim_r_Poisson <- bundle_sim(f_generate = r_bivariate_Poisson, 
+                            f_analyze = r_and_z, 
+                            id = "rep")
 ```
 
 If we specify the optional argument `id = "rep"`, the function will include a variable called `rep` with a unique identifier for each replication of the simulation process.
@@ -216,37 +219,27 @@ In addition to the expected arguments from `r_bivariate_Poisson()`, the function
 Its first argument is `reps`, which controls the number of times that the simulation process will be evaluated.
 Its last argument is `seed`, which we will discuss in Section \@ref(seeds-and-pseudo-RNGs).
 
-The `bundle_sim()` function requires specifying a DGP function and a _single_ estimation function, with the data as the first argument. Our cluster-randomized experiment example involved three separate estimation functions, so we first need to write a single function that organizes all of the estimators:
-```{r, message = FALSE}
-analyze_data = function( dat ) {
-  MLM = analysis_MLM( dat )
-  LR = analysis_OLS( dat )
-  Agg = analysis_agg( dat )
-  
-  bind_rows( MLM = MLM, LR = LR, Agg = Agg, .id = "method" )
-}
-```
-This is simply the `one_run()` method from above, but without the data generating part.
-When we pass a dataset to it, we get a nice table of results, just as before:
+The `bundle_sim()` function requires specifying a DGP function and a _single_ estimation function, with the data as the first argument.
+For our cluster-randomized experiment example, we would then need to use our `estimate_Tx_Fx()` function that organizes all of the estimators (see Chapter \@ref(multiple-estimation-procedures)).
+We then use `bundle_sim()` to create a function for running an entire simulation:
 ```{r, messages=FALSE}
-dat <- gen_cluster_RCT( n=30, J = 20, gamma_1 = 0.30 )
-analyze_data( dat )
-```
-We can now use `bundle_sim()` to create a function for running an entire simulation:
-```{r, messages=FALSE}
-sim_cluster_RCT <- bundle_sim( gen_cluster_RCT, analyze_data, id = "runID" )
+sim_cluster_RCT <- bundle_sim( gen_cluster_RCT, estimate_Tx_Fx, id = "runID" )
 ```
 We can call the newly created function like so:
 ```{r, messages=FALSE}
-sim_cluster_RCT( 2, n_bar = 30, J = 20, gamma_1 = ATE, sigma2_u = 0.3, sigma2_e = 0.7 )
+sim_cluster_RCT( 2, 
+                 n_bar = 30, J = 20, gamma_1 = ATE, 
+                 sigma2_u = 0.3, sigma2_e = 0.7 )
 ```
-Note that `bundle_sim()` produces a function with input names that exactly match the inputs of the DGP function that we give it. 
+Again, `bundle_sim()` produces a function with input names that exactly match the inputs of the DGP function that we give it. 
 It is not possible to re-parameterize or change argument names, as we did with `one_run()` in Section \@ref(one-run-reparameterization).
-See Exercise \@ref() for further discussion of this limitation.
+See Exercise \@ref(reparameterization-redux) for further discussion of this limitation.
 
 To use the simulation function in practice, we call it by specifying the number of replications desired (which we have stored in `R`) and any relevant input parameters.
 ```{r, eval=FALSE}
-runs <- sim_cluster_RCT( R, n_bar = 30, J = 20, gamma_1 = ATE, sigma2_u = 0.3, sigma2_e = 0.7 )
+runs <- sim_cluster_RCT( R, 
+                         n_bar = 30, J = 20, gamma_1 = ATE, 
+                         sigma2_u = 0.3, sigma2_e = 0.7 )
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
 The `bundle_sim()` function is just a convenient way to create a function that pieces together the steps in the simulation process, which is especially useful when the component functions include many input parameters.
@@ -318,8 +311,10 @@ By default, the function it produces includes an argument `seed`, which allows t
 By default, the `seed` argument is `NULL` and so the current seed is not modified.
 Specifying an integer-valued seed will make the results exactly reproducible:
 ```{r}
-sim_A <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14, seed = 25)
-sim_B <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14, seed = 25)
+sim_A <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14,
+                        seed = 25)
+sim_B <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14,
+                        seed = 25)
 identical(sim_A, sim_B)
 ```
 
@@ -343,7 +338,7 @@ In the prior chapter's exercises, you made a new `BF_F` function for the Welch s
 
 ### Compare sampling distributions of Pearson's correlation coefficients {#Pearson-sampling-distributions}
 
-1. Use `sim_r_Poisson()` to generate 5000 replications of the Fisher-z-transformed correlation coefficient under a bivariate Poisson distribution for a sample of $N = 40$ observations, with $\rho = 0.7$ and your own choice for the remaining parameters.
+1. Use `sim_r_Poisson()` to generate 5000 replications of the Fisher-z-transformed correlation coefficient under a bivariate Poisson distribution with $\rho = 0.7$ for a sample of $N = 40$ observations. You pick the remaining parameters.
 
 2. Create a bundled simulation function by combining the data-generating function from Exercise \@ref(BVNB1) or \@ref(BVNB2) with the `r_and_z()` estimation function. Run the function to generate 5000 replications of the Fisher-z-transformed correlation coefficient under a bivariate negative binomial distribution, with the same parameter values as above.
 
@@ -364,4 +359,4 @@ Then in Exercise \@ref(CRT-ANCOVA-estimators), your task was to create an estima
 
 2. Use the resulting function to simulate results from 1000 replications of a cluster-randomized trial, each analyzed two ways (with and without covariate adjustment).
 
-3. Create a plot that shows the sampling distribution of each average treatment effect estimator and makes it easy to compare the distributions.
+3. Create a plot that shows the sampling distribution of each average treatment effect estimator in a way that makes it easy to compare the distributions.
