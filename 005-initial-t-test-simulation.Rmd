@@ -254,16 +254,17 @@ In the next chapter, we introduce an abstract, general framework for simulations
 
 ## Exercises
 
-1. The simulation function we developed in this chapter uses 1000 replications of the data-generating and data-analysis process, which leads to some Monte Carlo error in the simulation results. Modify the `ttest_CI_experiment()` function to make the number of replications an input argument, then re-run the simulation and re-create the graph of the results with $R=10,000$ or even $R=100,000$.  Is the graph more regular than the one in the text, above?
-Use your improved results to determine what sample size is large enough to give coverage of at least 94% (so only 1% off of desired).
+1. The simulation function we developed in this chapter runs 1000 replications of the data-generating and data-analysis process, which leads to some Monte Carlo error in the reported results. Modify the `ttest_CI_experiment()` function to make the number of replications an input argument, then re-run the simulation and re-create the graph of the results with $R=10,000$ or even $R=100,000$.  Is the graph more regular than the one in the text, above?
+Use your improved results to estimate what sample size would be large enough to give coverage of at least 94% (so only 1% off of desired).
+Is this answer much different from if you had used the figure given in the text?
 
-2. Modify the `ttest_CI_experiment()` function to make the $p$ parameter an input argument.  Repeat the one-factor simulation, but use $p = 1/10$ so that the population mean is $(1 - p) / p = 9$. How do the coverage rates change?
+2. Modify the `ttest_CI_experiment()` function to make the $p$ parameter an input argument.  Repeat the one-factor simulation, but use $p = 1/10$. Make sure your function is comparing coverage to the population mean of $(1 - p) / p$. How do the coverage rates change when $p$ is so small?
 
 **More challenging problems**
 
-3. Below is a modified version of the `ttest_CI_experiment()` function that creates a tibble with lower and upper end-points of the simulated confidence intervals:
+3. Below is a partially completed modified version of the `ttest_CI_experiment()` function that should create a tibble that includes the estimated coverage rate, the average interval length, and a confidence interval for the coverage rate:
     ```{r}
-    lotsa_CIs_experiment = function( n ) {
+    ttest_CI_experiment_full = function( n ) {
       
       lotsa_CIs <- replicate( 1000, {
         # simulate data
@@ -271,23 +272,26 @@ Use your improved results to determine what sample size is large enough to give 
         # analyze data
         tt <- t.test( dat )                                       
         # return CI
-        tibble(lower = tt$conf.int[1], upper = tt.conf.int[2])
-      })
+        tibble(lower = tt$conf.int[1], upper = tt$conf.int[2])
+      }, simplify = FALSE ) %>%
+        bind_rows()
     
       # summarize results
-      # <fill in the rest>
-      
+      # <calculate coverage>
+      # <calculate average interval length>
+      # <calculate a 95% confidence interval for the true coverage rate>
+
       return(coverage)
     }
     
     ```
-    Complete the function by writing code to compute the estimated coverage rate and average confidence interval length. Also calculate a 95% confidence interval for the true coverage rate (you can use `prop.test()` on your set of simulation coverage indicators to obtain this, treating your $R$ simulation replicates as a random sample in its own right). Your modified function should return a one-row tibble with the coverage rate, average confidence interval length, and a CI for the true coverage rate.
+    Complete the function by writing code to compute the estimated coverage rate and average confidence interval length. Also calculate a 95% confidence interval for the true coverage rate (you can use `prop.test()` on your set of simulation coverage indicators to obtain this, treating your $R$ simulation replicates as a random sample in its own right). This confidence interval captures what we call _Monte Carlo Simulation Uncertainty_, which will depend on the number of simulation trials you run. Your modified function should return a one-row tibble with the coverage rate, average confidence interval length, and the lower and upper limits of a CI for the true coverage rate.
     
-4. Modify the `ttest_CI_experiment()` function to include the extensions of the prior problem.  Then re-run the simulations with your modified function, obtaining a data frame with each row being a simulation scenario and columns of sample size, estimated coverage, low end of the estimate's confidence interval, and high end of the interval.  You will likely want to use `map()` and then `bind_rows()` on your list of results; see Chapter \@ref(repeating-oneself) for more information about these techniques.
-Use these data to create a graph that depicts the estimated coverage rates. Try creating a graph that includes the 95% confidence intervals also, so that the Monte Carlo simulation error in the estimated coverage rates is represented in the graph. We recommend using the `ggplot2` function `geom_pointrange()` to represent the confidence intervals.
+4. Using the prior problem, re-run the simulations to obtain a data frame with each row being a simulation scenario and columns of sample size, estimated coverage, low end of the estimate's confidence interval, high end of the interval, and average confidence interval length.  You will likely want to use `map()` and then `bind_rows()` on your list of results; see Chapter \@ref(repeating-oneself) for more information about these techniques.
+Use your resulting set of results to create a graph that depicts the estimated coverage rates as a function of sample size. Make your graph include the 95% confidence intervals also, so that the Monte Carlo simulation error in the estimated coverage rates is represented in the graph. We recommend using the `ggplot2` function `geom_pointrange()` to plot the confidence intervals.
 
 
-5. Modify `ttest_CI_experiment()`  or `lotsa_CIs_experiment()` so that the user can specify the population mean of the data-generating process. Also let the user specify the number of replications to use. Here is a function skeleton to use as a starting point:
+5. Modify `ttest_CI_experiment()` so that the user can specify the population mean of the data-generating process. Also let the user specify the number of replications to use. Here is a function skeleton to use as a starting point:
     ```{r}
     ttest_CI_experiment <- function( n, pop_mean, reps) {
       
@@ -301,7 +305,7 @@ Use these data to create a graph that depicts the estimated coverage rates. Try 
 
 
 6. Using the modified function from the previous problem, implement a two-factor simulation study for several different values of `n` and several different population means.
-One way to do this is to run a few simulations with different population means, storing them in a series of datasets, `res1`, `res2`, `res3`, etc.
+One way to do this is to run a few one-factor simulations, each with a different population mean.  You can store them in a series of datasets, `res1`, `res2`, `res3`, etc.
 Then use `bind_rows( size1 = res1, ..., .id = "mean" )` to combine the datasets into a single dataset.
 Make a plot of your results, with `n` on the x-axis, coverage on the $y$-axis, and different lines for different population means.
 
