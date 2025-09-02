@@ -66,7 +66,7 @@ lpd_cov
 ```
 
 ## The data generating process
-We then write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a "treatment effect" of scaling the discipline rate by the treatment coefficient for the last two years.
+We next write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a "treatment effect" of scaling the discipline rate by the treatment coefficient for the last two years.
 
 ```{r}
 make_dat_param = function( n_c, n_t, tx=1 ) {
@@ -74,7 +74,7 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
     lpdisc = MASS::mvrnorm( n, mu = lpd_mns, Sigma = lpd_cov )
     lpdisc = exp( lpdisc )
     colnames( lpdisc ) = paste0( "pdisc_", colnames( lpdisc ) )
-    lpdisc = as.data.frame( lpdisc ) %>%
+    lpdisc = as_tibble( lpdisc ) %>%
         mutate( ID = 1:n(),
                 Z = 0 + ( sample( n ) <= n_t ) )
     
@@ -89,30 +89,31 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
 ```
 
 Our function generates schools with discipline given by the provided mean and covariance structure; we have calibrated our data generating process to give us data that looks very similar to the data we would see in the field.
+For power, realism, in terms of the aspects impacting uncertainty, is key.
 
 For our impact model, the treatment kicks in for the final two years, multiplying discipline rate by `tx` (so `tx = 1` means no treatment effect).
 
-Testing our function gives this:
+We test our function:
 ```{r}
 set.seed( 59585 )
 a = make_dat_param( 100, 100, 0.5 )  
-head( a, n = 4 )
+a
 ```
 
 We can group each treatment arm and look at discipline over the years:
 ```{r}
-  aL = a %>% 
-        pivot_longer( pdisc_2015:pdisc_2019, 
-                      names_to = c( ".value", "year" ),
-                      names_pattern = "(.*)_(.*)" ) %>%
-        mutate( year = as.numeric( year ) )
-    
-    aLg = aL %>% group_by( year, Z ) %>%
-        summarise( pdisc = mean( pdisc ) )
-    ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
-        geom_line() +
-      labs( color = "Tx?" )
-    
+aL = a %>% 
+  pivot_longer( pdisc_2015:pdisc_2019, 
+                names_to = c( ".value", "year" ),
+                names_pattern = "(.*)_(.*)" ) %>%
+  mutate( year = as.numeric( year ) )
+
+aLg = aL %>% group_by( year, Z ) %>%
+  summarise( pdisc = mean( pdisc ) )
+
+ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
+  geom_line() +
+  labs( color = "Tx?" )
 ```
 
 Our treatment group drops faster than the control.  We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
@@ -132,7 +133,8 @@ eval_dat = function( sdat ) {
                    data=sdat )
 
     # Simple model on logged outcome
-    M_log = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + log( pdisc_2016) + log( pdisc_2015 ),
+    M_log = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + 
+                  log( pdisc_2016) + log( pdisc_2015 ),
                 data=sdat )
     
     # Ratio of average disc to average prior disc as outcome
@@ -145,7 +147,9 @@ eval_dat = function( sdat ) {
     M_ratio_twopost = lm( disc_two ~ 1 + Z, data = sdat )
     
     # Use average of two post-tx time periods, averaged to reduce noise
-    M_twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + log( pdisc_2016 ) + log( pdisc_2015 ), data=sdat )
+    M_twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + 
+                      log( pdisc_2016 ) + log( pdisc_2015 ), 
+                    data=sdat )
 
     # Time and unit fixed effects
     sdatL = pivot_longer( sdat, cols = pdisc_2015:pdisc_2019, 
