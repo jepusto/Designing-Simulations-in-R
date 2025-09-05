@@ -20,11 +20,11 @@ scat = function( str, ... ) {
 
 
 gen_cluster_RCT <- function( n_bar = 10,
-                           J = 30,
-                           p = 0.5,
-                           gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-                           sigma2_u = 0, sigma2_e = 1,
-                           alpha = 0 ) {
+                             J = 30,
+                             p = 0.5,
+                             gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
+                             sigma2_u = 0, sigma2_e = 1,
+                             alpha = 0 ) {
   
   stopifnot( alpha >= 0 )
   
@@ -66,6 +66,8 @@ gen_cluster_RCT <- function( n_bar = 10,
                 sid=as.factor(sid),
                 Yobs = beta_0j[sid] + e, 
                 Z = Zj[ sid ] )
+  
+  dd
 }
 
 
@@ -94,7 +96,7 @@ quiet_analysis_MLM <- function( dat ) {
 
 analysis_MLM <- function( dat ) {
   M1 = lmer( Yobs ~ 1 + Z + (1|sid),
-                   data=dat )
+             data=dat )
   
   est = fixef( M1 )[["Z"]]
   se = se.fixef( M1 )[["Z"]]
@@ -170,25 +172,28 @@ run_CRT_sim <- function(reps,
   
   stopifnot( ICC >= 0 && ICC < 1 )
   
-  scat( "Running n=%d, J=%d, ICC=%.2f, ATE=%.2f (%d replicates)\n", n_bar, J, ICC, ATE, reps)
+  scat( "Running n=%d, J=%d, ICC=%.2f, ATE=%.2f (%d replicates)\n",
+        n_bar, J, ICC, ATE, reps)
   
   if (!is.null(seed)) set.seed(seed)
   
   res <- 
     simhelpers::repeat_and_stack( reps, {
       dat <- gen_cluster_RCT( n_bar = n_bar, J = J, p = p,
-                            gamma_0 = 0, gamma_1 = ATE, gamma_2 = size_coef,
-                            sigma2_u = ICC, sigma2_e = 1 - ICC,
-                            alpha = alpha )
+                              gamma_0 = 0, gamma_1 = ATE, gamma_2 = size_coef,
+                              sigma2_u = ICC, sigma2_e = 1 - ICC,
+                              alpha = alpha )
       quiet_analyze_data(dat)
     }) %>%
     bind_rows( .id="runID" )
+  
+  res
 }
 
 
 if ( FALSE ) {
   
-
+  
   dat <- gen_cluster_RCT( 5, 3 )
   dat
   

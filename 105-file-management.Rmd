@@ -7,9 +7,173 @@ editor_options:
 library( purrr )
 ```
 
+# (PART) Computational Considerations {-}
 
-# Saving files and results {#saving-files}
+# Organizing a simulation project
 
+As we saw earlier, a full multifactor simulation can generate a lot of output that can be hard to navigate.
+They are complex, multifaceted projects by design.
+This means that the project itself can be hard to manage.
+It can be easy to become overwhelmed by a steady accumulation of scripts that generate data, analyze data, run simulations, and so on.
+
+This section is designed to give you the computational skills and ideas that will make it easier to handle complex simulation projects.
+We start with a discussion of file and project management, then turn to parallel processing, and finally close with some core programming habits that we have found useful for keeping on top of this type of sprawling complexity.
+
+
+Simulations have two general phases: generate your results and analyze your results.
+The ending of the first phase should be to save the generated results.
+The beginning of the second phase should then be to load the results from a file and analyze them.
+These phases can be in a separate '.R' files.
+Dividing your simulations in this way allows for easily changing how one _analyzes_ an experiment without re-running the entire thing.
+
+This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
+
+For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
+
+ * Code for generating data
+ * Code for analyzing data
+ * Code for running a single simulation scenario
+
+If each of these pieces is large and complex, you might consider putting them in three different `.R` files.
+To do this, we need to talk about what kinds of R scripts exist, and also talk about how you can tell one script to load another script.
+
+
+## Well structured R scripts
+
+In R, there are two critical file types that can hold R code: `.R` files (scripts) and `.Rmd` (or `.qmd`) markdown files.
+The former just holds R code, while the latter holds a mix of R code and text.
+The latter is what you would render (or knit) to make a final report--it will run the code, and mix the results in with the text to give a nicely formatted report with code, figures, tables, and other printout nicely embedded.
+These are what is typically used for smaller projects---all the code and discussion of code would be in a single, convienent place.
+
+For larger projects, you will be more dependant on the first type of file, the `.R` script.
+Ideally, the principle of modular programming would be applied to these files.
+Each `.R` file would hold a collection of code that is related to a single task.
+There are two main types of of `.R` script: those that _just_ have functions that can be used for other purposes (meaning that if you run them, the only thing that happens is you end up with some new functions in your current workspace), and those that are traditional scripts such that when you run them, R will do a variety of specified tasks.
+
+
+### The source command {#about-source-command}
+
+Inside of an R script you can "source" other `.R` files.
+The `source()` command essentially "cuts and pastes" the contents of the given file into your R work session.
+E.g.,
+
+```{r demo_source_multiple, eval=FALSE}
+source( here::here( "R/data_generators.R" ) )
+source( here::here( "R/estimators.R" ) )
+source( here::here( "R/simulation_support.R" ) )
+```
+
+If the named file has code to run, it will run it.
+If the named file has a list of methods, those methods will now be available for use.
+The `here::here()` command is a convenience function that allows you to specify a file path relative to your R project root directory, so you can easily find your files.
+
+You can even source files inside files that are sourced.
+For example, `simulation_support.R` could, inside it, source the other two files.
+You would then only source the single simulation support file in your primary simulation script.
+
+One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, see below), testing each of your components.
+Then, when you are not focused on that component, you don't have to look at that testing code.
+
+Another good reason for this type of modular organizing is you can then allow for a whole simulation universe, writing a variety of data generators that together form a library of options.
+You can then easily create different simulations that use your different pieces, in your larger project.
+
+For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
+Our `data_generators.R` code file then had several methods.
+When we sourced it, we end up wit the following list of methods:
+
+```
+> ls()
+[1] "describe_sim_data"  "make_dat"           "make.dat_1side"     
+[4] "make_dat_1side_old" "make_dat_orig"      "make_dat_simple"
+[7] "make_dat_tuned"     "rand_exp"           "summarize_sim_data"
+```
+
+The `describe()` and `summarize()` methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
+We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
+
+Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that single file and use those estimators on our actual data.
+This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
+Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
+
+Modular programming is key.
+
+
+### Putting headers in your .R file
+
+When you write a `.R` script, it is a good idea to put a header at the top of the file, giving a description of the file's purpose.
+Then, you can also put dividers in your file, e.g.,
+
+```
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data generating functions ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+```
+
+Note the `----` at the end of the middle line: if you add those trailing dashes, then if you click on the dropdown at the bottom of your RStudio, you will see a pop-up table of contents that allows you to quickly navigate to different parts of your source file.
+
+
+### Storing testing code in your scripts {#about-keeping-tests-with-FALSE}
+
+If you have an extended `.R` file with a list of functions, you might also want to store a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
+
+```{r}
+# My testing code ----
+if ( FALSE ) {
+  res <- my_function( 10, 20, 30 )
+  res
+  # Some notes as to what I want to see.
+  
+  sd( res )
+  # This should be around 20
+}
+```
+
+You can then, when you open and look at the script, paste the code inside the block into the console when you want to run it.
+If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
+This is a good way to keep your testing code with the code it is testing.
+When you want to work on just the part of the project captured by your script, you can work inside the single file very easily, ignoring the other parts of your project.
+
+You can also (or instead) write testing code, which we will talk about further below.
+
+
+## Principled directory structures
+
+We _strongly advocate_ keeping a well-organized directory for your simulation.
+We recommend using RStudio, or a similar IDE, and having a directory structure like the following:
+
+```
+my_project/
+  proj.Rproj
+  README.md
+  R/
+  data/
+  results/
+  scripts/
+  test/
+```
+
+For those who have written R pacakges, this structure will look familiar.
+The `R/` directory is where you put your core R code.
+We will have `.R` scripts that just hold our core methods; we can then "load" these scripts into our workspace as needed to gain access to those methods.
+Saved methods might include the methods you have developed that you are planning on testing (unless they are in a separate package), and methods to generate data.
+We _do not_ put the scripts that run the actual simulation here.  The `R/` folder is to store the building blocks of our simulation only, not the final scripts that use those blocks to run and analyze our simulations themselves.
+
+The `data/` directory is where you put any data files you are using in your simulation.
+The `results/` directory is where you will save any generated results of your simulation.
+Sometimes it might be worth having `raw_results` and `results`, where `raw_results` are what you save as soon as you finish running the simulation, and `results` have final results where you may have merged and summarized the raw results.
+
+The `scripts/` directory is where you put your scripts that run the simulation and analyze simulation results.
+You will likely have one script that runs the simulation, and one or more scripts that analyze the results.
+
+Finally, the `test/` directory is where you put any testing code you have written to test your methods.
+You can even use the `testthat` package to write unit tests for your methods, and put those in the `test/` directory.
+This structure is not required, but it is a good idea to have a well-organized project of some type.
+
+
+
+
+## Saving simulation results {#saving-files}
 
 
 Always save your simulation results to a file.
@@ -19,7 +183,7 @@ But there are some ways to do better than that, such as saving as you go.
 This can protect you if your simulation occasionally crashes, or if you want to rerun only parts of your simulation for some reason.
 
 
-## Saving simulations in general
+### Saving simulations in general
 
 Once your simulation has completed, you can save it like so:
 ```{r, eval=FALSE}
@@ -36,14 +200,15 @@ res = read_csv( "results/simulation_CRT.csv" )
 ```
 
 There are two general tools for saving.  The `read/write_csv` methods save your file in a way where you can open it with a spreadsheet program and look at it.
-But your results should be in a vanilla format (non-fancy data frame without list columns).
+But your results should be in a vanilla, rectangular format (non-fancy data frame without list columns).
 
 Alternatively, you can use the `saveRDS()` and `readRDS()` methods; these save objects to a file such that when you load them, they are as you left them.
-(The simpler format of a csv file means your factors, if you have them, may not preseve as factors, and so forth.)
+The RDS saving keeps your R object as given.
+The simpler format of a csv file means your factors, if you have them, may not preserve as factors, and so forth.
 
 
 
-## Saving simulations as you go
+### Saving simulations as you go
 
 If you are not sure you have time to run your entire simulation, or you think your computer might crash half way through, or something similar, you can save each chunk you run as you go, in its own file.  You then stack those files at the end to get your final results.
 With clever design, you can even then selectively delete files to rerun only parts of your larger simulation---but be sure to rerun everything from scratch before you run off and publish your results, to avoid embarrassing errors.
@@ -54,7 +219,7 @@ Note the sourcing of other scripts that have all the relevant functions; these a
 Due to modular programming, we can see what this script does, even without those detail.
 
 ```{r IV_simulation_driver, eval=FALSE}
-source( "pack_simulation_functions.R" )
+source( "R/simulation_functions.R" )
 
 if ( !file.exists("results/frags" ) ) {
     dir.create("results/frags")
@@ -110,18 +275,11 @@ file_saving_sim = function( chunkNo, seed, ... ) {
 }
 ```
 
-Note how we wrap our core `run_sim` method in `safely`; it was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
+Note how we wrap our core `run_sim` method (that takes all our simulation factors and runs a simulation for those factors) in `safely`; `run_sim()` was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
+Our method cleverly either loads a saved result, or generates it, for a given chunk.
+This means from whatever is calling the function, it will look exactly the same whether it is loading a saved result or generating a new one.
 
-We next run the simulation.
-We shuffle the rows of our task list so that which process gets what task is randomized.
-If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
-
-We have an `if-then` structure to easily switch between parallel and nonparallel code.
-This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
-Plus it would be all mixed up since multiple processes are working simultaneously.
-
-This overall structure allows the researcher to delete one of the "fragment" files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
-This means the researcher can insert a `browser()` command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+We next run the simulation by calling `file_saving_sim()` for all of our simulation scenarios.
 
 ```{r demo_run_on_fly_code, eval=FALSE}
 # Shuffle the rows so we run in random order to load balance.
@@ -150,7 +308,17 @@ if ( TRUE ) {
 tictoc::toc()
 ```
 
-Our method cleverly loads files in, or generates them, for each chunk.
+Note how we shuffle the rows of our task list so that which process gets what task is randomized.
+If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
+See \@ref(parallel-processing) for more on parallel processing.
+
+The `if-then` structure allows us to easily switch between parallel and nonparallel code.
+This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
+Plus it would be all mixed up since multiple processes are working simultaneously.
+
+The above overall structure allows the researcher to delete one of the "fragment" files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
+This means the researcher can insert a `browser()` command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+
 The seed setting ensures reproducibility.
 Once we are done, we need to clean up our results:
 
@@ -166,13 +334,14 @@ sim_results = pivot_wider( sim_results, names_from = sr, values_from = res )
 saveRDS( sim_results, file="results/simulation_results.rds" )
 ```
 
+Our final `simulation_results.rds` file will have all the results from our simulation, made by stacking all of the fragments of our simulation together.
 
 
-## Dynamically making directories
+### Dynamically making directories
 
 If you are generating a lot of files, then you should put them somewhere.
 But where?
-It is nice to dynamically generate a directory for your files on fly.
+It can be nice to dynamically generate a directory for your files on fly.
 One way to do this is to write a function that will make any needed directory, if it doesn't exist, and then put your file in that spot.
 For example, you might have your own version of `write_csv` as:
 
@@ -192,14 +361,14 @@ If the spot doesn't exist, it will make it for you.
 
 
 
-## Loading and combining files of simulation results
+### Loading and combining files of simulation results
 
 Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
 This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.
 
 
 ```{r load_all_sims_function, eval=FALSE}
-load.all.sims = function( filehead="results/" ) {
+load.all.sims = function( filehead="raw_results/" ) {
   
   files = list.files( filehead, full.names=TRUE)
   
@@ -215,9 +384,9 @@ load.all.sims = function( filehead="results/" ) {
 
 You would use as so:
 ```{r use_load_all_sims, eval=FALSE}
-results = load.all.sims( filehead="raw_results/" )
+results <- load.all.sims( filehead="raw_results/" )
+results <- bind_rows( results )
 ```
-
 
 
 

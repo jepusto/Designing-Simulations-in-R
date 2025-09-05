@@ -66,7 +66,7 @@ lpd_cov
 ```
 
 ## The data generating process
-We then write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a "treatment effect" of scaling the discipline rate by the treatment coefficient for the last two years.
+We next write a data generator that, given a desired number of control and treatment schools, and a treatment effect, makes a dataset by sampling vectors of discipline rates, and then imposes a "treatment effect" of scaling the discipline rate by the treatment coefficient for the last two years.
 
 ```{r}
 make_dat_param = function( n_c, n_t, tx=1 ) {
@@ -74,7 +74,7 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
     lpdisc = MASS::mvrnorm( n, mu = lpd_mns, Sigma = lpd_cov )
     lpdisc = exp( lpdisc )
     colnames( lpdisc ) = paste0( "pdisc_", colnames( lpdisc ) )
-    lpdisc = as.data.frame( lpdisc ) %>%
+    lpdisc = as_tibble( lpdisc ) %>%
         mutate( ID = 1:n(),
                 Z = 0 + ( sample( n ) <= n_t ) )
     
@@ -89,30 +89,31 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
 ```
 
 Our function generates schools with discipline given by the provided mean and covariance structure; we have calibrated our data generating process to give us data that looks very similar to the data we would see in the field.
+For power, realism, in terms of the aspects impacting uncertainty, is key.
 
 For our impact model, the treatment kicks in for the final two years, multiplying discipline rate by `tx` (so `tx = 1` means no treatment effect).
 
-Testing our function gives this:
+We test our function:
 ```{r}
 set.seed( 59585 )
 a = make_dat_param( 100, 100, 0.5 )  
-head( a, n = 4 )
+a
 ```
 
 We can group each treatment arm and look at discipline over the years:
 ```{r}
-  aL = a %>% 
-        pivot_longer( pdisc_2015:pdisc_2019, 
-                      names_to = c( ".value", "year" ),
-                      names_pattern = "(.*)_(.*)" ) %>%
-        mutate( year = as.numeric( year ) )
-    
-    aLg = aL %>% group_by( year, Z ) %>%
-        summarise( pdisc = mean( pdisc ) )
-    ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
-        geom_line() +
-      labs( color = "Tx?" )
-    
+aL = a %>% 
+  pivot_longer( pdisc_2015:pdisc_2019, 
+                names_to = c( ".value", "year" ),
+                names_pattern = "(.*)_(.*)" ) %>%
+  mutate( year = as.numeric( year ) )
+
+aLg = aL %>% group_by( year, Z ) %>%
+  summarise( pdisc = mean( pdisc ) )
+
+ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
+  geom_line() +
+  labs( color = "Tx?" )
 ```
 
 Our treatment group drops faster than the control.  We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
@@ -132,7 +133,8 @@ eval_dat = function( sdat ) {
                    data=sdat )
 
     # Simple model on logged outcome
-    M_log = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + log( pdisc_2016) + log( pdisc_2015 ),
+    M_log = lm( log( pdisc_2018 ) ~ 1 + Z + log( pdisc_2017) + 
+                  log( pdisc_2016) + log( pdisc_2015 ),
                 data=sdat )
     
     # Ratio of average disc to average prior disc as outcome
@@ -145,7 +147,9 @@ eval_dat = function( sdat ) {
     M_ratio_twopost = lm( disc_two ~ 1 + Z, data = sdat )
     
     # Use average of two post-tx time periods, averaged to reduce noise
-    M_twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + log( pdisc_2016 ) + log( pdisc_2015 ), data=sdat )
+    M_twopost = lm( log( avg_disc ) ~ 1 + Z + log( pdisc_2017 ) + 
+                      log( pdisc_2016 ) + log( pdisc_2015 ), 
+                    data=sdat )
 
     # Time and unit fixed effects
     sdatL = pivot_longer( sdat, cols = pdisc_2015:pdisc_2019, 
@@ -388,5 +392,87 @@ sres2 %>%
 ```
 
 Corresponding with our findings regarding precision, above, the twopost estimator is the most sensitive, finding the smallest effects.
+
+
+## Power for Multilevel Data
+
+```{r, include=FALSE}
+library( mlmpower )
+library( lme4 )
+
+```
+
+Many power analyses are regarding fitting some sort of multilevel model to some type of structured data.
+For example, researchers frequently want to calculate power for multisite randomized trials, where each of a series of sites has students randomized to treatment, or not.
+Our earlier cluster RCT case study is another example of this.
+
+We can use the same simulation framework to calculate power for these types of models.
+We write a data generation function that generates our data given our target structure, and then repeatidly generate and analyze data to assess power, just as we have done.
+
+As we saw earlier, however, it can be sometimes tricky to write code that properly has covariates that relate to the different levels of our model, or that divides variance appropriately across levels.
+For example, in a multisite experiment, we might want a covariate that has a different mean value within each cluster, but also has variation within cluster.
+
+Instead of immediately writing our own data generation function when faced with such a project, it might be worth looking to the literature to see what tools are available.
+In this case, for example, we might come across @enders2023simple, which showcases a package, `mlmpower`, designed to generate data according to a flexible range of multilevel models.
+
+```{r}
+library( mlmpower )
+model <- outcome('Y') +
+  within_predictor('X') +
+  between_predictor('W') +
+  effect_size(icc = 0.1,
+              within = 0.2 )
+
+set.seed(4232345)
+
+dat <- generate( model, 
+                 n_within = 5, 
+                 n_between = 3 ) %>%
+  as_tibble()
+dat
+cor( dat$X, dat$Y )
+```
+
+It even provides methods for calculating power, using a lmer for the estimator (it makes the estimator less visible to the user).
+The method in fact runs a multifactor experiment:
+
+```{r mlmpow_calc, echo=FALSE}
+pow <- power_analysis(
+  model = model,
+  replications = 100,
+  n_within = c(10,20),
+  n_between = c(5,10)
+)
+pow$power[[1]]
+```
+
+We have estimated 93% power for detecting the effect of the within-level predictor, `X`, with 10 students per site and 5 sites, given the parameters we set.
+We refer the reader to the package documentation for how to use this specific package.
+The broader point is it is sometimes worth digging into provided code to get material for generating data or even running simulations.
+That said, each package is designed for a specific purpose, and has its own language.
+Here, for example, the effect size defined as `within` is due to the package paying much attention to how covariates are centered and incorporated in the model.
+Tying its parameterization to classic regression coefficients may be non-obvious.
+It is thus sometimes easy to use a package to get data that looks like data, but does not actually have the structure you intend.
+As always, do diagnostics and verification to ensure the tools are working as you expect.
+
+Here, for example, we might generate a very large dataset to get estimated coefficients as a sanity check:
+
+```{r}
+dat <- generate( model, 
+                 n_within = 100, 
+                 n_between = 100 ) %>%
+  as_tibble()
+M = lme4::lmer( Y ~ X + W + (1|`_id`), data=dat )
+arm::display(M)
+```
+
+We can check our ICC:
+```{r}
+sigma2_2 = VarCorr(M)$`_id`[1]
+sigma2_1 = attr(VarCorr(M), "sc")^2
+sigma2_2 / (sigma2_2 + sigma2_1)
+```
+
+Close to the listed 0.10.  More testing is needed.
 
 
