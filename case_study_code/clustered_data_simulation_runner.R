@@ -1,6 +1,10 @@
 
+# This script runs the multifactor simulation in parallel to generate
+# the result files used in the book.
 
-# Secret Run code in parallel for speedup
+# It is sourced in the Secret Run code block in the designing
+# multifactor simulation area.
+
 library( tidyverse )
 library( future )
 library( furrr )
@@ -33,9 +37,27 @@ saveRDS( res, file = "results/simulation_CRT.rds" )
 
 
 if ( FALSE ) {
+  # check sim format
+  run_CRT_sim( reps = 5,
+               n_bar = 20,
+               J = 5,
+               ATE = 0.2,
+               size_coef = 0.2,
+               ICC = 0,
+               alpha = 0.5,
+               seed = 1234567)
+  
+  
+  # Check the results
+  res = readRDS( "results/simulation_CRT.rds" )
+  res
+}
+
+# Some auxillary code for understanding our simulation ----
+if ( FALSE ) {
   
   # Looking more deeply at alpha = 0, size_coef = 0 
-
+  
   crt_design_factors <- list(
     n_bar = c( 20, 80, 320 ),
     J = c( 5 ),
@@ -63,7 +85,7 @@ if ( FALSE ) {
   tictoc::toc()
   saveRDS( res, file = "results/simulation_CRT_null.rds" )
   
-    sres <- res %>% 
+  sres <- res %>% 
     group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
     summarise( calc_absolute( estimates = ATE_hat,
                               true_param = ATE,
@@ -91,8 +113,8 @@ if ( FALSE ) {
     geom_line() + geom_point() +
     geom_hline( yintercept = 0 ) +
     geom_errorbar( aes( ymin = bias - 1.96 * bias_mcse,
-                       ymax = bias + 1.96 * bias_mcse ),
+                        ymax = bias + 1.96 * bias_mcse ),
                    width = 0.0 ) 
-
+  
   
 }

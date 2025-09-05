@@ -1,13 +1,16 @@
+# (APPENDIX) Appendices {-}
+
+# Coding Reference {#coding-tidbits}
+
 ```{r, include=FALSE}
 library( tidyverse )
 library( blkvar )
+
+source( here::here( "case_study_code/clustered_data_simulation.R" ) )
 ```
 
-# (APPENDIX) Appendices {-}
 
-# Coding tidbits {#coding-tidbits}
-
-This chapter is not specifically about simulation, but it does have a few tips and tricks regarding coding that are worth attending to.
+In this appendix chapter we give a bit more detail on some core programming skills that we use throughout the book.
 
 ## How to repeat yourself {#more-repeating-oneself}
 
@@ -108,11 +111,12 @@ Anonymous functions, as these are called, can be useful to connect your pieces o
 In the past, there was a tidyverse method called `rerun()`, but it is currently out of favor.
 Originally, `rerun()` did exactly that: you gave it a number and a block of code, and it would rerun the block of code that many times, giving you the results as a list.
 `rerun()` and `replicate()` are near equivalents.
-As we saw, `replicate()` does what its name suggests---it replicates the result of an expression a specified number of times. Setting `simplify = FALSE` returns the output as a list (just like `rerun()`.
+As we saw, `replicate()` does what its name suggests---it replicates the result of an expression a specified number of times. Setting `simplify = FALSE` returns the output as a list (just like `rerun()` did).
+
 
 ## Default arguments for functions {#default-arguments}
 
-To write functions that are both easy to use and configurable, we find it helpful to set default arguments.
+To write functions that are both easy to use and configurable, set default arguments.
 For example,
 
 ```{r demo_default_args}
@@ -156,148 +160,464 @@ args( generate_blocked_data )
 The documentation will tell us more, but if we just need some sample data, we can quickly assess our method before having to do much reading and understanding.
 Only once we have identified what we need do we have to turn to the documentation itself.
 
-## The source command and keeping things organized {#about-source-command}
 
-Simulations have two general phases: generate your results and analyze your results.
-The ending of the first phase should be to save the generated results.
-The beginning of the second phase should then be to load the results from a file and analyze them.
-These phases can be in a separate '.R' files.
-Dividing your simulations in this way allows for easily changing how one _analyzes_ an experiment without re-running the entire thing.
+## Profiling Code
 
-This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
+Simulations can be extremely time intensive.
+With a large simulation it can also be hard to determine _why_, exactly, the simulation is as long as it is.
+Is it one of the methods?
+Is it just that as sample size grows, the time grows far more rapidly than one might expect?
+Knowing the answer to these questions can allow you to plan out your simulation and, sometimes, make some hard choices as to what things you want to include.
 
-For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
+There are a variety of tools for timing code.
+We are going to go through a few useful ones here.
 
- * Code for generating data
- * Code for analyzing data
- * Code for running a single simulation scenario
-
-If each of these pieces is large and complex, you might consider putting them in three different `.R` files.
-Then, in your primary simulation driver, you could source these files.
-E.g.,
-
-```{r demo_source_multiple, eval=FALSE}
-source( "pack_data_generators.R" )
-source( "pack_estimators.R" )
-source( "pack_simulation_support.R" )
-```
-
-The `source()` command essentially "cuts and pastes" the contents of the given file into your R work session.
-If the file has code to run, it will run it.
-If the file has a list of methods, those methods will now be available for use.
-
-Alternatively, `pack_simulation_support.R` could, inside it, source the other two files.
-You would then only source the single simulation support file in your primay file.
-
-One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, like described above), testing each of your components.
-Then, when you are not focused on that component, you don't have to look at that testing code.
-
-Another good reason for this type of modular organizing is you can then have a variety of data generators, forming a library of options.
-You can then easily create different simulations that use different pieces, in a larger project.
-
-For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
-Our data generation code file then had several methods:
-
-```
-> ls()
-[1] "describe_sim_data"  "make_dat"           "make.dat.1side"     
-[4] "make.dat.1side.old" "make.dat.orig"      "make.dat.simple"
-[7] "make.dat.tuned"     "rand.exp"           "summarize_sim_data"
-```
-
-The describe and summarize methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
-We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
-
-Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that file and use those estimators on our actual data.
-This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
-Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
-
-Modular programming is key.
-
-## Testing and debugging code in your scripts {#about-keeping-tests-with-FALSE}
-
-If you have an extended script with a list of functions, you might have a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
-One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
+### Using `Sys.time()` and `system.time()`
+The simplest way to time code is to use the `system.time()` function.
+This function takes an expression and returns the time it took to run that expression.
+For example:
 
 ```{r}
-if ( FALSE ) {
-  res <- my_function( 10, 20, 30 )
-  res
-  # Some notes as to what I want to see.
+time <- system.time( rnorm( 1000000 ) )
+time
+```
+Elapsed time is how much time actually passed.
+The user time is how much time your computer spent on the task at hand, not including if it paused to do something else (like deal with a mouse click or pop-up message).
+With current computers with multiple cores, you would expect user and elapsed time to be very similar.
+
+You can also start and stop a clock by checking the system time:
+```{r}
+start_time <- Sys.time()
+A = rnorm( 1000000 )
+mean(A)
+sd(A)
+end_time <- Sys.time()
+tot_time <- end_time - start_time
+tot_time
+```
+
+This can be useful, but be careful, as the time is stored along with the units.  If your simulation takes a long time, it will flip from a lot of seconds to a few minutes, and you can end up thinking something that took much, much longer was actually fast.
+
+### The `tictoc` package
+
+The `tictoc` package is a very simple way to time code.
+It has two functions, `tic()` and `toc()`, which you can use to mark the start and end of a block of code.
+```{r}
+library( tictoc )
+tic("Generating data")
+A = rnorm( 1000000 )
+toc()
+```
+
+It is basically like `Sys.time()` but it has a few more features, such as being able to label the time you are measuring.
+
+### The `bench` package
+The `bench` package provides some powerful tools for timing code, and is in particular good for comparing different ways of doing the same (or similar) thing.
+`bench::mark()` runs each expression 10 times (by default) and tracks how long the computations take. It then summarizes the distribution of timings.
+For example, we can time how long it takes to analyze some data from our cluster RCT experiment:
+
+```{r}
+library( bench )
+dat <- gen_cluster_RCT(n_bar=100, J = 100)
+timings <- mark(
+      MLM = quiet_analysis_MLM(dat),
+      OLS = analysis_OLS(dat),
+      agg = analysis_agg(dat),
+      check = FALSE
+)
+timings
+```
+You can even get a viz of how long everything took:
+```{r, fig.height = 3}
+plot( timings )
+```
+
+The "gc" coloring in the above indicates runs where "garbage collection" took place, meaning R paused to empty out some used memory.
+
+You can also use `bench::press()` to run a variety of configurations to explore how timing works under changed parameters.
+To illustrate, let's compare how long each method for the cluster RCT running example takes:
+
+```{r, results="none", cache=TRUE}
+source( here::here("case_study_code/clustered_data_simulation.R" ) )
+timings <- bench::press(
+  n_bar = c( 10, 100 ),
+  J = c( 10, 100 ),
+  {
+    dat <- gen_cluster_RCT(n_bar=n_bar, J = J)
+    bench::mark(
+      MLM = quiet_analysis_MLM(dat),
+      OLS = analysis_OLS(dat),
+      agg = analysis_agg(dat),
+      check = FALSE
+    )
+  }
+)
+```
+
+And we can make our custom plot of time:
+```{r}
+timings$name = attr( timings$expression, "description" )
+ggplot( timings, aes( n_bar, median, color = as.factor(J) ) ) +
+  facet_wrap( ~ name ) +
+  geom_point() + geom_line()
+```
+
+Note the `timings` object is not quite a classic tibble, and the expression at start captures the code run.  The "name" line grabs the names given in the initial evaluation so we can make the plot the way we want.
+
+
+### Profiling with `profvis`
+
+Sometimes you don't have a head to head comparison in mind, but are instead trying to find out _where_ in your full simulation the time is being spent.
+The `profvis` package allows for exploring this sort of question.
+You "profile" a block of code and then you can explore the results in a browser inside of RStudio.
+
+For example, you might have the following:
+
+```{r, eval=FALSE}
+profvis( {
+  replicate( 10, { 
+    data <- gen_cluster_RCT( n_bar = 100, J = 100 )
+    res1 <- quiet_analysis_MLM(data)
+    res2 <- analysis_OLS(data)
+    res3 <- analysis_agg(data)
+  } )
+} )
+```
+
+In the browser you will get the code you ran, and you can see how long each line took to run.
+You will get little "time" bars---the bigger the bar, the greater fraction of time that line took versus the other lines.
+
+You can also click on the "Data" tab and it will give you a series of cascades of function calls, so you can see how long each function took to run.
+You click on a function to expand it, and it will show you how long each part inside took.
+
+
+
+
+## Optimizing code (and why you often shouldn't) {#optimize-code}
+
+
+
+
+```{r optimization_chapter_header, include=FALSE}
+library( blkvar )
+
+generate_data <- function(mu, sigma_sq, sample_size) {
+
+  N <- sum(sample_size) 
+  g <- length(sample_size) 
   
-  sd( res )
-  # This should be around 20
+  group <- rep(1:g, times = sample_size) 
+  mu_long <- rep(mu, times = sample_size)
+  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
+  
+  x <- rnorm(N, mean = mu_long, sd = sigma_long)
+  sim_data <- tibble(group = group, x = x)
+    
+  return(sim_data)
 }
-```
 
-You can then, when looking at the script, paste the code inside the block into the console when you want to run it.
-If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
+mu <- c(1, 2, 5, 6)
+sigma_sq <- c(3, 2, 5, 1)
+sample_size <- c(3, 6, 2, 4)
 
-## Debugging with browser {#about-browser-debugging}
+sim_data <- generate_data(mu = mu, 
+                         sigma_sq = sigma_sq, 
+                         sample_size = sample_size)
+sim_data
 
-Consider the following code taken from a simulation:
-
-```{r demo_browser, eval=FALSE}
-    if ( any( is.na( rs$estimate ) ) ) {
-        browser()
-    }
-```
-
-The `browser()` command stops your code and puts you in an interactive console where you can look at different objects and see what is happening.
-Having it triggered when something bad happens (in this case when a set of estimates has an unexpected NA) can help untangle what is driving a rare event.
-
-## Protecting your functions with "stop" {#about-stopifnot}
-
-When writing functions, especially those that take a lot of parameters, it is often wise to include `stopifnot()` statements at the top to verify the function is getting what it expects.
-These are sometimes called "assert statements" and are a tool for making errors show up as early as possible.
-For example, look at this (fake) example of generating data with different means and variances
-
-```{r assert_demo}
-make_groups <- function( means, sds ) {
-  Y = rnorm( length(means), mean=means, sd = sds )
-  round( Y )
+ANOVA_F_aov <- function(sim_data) {
+  oneway_anova <- oneway.test(x ~ factor(group), data = sim_data,
+                              var.equal = TRUE)
+  return(oneway_anova$p.value)
 }
+
+
+
+Welch_F <- function(sim_data) {
+
+  x_bar <- with(sim_data, tapply(x, group, mean))
+  s_sq <- with(sim_data, tapply(x, group, var))
+  n <- table(sim_data$group)
+  g <- length(x_bar)
+
+  w <- n / s_sq
+  u <- sum(w)
+  x_tilde <- sum(w * x_bar) / u
+  msbtw <- sum(w * (x_bar - x_tilde)^2) / (g - 1)
+
+  G <- sum((1 - w / u)^2 / (n - 1))
+  denom <- 1 +  G * 2 * (g - 2) / (g^2 - 1)
+  W <- msbtw / denom
+  f <- (g^2 - 1) / (3 * G)
+
+  pval <- pf(W, df1 = g - 1, df2 = f, lower.tail = FALSE)
+
+  return(pval)
+}
+
+one_run = function( mu, sigma_sq, sample_size ) {
+  sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq, sample_size = sample_size)
+  anova_p <- ANOVA_F(sim_data)
+  Welch_p <- Welch_F(sim_data)
+  tibble(ANOVA = anova_p, Welch = Welch_p)
+}
+
 ```
 
-If we call it, but provide different lengths for our means and variances, nothing happens, because R simply recycles the standard deviation parameter:
+
+Optimizing code is when you spend a bit more human effort to write code that will run faster on your computer.
+In some cases, this can be a critical boost to running a simulation, where you inherently will be doing things a lot of times.
+Cutting runtime down will always be tempting, as it allows you to run more replicates and get more precisely estimated performance measures for your simulation.
+
+That being said, generally optimize code only after discovering you need to.
+Optimizing as you go usually means you will spend a lot of time wrestling with code far more complicated than it needs to be.
+For example, often it is the estimation method that will take a lot of computational time, so having very fast data generation code will not help shorten the overall run time of a simulation much, as you are tweaking something that is only a small part of the overall pie, in terms of time.
+Keep things simple; in general your time is more important than the computer's time.
+
+Overall, computational efficiency should usually be a secondary consideration when you are starting to design a simulation study.
+It is better to produce accurate code, even if it is a bit slow, than to write code that is speedy but hard to follow (or even worse, that produces incorrect results).
+
+That warning made, in the next sections we will look at a few optimization efforts applied to the ANOVA example from Section \@ref(case-ANOVA) to illustrate some principles of optimization that come up a lot in simulation projects.
+
+### Hand-building functions
+In our initial ANOVA simulation we used the system-implemented ANOVA.
+An alternative approach would be to "hand roll" the ANOVA F statistic and test directly.
+Doing so by hand can set you up to implement modified versions of these tests later on.
+Also, although hand-building a method does take more work to program, it can result in a faster piece of code (this actually is the case here) which in turn can make the overall simulation faster.
+
+Following the formulas on p. 129 of Brown and Forsythe (1974) we write our own function as so:
+
 ```{r}
-make_groups( c(100,200,300,400), c(1,100,10000) )
-```
+ANOVA_F <- function(sim_data) {
 
-If this function was used in our data generating code, we would see the warnings but might not know exactly what they were.
-We can instead protect our function by putting an *assert statements* in our function like this:
-```{r}
-make_groups <- function( means, sds ) {
-  stopifnot( length(means) == length(sds) )
-  Y = rnorm( length(means), mean=means, sd = sds )
-  round( Y )
+  x_bar <- with(sim_data, tapply(x, group, mean))
+  s_sq <- with(sim_data, tapply(x, group, var))
+  n <- table(sim_data$group)
+  g <- length(x_bar)
+
+  df1 <- g - 1
+  df2 <- sum(n) - g
+
+  msbtw <- sum(n * (x_bar - mean(sim_data$x))^2) / df1
+  mswn <- sum((n - 1) * s_sq) / df2
+  fstat <- msbtw / mswn
+  pval <- pf(fstat, df1, df2, lower.tail = FALSE)
+
+  return(pval)
 }
 ```
 
-This ensures your code is getting called as you intended.
-What is nasty about this possible error is nothing is telling you something is wrong!
-You could build an entire simulation on this, not realizing that your fourth group has the variance of your first, and get results that make no sense to you.
-You could even publish something based on a finding that depends on this error, which would eventually be quite embarrasing.
+We are using data as generated in Chapter \@ref(data-generating-processes).
+To see the difference between our version and R's version, we benchmark:
 
-These statements can also serve as a sort of documentation as to what you expect.
-Consider, for example:
 ```{r}
-make_xy <- function( N, mu_x, mu_y, rho ) {
-  stopifnot( -1 <= rho && rho <= 1 )
-  X = mu_x + rnorm( N )
-  Y = mu_y + rho * X + sqrt(1-rho^2)*rnorm(N)
-  tibble(X = X, Y=Y)
+timings <- bench::mark(Rfunction = ANOVA_F_aov(sim_data),
+                          direct    = ANOVA_F(sim_data))
+summary( timings )[1:4] %>%
+  mutate( speed_up = as.numeric( max(median)/median ) ) %>%
+  knitr::kable( digits = 2 )
+```
+
+The direct function is `r with(summary(timings), as.numeric(round(median[[1]] / median[[2]], 1)))` times faster than the built-in R function.
+
+This result is not unusual.
+Built-in R functions usually include lots of checks and error-handling, which take time to compute. These checks are crucial for messy, real-world data analysis but unnecessary with our pristine, simulated data.
+Here we can skip them by doing the calculations directly.
+
+In general, however, this is a trade-off: writing something yourself gives you a lot of chance to do something wrong, throwing off all your simulations.
+It might be faster, but you may pay dearly for it in terms of extra hours coding and debugging.
+Optimize only if you need to!
+
+
+
+### Computational efficiency versus simplicity {#sec_comp_efficiency}
+
+On the data generation side, an alternative approach to having a function that, for each call, generates a single set of data, would be to write a function that generates _multiple_ sets of simulated data all at once. 
+
+For example, for our ANOVA example we could specify that we want `R` replications of the study and have the function spit out a matrix with `R` columns, one for each simulated dataset:
+
+```{r}
+generate_data_matrix <- function(mu, sigma_sq, sample_size, R) {
+
+  N <- sum(sample_size) 
+  g <- length(sample_size) 
+  
+  group <- rep(1:g, times = sample_size) 
+  mu_long <- rep(mu, times = sample_size)
+  sigma_long <- rep(sqrt(sigma_sq), times = sample_size) 
+
+  x_mat <- matrix(rnorm(N * R, mean = mu_long, sd = sigma_long),
+                  nrow = N, ncol = R)
+  sim_data <- list(group = group, x_mat = x_mat)
+    
+  return(sim_data)
+}
+
+generate_data_matrix(mu = mu, sigma_sq = sigma_sq,
+                     sample_size = sample_size, R = 4)
+```
+
+This approach is a bit more computationally efficient because the setup calculations (getting `N`, `g`, `group`, `mu_full`, and `sigma_full`) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to `rnorm()`. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
+Furthermore, if the number of replicates `R` is large and each replication produces a large dataset, this "all-at-once" approach will entail generating and holding very large amounts of data in memory, which can create other performance issues.
+On balance, we recommend the simpler approach of writing a function that generates a single simulated dataset per call (unless and until you have a principled reason to do otherwise).
+It is usually the case that most time spent in the simulation is the _analyzing_ of the data, not the generating it, so these savings are usually not worth the bother.
+
+
+
+### Reusing code to speed up computation
+
+Once we have our own ANOVA method to go with our own Welch method, we see some glaring redundancies.
+In particular, both `ANOVA_F` and `Welch_F` start by taking the simulated data and calculating summary statistics for each group, using the following code:
+
+```{r, eval=FALSE}
+x_bar <- with(sim_data, tapply(x, group, mean))
+s_sq <- with(sim_data, tapply(x, group, var))
+n <- table(sim_data$group)
+```
+
+In the interest of not repeating ourselves, it would better to pull this code out as a separate function and then re-write the `ANOVA_F` and `Welch_F` functions to take the summary statistics as input. Here is a function that takes simulated data and returns a list of summary statistics:
+
+```{r}
+summarize_data <- function(sim_data) {
+  x_bar <- with(sim_data, tapply(x, group, mean))
+  s_sq <- with(sim_data, tapply(x, group, var))
+  n <- table(sim_data$group)
+
+  list(
+    x_bar = as.numeric( x_bar ),
+    s_sq = as.numeric( s_sq ),
+    n = as.numeric( n )
+  )
 }
 ```
-Here we see that rho should be between -1 and 1 quite clearly.
-A good reminder of what the parameter is for.
 
-This also protects you from inadvetently misremembering the order of your parameters when you call the function (although it is good practice to name your parameters as you pass).
-Consider:
-```{r, error=TRUE}
-a <- make_xy( 10, 2, 3, 0.75 )
-b <- make_xy( 10, 0.75, 2, 3 )
-c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
+We just packaged the code from above:
+
+```{r}
+sim_data = generate_data(mu=mu, sigma_sq=sigma_sq, sample_size=sample_size)
+summarize_data(sim_data)
 ```
 
+Now we can re-write both our $F$-test functions to use the output of this function:
+
+```{r}
+ANOVA_F_agg <- function(x_bar, s_sq, n) {
+  g = length(x_bar)
+  df1 <- g - 1
+  df2 <- sum(n) - g
+  
+  msbtw <- sum(n * (x_bar - weighted.mean(x_bar, w = n))^2) / df1
+  mswn <- sum((n - 1) * s_sq) / df2
+  fstat <- msbtw / mswn
+  pval <- pf(fstat, df1, df2, lower.tail = FALSE)
+ 
+  return(pval)
+}
+
+summary_stats <- summarize_data(sim_data)
+with(summary_stats, ANOVA_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
+
+Welch_F_agg <- function(x_bar, s_sq, n) {
+  g = length(x_bar)
+  w <- n / s_sq
+  u <- sum(w)
+  x_tilde <- sum(w * x_bar) / u
+  msbtw <- sum(w * (x_bar - x_tilde)^2) / (g - 1)
+
+  G <- sum((1 - w / u)^2 / (n - 1))
+  denom <- 1 +  G * 2 * (g - 2) / (g^2 - 1)
+  W <- msbtw / denom
+  f <- (g^2 - 1) / (3 * G)
+
+  pval <- pf(W, df1 = g - 1, df2 = f, lower.tail = FALSE)
+
+  return(pval)
+}
+
+with(summary_stats, Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
+```
+
+The results are the same as before. 
+
+We should always test any optimized code against something we know is stable, since optimization is an easy way to get bad bugs.
+Here we check against R's implementation:
+```{r}
+summary_stats <- summarize_data(sim_data)
+F_results <- with(summary_stats,
+                  ANOVA_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
+aov_results <- oneway.test(x ~ factor(group), data = sim_data, 
+                           var.equal = TRUE)
+all.equal(aov_results$p.value, F_results)
+
+W_results <- with(summary_stats,
+                  Welch_F_agg( x_bar = x_bar,
+                               s_sq = s_sq, n = n))
+aov_results <- oneway.test(x ~ factor(group),
+                           data = sim_data, 
+                           var.equal = FALSE)
+all.equal(aov_results$p.value, W_results)
+
+```
+
+Here we are able to check against a known baseline.
+Checking estimation functions can be a bit more difficult for procedures that are not already implemented in R. For example, the two other procedures examined by Brown and Forsythe, the James' test and Brown and Forsythe's $F*$ test, are not available in base R.
+They are, however, available in the user-contributed package `onewaytests`, found by searching for "Brown-Forsythe" at http://rseek.org/. We could benchmark our calculations against this package, but of course there is some risk that the package might not be correct. Another route is to verify your results on numerical examples reported in authoritative papers, on the assumption that there's less risk of an error there. In the original paper that proposed the test, Welch (1951) provides a worked numerical example of the procedure. He reports the following summary statistics:
+
+```{r}
+g <- 3
+x_bar <- c(27.8, 24.1, 22.2)
+s_sq <- c(60.1, 6.3, 15.4)
+n <- c(20, 20, 10)
+```
+
+He also reports $W = 3.35$ and $f = 22.6$. Replicating the calculations with our `Welch_F_agg` function:
+
+```{r}
+Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n)
+```
+
+We get slightly different results! But we know that our function is correct---or at least consistent with `oneway.test`---so what's going on? It turns out that there was an error in some of Welch's intermediate calculations, which can only be spotted because he reported all of his work in the paper.
+
+We then put all these pieces in our revised `one_run()` method as so:
+
+```{r}
+one_run_fast <- function( mu, sigma_sq, sample_size ) {
+  sim_data <- generate_data(mu = mu, sigma_sq = sigma_sq,
+                            sample_size = sample_size)
+  summary_stats <- summarize_data(sim_data)
+  anova_p <- with(summary_stats, 
+                  ANOVA_F_agg(x_bar = x_bar,s_sq = s_sq, n = n))
+  Welch_p <- with(summary_stats, 
+                  Welch_F_agg(x_bar = x_bar, s_sq = s_sq, n = n))
+  tibble(ANOVA = anova_p, Welch = Welch_p)
+}
+
+one_run_fast( mu = mu, sigma_sq = sigma_sq,
+              sample_size = sample_size )
+```
+
+The reason this is important is we are now doing our group aggregation only once, rather than once per method.
+We benchmark to see our speedup:
+
+```{r}
+timings <- bench::mark(original = one_run(mu = mu, sigma_sq = sigma_sq, 
+                                          sample_size = sample_size),
+                       one_agg = one_run_fast(mu = mu, sigma_sq = sigma_sq, 
+                                              sample_size = sample_size),
+                       check=FALSE)
+timings[1:4] %>%
+  mutate( speed_up = as.numeric( max(median) / median ) ) %>%
+  knitr::kable( digits = 2 )
+```
+
+Our improvement is fairly modest.
+
+To recap, there are two advantages of this kind of coding:
+
+ 1. Code reuse is generally good because when you have the same code in multiple places it can make it harder to read and understand your code. If you see two blocks of code you might worry they are only mostly similar, not exactly similar, and waste time trying to differentiate.  If you have a single, well-named function, you immediately know what a block of code is doing.
+ 
+ 2. Saving the results of calculations can speed up your computation since you are saving your partial work.  This can be useful to reduce calculations that are particularly time intensive.
+ 
+That said, optimizing code is dangerous (it is an easy way to introduce bugs into your simulation workflow) and time consuming for you (thinking through and writing all the fancy code is time you are not doing something else).
+But it sure can be satisfying to spend an extra weekend hacking away at this sort of thing!
 
