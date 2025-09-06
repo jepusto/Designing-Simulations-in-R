@@ -62,9 +62,9 @@ Learning to write your own functions to carry out calculations is an immensely u
 Writing custom functions is also central to our approach to coding Monte Carlo simulations, and so we highlight some of the key considerations here.
 [Chapter 19 of R for Data Science (1st edition)](https://r4ds.had.co.nz/functions.html) provides an in-depth discussion of how to write your own functions. 
 
-Here is an example of a custom function called `one_run()`:
+Here is an example of a custom function called `one_pval()`:
 ```{r}
-one_run <- function( N, mn, sd ) {
+one_pval <- function( N, mn, sd ) {
   vals <- rnorm( N, mean = mn, sd = sd )
   tt <- t.test( vals )
   pvalue <- tt$p.value
@@ -80,9 +80,9 @@ The first line specifies that we are creating a function that takes inputs `N`, 
 
 Having created the function, we can then use it with any inputs that we like:
 ```{r}
-one_run( 100, 5, 1 )
-one_run( 10, 0.3, 1 )
-one_run( 10, 0.3, 0.2 )
+one_pval( 100, 5, 1 )
+one_pval( 10, 0.3, 1 )
+one_pval( 10, 0.3, 0.2 )
 ```
 In each case, the output of the function is a p-value from a simulated sample of data. The function produces a different answer each time because its instructions involve generating random numbers each time it is called.
 In essence, our custom function is just a short-cut for carrying out its instructions. 
@@ -207,24 +207,24 @@ Using argument names greatly enhances the readability and flexibility of functio
 When you specify inputs by name, R matches the values to the arguments based on the names rather than the order in which they appear.
 This feature is particularly useful in complex functions with many optional arguments.
 
-For example, consider the function `one_run()` from \@ref(rolling-your-own):
+For example, consider the function `one_pval()` from \@ref(rolling-your-own):
 ```{r}
-one_run <- function( N, mn, sd ) {
+one_pval <- function( N, mn, sd ) {
   vals <- rnorm( N, mean = mn, sd = sd )
   tt <- t.test( vals )
   pvalue <- tt$p.value
   return(pvalue)
 }
 ```
-You could call `one_run()` with _named_ arguments in any order:
+You could call `one_pval()` with _named_ arguments in any order:
 ```{r}
-result <- one_run(sd = 0.5, mn = 2, N = 500)
+result <- one_pval(sd = 0.5, mn = 2, N = 500)
 ```
 In this call, R knows which value to assign to each argument, so we could list the arguments however we like.
 
 Without naming, we would have to specify the arguments in the exact order that they appear in the function definition:
 ```{r}
-result <- one_run( 500, 2, 0.5 )
+result <- one_pval( 500, 2, 0.5 )
 ```
 Without the argument names, this line of code is harder to follow---you have to know more about the design of the function to understand how it is being used in this instance.
 
@@ -235,10 +235,10 @@ Even if you get it right, if someone later changes the function (say by adding a
 ### Argument Defaults
 
 Default arguments allow you to specify typical values for parameters that a user might not need to change every time they use the function.
-This can make the function easier to use and less error-prone because the defaults ensure that the function behaves sensibly even when some arguments are not explicitly provided. For example, let us revise the `one_run()` function from above to use default arguments:
+This can make the function easier to use and less error-prone because the defaults ensure that the function behaves sensibly even when some arguments are not explicitly provided. For example, let us revise the `one_pval()` function from above to use default arguments:
 
 ```{r}
-one_run <- function( N = 10, mn = 0, sd = 1 ) {
+one_pval <- function( N = 10, mn = 0, sd = 1 ) {
   vals <- rnorm( N, mean = mn, sd = sd )
   tt <- t.test( vals )
   pvalue <- tt$p.value
@@ -247,11 +247,11 @@ one_run <- function( N = 10, mn = 0, sd = 1 ) {
 ```
 
 Now our function has a default for `N` of 10, for `mn` of 0, and for `s` of 1.
-This means a user can run the function simply by calling `one_run()` without any inputs. Doing so will generate a p-value from a sample of 10 observations with a mean of zero and a standard deviation of 1.
+This means a user can run the function simply by calling `one_pval()` without any inputs. Doing so will generate a p-value from a sample of 10 observations with a mean of zero and a standard deviation of 1.
 
 Once we have our function with defaults, we can call the function while specifying only the inputs that differ from the default values:
 ```{r}
-bigger_sample <- one_run( N = 50 )
+bigger_sample <- one_pval( N = 50 )
 ```
 The function will use its default values for `mn` and `s`.
 Using defaults lets the user call the function more succinctly.
@@ -335,17 +335,17 @@ Adapting a good example is usually much easier than starting from a blank screen
 
 ## Exercises
 
-1. Revise the `one_run()` function to use `|>` instead of storing the simulated sample in `vals`.
+1. Revise the `one_pval()` function to use `|>` instead of storing the simulated sample in `vals`.
 
-2. Modify the `one_run()` function to return a `tibble()` that includes separate columns for the test statistic (called `tt$statistic`), the p-value, and the lower and upper end-points of the confidence interval (called `tt$conf.int`).
+2. Modify the `one_pval()` function to return a `tibble()` that includes separate columns for the test statistic (called `tt$statistic`), the p-value, and the lower and upper end-points of the confidence interval (called `tt$conf.int`).
 
-3. Modify the `one_run()` function so that the sample of data is generated from a non-central t distribution by substituting R's `rt()` function in place of `rnorm()`. Make sure to modify the arguments (and argument names) of `one_run()` to allow the user to specify the non-centrality and degrees of freedom parameters of the non-central t distribution. 
+3. Modify the `one_pval()` function so that the sample of data is generated from a non-central t distribution by substituting R's `rt()` function in place of `rnorm()`. Make sure to modify the arguments (and argument names) of `one_pval()` to allow the user to specify the non-centrality and degrees of freedom parameters of the non-central t distribution. 
 
 4. The non-central t distribution is usually parameterized in terms of non-centrality parameter $\delta$ and degrees of freedom $\nu$, and these parameters determine the mean and spread of the distribution. Specifically, the mean of the non-central t distribution is 
     $$\text{E}(T) = \delta \times \sqrt{\frac{\nu}{2}} \times \frac{\Gamma((\nu - 1) / 2)}{\Gamma(\nu / 2)},$$
-    where $\Gamma()$ is the gamma function (called `gamma()` in R). Create a version of the `one_run()` function that generates data based on a non-central t distribution, but where the input arguments are `mn` for the mean and `df` for the degrees of freedom. Here is a function skeleton to get started:
+    where $\Gamma()$ is the gamma function (called `gamma()` in R). Create a version of the `one_pval()` function that generates data based on a non-central t distribution, but where the input arguments are `mn` for the mean and `df` for the degrees of freedom. Here is a function skeleton to get started:
     ```{r}
-    one_run <- function( N = 10, mn = 5, df = 4) {
+    one_pval <- function( N = 10, mn = 5, df = 4) {
       
       # generate data from non-central t distribution
       # vals <- 
@@ -360,4 +360,4 @@ Adapting a good example is usually much easier than starting from a blank screen
     }
     ```
 
-5. Modify `one_run()` to allow the user to specify a hypothesized value for the population mean, to use when calculating the one-sample t-test results.
+5. Modify `one_pval()` to allow the user to specify a hypothesized value for the population mean, to use when calculating the one-sample t-test results.
