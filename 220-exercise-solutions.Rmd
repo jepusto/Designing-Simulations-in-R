@@ -1,0 +1,421 @@
+
+# Exercise solutions {#exercise-solutions}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+options(list(dplyr.summarise.inform = FALSE))
+```
+
+# Programming Preliminaries Exercises {#programing-prelim-solutions}
+
+## 1
+
+Revise the `one_pval()` function to use `|>` instead of storing the simulated sample in `vals`.
+
+```{r 2.5.1 solution}
+one_pval <- function( N = 10, mn = 0, sd = 1 ) {
+  tt <-
+    rnorm( N, mean = mn, sd = sd ) |>
+    t.test()
+  pvalue <- tt$p.value
+  return(pvalue)
+}
+```
+
+## 2
+
+Modify the `one_pval()` function to return a `tibble()` that includes separate columns for the test statistic (called `tt$statistic`), the p-value, and the lower and upper end-points of the confidence interval (called `tt$conf.int`).
+
+```{r 2.5.2 solution}
+one_pval <- function( N = 10, mn = 0, sd = 1 ) {
+  tt <-
+    rnorm( N, mean = mn, sd = sd ) |>
+    t.test()
+  res <- tibble(
+    test_statistic = tt$statistic,
+    pvalue = tt$p.value,
+    lower_bound = tt$conf.int[1],
+    upper_bound = tt$conf.int[2]
+    )
+  return(res)
+}
+```
+
+## 3
+
+Modify the `one_pval()` function so that the sample of data is generated from a non-central t distribution by substituting R's `rt()` function in place of `rnorm()`. Make sure to modify the arguments (and argument names) of `one_pval()` to allow the user to specify the non-centrality and degrees of freedom parameters of the non-central t distribution. 
+
+
+```{r 2.5.3 solution}
+one_pval <- function( N = 10, df = 1, ncp = 1 ) {
+  tt <-
+    rt( N, df = df, ncp = ncp ) |>
+    t.test()
+  res <- tibble(
+    test_statistic = tt$statistic,
+    pvalue = tt$p.value,
+    lower_bound = tt$conf.int[1],
+    upper_bound = tt$conf.int[2]
+    )
+  return(res)
+}
+```
+
+## 4
+ The non-central t distribution is usually parameterized in terms of non-centrality parameter $\delta$ and degrees of freedom $\nu$, and these parameters determine the mean and spread of the distribution. Specifically, the mean of the non-central t distribution is 
+    $$\text{E}(T) = \delta \times \sqrt{\frac{\nu}{2}} \times \frac{\Gamma((\nu - 1) / 2)}{\Gamma(\nu / 2)},$$
+    where $\Gamma()$ is the gamma function (called `gamma()` in R). Create a version of the `one_pval()` function that generates data based on a non-central t distribution, but where the input arguments are `mn` for the mean and `df` for the degrees of freedom. Here is a function skeleton to get started:
+    ```{r}
+    one_pval <- function( N = 10, mn = 5, df = 4) {
+      
+      # generate data from non-central t distribution
+      # vals <- 
+      
+      # calculate one-sample t-test
+      tt <- t.test( vals )
+      
+      # compile results into a tibble and return
+      # res <- 
+
+      return(res)
+    }
+    ```
+
+```{r 2.5.4 solution}
+one_pval <- function( N = 10, mn = 5, df = 4) {
+
+  # generate data from non-central t distribution
+  ncp <- (mn * gamma(df/2))/(sqrt(df/2) * gamma((df-1)/2))
+  
+  vals <- rt( 10, df = df, ncp = ncp )
+  
+  # calculate one-sample t-test
+  tt <- t.test( vals )
+  
+  # compile results into a tibble and return
+  res <- tibble(
+    test_statistic = tt$statistic,
+    pvalue = tt$p.value,
+    lower_bound = tt$conf.int[1],
+    upper_bound = tt$conf.int[2]
+    )
+
+  return(res)
+}
+```
+
+## 5
+
+Modify `one_pval()` to allow the user to specify a hypothesized value for the population mean, to use when calculating the one-sample t-test results.
+
+```{r 2.5.5 solution}
+one_pval <- function( N = 10, mn = 5, df = 4, mu0 = 5 ) {
+
+  # generate data from non-central t distribution
+  ncp <- (mn * gamma(df/2))/(sqrt(df/2) * gamma((df-1)/2))
+  
+  vals <- rt( 10, df = df, ncp = ncp )
+  
+  # calculate one-sample t-test
+  tt <- t.test( vals, mu = mu0 )
+  
+  # compile results into a tibble and return
+  res <- tibble(
+    test_statistic = tt$statistic,
+    pvalue = tt$p.value,
+    lower_bound = tt$conf.int[1],
+    upper_bound = tt$conf.int[2]
+    )
+
+  return(res)
+}
+```
+
+# An initial simulation {#initial-simulation-solutions}
+
+## 1
+
+The simulation function we developed in this chapter runs 1000 replications of the data-generating and data-analysis process, which leads to some Monte Carlo error in the reported results. Modify the `ttest_CI_experiment()` function to make the number of replications an input argument, then re-run the simulation and re-create the graph of the results with $R=10,000$ or even $R=100,000$.  Is the graph more regular than the one in the text, above?
+Use your improved results to estimate what sample size would be large enough to give coverage of at least 94% (so only 1% off of desired).
+Is this answer much different from if you had used the figure given in the text?
+
+```{r 3.5.1 solution}
+ttest_CI_experiment <- function( n, R ) {
+  
+  rps <- replicate( R, {
+    dat <- rgeom( n = n, prob = 1/5 ) # simulate data
+    tt <- t.test( dat )               # analyze data
+    findInterval( 4, tt$conf.int )    # evaluate coverage
+  })
+
+  coverage <- mean( rps == 1 )       # summarize results
+  
+  return( coverage )
+}
+
+experiment_graph <- function( R ) {
+  ns <- c(10, 20, 30, 40, 60, 80, 100, 120, 160, 200, 300)
+
+
+  coverage_est <- map_dbl( ns, ttest_CI_experiment, R = R)
+  
+  res <- tibble( 
+    n = ns, 
+    coverage = 100 * coverage_est 
+  )
+  
+  ggplot( res, aes( x = n, y = coverage ) ) +
+    geom_hline( yintercept=95, col="red" ) +  
+    # A reference line for nominal coverage rate
+    geom_line() + 
+    geom_point( size = 4 ) +
+    scale_x_log10( breaks = ns, minor_breaks = NULL) +
+    labs( 
+      title="Coverage rates for t-test on exponential data",
+      x = "n (sample size)", 
+      y = "coverage (%)" 
+    ) +
+    coord_cartesian(xlim = c(9,320), ylim=c(85,100), expand = FALSE) + 
+    theme_minimal()
+}
+# experiment_graph( 10000 )
+# experiment_graph( 100000 )
+```
+
+In the new graphs, we will observe more regularity than the one in the above text. Additionally, based on purely data observed from the graph, we can infer that we would need a sample size in the range of 80–100 to gain a coverage of 94%, which is not too different than if we had used the figure from the text.
+
+## 2
+
+Modify the `ttest_CI_experiment()` function to make the $p$ parameter an input argument.  Repeat the one-factor simulation, but use $p = 1/10$. Make sure your function is comparing coverage to the population mean of $(1 - p) / p$. How do the coverage rates change when $p$ is so small?
+
+
+```{r 3.5.2 solution}
+ttest_CI_experiment <- function( n, p ) {
+  
+  rps <- replicate( 1000, {
+    dat <- rgeom( n = n, prob = p ) # simulate data
+    tt <- t.test( dat )               # analyze data
+    findInterval( (1-p)/p, tt$conf.int )    # evaluate coverage
+  })
+
+  coverage <- mean( rps == 1 )       # summarize results
+  
+  return(coverage)
+}
+
+
+ns <- c(10, 20, 30, 40, 60, 80, 100, 120, 160, 200, 300)
+
+
+coverage_est <- map_dbl( ns, ttest_CI_experiment, p=1/10)
+
+res <- tibble( 
+  n = ns, 
+  coverage = 100 * coverage_est 
+)
+
+ggplot( res, aes( x = n, y = coverage ) ) +
+  geom_hline( yintercept=95, col="red" ) +  
+  # A reference line for nominal coverage rate
+  geom_line() + 
+  geom_point( size = 4 ) +
+  scale_x_log10( breaks = ns, minor_breaks = NULL) +
+  labs( 
+    title="Coverage rates for t-test on exponential data",
+    x = "n (sample size)", 
+    y = "coverage (%)" 
+  ) +
+  coord_cartesian(xlim = c(9,320), ylim=c(85,100), expand = FALSE) + 
+  theme_minimal()
+```
+
+We can observe that for smaller values of p when we also have small values of n we recieve a lower coverage, and a overall more volitile coverage rate, though we still converge to 95%.
+
+## 3
+
+Below is a partially completed modified version of the `ttest_CI_experiment()` function that should create a tibble that includes the estimated coverage rate, the average interval length, and a confidence interval for the coverage rate:
+    ```{r}
+    ttest_CI_experiment_full = function( n ) {
+      
+      lotsa_CIs <- replicate( 1000, {
+        # simulate data
+        dat <- rgeom( n = n, prob = 1/5)                            
+        # analyze data
+        tt <- t.test( dat )                                       
+        # return CI
+        tibble(lower = tt$conf.int[1], upper = tt$conf.int[2])
+      }, simplify = FALSE ) |>
+        bind_rows()
+    
+      # summarize results
+      # <calculate coverage>
+      # <calculate average interval length>
+      # <calculate a 95% confidence interval for the true coverage rate>
+
+      return(coverage)
+    }
+    
+    ```
+    Complete the function by writing code to compute the estimated coverage rate and average confidence interval length. Also calculate a 95% confidence interval for the true coverage rate (you can use `prop.test()` on your set of simulation coverage indicators to obtain this, treating your $R$ simulation replicates as a random sample in its own right). This confidence interval captures what we call _Monte Carlo Simulation Uncertainty_, which will depend on the number of simulation trials you run. Your modified function should return a one-row tibble with the coverage rate, average confidence interval length, and the lower and upper limits of a CI for the true coverage rate.
+
+```{r 3.5.3 solution}
+ttest_CI_experiment_full = function( n ) {
+  lotsa_CIs <- replicate( 1000, {
+    # simulate data
+    dat <- rgeom( n = n, prob = 1/5)                            
+    # analyze data
+    tt <- t.test( dat )                                       
+    # return CI
+    tibble(lower = tt$conf.int[1], upper = tt$conf.int[2])
+  },simplify = FALSE) |>
+    bind_rows()
+  
+  covered <- as.numeric( lotsa_CIs$lower <= 4 & lotsa_CIs$upper >= 4 )
+  coverage_rate <- mean( covered )
+  average_len <- mean( lotsa_CIs$upper - lotsa_CIs$lower )
+  pt <- prop.test( sum(covered), length(covered) )
+  coverage <- tibble(
+    rate = coverage_rate,
+    len = average_len,
+    lower = pt$conf.int[1],
+    upper = pt$conf.int[2]
+  )
+  
+  return(coverage)
+}
+```
+
+## 4
+
+ Using the prior problem, re-run the simulations to obtain a data frame with each row being a simulation scenario and columns of sample size, estimated coverage, low end of the estimate's confidence interval, high end of the interval, and average confidence interval length.  You will likely want to use `map()` and then `bind_rows()` on your list of results; see Chapter \@ref(repeating-oneself) for more information about these techniques.
+Use your resulting set of results to create a graph that depicts the estimated coverage rates as a function of sample size. Make your graph include the 95% confidence intervals also, so that the Monte Carlo simulation error in the estimated coverage rates is represented in the graph. We recommend using the `ggplot2` function `geom_pointrange()` to plot the confidence intervals.
+
+```{r 3.5.4 solution}
+ttest_CI_experiment = function( n ) {
+  
+  lotsa_CIs <- replicate( 1000, {
+    # simulate data
+    dat <- rgeom( n = n, prob = 1/5)                            
+    # analyze data
+    tt <- t.test( dat )                                       
+    # return CI
+    tibble(lower = tt$conf.int[1], upper = tt$conf.int[2])
+  },simplify = FALSE) |>
+    bind_rows()
+  
+  covered <- as.numeric( lotsa_CIs$lower <= 4 & lotsa_CIs$upper >= 4 )
+  coverage_rate <- mean( covered )
+  average_len <- mean( lotsa_CIs$upper - lotsa_CIs$lower )
+  pt <- prop.test( sum(covered), length(covered), p = 0.95 )
+  coverage <- tibble(
+    rate = coverage_rate,
+    len = average_len,
+    lower = pt$conf.int[1],
+    upper = pt$conf.int[2]
+  )
+  
+  return(coverage)
+}
+
+ns <- c(10, 20, 30, 40, 60, 80, 100, 120, 160, 200, 300)
+
+res <- map( ns, ttest_CI_experiment ) |>
+  bind_rows() |>
+  bind_cols(sample_size = ns)
+
+ggplot(res, aes(x = sample_size, y = rate * 100)) +
+  geom_hline( yintercept=95, col="red" ) +  
+  geom_pointrange(aes(ymin = lower * 100, ymax = upper * 100)) +
+  geom_line() + 
+  geom_point( size = 4 ) +
+  scale_x_log10( breaks = ns, minor_breaks = NULL) +
+  labs(
+    title="Coverage rates for t-test on exponential data",
+    x = "n (sample size)", 
+    y = "coverage (%)" 
+  ) +
+  coord_cartesian(xlim = c(9,320), ylim=c(85,100), expand = FALSE) + 
+  theme_minimal()
+```
+
+## 5
+
+Modify `ttest_CI_experiment()` so that the user can specify the population mean of the data-generating process. Also let the user specify the number of replications to use. Here is a function skeleton to use as a starting point:
+    ```{r}
+    ttest_CI_experiment <- function( n, pop_mean, reps) {
+      
+      pop_prob <- 1 / (pop_mean + 1)
+      
+      # <fill in the rest>
+      
+      return(coverage)
+    }
+    ```
+
+```{r 3.5.5 solution}
+ttest_CI_experiment <- function( n, pop_mean, reps = 1000 ) {
+
+  pop_prob <- 1 / (pop_mean + 1)
+
+  lotsa_CIs <- replicate( reps, {
+    # simulate data
+    dat <- rgeom( n = n, prob = pop_prob)                            
+    # analyze data
+    tt <- t.test( dat )                                       
+    # return CI
+    tibble(lower = tt$conf.int[1], upper = tt$conf.int[2])
+  },simplify = FALSE) |>
+    bind_rows()
+  
+  covered <- as.numeric( lotsa_CIs$lower <= pop_mean & lotsa_CIs$upper >= pop_mean )
+  coverage_rate <- mean( covered )
+  average_len <- mean( lotsa_CIs$upper - lotsa_CIs$lower )
+  pt <- prop.test( sum(covered), length(covered), p = 0.95 )
+  coverage <- tibble(
+    rate = coverage_rate,
+    len = average_len,
+    lower = pt$conf.int[1],
+    upper = pt$conf.int[2]
+  )
+  
+  return(coverage)
+}
+```
+
+## 6
+
+Using the modified function from the previous problem, implement a two-factor simulation study for several different values of `n` and several different population means.
+One way to do this is to run a few one-factor simulations, each with a different population mean.  You can store them in a series of datasets, `res1`, `res2`, `res3`, etc.
+Then use `bind_rows( size1 = res1, ..., .id = "mean" )` to combine the datasets into a single dataset.
+Make a plot of your results, with `n` on the x-axis, coverage on the $y$-axis, and different lines for different population means.
+
+```{r 3.5.6 solution}
+ns <- c(10, 20, 30, 40, 60, 80, 100, 120, 160, 200, 300)
+means <- c(3,4,5,10)
+
+res <- map( set_names( means ), \( mn ) {
+  map( set_names( ns ), ttest_CI_experiment, pop_mean = mn ) |>
+    bind_rows( .id = "sample_size" )
+  }) |>
+  bind_rows( .id = "pop_mean" ) |>
+  mutate(
+    sample_size = as.numeric( sample_size ),
+    pop_mean = as.numeric( pop_mean )
+  )
+
+ggplot(res, aes(x = sample_size, y = rate * 100, color = factor(pop_mean) )) +
+  geom_hline( yintercept=95, col="red" ) +  
+  geom_pointrange(aes(ymin = lower * 100, ymax = upper * 100)) +
+  geom_line() + 
+  geom_point( size = 4 ) +
+  scale_x_log10( breaks = ns, minor_breaks = NULL) +
+  labs(
+    title="Coverage rates for t-test on exponential data",
+    x = "n (sample size)", 
+    y = "coverage (%)",
+    color = "Population mean"
+  ) +
+  coord_cartesian(xlim = c(9,320), ylim=c(85,100), expand = FALSE) + 
+  theme_minimal()
+```
