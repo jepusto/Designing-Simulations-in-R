@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2025-10-15" />
+<meta name="date" content="2025-10-20" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -1239,15 +1239,15 @@ Where do we get these?</p>
 But we are not (yet) dealing with actual testing data, so we will need to make up an auxiliary model for these parameters.
 Perhaps we could just simulate some values?
 Arbitrarily, let’s draw the difficulty parameters from a normal distribution with mean <span class="math inline">\(\mu_\alpha = 0\)</span> and standard deviation <span class="math inline">\(\tau_\alpha = 1\)</span>.
-The discrimination parameters have to be greater than zero, and values near <span class="math inline">\(\beta_m = 1\)</span> make the model simplify (in other words, if <span class="math inline">\(\beta_1 = 1\)</span> then we can drop the parameter from the model), so let’s draw them from a gamma distribution with mean <span class="math inline">\(\mu_\beta = 1\)</span> and standard deviation <span class="math inline">\(\tau_\beta = 0.2\)</span>.
+The discrimination parameters have to be greater than zero, and values near <span class="math inline">\(\alpha_m = 1\)</span> make the model simplify (in other words, if <span class="math inline">\(\alpha_1 = 1\)</span> then we can drop the parameter from the model), so let’s draw them from a gamma distribution with mean <span class="math inline">\(\mu_\alpha = 1\)</span> and standard deviation <span class="math inline">\(\tau_\alpha = 0.2\)</span>.
 This decision requires a bit of work: gamma distributions are usually parameterized in terms of shape and rate, not mean and standard deviation.
 A bit of poking on Wikipedia gives us the answer, however:
-shape is equal to <span class="math inline">\(\mu_\beta^2 \tau_\beta^2 = 0.2^2\)</span> and rate is equal to <span class="math inline">\(\mu_\beta \tau_\beta^2 = 0.2^2\)</span>.
+shape is equal to <span class="math inline">\(\mu_\alpha^2 \tau_\alpha^2 = 0.2^2\)</span> and rate is equal to <span class="math inline">\(\mu_\alpha \tau_\alpha^2 = 0.2^2\)</span>.
 Finally, we imagine that all the test questions have four possible responses, and therefore set <span class="math inline">\(\gamma_m = \frac{1}{4}\)</span> for all the items, just like the instructor suggested.
 Each item requires three numbers; the easiest way to generate them is to let them all be independent of each other, so we do that.
 With that, let’s make up some item parameters:</p>
-<div class="sourceCode" id="cb139"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb139-1"><a href="data-generating-processes.html#cb139-1" tabindex="-1"></a>alphas <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(M, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">1.5</span>)           <span class="co"># difficulty parameters</span></span>
-<span id="cb139-2"><a href="data-generating-processes.html#cb139-2" tabindex="-1"></a>betas <span class="ot">&lt;-</span> <span class="fu">rgamma</span>(M, <span class="at">shape =</span> <span class="fl">0.2</span><span class="sc">^</span><span class="dv">2</span>, <span class="at">rate =</span> <span class="fl">0.2</span><span class="sc">^</span><span class="dv">2</span>)  <span class="co"># discrimination parameters</span></span>
+<div class="sourceCode" id="cb139"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb139-1"><a href="data-generating-processes.html#cb139-1" tabindex="-1"></a>betas <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(M, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="fl">1.5</span>)           <span class="co"># difficulty parameters</span></span>
+<span id="cb139-2"><a href="data-generating-processes.html#cb139-2" tabindex="-1"></a>alphas <span class="ot">&lt;-</span> <span class="fu">rgamma</span>(M, <span class="at">shape =</span> <span class="fl">0.2</span><span class="sc">^</span><span class="dv">2</span>, <span class="at">rate =</span> <span class="fl">0.2</span><span class="sc">^</span><span class="dv">2</span>)  <span class="co"># discrimination parameters</span></span>
 <span id="cb139-3"><a href="data-generating-processes.html#cb139-3" tabindex="-1"></a>gammas <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span> <span class="sc">/</span> <span class="dv">4</span>, M)                          <span class="co"># guessing parameters</span></span></code></pre></div>
 <p>A three-parameter IRT model describes the probability that a given respondent with ability <span class="math inline">\(\theta_i\)</span> answers each of the items on the test correctly.
 To generate data based on the model, we need to produce scores on every item for every respondent, leading to a matrix of <span class="math inline">\(N\)</span> respondents by <span class="math inline">\(M\)</span> items.
@@ -1262,7 +1262,7 @@ To simplify this calculation, we write a function to compute the item probabilit
 <span id="cb140-8"><a href="data-generating-processes.html#cb140-8" tabindex="-1"></a><span class="fu">r_scores</span>(thetas[<span class="dv">1</span>], <span class="at">alphas =</span> alphas, <span class="at">betas =</span> betas, </span>
 <span id="cb140-9"><a href="data-generating-processes.html#cb140-9" tabindex="-1"></a>         <span class="at">gammas =</span> gammas, <span class="at">M =</span> M)</span></code></pre></div>
 <pre><code>## q1 q2 q3 q4 
-##  0  1  0  1</code></pre>
+##  1  1  1  1</code></pre>
 <p>The first line of the function calculates the probability of correctly answering all <span class="math inline">\(M\)</span> items, and stores the result in a vector <code>pi_i</code>.
 In the next line, we simulate binary outcomes by flipping coins with the specified vector of probabilities.
 Finally, we assign names to each item so that we can keep track of which score is for which item.
@@ -1274,13 +1274,13 @@ Now, using the <code>map()</code> function, we can run the function for every on
 <pre><code>## # A tibble: 7 × 4
 ##      q1    q2    q3    q4
 ##   &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
-## 1     0     0     1     0
-## 2     1     1     0     0
-## 3     1     0     0     0
+## 1     1     0     0     1
+## 2     1     1     1     0
+## 3     0     0     1     0
 ## 4     1     1     1     1
-## 5     0     0     0     1
-## 6     1     0     1     1
-## 7     0     1     0     0</code></pre>
+## 5     1     0     1     1
+## 6     0     0     1     1
+## 7     1     1     1     1</code></pre>
 <p>To make it easier to generate datasets with different characteristics, we bundle the above code chunks into a single data-generating function.
 To do so, we have to decide what the input parameters should be.
 We know we need to at least specify <span class="math inline">\(N\)</span> and <span class="math inline">\(M\)</span>.
@@ -1296,34 +1296,37 @@ Our data-generating function will then be</p>
 <span id="cb144-8"><a href="data-generating-processes.html#cb144-8" tabindex="-1"></a>  thetas <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N)</span>
 <span id="cb144-9"><a href="data-generating-processes.html#cb144-9" tabindex="-1"></a>  </span>
 <span id="cb144-10"><a href="data-generating-processes.html#cb144-10" tabindex="-1"></a>  <span class="co"># generate item parameters</span></span>
-<span id="cb144-11"><a href="data-generating-processes.html#cb144-11" tabindex="-1"></a>  alphas <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(M, <span class="at">mean =</span> diff_M, <span class="at">sd =</span> diff_SD)</span>
-<span id="cb144-12"><a href="data-generating-processes.html#cb144-12" tabindex="-1"></a>  betas <span class="ot">&lt;-</span> <span class="fu">rgamma</span>(M, </span>
-<span id="cb144-13"><a href="data-generating-processes.html#cb144-13" tabindex="-1"></a>                  <span class="at">shape =</span> disc_M<span class="sc">^</span><span class="dv">2</span> <span class="sc">*</span> disc_SD<span class="sc">^</span><span class="dv">2</span>, </span>
-<span id="cb144-14"><a href="data-generating-processes.html#cb144-14" tabindex="-1"></a>                  <span class="at">rate =</span> disc_M <span class="sc">*</span> disc_SD<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb144-15"><a href="data-generating-processes.html#cb144-15" tabindex="-1"></a>  gammas <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span> <span class="sc">/</span> item_options, M)</span>
-<span id="cb144-16"><a href="data-generating-processes.html#cb144-16" tabindex="-1"></a></span>
-<span id="cb144-17"><a href="data-generating-processes.html#cb144-17" tabindex="-1"></a>  <span class="co"># simulate item responses</span></span>
-<span id="cb144-18"><a href="data-generating-processes.html#cb144-18" tabindex="-1"></a>  test_scores <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
-<span id="cb144-19"><a href="data-generating-processes.html#cb144-19" tabindex="-1"></a>   thetas, <span class="at">.f =</span> r_scores, </span>
-<span id="cb144-20"><a href="data-generating-processes.html#cb144-20" tabindex="-1"></a>    <span class="at">alphas =</span> alphas, <span class="at">betas =</span> betas, <span class="at">gammas =</span> gammas, <span class="at">M =</span> M</span>
-<span id="cb144-21"><a href="data-generating-processes.html#cb144-21" tabindex="-1"></a>  )</span>
-<span id="cb144-22"><a href="data-generating-processes.html#cb144-22" tabindex="-1"></a>  </span>
-<span id="cb144-23"><a href="data-generating-processes.html#cb144-23" tabindex="-1"></a>  <span class="co"># calculate total score</span></span>
-<span id="cb144-24"><a href="data-generating-processes.html#cb144-24" tabindex="-1"></a>  test_scores<span class="sc">$</span>total <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(test_scores)</span>
+<span id="cb144-11"><a href="data-generating-processes.html#cb144-11" tabindex="-1"></a></span>
+<span id="cb144-12"><a href="data-generating-processes.html#cb144-12" tabindex="-1"></a>  alphas <span class="ot">&lt;-</span> <span class="fu">rgamma</span>(</span>
+<span id="cb144-13"><a href="data-generating-processes.html#cb144-13" tabindex="-1"></a>    M, </span>
+<span id="cb144-14"><a href="data-generating-processes.html#cb144-14" tabindex="-1"></a>    <span class="at">shape =</span> disc_M<span class="sc">^</span><span class="dv">2</span> <span class="sc">*</span> disc_SD<span class="sc">^</span><span class="dv">2</span>, </span>
+<span id="cb144-15"><a href="data-generating-processes.html#cb144-15" tabindex="-1"></a>    <span class="at">rate =</span> disc_M <span class="sc">*</span> disc_SD<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb144-16"><a href="data-generating-processes.html#cb144-16" tabindex="-1"></a>  )</span>
+<span id="cb144-17"><a href="data-generating-processes.html#cb144-17" tabindex="-1"></a>  betas <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(M, <span class="at">mean =</span> diff_M, <span class="at">sd =</span> diff_SD)</span>
+<span id="cb144-18"><a href="data-generating-processes.html#cb144-18" tabindex="-1"></a>  gammas <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span> <span class="sc">/</span> item_options, M)</span>
+<span id="cb144-19"><a href="data-generating-processes.html#cb144-19" tabindex="-1"></a></span>
+<span id="cb144-20"><a href="data-generating-processes.html#cb144-20" tabindex="-1"></a>  <span class="co"># simulate item responses</span></span>
+<span id="cb144-21"><a href="data-generating-processes.html#cb144-21" tabindex="-1"></a>  test_scores <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(</span>
+<span id="cb144-22"><a href="data-generating-processes.html#cb144-22" tabindex="-1"></a>   thetas, <span class="at">.f =</span> r_scores, </span>
+<span id="cb144-23"><a href="data-generating-processes.html#cb144-23" tabindex="-1"></a>    <span class="at">alphas =</span> alphas, <span class="at">betas =</span> betas, <span class="at">gammas =</span> gammas, <span class="at">M =</span> M</span>
+<span id="cb144-24"><a href="data-generating-processes.html#cb144-24" tabindex="-1"></a>  )</span>
 <span id="cb144-25"><a href="data-generating-processes.html#cb144-25" tabindex="-1"></a>  </span>
-<span id="cb144-26"><a href="data-generating-processes.html#cb144-26" tabindex="-1"></a>  <span class="fu">return</span>(test_scores)</span>
-<span id="cb144-27"><a href="data-generating-processes.html#cb144-27" tabindex="-1"></a>}</span>
-<span id="cb144-28"><a href="data-generating-processes.html#cb144-28" tabindex="-1"></a></span>
-<span id="cb144-29"><a href="data-generating-processes.html#cb144-29" tabindex="-1"></a><span class="fu">r_3PL_IRT</span>(<span class="at">N =</span> <span class="dv">7</span>, <span class="at">M =</span> <span class="dv">4</span>)</span></code></pre></div>
+<span id="cb144-26"><a href="data-generating-processes.html#cb144-26" tabindex="-1"></a>  <span class="co"># calculate total score</span></span>
+<span id="cb144-27"><a href="data-generating-processes.html#cb144-27" tabindex="-1"></a>  test_scores<span class="sc">$</span>total <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(test_scores)</span>
+<span id="cb144-28"><a href="data-generating-processes.html#cb144-28" tabindex="-1"></a>  </span>
+<span id="cb144-29"><a href="data-generating-processes.html#cb144-29" tabindex="-1"></a>  <span class="fu">return</span>(test_scores)</span>
+<span id="cb144-30"><a href="data-generating-processes.html#cb144-30" tabindex="-1"></a>}</span>
+<span id="cb144-31"><a href="data-generating-processes.html#cb144-31" tabindex="-1"></a></span>
+<span id="cb144-32"><a href="data-generating-processes.html#cb144-32" tabindex="-1"></a><span class="fu">r_3PL_IRT</span>(<span class="at">N =</span> <span class="dv">7</span>, <span class="at">M =</span> <span class="dv">4</span>)</span></code></pre></div>
 <pre><code>## # A tibble: 7 × 5
 ##      q1    q2    q3    q4 total
 ##   &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;dbl&gt;
-## 1     1     1     0     0     2
-## 2     1     1     1     1     4
-## 3     1     1     1     0     3
-## 4     1     1     1     1     4
-## 5     1     1     1     0     3
-## 6     1     1     1     1     4
+## 1     1     0     0     0     1
+## 2     1     1     1     0     3
+## 3     0     0     1     1     2
+## 4     0     1     1     1     3
+## 5     1     1     1     1     4
+## 6     1     0     0     1     2
 ## 7     1     1     1     1     4</code></pre>
 <p>Now let’s look at a much larger sample of participants, with a longer test that includes <span class="math inline">\(M = 12\)</span> items:</p>
 <div class="sourceCode" id="cb146"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb146-1"><a href="data-generating-processes.html#cb146-1" tabindex="-1"></a>test_scores <span class="ot">&lt;-</span> <span class="fu">r_3PL_IRT</span>(<span class="at">N =</span> <span class="dv">10000</span>, <span class="at">M =</span> <span class="dv">12</span>)</span></code></pre></div>
@@ -1339,18 +1342,18 @@ For instance, we can easily visualize the distribution of the total scores on th
 <pre><code>## # A tibble: 1 × 12
 ##      q1    q2    q3    q4    q5    q6    q7    q8
 ##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
-## 1 0.628  0.62 0.629 0.256 0.539 0.620 0.624 0.620
+## 1 0.626 0.619 0.498 0.627 0.595 0.633 0.621 0.628
 ## # ℹ 4 more variables: q9 &lt;dbl&gt;, q10 &lt;dbl&gt;,
 ## #   q11 &lt;dbl&gt;, q12 &lt;dbl&gt;</code></pre>
-<p>The percentage of correct responses varies from 25.6% to 63.3.
+<p>The percentage of correct responses varies from 49.8% to 63.3.
 What are the correlations between individual items and the total score?
 Let’s check:</p>
 <div class="sourceCode" id="cb150"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb150-1"><a href="data-generating-processes.html#cb150-1" tabindex="-1"></a>test_scores <span class="sc">%&gt;%</span></span>
 <span id="cb150-2"><a href="data-generating-processes.html#cb150-2" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">starts_with</span>(<span class="st">&quot;q&quot;</span>), <span class="sc">~</span> <span class="fu">cor</span>(.x, total)))</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 12
-##      q1    q2     q3    q4    q5    q6    q7    q8
-##   &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
-## 1 0.154 0.386 0.0195 0.227 0.445 0.411 0.386 0.421
+##      q1    q2    q3    q4    q5    q6    q7    q8
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 0.275 0.293 0.298 0.295 0.290 0.275 0.288 0.301
 ## # ℹ 4 more variables: q9 &lt;dbl&gt;, q10 &lt;dbl&gt;,
 ## #   q11 &lt;dbl&gt;, q12 &lt;dbl&gt;</code></pre>
 <p>Note that simulating a new dataset will produce different results for these summaries because generating each dataset entails sampling a new set of items (with different difficulty and discrimination).</p>
@@ -1391,9 +1394,8 @@ We additionally scale by <span class="math inline">\((\nu-2)/\nu\)</span> to ach
 <span id="cb152-3"><a href="data-generating-processes.html#cb152-3" tabindex="-1"></a>}</span>
 <span id="cb152-4"><a href="data-generating-processes.html#cb152-4" tabindex="-1"></a></span>
 <span id="cb152-5"><a href="data-generating-processes.html#cb152-5" tabindex="-1"></a><span class="fu">r_tss</span>(<span class="at">n =</span> <span class="dv">8</span>, <span class="at">mean =</span> <span class="dv">3</span>, <span class="at">sd =</span> <span class="dv">2</span>, <span class="at">df =</span> <span class="dv">5</span>)</span></code></pre></div>
-<pre><code>## [1]  0.02822602  3.87035901  4.51376755
-## [4]  3.02447410 -0.26265918  2.29642811
-## [7]  1.16346358  7.59634125</code></pre>
+<pre><code>## [1]  5.9087993  2.7234790  1.7515113 -0.1839347
+## [5]  3.8703590  4.5137675  3.0244741 -0.2626592</code></pre>
 <ol style="list-style-type: decimal">
 <li><p>Modify the Welch simulation’s <code>simulate_data()</code> function to generate data from shifted-and-scaled <span class="math inline">\(t\)</span>-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
 Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.</p></li>
@@ -1431,10 +1433,10 @@ Our current implementation of the model does not handle this aspect of the model
 <pre><code>## Warning in rpois(N, lambda = mu1 - EZ3): NAs
 ## produced</code></pre>
 <pre><code>##   C1 C2
-## 1 NA 11
-## 2 NA 11
-## 3 NA 13
-## 4 NA 15
+## 1 NA  8
+## 2 NA 13
+## 3 NA 19
+## 4 NA 17
 ## 5 NA  9</code></pre>
 <p>For this combination of parameter values, <span class="math inline">\(\rho \times \sqrt{\mu_1 \mu_2}\)</span> is larger than <span class="math inline">\(\mu_1\)</span>, which leads to simulated values for <span class="math inline">\(C_1\)</span> that are all missing.
 That makes it pretty hard to compute the correlation between <span class="math inline">\(C_1\)</span> and <span class="math inline">\(C_2\)</span>.</p>
