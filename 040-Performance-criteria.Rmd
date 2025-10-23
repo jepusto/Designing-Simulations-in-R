@@ -259,13 +259,15 @@ For linear regression, the combination of bias plus increased variability yields
 The difference between the estimators are pronounced because RMSE is the square root of the _squared_ bias and _squared_ standard errors.
 Overall, aggregation and multi-level modeling have RMSEs around 17% smaller than linear regression---a consequential difference in accuracy.
 
-### Less Conventional Performance metrics
+### Less Conventional Performance metrics {#less-conventional-metrics}
 
 Depending on the model and estimation procedures being examined, a range of different metrics might be used to assess estimator performance.
 For point estimation, we have introduced bias, variance and RMSE as the three core measures of performance.
 However, all of these measures are sensitive to outliers in the sampling distribution.
 Consider an estimator that generally does well, except for an occasional large mistake. Because conventional measures are based on arithmetic averages, they will indicate that the estimator performs very poorly overall.
 Other metrics exist, such as the median bias and the median absolute deviation of $T$, which are less sensitive to outliers in the sampling distribution compared to the conventional metrics.
+Estimating these metrics will involve calculating sample quantiles of $T_1,...,T_R$, which are functions of the sample ordered from smallest to largest. 
+We will denote the $r^{th}$ order statistic as $T_{(r)}$ for $r = 1,...,R$.
 
 Median bias is an alternative measure of the central tendency of a sampling distribution.
 Positive median bias implies that more than 50% of the sampling distribution exceeds the quantity of interest, while negative median bias implies that more than 50% of the sampling distribution fall below the quantity of interest.
@@ -274,7 +276,14 @@ $$
 \text{Median-Bias}(T) = \M(T) - \theta 
 (\#eq:median-bias).
 $$
-An estimator of median bias is computed using the sample median of $T_1,...,T_R$.
+An estimator of median bias is computed using the sample median, equal to 
+$$
+m_T = \begin{cases} 
+T_{((R+1)/2)} & \text{if } R \text{ is odd} \\ 
+\frac{1}{2}\left(T_{(R/2)} + T_{(R/2+1)}\right) & \text{if } R \text{ is even.}
+\end{cases}
+(\#eq:sample-median)
+$$
 
 Another robust measure of central tendency is based on winsorizing the sampling distribution, or truncating all errors larger than a certain maximum size.
 Using a winsorized distribution amounts to arguing that you don't care about errors beyond a certain size, so anything beyond a certain threshold will be treated the same as if it were exactly on the threshold.
@@ -301,21 +310,21 @@ $$
 $$
 
 
-To compute estimates of the winsorized performance criteria, we substitute sample quantiles in place of $\Q_{0.25}(T)$ and $\Q_{0.25}(T)$ to get estimated thresholds, $\hat{L}_w$ and $\hat{U}_w$, find $\hat{T}_r^{(w)} = \min\{\max\{T_r, \hat{L}_w\}, \hat{U}_w\}$, and compute the sample performance metrics using Equations \@ref(eq:bias-estimator), \@ref(eq:var-estimator), and \@ref(eq:rmse-estimator), but with $\hat{T}_r^{(w)}$ in place of $T_r$.
+To compute estimates of the winsorized performance criteria, we substitute sample quantiles $T_{(R/4)}$ and $T_{(3R/4)}$ in place of $\Q_{0.25}(T)$ and $\Q_{0.25}(T)$, respectively, to get estimated thresholds, $\hat{L}_w$ and $\hat{U}_w$, find $\hat{T}_r^{(w)} = \min\{\max\{T_r, \hat{L}_w\}, \hat{U}_w\}$, and compute the sample performance metrics using Equations \@ref(eq:bias-estimator), \@ref(eq:var-estimator), and \@ref(eq:rmse-estimator), but with $\hat{T}_r^{(w)}$ in place of $T_r$.
 
 [^fences]: For a normally distributed sampling distribution, the interquartile range is `r round(diff(qnorm(c(0.25, 0.75))),2)` SD; with $w = 2$, the lower and upper thresholds would then fall at $\pm `r round(qnorm(0.75) + 2 * diff(qnorm(c(0.25, 0.75))),2)`$ SD, or the $`r round(100 * pnorm(qnorm(0.25) - 2 * diff(qnorm(c(0.25, 0.75)))),2)`^{th}$ and $`r round(100 * pnorm(qnorm(0.75) + 2 * diff(qnorm(c(0.25, 0.75)))),2)`^{th}$ percentiles.
 Still assuming a normal sampling distribution, taking $w = 2.5$ will mean that the thresholds fall at the $`r round(100 * pnorm(qnorm(0.25) - 2.5 * diff(qnorm(c(0.25, 0.75)))),3)`^{th}$ and $`r round(100 * pnorm(qnorm(0.75) + 2.5 * diff(qnorm(c(0.25, 0.75)))),3)`^{th}$ percentiles.
 
-A further robust measure of central tendency used the $p \times 100\%$-trimmed mean, which ignores the estimates in the lowest and highest $p$-quantiles of the sampling distribution.
+A further robust measure of central tendency uses the $p \times 100\%$-trimmed mean, which ignores the estimates in the lowest and highest $p$-quantiles of the sampling distribution.
 Formally, the trimmed-mean bias is
 $$
 \text{Trimmed-Bias}(T; p) = \E\left[ T \left| \Q_{p}(T) < T < \Q_{(1 - p)}(T) \right.\right] - \theta. 
 (\#eq:trimmed-bias)
 $$
 Median bias is thus a special case of trimmed mean bias, with $p = 0.5$.
-To estimate the trimmed bias, we use sample quantiles $\hat{Q}_p$ and $\hat{Q}_{(1 - p)}$ and take the mean of the middle $1 - 2p$ fraction of the distribution
+To estimate the trimmed bias, we take the mean of the middle $1 - 2p$ fraction of the distribution
 $$
-\widehat{\text{Trimmed-Bias}}(T; p) = \frac{1}{(1 - 2p)R} \sum_{r=1}^R T_r \times I\left(\hat{Q}_{p} < T < \hat{Q}_{(1 - p)}\right) - \theta. (\#eq:sample-trimmed-bias)
+\widehat{\text{Trimmed-Bias}}(T; p) = \frac{1}{(1 - 2p)R} \sum_{r=pR + 1}^{(1-p)R} T_{(r)} - \theta. (\#eq:sample-trimmed-bias)
 $$
 For a symmetric sampling distribution, winsorized bias and trimmed-mean bias will be the same as the conventional (mean) bias, but will be less affected by outlying values (i.e., values of $T$ very far from the center of the distribution).
 However, if a sampling distribution is not symmetric, winsorized bias and trimmed-mean bias become distinct performance measures, which put less emphasis on large errors compared to the conventional bias metric.
@@ -323,15 +332,15 @@ However, if a sampling distribution is not symmetric, winsorized bias and trimme
 Alternative measures of the overall accuracy of an estimator can also be defined along similar lines.
 For instance, an alternative to RMSE is to use the median absolute error (MAE), defined as
 $$
-\text{MAE} = \M\left(\left|T - \theta\right|\right),
+\text{MAE} = \M\left(\left|T - \theta\right|\right).
 (\#eq:MAE)
 $$
-which can be estimated by taking the sample median $|T_1 - \theta|, |T_2 - \theta|, ..., |T_R - \theta|$.
+Letting $E_r = |T_r - \theta|$, the MAE can be estimated by taking the sample median of $E_1,...,E_R$.
 Many other robust measures of the spread of the sampling distribution are also available, including the Rosseeuw-Croux scale estimator $Q_n$ [@Rousseeuw1993alternatives] and the biweight midvariance [@Wilcox2022introduction].
 @Maronna2006robust provide a useful introduction to these metrics and robust statistics more broadly.
 The `robustbase` package [@robustbase] provides functions for calculating many of these robust statistics.
 
-## Metrics for Standard Error Estimators
+## Metrics for Variance Estimators
 
 Statistics is concerned not only with how to estimate things, but also with understanding the extent of uncertainty in estimates of target parameters.
 These concerns apply in Monte Carlo simulation studies as well.
@@ -880,7 +889,7 @@ We call these standard errors Monte Carlo Simulation Errors, or MCSEs.
 For most of the performance metrics, closed-form expressions are available for calculating MCSEs.
 For a few of the metrics, we can apply techniques such as the jackknife to calculate reasonable approximations for MCSEs [@boos2015Assessing].
 
-### Closed-form expressions
+### Conventional metrics for point estimators
 
 For the metrics that we have described for evaluating point estimators, Monte Carlo standard errors can be calculated using conventional formulas.[^estimated-MCSEs] 
 Recall that we have a point estimator $T$ of a target parameter $\theta$, and we calculate the mean of the estimator $\bar{T}$ and its sample standard deviation $S_T$ across $R$ replications of the simulation process. 
@@ -888,8 +897,8 @@ In addition, we will need to calculate the standardized skewness and kurtosis of
 
 $$
 \begin{aligned}
-\text{Skewness (standardized)} &  &g_T &= \frac{1}{R S_T^3}\sum_{r=1}^R \left(T_r - \bar{T}\right)^3 \\
-\text{Kurtosis (standardized)} &  &k_T &= \frac{1}{R S_T^4} \sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
+\text{Skewness (standardized):} &  &g_T &= \frac{1}{R S_T^3}\sum_{r=1}^R \left(T_r - \bar{T}\right)^3 \\
+\text{Kurtosis (standardized):} &  &k_T &= \frac{1}{R S_T^4} \sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
 \end{aligned}
 (\#eq:skewness-kurtosis)
 $$
@@ -899,43 +908,69 @@ $$
 The bias of $T$ is estimated as $\bar{T} - \theta$, so the MCSE for bias is equal the MCSE of $\bar{T}$. It can be estimated as 
 $$
 MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}}.
+(\#eq:MCSE-bias)
 $$
 The sampling variance of $T$ is estimated as $S_T^2$, with MCSE of
 $$
 MCSE\left(\widehat{\Var}(T)\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}}.
+(\#eq:MCSE-var)
 $$
-The true standard error (the square root of the sampling variance) is estimated as $S_T$, with MCSE
+The true standard error (the square root of the sampling variance) is estimated as $S_T$. Using a delta method approximation[^delta-method], the MCSE of $S_T$ is
 $$
-MCSE\left(S_T\right) = \frac{1}{2}\sqrt{\frac{k_T - 1}{R}}.
+MCSE\left(S_T\right) = \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
+(\#eq:MCSE-SE)
 $$
 
-| Criterion for T      | MCSE   |
-|----------------|--------|
-| Bias ($T-\theta$)           | $\sqrt{S_T^2/ R}$        |
-| Variance ($S_T^2$)     | $\displaystyle{S_T^2 \sqrt{\frac{k_T - 1}{R}}}$ |
-| MSE            | see below |
-| MAD            | -   |
-| Power & Validity ($r_\alpha$)     | $\sqrt{ r_\alpha \left(1 - r_\alpha\right) / R}$ |
-| Coverage  ($\omega_\beta$)             | $\sqrt{\omega_\beta \left(1 - \omega_\beta\right) / R}$ |
-| Average length ($\text{E}(W)$)         |  $\sqrt{S_W^2 / R}$     |
-
-The MCSE for the MSE is a bit more complicated, and does not quite fit on our table:
-$$ \widehat{MCSE}( \widehat{MSE} ) = \displaystyle{\sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}} .$$
-
-For relative quantities with respect to an estimand, simply divide the criterion by the target estimand.
-E.g., for relative bias $T / \theta$, the standard error would be
-$$ SE\left( \frac{T}{\theta} \right) = \frac{1}{\theta} SE(T) = \sqrt{\frac{S_T^2}{R\theta^2}} .$$
-
-For square rooted quantities, such as the SE for the true SE (square root of the Variance) or the RMSE (square root of MSE) we can use the Delta method.
-The Delta method says (with some conditions), that if we assume $X \sim N( \phi, V )$, then we can approximate the distribution of $g(X)$ for some continuous function $g(\cdot)$ as
-$$ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2\cdot V \right) , $$
+[^delta-method]: The delta method approximation says (with some conditions), that if we assume $X \sim N\left( \phi, \sigma_X^2 \right)$, then we can approximate the distribution of $g(X)$ for some continuous function $g(\cdot)$ as
+$$ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2 \times \sigma_X^2 \right),$$
 where $g'(\phi)$ is the derivative of $g(\cdot)$ evaluated at $\phi$.
-In other words, 
-$$ SE( g(\hat{X}) ) \approx g'(\theta)  \times SE(\hat{X}) .$$
-For estimation, we plug in $\hat{\theta}$ and our estimate of $SE(\hat{X})$ into the above.
-Back to the square root, we have $g(x) = \sqrt(x)$ and $g'(x) = 1/2\sqrt(x)$.
-This gives, for example, the estimated MCSE of the SE as
-$$ \widehat{SE}( \widehat{SE} ) = \widehat{SE}( S^2_T ) = \frac{1}{2S^2_T} \widehat{SE}( S^2_T ) = \frac{1}{2S^2_T} S_T^2 \sqrt{\frac{k_T - 1}{R}} = \frac{1}{2} \sqrt{\frac{k_T - 1}{R}} .$$
+Following this approximation,
+$$ SE( g(X) ) \approx \left| g'(\theta) \right|  \times SE(X) .$$
+For estimation, we plug in $\hat{\theta}$ and our estimate of $SE(X)$ into the above.
+To find the MCSE for $S_T$, we can apply the delta method approximation to $X = S_T^2$ with $g(x) = \sqrt(x)$ and $g'(x) =\frac{1}{2\sqrt{x}}$.
+
+We estimate RMSE using Equation \@ref(eq:rmse-estimator), which can also be written as
+$$
+\widehat{\RMSE}(T) = \sqrt{(\bar{T} - \theta)^2 + \frac{R - 1}{R} S_T^2}.
+$$
+An MCSE for the estimated mean-squared error (the square of RMSE) is
+$$ 
+MCSE( \widehat{MSE} ) = \sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}.
+(\#eq:MCSE-MSE)
+$$
+Again following a delta method approximation, a MCSE for the RMSE is
+$$
+MCSE( \widehat{RMSE} ) = \frac{1}{2 \times \widehat{RMSE}} \times \sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}.
+(\#eq:MCSE-RMSE)
+$$
+
+Section \@ref(sec-relative-performance) discussed circumstances where we might prefer to calculate performance metrics in relative rather than absolute terms. 
+For metrics that are calculated by dividing a raw metric by the target parameter, the MCSE for the relative metric is simply the MCSE for the raw metric divided by the target parameter. 
+For instance, the MCSE of relative bias $\bar{T} / \theta$ is 
+$$ 
+MCSE\left( \frac{\bar{T}}{\theta} \right) = \frac{1}{\theta} MCSE(\bar{T}) = \frac{S_T}{\theta \sqrt{R}}.
+(\#eq:MCSE-relative-bias)
+$$
+MCSEs for relative variance and relative RMSE follow similarly.
+
+### Less conventional metrics for point estimators
+
+In Section \@ref(less-conventional-metrics) we described several alternative performance metrics for evaluating point estimators, which are less commonly used but are more robust to outliers compared to measures like bias and variance.
+Monte Carlo standard errors for these less conventional measures can be obtained using results from the theory of robust statistics [@Hettmansperger2010robust; @Maronna2006robust].
+
+@McKean1984comparison proposed a standard error estimator for the sample median from a continuous but not necessarily normal distribution, derived from a non-parametric confidence interval for the sample median. 
+We use their approach to compute a MCSE for $m_T$, the sample median of $T$.
+Let $c = \left\lceil(R + 1) / 2 - 1.96 \times \sqrt{R/4}\right\rfloor$, where the inner expression is rounded to the nearest integer.
+Then
+$$
+MCSE\left(m_T\right) = \frac{T_{(R + 1 - c)} - T_{(c)}}{2 \times 1.96}.
+(\#eq:MCSE-median)
+$$
+A Monte Carlo standard error for the median absolute deviation can be computed following the same approach, but substituting the order statistics of $E_r = | T_r - \theta|$ in place of those for $T_r$.
+
+- Winsorized bias
+
+- Trimmed bias
 
 
 ### MCSE for Relative Variance Estimators
@@ -965,6 +1000,14 @@ $$
 These formulas can be used to avoid re-computing the mean and sample variance from every subsample.
 Instead, you calculate the overall mean and overall variance, and then do a small adjustment with each jackknife iteration.
 You can even implement this with vector processing in R!
+
+### MCSE for Confidence Intervals and Hypothesis Tests
+
+| Criterion for T      | MCSE   |
+|----------------|--------|
+| Power & Validity ($r_\alpha$)     | $\sqrt{ r_\alpha \left(1 - r_\alpha\right) / R}$ |
+| Coverage  ($\omega_\beta$)             | $\sqrt{\omega_\beta \left(1 - \omega_\beta\right) / R}$ |
+| Average length ($\text{E}(W)$)         |  $\sqrt{S_W^2 / R}$     |
 
 
 ### Calculating MCSEs With the `simhelpers` Package
@@ -1030,16 +1073,19 @@ We have _not_ simulated enough to for sure know if MLM and Agg are not slightly 
 We list most of the performance criteria we saw in this chapter in the table below, for reference:
 
 
-| Criterion     | Definition            | Estimate             |
-|---------------|-----------------------|----------------------|
-| Bias          | $\text{E}(T) - \theta$                                  | $\bar{T} - \theta$   |
-| Median bias   | $\text{M}(T) - \theta$                                  | $\tilde{T} - \theta$ |
-| Variance      | $\text{E}\left[\left(T - \text{E}(T)\right)^2\right]$   | $S_T^2$              |
-| MSE           | $\text{E}\left[\left(T - \theta\right)^2\right]$ | $\left(\bar{T} - \theta\right)^2 + S_T^2$ |
-| MAE           | $\text{M}\left[\left|T - \theta\right|\right]$          | $\left[\left|T - \theta\right|\right]_{R/2}$   |
-| Relative bias          | $\text{E}(T) / \theta$ | $\bar{T} / \theta$   | $\sqrt{S_T^2 / \left(R\theta^2\right)}$        |
-| Relative median bias   | $\text{M}(T) / \theta$ | $\tilde{T} / \theta$ |
-| Relative MSE           | $\text{E}\left[\left(T - \theta\right)^2\right] / \theta^2$ | $\frac{\left(\bar{T} - \theta\right)^2 + S_T^2}{\theta^2}$ |
+| Criterion               | Definition                                              | Estimator            |
+|-------------------------|---------------------------------------------------------|----------------------|
+| __Metrics for point estimators__                                                                         |
+| Bias                    | $\E(T) - \theta$                                        | $\bar{T} - \theta$   |
+| Median bias             | $\M(T) - \theta$                                        | $m_T - \theta$       |
+| Variance                | $\E\left[\left(T - \text{E}(T)\right)^2\right]$         | $S_T^2$              |
+| Standard error          | $\sqrt{\E\left[\left(T - \text{E}(T)\right)^2\right]}$  | $S_T$                |
+| Mean squared error      | $\E\left[\left(T - \theta\right)^2\right]$              | $\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2$ |
+| Root mean squared error | $\sqrt{\E\left[\left(T - \theta\right)^2\right]}$       | $\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R} S_T^2}$ |
+| Median absolute error   | $\M\left[\left|T - \theta\right|\right]$                | $\left[\left|T - \theta\right|\right]_{R/2}$   |
+| Relative bias           | $\E(T) / \theta$                                        | $\bar{T} / \theta$   |
+| Relative median bias    | $\M(T) / \theta$                                        | $m_T / \theta$       |
+| Relative RMSE           | $\sqrt{\E\left[\left(T - \theta\right)^2\right]} / \theta$ | $\frac{\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2}}{\theta}$ |
 
 
 * Bias and median bias are measures of whether the estimator is systematically higher or lower than the target parameter. 
