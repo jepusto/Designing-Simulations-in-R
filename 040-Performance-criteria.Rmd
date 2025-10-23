@@ -276,13 +276,17 @@ $$
 \text{Median-Bias}(T) = \M(T) - \theta 
 (\#eq:median-bias).
 $$
-An estimator of median bias is computed using the sample median, equal to 
+An estimator of median bias is computed using the sample median, as
 $$
-m_T = \begin{cases} 
+\widehat{\text{Median-Bias}}(T) = M_T - \theta
+(\#eq:sample-median-bias)
+$$
+where
+$$
+M_T = \begin{cases} 
 T_{((R+1)/2)} & \text{if } R \text{ is odd} \\ 
 \frac{1}{2}\left(T_{(R/2)} + T_{(R/2+1)}\right) & \text{if } R \text{ is even.}
 \end{cases}
-(\#eq:sample-median)
 $$
 
 Another robust measure of central tendency is based on winsorizing the sampling distribution, or truncating all errors larger than a certain maximum size.
@@ -324,8 +328,13 @@ $$
 Median bias is thus a special case of trimmed mean bias, with $p = 0.5$.
 To estimate the trimmed bias, we take the mean of the middle $1 - 2p$ fraction of the distribution
 $$
-\widehat{\text{Trimmed-Bias}}(T; p) = \frac{1}{(1 - 2p)R} \sum_{r=pR + 1}^{(1-p)R} T_{(r)} - \theta. (\#eq:sample-trimmed-bias)
+\widehat{\text{Trimmed-Bias}}(T; p) = \tilde{T}_{\{p\}} - \theta. (\#eq:sample-trimmed-bias)
 $$
+where
+$$
+\tilde{T}_{\{p\}} = \frac{1}{(1 - 2p)R} \sum_{r=pR + 1}^{(1-p)R} T_{(r)}
+$$
+
 For a symmetric sampling distribution, winsorized bias and trimmed-mean bias will be the same as the conventional (mean) bias, but will be less affected by outlying values (i.e., values of $T$ very far from the center of the distribution).
 However, if a sampling distribution is not symmetric, winsorized bias and trimmed-mean bias become distinct performance measures, which put less emphasis on large errors compared to the conventional bias metric.
 
@@ -959,18 +968,27 @@ In Section \@ref(less-conventional-metrics) we described several alternative per
 Monte Carlo standard errors for these less conventional measures can be obtained using results from the theory of robust statistics [@Hettmansperger2010robust; @Maronna2006robust].
 
 @McKean1984comparison proposed a standard error estimator for the sample median from a continuous but not necessarily normal distribution, derived from a non-parametric confidence interval for the sample median. 
-We use their approach to compute a MCSE for $m_T$, the sample median of $T$.
+We use their approach to compute a MCSE for $M_T$, the sample median of $T$.
 Let $c = \left\lceil(R + 1) / 2 - 1.96 \times \sqrt{R/4}\right\rfloor$, where the inner expression is rounded to the nearest integer.
 Then
 $$
-MCSE\left(m_T\right) = \frac{T_{(R + 1 - c)} - T_{(c)}}{2 \times 1.96}.
+MCSE\left(M_T\right) = \frac{T_{(R + 1 - c)} - T_{(c)}}{2 \times 1.96}.
 (\#eq:MCSE-median)
 $$
 A Monte Carlo standard error for the median absolute deviation can be computed following the same approach, but substituting the order statistics of $E_r = | T_r - \theta|$ in place of those for $T_r$.
 
-- Winsorized bias
+Trimmed mean bias with trimming proportion $p$ is calculated by taking the mean of the the middle $(1 - 2p) \times R$ observations, which we have denoted as $\tilde{T}_{\{p\}}$. A MCSE for the trimmed mean (and for the trimmed mean bias) is
+$$
+MCSE\left(\tilde{T}_{\{p\}}\right) = \sqrt{\frac{U_p}{R}},
+(\#eq:MCSE-trimmed-mean)
+$$
+where
+$$
+U_p = \frac{1}{(1 - 2p)R}\left( pR\left(T_{(pR)}  - \tilde{T}_{\{p\}}\right)^2 + pR\left(T_{((1-p)R + 1)}  - \tilde{T}_{\{p\}}\right)^2 + \sum_{r=pR + 1}^{(1 - p)R} \left(T_{(r)} - \tilde{T}_{\{p\}}\right)^2 \right)
+$$
+[@Maronna2006robust, Eq. 2.85].
 
-- Trimmed bias
+- Winsorized bias
 
 
 ### MCSE for Relative Variance Estimators
@@ -1073,19 +1091,20 @@ We have _not_ simulated enough to for sure know if MLM and Agg are not slightly 
 We list most of the performance criteria we saw in this chapter in the table below, for reference:
 
 
-| Criterion               | Definition                                              | Estimator            |
-|-------------------------|---------------------------------------------------------|----------------------|
-| __Metrics for point estimators__                                                                         |
-| Bias                    | $\E(T) - \theta$                                        | $\bar{T} - \theta$   |
-| Median bias             | $\M(T) - \theta$                                        | $m_T - \theta$       |
-| Variance                | $\E\left[\left(T - \text{E}(T)\right)^2\right]$         | $S_T^2$              |
-| Standard error          | $\sqrt{\E\left[\left(T - \text{E}(T)\right)^2\right]}$  | $S_T$                |
-| Mean squared error      | $\E\left[\left(T - \theta\right)^2\right]$              | $\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2$ |
-| Root mean squared error | $\sqrt{\E\left[\left(T - \theta\right)^2\right]}$       | $\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R} S_T^2}$ |
-| Median absolute error   | $\M\left[\left|T - \theta\right|\right]$                | $\left[\left|T - \theta\right|\right]_{R/2}$   |
-| Relative bias           | $\E(T) / \theta$                                        | $\bar{T} / \theta$   |
-| Relative median bias    | $\M(T) / \theta$                                        | $m_T / \theta$       |
-| Relative RMSE           | $\sqrt{\E\left[\left(T - \theta\right)^2\right]} / \theta$ | $\frac{\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2}}{\theta}$ |
+| Criterion               | Definition                                              | Estimator            | Monte Carlo Standard Error |
+|-------------------------|---------------------------------------------------------|----------------------|----------------------------|
+| __Metrics for point estimators__  |||                      
+| Bias                    | $\E(T) - \theta$                                        | $\bar{T} - \theta$   | \@ref(eq:MCSE-bias)        |
+| Median bias             | $\M(T) - \theta$                                        | $m_T - \theta$       | \@ref(eq:MCSE-median)      |
+| Trimmed bias            |
+| Variance                | $\E\left[\left(T - \text{E}(T)\right)^2\right]$         | $S_T^2$              | \@ref(eq:MCSE-var)         |
+| Standard error          | $\sqrt{\E\left[\left(T - \text{E}(T)\right)^2\right]}$  | $S_T$                | \@ref(eq:MCSE-SE)          |
+| Mean squared error      | $\E\left[\left(T - \theta\right)^2\right]$              | $\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2$ | \@ref(eq:MCSE-MSE)          |
+| Root mean squared error | $\sqrt{\E\left[\left(T - \theta\right)^2\right]}$       | $\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R} S_T^2}$ | \@ref(eq:MCSE-RMSE)          |
+| Median absolute error   | $\M\left[\left|T - \theta\right|\right]$                | $\left[\left|T - \theta\right|\right]_{R/2}$   | \@ref(eq:MCSE-median)      |
+| Relative bias           | $\E(T) / \theta$                                        | $\bar{T} / \theta$   | \@ref(eq:MCSE-relative-bias) |
+| Relative median bias    | $\M(T) / \theta$                                        | $m_T / \theta$       | \@ref(eq:MCSE-relative-bias) |
+| Relative RMSE           | $\sqrt{\E\left[\left(T - \theta\right)^2\right]} / \theta$ | $\frac{\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2}}{\theta}$ | \@ref(eq:MCSE-relative-bias) |
 
 
 * Bias and median bias are measures of whether the estimator is systematically higher or lower than the target parameter. 
@@ -1142,6 +1161,16 @@ Pick some simulation parameters and estimate the coverage and interval width of 
 
 ### Cluster RCT simulation under a strong null hypothesis
 
+### Jackknife calculation of MCSEs {#jackknife-MCSE}
+
+Implement the jackknife as described above in code.  Check your answers against the `simhelpers` package for the built-in `t_res` dataset:
+```{r}
+library( simhelpers )
+calc_relative(data = t_res, estimates = est, true_param = true_param)
+```
+
+### Distribution theory for person-level average treatment effects {#cluster-RCT-SPATE}
+
 Section \@ref(case-cluster) described a data-generating process for a cluster-randomized experiment in which the school-specific treatment effects varied according to the size of the school. 
 The auxiliary model for the size of school $j$ was
 $$ 
@@ -1156,16 +1185,6 @@ where $Y_{ij}$ is the outcome for student $i$ in school $j$, $Z_j$ is an indicat
 The error terms $u_j$ and $e_{ij}$ are both assumed to be normally distributed with zero means.
 
 Under this model, the average treatment effect for school $j$ is $\tau_j = \gamma_1 + \gamma_2 S_j$. Because $\E(S_j) = 0$ by construction, the average of the school-specific treatment effects is $\gamma_1$. This is the school-level population average treatment effect estimate. But what is the student-level population average treatment effect estimate? Use the properties of the uniform distribution to find $\E(n_j \times \tau_j )$. Check your derivation by simulating a large sample of school sizes and school-specific treatment effects.
-
-### Jackknife calculation of MCSEs {#jackknife-MCSE}
-
-Implement the jackknife as described above in code.  Check your answers against the `simhelpers` package for the built-in `t_res` dataset:
-```{r}
-library( simhelpers )
-calc_relative(data = t_res, estimates = est, true_param = true_param)
-```
-
-### Distribution theory for person-level average treatment effects {#cluster-RCT-SPATE}
 
 ### Multiple scenarios {#multiple-scenario-performance}
 
