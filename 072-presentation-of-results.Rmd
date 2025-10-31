@@ -583,20 +583,29 @@ We might expect, for example, that for all methods the true standard error goes 
 Meta-regressions would also typically include interactions between method and factor, to see if some factors impact different methods differently.
 They can also include interactions between simulation factors, which allows us to explore how the impact of a factor can matter more or less, depending on other aspects of the context.
 
+Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
+See @gilbert2024multilevel for more on this.
+
 
 ### Example 1: Biserial, revisited
 
-For example, consider the bias of the biserial correlation estimates from above.
-Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
-In particular, how much does the population vs sample cutoff option matter for bias, across all the simulation factors considered?
+In the biserial correlation example above, we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
+These factors also seem to have complex interactions: note how when p1 = 0.5, we get larger dips than when p1 = 1/8.
+The figure gives a sense of this complex, rich story, but we might also want to summarize our results to get a sense of overall trends, so we can provide a simpler story of what is going on.
+We also might want to get a sense of the relative importance of various factors and their interactions.
+For example, we might ask how much the population (top row) vs. sample (bottom row) cutoff option matters for bias, across all the simulation factors considered.
+Is it a primary driver of when there is a lot of bias, or just one of many players of roughly equal import?
 
-
+<!--Meta regression approaches can give this kind of aggregate answer.
+For our biserial correlation example, we can, for example, regress bias onto our simulation factors:
+-->
 ```{r setup_modeling_demonstration, warning=FALSE, include=FALSE}
 options(scipen = 5)
 mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
 broom::tidy(mod) %>%
   knitr::kable( digits = c( 0,4,4,1,2 ) )
 ```
+
 
 <!--The above printout gives main effects for each factor, averaged across other factors.
 Because `p1` and `n` are ordered factors, the `lm()` command automatically generates linear, quadradic, cubic and fourth order contrasts for them.
@@ -607,9 +616,14 @@ The main effects are summaries of trends across contexts.
 For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
 -->
 
-We can use ANOVA to decompose the variation in bias into components predicted by various combinations of the simulation factors.
-Using ANOVA we can identify which factors have negligible/minor influence on the bias of an estimator, and which factors drive the variation we see.
-We can then summarise our anova table to see the contribution of the various factors and interactions to the total amount of variation in performance:
+ANOVA helps answer these sorts of questions.
+In particular, with ANOVA, we can decompose how much bias changes across scenarios into components predicted by various combinations of the simulation factors.
+We can do this with the `aov()` function in R, which is a wrapper around `lm()` that is designed for ANOVA.
+We first fit a model regressing bias on all interactions of our four simulation factors.
+In the R formula syntax, our model is `bias ~ rho * p1 * fixed * n`.
+
+The sum of squares ANOVA decomposition then provides a means for identifying which factors have negligible/minor influence on the bias of an estimator, and which factors drive the variation we see.
+For example, the following "eta table" gives the contribution of the various factors and interactions to the total amount of variation in bias across scenarios:
 
 ```{r, warning=FALSE, echo=FALSE}
 anova_table <- aov(bias ~ rho * p1 * fixed * n, data = r_F)
@@ -627,7 +641,7 @@ etaSquared(anova_table) %>%
   knitr::kable( digits = 2 )
 ```
 
-Here we see which factors are explaining the most variation.  E.g., `p1` is explaining 21% of the variation in bias across simulations.
+The table shows which factors are explaining the most variation.  E.g., `p1` is explaining 21% of the variation in bias across simulations.
 The contribution of any of the three- or four-way interactions are fairly minimal, by comparison, and could be dropped to simplify our model.
 
 Modeling summarizes overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
@@ -638,10 +652,10 @@ We could fit a regression model or ANOVA model for each performance measure in t
 @lee2023comparing were interested in evaluating how different modeling approaches perform when analyzing cross-classified data structures.
 To do this they conducted a multi-factor simulation to compare three methods: a method called CCREM, two-way OLS with cluster-robust variance estimation (CRVE), and two-way fixed effects with CRVE.
 The simulation was complex, involving several factors, so they fit an ANOVA model to understand which factors had the most influence on performance.
-In particular, they ran _four_ multifactor simulations, each in a different set of conditions.
+In particular, they ran _four_ multifactor simulations, each under a different broader context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes).
 They then used ANOVA to explore how the simulation factors impacted bias within each of these contexts.
 
-One of their tables in the supplementary materials (Table S5.2, see [here](https://osf.io/hy73g), page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes), and the rows corresponding to factors manipulated within the simulation.
+One of their tables in the supplementary materials (Table S5.2, see [here](https://osf.io/hy73g), page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context, and the rows corresponding to factors manipulated within that context.
 Small, medium, and large effects are marked to make them jump out to the eye.
 
 **ANOVA Results on Parameter Bias**
@@ -668,7 +682,7 @@ Small, medium, and large effects are marked to make them jump out to the eye.
 
 
 We see that when model assumptions are met or only homoscedasticity is violated, choice of method (CCREM, two-way OLS-CRVE, FE-CRVE) has almost no impact on parameter bias ($\eta^2 = 0.000$ to 0.006).
-However, under an exogeneity violation, method choice has a large effect ($\eta^2 = 0.995$), indicating that some methods (like OLS-CRVE) have much more bias than others.
+However, under an exogeneity violation, method choice has a large effect ($\eta^2 = 0.995$), indicating that some methods (e.g., OLS-CRVE) have much more bias than others.
 Other factors such as the effect size of the parameter and the number of schools can also show moderate-to-large impacts on bias in several conditions.
 
 The table also shows how an interaction between simulation factors can matter.
@@ -676,20 +690,17 @@ For example, interactions between method and number of schools, or students per 
 
 Overall, the table shows how some aspects of the DGP matter more, and some less.
 
-Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
-See @gilbert2024multilevel for more on this.
 
 ## Reporting
 
-The final form of your report will typically 
-For your final write-up, you will not want to present everything.
-A wall of numbers and observations only serves to pummel the reader.
+There is a difference in the results you will generate so you can understand what is going on in your simulation, and the results that you will include in an outward facing report.
+Do not pummel your reader with a deluge of tables, figures, and observations.
 Instead, present selected results that clearly illustrate the main findings from the study, along with anything unusual or anomalous.
 Your presentation will typically be best served with a few well-chosen figures.
 Then, in the text of your write-up, you might include a few specific numerical comparisons.
 Do not include too many of these, and be sure to say why the numerical comparisons you include are important.
 
-To form these final exhibits, you will likely have to generate a wide range of results that show different facets of your simulation.
+To form your final exhibits, you will likely have to generate a wide range of results that show different aspects of your simulation.
 These are for you, and will help you deeply understand what is going on.
 You then try to simplify the story, in a way that is honest and transparent, by curating this full set of figures to your final ones.
 Some of the remainder will then become supplementary materials that contain further detail to both enrich your main narrative and demonstrate that you are not hiding anything.
@@ -700,6 +711,7 @@ The alert reader will know this, and will thus be suspicious about what you migh
 To give a great legitimacy bump to your work, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct your analysis themselves, or perhaps rerun your simulation under different conditions.
 Even if no one touches your code, the code's existence and availability builds confidence.
 People will naturally think, "if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes."
+
 
 
 
