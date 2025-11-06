@@ -419,58 +419,77 @@ In working through them, you will get to experience first-hand how the modular c
 
 The following exercises involve exploring and tweaking the above simulation code we have developed to replicate the results of Brown and Forsythe (1974).
 
-1. Table 1 from Brown and Forsythe reported rejection rates for $\alpha = .01$ and $\alpha = .10$ in addition to $\alpha = .05$. Calculate the rejection rates of the ANOVA F and Welch tests for all three $\alpha$-levels and compare to the table.
+### Other $\alpha$'s {#BF-other-alphas}
 
-2. Try simulating the Type-I error rates for the parameter values in the first two rows of Table 1 of the original paper. Use 10,000 replications. How do your results compare to the report results?
+Table 1 from Brown and Forsythe reported rejection rates for $\alpha = .01$ and $\alpha = .10$ in addition to $\alpha = .05$. Calculate the rejection rates of the ANOVA F and Welch tests for all three $\alpha$-levels and compare to the table.
 
-3. In the primary paper, Table 1 is about Type I error and Table 2 is about power.  A portion of Table 2 follows:
+### Compare results {#BF-compare-results}
 
-    ```{r BF-power, echo = FALSE}
-    pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`,
-                    "1,1,1,1",   "0,0,0,0", 4.9, 5.1, 5.0,
-                    "",          "1,0,0,0", 68.6, 67.6, 65.0,
-                    "3,2,2,1",   "0,0,0,0",  NA, 6.2, 5.5, 
-                    "",         "1.3,0,0,1.3", NA, 42.4, 68.2
-                    )
-    
-    pow %>%
-      kbl(caption = 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)')
-    ```
-    
-    In the table, the sizes of the four groups are 11, 16, 16, and 21, for all the scenarios.
-    Try simulating the **power levels** for a couple of sets of parameter values from Table \@ref(tab:BF-power). 
-    Use 10,000 replications. 
-    How do your results compare to the results reported in the Table?
+Try simulating the Type-I error rates for the parameter values in the first two rows of Table 1 of the original paper. Use 10,000 replications. How do your results compare to the report results?
 
-4. Instead of making `ANOVA_Welch_F` return a single row with the columns for the $p$-values, one could instead return a dataset with one row for each test. The "long" approach is often nicer when evaluating more than two methods, or when each method returns not just a $p$-value but other quantities of interest. For our current simulation, we might also want to store the $F$ statistic, for example. The resulting dataset would then look like the following:
+### Power {#BF-power}
 
-    ```{r, include=FALSE}
-    ANOVA_Welch_F_long <- function(data) {
-      anova_F <- oneway.test(x ~ group, data = data, var.equal = TRUE)
-      Welch_F <- oneway.test(x ~ group, data = data, var.equal = FALSE)
-      
-      tibble(
-        method = c( "ANOVA", "Welch" ),
-        Fstat = c( anova_F$statistic, Welch_F$statistic),
-        pvalue = c( anova_F$p.value, Welch_F$p.value )
-      )
-      
-    }
-    ```
+In the primary paper, Table 1 is about Type I error and Table 2 is about power.  A portion of Table 2 follows:
 
-    ```{r, echo=TRUE}
-    ANOVA_Welch_F_long(sim_data)
-    ```
+```{r BF-power, echo = FALSE}
+pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`,
+                "1,1,1,1",   "0,0,0,0", 4.9, 5.1, 5.0,
+                "",          "1,0,0,0", 68.6, 67.6, 65.0,
+                "3,2,2,1",   "0,0,0,0",  NA, 6.2, 5.5, 
+                "",         "1.3,0,0,1.3", NA, 42.4, 68.2
+                )
 
-    Modify `ANOVA_Welch_F()` to return output in this format, update your simulation code, and then use `group_by()` plus `summarise()` to calculate rejection rates of both tests. 
-    `group_by()` is a method for dividing your data into distinct groups and conducting an operation on each. 
-    The classic form of this would be something like the following:
-    
-    ```{r, eval=FALSE}
-    sres <- 
-      res %>% 
-      group_by( method ) %>%
-      summarise( rejection_rate = mean( pvalue < 0.05 ) )
-    ```
+pow %>%
+  kbl(caption = 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)')
+```
 
-5. The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means. Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise 4) to also include results from these hypothesis tests. Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table \@ref(tab:BF-Scenarios).
+In the table, the sizes of the four groups are 11, 16, 16, and 21, for all the scenarios.
+Try simulating the **power levels** for a couple of sets of parameter values from Table \@ref(tab:BF-power). 
+Use 10,000 replications. 
+How do your results compare to the results reported in the Table?
+
+### Wide or long? {#BF-wide-long}
+
+Instead of making `ANOVA_Welch_F` return a single row with the columns for the $p$-values, one could instead return a dataset with one row for each test. The "long" approach is often nicer when evaluating more than two methods, or when each method returns not just a $p$-value but other quantities of interest. For our current simulation, we might also want to store the $F$ statistic, for example. The resulting dataset would then look like the following:
+
+```{r, include=FALSE}
+ANOVA_Welch_F_long <- function(data) {
+  anova_F <- oneway.test(x ~ group, data = data, var.equal = TRUE)
+  Welch_F <- oneway.test(x ~ group, data = data, var.equal = FALSE)
+  
+  tibble(
+    method = c( "ANOVA", "Welch" ),
+    Fstat = c( anova_F$statistic, Welch_F$statistic),
+    pvalue = c( anova_F$p.value, Welch_F$p.value )
+  )
+  
+}
+```
+
+```{r, echo=TRUE}
+ANOVA_Welch_F_long(sim_data)
+```
+
+Modify `ANOVA_Welch_F()` to return output in this format, update your simulation code, and then use `group_by()` plus `summarise()` to calculate rejection rates of both tests. 
+`group_by()` is a method for dividing your data into distinct groups and conducting an operation on each. 
+The classic form of this would be something like the following:
+
+```{r, eval=FALSE}
+sres <- 
+  res %>% 
+  group_by( method ) %>%
+  summarise( rejection_rate = mean( pvalue < 0.05 ) )
+```
+
+### Other tests {#BF-other-tests}
+
+The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means. Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise \@ref(BF-wide-long)) to also include results from these hypothesis tests. Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table \@ref(tab:BF-Scenarios).
+
+### Methodological extensions
+
+What other methodological questions might you want to investigate about the one-way ANOVA problem? List two or three questions that could be investigated with further simulations.
+
+### Power analysis
+
+Suppose you were conducting an experimental study involving several groups (perhaps $G = 3$ or $4$ or $5$). Because of logistical constraints, one of the groups will need to include at least 40% of the full sample, and you anticipate that this group might have more variable outcomes than the other groups. Your collaborators want to know how large a total sample they will need to recruit in order to have a high probability of detecting significant differences between groups.
+How could you use the functions you've developed to answer this question? List out the steps in your approach, and make note of any further information or assumptions you will need in order to answer the question.
