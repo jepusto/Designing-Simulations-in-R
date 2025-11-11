@@ -166,7 +166,7 @@
 \title{Designing Monte Carlo Simulations in R}
 \author{Luke W. Miratrix and James E. Pustejovsky
 (Equal authors)}
-\date{2025-10-31}
+\date{2025-11-11}
 
 \begin{document}
 \maketitle
@@ -545,7 +545,7 @@ For example, the \texttt{rnorm()} function takes as input a number \texttt{n} an
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.5971101  1.1878753  1.3816636
+## [1] -0.5203421 -0.6884585  0.1672914
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -557,7 +557,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.363254  1.237661 -1.164415
+## [1]  2.3450553  0.9016549 -1.3682721
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let the user specify the mean and standard deviation of the distribution from which numbers are drawn:
@@ -569,7 +569,7 @@ The \texttt{rnorm()} function also has further input arguments that let the user
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 10.966407  9.412190  9.889029
+## [1]  9.949905 10.322265  9.214903
 \end{verbatim}
 
 In writing code for simulations, we will make extensive use of this particular function and other functions that produce sequences of random numbers.
@@ -619,7 +619,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 6.491108e-69
+## [1] 6.778675e-72
 \end{verbatim}
 
 \begin{Shaded}
@@ -629,7 +629,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.007954235
+## [1] 0.7639374
 \end{verbatim}
 
 \begin{Shaded}
@@ -639,7 +639,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.000314274
+## [1] 0.0002843784
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated sample of data. The function produces a different answer each time because its instructions involve generating random numbers each time it is called.
@@ -7813,7 +7813,7 @@ Good analysis will provide a clear understanding of how one or more of the simul
 In multi-factor simulations, the major challenge in analyzing simulation results is dealing with the multiplicity and dimensional nature of the results.
 For instance, in our cluster RCT simulation, we calculated performance metrics in each of 270 different simulation scenarios, which vary along several factors.
 For each scenario, we calculated a whole suite of performance measures (bias, SE, RMSE, coverage, \ldots), and we have these performance measures for each of three estimation methods under consideration.
-We organizeed all these results as a table with 810 rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
+We organized all these results as a table with 810 rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
 Navigating all of this can feel somewhat overwhelming.
 How do we understand trends in this complex, multi-factor data structure?
 
@@ -8065,7 +8065,7 @@ The \(x\)-axis shows each of our five methods we are comparing.
 The boxplots are ``holding'' the other factors, and show the Type-I error rates for the different small-sample corrections across the covariates tested and degree of model misspecification.
 We add a line at the target 0.05 rejection rate to ease comparison.
 The reach of the boxes shows how some methods are more or less vulnerable to different types of misspecification.
-Some estimators (e.g., \(T^2_A\)) are clearly hyper-conservitive, with very low rejection rates.
+Some estimators (e.g., \(T^2_A\)) are clearly hyper-conservative, with very low rejection rates.
 Other methods (e.g., EDF), have a range of very high rejection rates when \(m = 10\); the degree of rejection rate must depend on model mis-specification and number of covariates tested (the things in the boxes).
 
 \subsection{Example 3: Heat maps of coverage}\label{example-3-heat-maps-of-coverage}
@@ -8141,15 +8141,26 @@ We might expect, for example, that for all methods the true standard error goes 
 Meta-regressions would also typically include interactions between method and factor, to see if some factors impact different methods differently.
 They can also include interactions between simulation factors, which allows us to explore how the impact of a factor can matter more or less, depending on other aspects of the context.
 
+Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
+See \citet{gilbert2024multilevel} for more on this.
+
 \subsection{Example 1: Biserial, revisited}\label{example-1-biserial-revisited}
 
-For example, consider the bias of the biserial correlation estimates from above.
-Visually, we see that several factors appear to impact bias, but we might want to get a sense of how much.
-In particular, how much does the population vs sample cutoff option matter for bias, across all the simulation factors considered?
+In the biserial correlation example above, we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
+These factors also seem to have complex interactions: note how when p1 = 0.5, we get larger dips than when p1 = 1/8.
+The figure gives a sense of this complex, rich story, but we might also want to summarize our results to get a sense of overall trends, so we can provide a simpler story of what is going on.
+We also might want to get a sense of the relative importance of various factors and their interactions.
+For example, we might ask how much the population (top row) vs.~sample (bottom row) cutoff option matters for bias, across all the simulation factors considered.
+Is it a primary driver of when there is a lot of bias, or just one of many players of roughly equal import?
 
-We can use ANOVA to decompose the variation in bias into components predicted by various combinations of the simulation factors.
-Using ANOVA we can identify which factors have negligible/minor influence on the bias of an estimator, and which factors drive the variation we see.
-We can then summarise our anova table to see the contribution of the various factors and interactions to the total amount of variation in performance:
+ANOVA helps answer these sorts of questions.
+In particular, with ANOVA, we can decompose how much bias changes across scenarios into components predicted by various combinations of the simulation factors.
+We can do this with the \texttt{aov()} function in R, which is a wrapper around \texttt{lm()} that is designed for ANOVA.
+We first fit a model regressing bias on all interactions of our four simulation factors.
+In the R formula syntax, our model is \texttt{bias\ \textasciitilde{}\ rho\ *\ p1\ *\ fixed\ *\ n}.
+
+The sum of squares ANOVA decomposition then provides a means for identifying which factors have negligible/minor influence on the bias of an estimator, and which factors drive the variation we see.
+For example, the following ``eta table'' gives the contribution of the various factors and interactions to the total amount of variation in bias across scenarios:
 
 \begin{tabular}{r|l|r|r}
 \hline
@@ -8187,7 +8198,7 @@ order & source & eta.sq & eta.sq.part\\
 \hline
 \end{tabular}
 
-Here we see which factors are explaining the most variation. E.g., \texttt{p1} is explaining 21\% of the variation in bias across simulations.
+The table shows which factors are explaining the most variation. E.g., \texttt{p1} is explaining 21\% of the variation in bias across simulations.
 The contribution of any of the three- or four-way interactions are fairly minimal, by comparison, and could be dropped to simplify our model.
 
 Modeling summarizes overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
@@ -8198,10 +8209,10 @@ We could fit a regression model or ANOVA model for each performance measure in t
 \citet{lee2023comparing} were interested in evaluating how different modeling approaches perform when analyzing cross-classified data structures.
 To do this they conducted a multi-factor simulation to compare three methods: a method called CCREM, two-way OLS with cluster-robust variance estimation (CRVE), and two-way fixed effects with CRVE.
 The simulation was complex, involving several factors, so they fit an ANOVA model to understand which factors had the most influence on performance.
-In particular, they ran \emph{four} multifactor simulations, each in a different set of conditions.
+In particular, they ran \emph{four} multifactor simulations, each under a different broader context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes).
 They then used ANOVA to explore how the simulation factors impacted bias within each of these contexts.
 
-One of their tables in the supplementary materials (Table S5.2, see \href{https://osf.io/hy73g}{here}, page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes), and the rows corresponding to factors manipulated within the simulation.
+One of their tables in the supplementary materials (Table S5.2, see \href{https://osf.io/hy73g}{here}, page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context, and the rows corresponding to factors manipulated within that context.
 Small, medium, and large effects are marked to make them jump out to the eye.
 
 \textbf{ANOVA Results on Parameter Bias}
@@ -8248,7 +8259,7 @@ J × IUCC & 0.004 & 0.088 M & 0.013 S & 0.029 S \\
 \emph{Note: (S)mall = .01, (M)edium = .06, (L)arge = .14}
 
 We see that when model assumptions are met or only homoscedasticity is violated, choice of method (CCREM, two-way OLS-CRVE, FE-CRVE) has almost no impact on parameter bias (\(\eta^2 = 0.000\) to 0.006).
-However, under an exogeneity violation, method choice has a large effect (\(\eta^2 = 0.995\)), indicating that some methods (like OLS-CRVE) have much more bias than others.
+However, under an exogeneity violation, method choice has a large effect (\(\eta^2 = 0.995\)), indicating that some methods (e.g., OLS-CRVE) have much more bias than others.
 Other factors such as the effect size of the parameter and the number of schools can also show moderate-to-large impacts on bias in several conditions.
 
 The table also shows how an interaction between simulation factors can matter.
@@ -8256,20 +8267,16 @@ For example, interactions between method and number of schools, or students per 
 
 Overall, the table shows how some aspects of the DGP matter more, and some less.
 
-Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
-See \citet{gilbert2024multilevel} for more on this.
-
 \section{Reporting}\label{reporting}
 
-The final form of your report will typically
-For your final write-up, you will not want to present everything.
-A wall of numbers and observations only serves to pummel the reader.
+There is a difference in the results you will generate so you can understand what is going on in your simulation, and the results that you will include in an outward facing report.
+Do not pummel your reader with a deluge of tables, figures, and observations.
 Instead, present selected results that clearly illustrate the main findings from the study, along with anything unusual or anomalous.
 Your presentation will typically be best served with a few well-chosen figures.
 Then, in the text of your write-up, you might include a few specific numerical comparisons.
 Do not include too many of these, and be sure to say why the numerical comparisons you include are important.
 
-To form these final exhibits, you will likely have to generate a wide range of results that show different facets of your simulation.
+To form your final exhibits, you will likely have to generate a wide range of results that show different aspects of your simulation.
 These are for you, and will help you deeply understand what is going on.
 You then try to simplify the story, in a way that is honest and transparent, by curating this full set of figures to your final ones.
 Some of the remainder will then become supplementary materials that contain further detail to both enrich your main narrative and demonstrate that you are not hiding anything.
@@ -8283,16 +8290,15 @@ People will naturally think, ``if that researcher is so willing to let me see wh
 \chapter{Building good visualizations}\label{building-good-visualization}
 
 Visualization should nearly always be the first step in analyzing simulation results.
-In the prior chapter, we saw a series of visualizations that showed overall trends across a variety of examples.
+In the prior chapter, we saw a variety of examples primarily taken from published work.
 Those visualizations were not the initial ones created for those research projects.
-In practice, making a visualization often requires creating a \emph{bunch} of graphs to look at different aspects of the data.
-From that pile of graphs, you would then refine ones that communicate the overall results most cleanly, and include those in your main write-up.
+In practice, getting to a good visualization often requires creating \emph{many} different graphs to look at different aspects of the data.
+From that pile of graphs, you would then curate and refine those that communicate the overall results most cleanly.
 
-In our work, we find we often generate a series of R Markdown reports with comprehensive simulation results targeting our various research questions.
+In our work, we find we often generate a series of R Markdown reports with comprehensive sets of charts targeting our various research questions.
 These initial documents are then discussed internally by the research team.
 
-In this chapter we discuss a set of common tools that we frequently use to explore our simulation results.
-In particular, we focus on four essential tools:
+In this chapter we first discuss four essential tools that we frequently use to make these initial sets of graphs:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -8302,32 +8308,35 @@ In particular, we focus on four essential tools:
 \item
   \textbf{Many small multiples}: Plot many results in a single plot, with facets to break up the results by simulation factors.
 \item
-  \textbf{Bundling}: Group the results by a primary factor of interest, and then plotting the performance measure as a boxplot so you can see how much variation there is within that factor level.
+  \textbf{Bundling}: Group the results by a primary factor of interest, and then plot the performance measure as a boxplot so you can see how much variation there is within that factor level.
 \item
-  \textbf{Aggregation}: Average the performance measure across some of the simulation factors, so you can see overall trends.
+  \textbf{Aggregation}: Average the performance measure across some of the simulation factors, so you can see overall trends with respect to the remaining factors.
 \end{enumerate}
 
 To illustrate these tools, we walk through them using our running example of comparing methods for analyzing a Cluster RCT.
 We will start with an investigation of bias.
 
 As a reminder, in our Cluster RCT example, we have three methods for estimating the average treatment effect: linear regression of the student-level outcome onto treatment (with cluster-robust standard errors); aggregation, where we regress the cluster-level average outcome onto treatment (with heteroskedastic robust standard errors); and multilevel modeling with random effects.
-We want to know if these methods are biased for our defined estimand, which is the cluster-average effect.
+We want to know if these methods are biased for our defined estimand, which is the cluster-average treatment effect.
 We have five simulation factors: school size (\texttt{n\_bar}), number of schools (\texttt{J}), the intraclass correlation (\texttt{ICC}), the degree of variation in school size (\texttt{alpha}), and the relationship between school size and treatment effect (\texttt{size\_coef}).
 
-Once we go through the core tools, we continue our evaluation of our simulation to show how we can assess various performance metrics of interest (true standard error, RMSE, estimated standard errors, and coverage) using these tools.
-We do not dive deeply into validity or power; see Chapter \ref{sec:power} for more on these measures.
+Once we go through the four core tools, we continue our evaluation of our simulation to show how we can assess other performance metrics of interest (true standard error, RMSE, estimated standard errors, and coverage) using these tools.
+We do not dive deeply into validity or power; see Chapter \ref{sec:power} for more on those measures.
 
 \section{Subsetting and Many Small Multiples}\label{subsetting-and-many-small-multiples}
 
-As an initial exploration, you can simply filter the simulation results to a single factor level for some nuisance parameter.
-Generally, with small multiples, it is relatively straightforward to look at \emph{three simulation factors}.
-This is because, with a facet grid, you can plot five things easily: two for the facets, one for the x-axis, one for color/line type, and one for the y-axis.
-We usually use two of these for method and outcome, giving three factors to explore.
+``Small Multiples'' is when you make a plot that is actually a bunch of related plots.
+These plots can themselves be organized in a plot-like structure, with an x-axis depending on one categorical variable, and the y-axis another (this is a ``facet grid'').
 
-For example, for our simulation, we might examine an ICC of 0.20 only, taking it as a ``reasonable'' value that, given our substance matter knowledge, we know is frequently found in empirical data.
-We might further pick \(\bar{n} = 80\), as our middle level for that factor.
-This leaves three factors, allowing us to plot all of our simulation results.
-We plot bias as a function of \texttt{J}, with different lines for the different methods, and facets for the different levels of \texttt{size\_coef} and \texttt{alpha}.
+Generally, with small multiples, it is relatively straightforward to look at \emph{three simulation factors}.
+This is because, with a facet grid, you can easily plot five aspects of your data: two for the facet x- and y-axis arrangement, one for the within-facet x-axis, and one for the within-facet y-axis, and one for color/line type.
+Of the five aspects, we usually use one of these for method (if we are comparing methods) and one for the performance metric (the outcome), giving three remaining aspects to assign to our simulation factors.
+In cases with more than three factors, an easy initial approach is pick three favorite factors and then filter all the simulation results down to specific levels for the remaining factors.
+
+For example, for our simulation, we might target the ICC of 0.20, taking it as a ``reasonable'' value that, given our substance matter knowledge, we know is frequently found in empirical data.
+We might further pick \(\bar{n} = 80\), as our middle level for cluster size.
+This leaves three factors (\texttt{J}, \texttt{size\_coef}, and \texttt{alpha}), allowing us to plot all of our simulation results for our subset.
+We then decide to plot bias (our performance measure) as a function of \texttt{J}, with different lines for the different methods, and facets for the different levels of \texttt{size\_coef} and \texttt{alpha}.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8349,9 +8358,9 @@ We are looking at the raw results.
 We connect the points with lines to help us see trends within each of the small multiples.
 The lines help us visually track which group of points goes with which.
 
-We immediately see that when there is a lot of site variation, and it relates to outcome, linear regression is very different from the other two methods.
-We also see that when \texttt{alpha} is 0 and \texttt{size\_coef} is 0, we may also have a negative bias.
-Before we get too excited about this surprising result, we calculate MCSEs to see if this is a real effect or just noise:
+We immediately see that when there is a lot of site variation (\texttt{alpha\ =\ 0.80}), and it relates to outcome (\texttt{size\_coef=0.2}), linear regression is very different from the other two methods.
+We also see that when \texttt{alpha} is 0 and \texttt{size\_coef} is 0, we may also have a negative bias when \$J = 5`.
+Before we get too excited about this surprising result, we add MCSEs to our plot to see if this is a real effect or just noise:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8373,8 +8382,8 @@ Before we get too excited about this surprising result, we calculate MCSEs to se
 
 Our confidence intervals exclude zero!
 Our excitement mounts.
-We next check all the scenarios with \texttt{alpha\ =\ 0}, and \texttt{size\_coef\ =\ 0} to see if this is a real effect.
-We can still plot all our data, as we only have three factors, \texttt{ICC}, \texttt{J\_bar}, and \texttt{n\_bar}, left to plot.
+We next subset our overall results again to check all the scenarios with \texttt{alpha\ =\ 0}, and \texttt{size\_coef\ =\ 0} to see if this is a real effect.
+We can still plot all our data, as for that subset of scenarios we still only have three factors, \texttt{ICC}, \texttt{J\_bar}, and \texttt{n\_bar}, left to plot.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8397,42 +8406,40 @@ We can still plot all our data, as we only have three factors, \texttt{ICC}, \te
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-216-1} \end{center}
 
 It appears that our \texttt{ICC=0.20} and \texttt{n\_bar=80} scenario was just a fluke.
-Almost everything else easily covers 0, and we are not seeing any major trends.
+Almost all of our confidence intervals easily cover 0, and we are not seeing any major trends.
 Overall we conclude that indeed, when there is no variation, or when the variation does not relate to impact, nothing is particularly biased.
-Interestingly, we further see that all methods seem to give identical estimates when there is no site variation, regardless of ICC, J, or \texttt{n\_bar} (that is the easiest explanation of all the estimated biases and associated MCSEs being identical).
+Interestingly, we further see that all methods seem to give identical estimates when there is no site variation, regardless of ICC, J, or \texttt{n\_bar} (identical estimates is the easiest explanation of all the estimated biases and associated MCSEs across the three methods being identical).
 
 Subsetting is a very useful tool, especially when the scope of the simulation feels overwhelming.
-And as we just saw, it can also be used as a quick validity check: we can subset to a known context where we know nothing exciting should be happening, and then check that indeed nothing is there.
+And as we just saw, it can also be used as a quick validity check: subset to a known context where we know nothing exciting should be happening to verify that indeed nothing is there.
 
-Subsetting allows for a deep dive into a specific context.
-It also can make it easier to think through what is happening in a complex context.
-Sometimes we might even just report a subset in our final analysis.
-In this case, we would consider the other levels as a ``sensitivity'' analysis vaguely alluded to in our main report and placed elsewhere, such as an online supplemental appendix.
+Subsetting allows for a deep dive into specific context.
+It also can make it easier to think through what is happening in a complex context; think of it as a flashlight, shining attention on one part of your overall simulation or another, to focus attention and reduce complexity.
+Sometimes we might even just report the results for a subset in our final analysis and put the analysis of the the remaining scenarios elsewhere, such as an online supplemental appendix.
+In this case, it would then be our job to verify that our reported findings on the main results indeed were echoed in the set-aside runs.
 
-It would be our job, in this case, to verify that our reported findings on the main results indeed were echoed in our other, set-aside, simulation runs.
-In our case, as we see below, we will see little effect of the ICC on how one model performs relative to another; we thus might be able to safely ignore the ICC factor in our main report.
-
-Subsetting is useful, but if you do want to look at all your simulation results at once, you need to somehow aggregate your results to make them all fit on the plot.
-We next present bundling, a way of using the core idea of small multiples for showing all of the raw results, but in a semi-aggregated way.
+Subsetting is useful, but if you do want to look at all your simulation results at once, you need to somehow aggregate or group your results to make them all fit on the plot.
+We next present bundling, a way of keeping the core idea of small multiples to show all of the raw results, but now in a semi-aggregated way.
 
 \section{Bundling}\label{bundling}
 
 When faced with many simulation factors, we can \emph{bundle} the simulations into groups defined by a selected primary factor of interest, and then plot each bundle with a boxplot of the distribution of a selected performance criteria.
-Each boxplot shows the central measure of how well an estimator worked across a set of scenarios, along with a sense of how much that performance varied across those scenarios.
+Each boxplot shows the central measure of how well an estimator worked across a set of scenarios, along with a sense of how much that performance varied across those scenarios in the box.
 If the boxes are narrow, then we know that the variation across simulations within the box did not impact performance much.
 If the boxes are wide, then we know that the factors that vary within the box matter a lot for performance.
 
 With bundling, we generally need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable (wider) than the truth.
-(Consider a case where all the scenarios within a box have zero bias; if MCSE were large, we would see a wide boxplot when we should not.)
+Consider a case where all the scenarios within a box have zero \emph{true} bias; if the MCSE were large, the \emph{estimated} biases would still vary and we would see a wide boxplot when we should not.
 
-To illustrate bundling, we group our Cluster RCT results by method, ICC, the size coefficient (how strong the cluster size to treatment impact relationship is), and alpha (how much the cluster sizes vary).
-For a specific ICC, size, and alpha, we will put the boxes for the three methods side-by-side to directly compare them:
+To illustrate bundling, we replicate our small subset figure from above, but instead of each point (with a given \texttt{J\textquotesingle{},}alpha\texttt{,\ and}size\_coef\texttt{)\ just\ being\ the\ single\ scenario\ with}n\_bar=80\texttt{and}ICC = 0.20`, we plot all the scenarios in a boxplot at that location.
+We put the boxes for the three methods side-by-side to directly compare them:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(alpha), bias, }\AttributeTok{col=}\NormalTok{method, }\AttributeTok{group=}\FunctionTok{paste0}\NormalTok{(ICC,method) ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ICC, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_boxplot}\NormalTok{(}\AttributeTok{coef =} \ConstantTok{Inf}\NormalTok{) }\SpecialCharTok{+}
+\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(J), bias, }\AttributeTok{col=}\NormalTok{method, }
+                   \AttributeTok{group=}\FunctionTok{paste0}\NormalTok{(method, J) ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{( }\AttributeTok{coef =} \ConstantTok{Inf}\NormalTok{, }\AttributeTok{width=}\FloatTok{0.7}\NormalTok{, }\AttributeTok{fill=}\StringTok{"grey"}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{theme\_minimal}\NormalTok{() }
 \end{Highlighting}
@@ -8440,74 +8447,114 @@ For a specific ICC, size, and alpha, we will put the boxes for the three methods
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/clusterRCT_plot_bias_v1-1} \end{center}
 
-Each box is a collection of simulation trials. E.g., for \texttt{ICC\ =\ 0.6}, \texttt{size\_coef\ =\ 0.2}, and \texttt{alpha\ =\ 0.8} each of the three boxes contains 9 scenarios representing the varying level 1 and level 2 sample sizes.
-Here are the 9 for the Aggregation method:
+All of our simulation trials are represented in this plot.
+Each box is a collection of simulation trials. E.g., for \texttt{J\ =\ 5}, \texttt{size\_coef\ =\ 0}, and \texttt{alpha\ =\ 0.8} each of the three boxes contains 15 scenarios representing the varying ICC and cluster size.
+Here are the 15 results in the top right box for the Aggregation method:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{filter}\NormalTok{( sres, }
-\NormalTok{        ICC }\SpecialCharTok{==} \FloatTok{0.6}\NormalTok{, }
-\NormalTok{        size\_coef }\SpecialCharTok{==} \FloatTok{0.2}\NormalTok{,}
-\NormalTok{        alpha }\SpecialCharTok{==} \FloatTok{0.8}\NormalTok{, method}\SpecialCharTok{==}\StringTok{"Agg"}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( n\_bar}\SpecialCharTok{:}\NormalTok{alpha, bias ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{        J }\SpecialCharTok{==} \DecValTok{5}\NormalTok{, }
+\NormalTok{        size\_coef }\SpecialCharTok{==} \DecValTok{0}\NormalTok{,}
+\NormalTok{        alpha }\SpecialCharTok{==} \FloatTok{0.8}\NormalTok{, }
+\NormalTok{        method}\SpecialCharTok{==}\StringTok{"Agg"}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( n\_bar, J, size\_coef, ICC, alpha, bias, bias\_mcse ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{( bias ) }\SpecialCharTok{\%\textgreater{}\%}
 \NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{2}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{tabular}{r|r|r|r|r|r|r}
 \hline
-n\_bar & J & ATE & size\_coef & ICC & alpha & bias\\
+n\_bar & J & size\_coef & ICC & alpha & bias & bias\_mcse\\
 \hline
-20 & 5 & 0.2 & 0.2 & 0.6 & 0.8 & 0.04\\
+80 & 5 & 0 & 0.6 & 0.8 & -0.03 & 0.02\\
 \hline
-20 & 20 & 0.2 & 0.2 & 0.6 & 0.8 & 0.02\\
+320 & 5 & 0 & 0.8 & 0.8 & -0.02 & 0.02\\
 \hline
-20 & 80 & 0.2 & 0.2 & 0.6 & 0.8 & -0.01\\
+20 & 5 & 0 & 0.6 & 0.8 & -0.02 & 0.02\\
 \hline
-80 & 5 & 0.2 & 0.2 & 0.6 & 0.8 & -0.02\\
+80 & 5 & 0 & 0.8 & 0.8 & -0.02 & 0.03\\
 \hline
-80 & 20 & 0.2 & 0.2 & 0.6 & 0.8 & 0.02\\
+20 & 5 & 0 & 0.4 & 0.8 & -0.01 & 0.02\\
 \hline
-80 & 80 & 0.2 & 0.2 & 0.6 & 0.8 & 0.00\\
+20 & 5 & 0 & 0.2 & 0.8 & -0.01 & 0.01\\
 \hline
-320 & 5 & 0.2 & 0.2 & 0.6 & 0.8 & 0.01\\
+320 & 5 & 0 & 0.2 & 0.8 & 0.00 & 0.01\\
 \hline
-320 & 20 & 0.2 & 0.2 & 0.6 & 0.8 & 0.01\\
+320 & 5 & 0 & 0.4 & 0.8 & 0.00 & 0.02\\
 \hline
-320 & 80 & 0.2 & 0.2 & 0.6 & 0.8 & 0.01\\
+20 & 5 & 0 & 0.0 & 0.8 & 0.00 & 0.01\\
+\hline
+80 & 5 & 0 & 0.4 & 0.8 & 0.00 & 0.02\\
+\hline
+320 & 5 & 0 & 0.0 & 0.8 & 0.00 & 0.00\\
+\hline
+80 & 5 & 0 & 0.0 & 0.8 & 0.00 & 0.00\\
+\hline
+320 & 5 & 0 & 0.6 & 0.8 & 0.01 & 0.02\\
+\hline
+80 & 5 & 0 & 0.2 & 0.8 & 0.01 & 0.01\\
+\hline
+20 & 5 & 0 & 0.8 & 0.8 & 0.07 & 0.03\\
 \hline
 \end{tabular}
 
 Our bias boxplot makes some trends clear.
-For example, we see that there is virtually no bias for any method when the size coefficient is 0 and the ICC is 0.
-It is a bit more unclear, but it seems there is also virtually no bias when the size coefficient is 0 regardless of ICC, but the boxes get wider as ICC increases, making us wonder if something else is potentially going on.
-When alpha is 0 and the size coefficient is 0.2, all methods have a negative bias for most scenarios considered, as all boxes and almost all of the whiskers are below the 0 line (when ICC is 0.6 or 0.8 we may have some instances of 0 or positive bias, if that is not MCSE giving long tails).
+For example, we see that there is no bias, on average, for any method when the size coefficient is 0 and alpha is 0, especially when \(J = 80\).
+When the size coefficient is 0.2, we also see LR jump out from the others when \texttt{alpha} is not 0.
 
-The apparent outliers (long tails) for some of the boxplots suggest that the other two factors (cluster size and number of clusters) do relate to the degree of bias. We could try bundling along different aspects to see if that explains these differences:
+The apparent outliers (long tails) for some of the boxplots suggest that the two remaining factors (ICC and cluster size) could relate to the degree of bias.
+They could also be due to MCSE, and given that we primariy see these tails when \(J\) is small, this is a real concern.
+MCSE aside, a long tail means that some scenario in the box had a high level of estimated bias.
+We could try bundling along different aspects to see if either of the remaining factors (e.g., ICC) explains these differences.
+Here we try bundling cluster size and number of clusters.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(n\_bar), bias, }\AttributeTok{col=}\NormalTok{method, }\AttributeTok{group=}\FunctionTok{paste0}\NormalTok{(n\_bar,method) ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( alpha }\SpecialCharTok{\textasciitilde{}}\NormalTok{  size\_coef, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_boxplot}\NormalTok{(}\AttributeTok{coef =} \ConstantTok{Inf}\NormalTok{) }\SpecialCharTok{+}
+\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(alpha), bias, }\AttributeTok{col=}\NormalTok{method, }
+                   \AttributeTok{group=}\FunctionTok{paste0}\NormalTok{(method, alpha) ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ICC, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{( }\AttributeTok{coef =} \ConstantTok{Inf}\NormalTok{, }\AttributeTok{width=}\FloatTok{0.7}\NormalTok{, }\AttributeTok{fill=}\StringTok{"grey"}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{theme\_minimal}\NormalTok{()}
+  \FunctionTok{theme\_minimal}\NormalTok{() }
 \end{Highlighting}
 \end{Shaded}
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/clusterRCT_plot_bias_v2-1} \end{center}
 
-No progress there; we have long tails suggesting something is allowing for large bias in some contexts.
-This could be MCSE, with some of our bias estimates being large due to random chance.
-Or it could be some specific combination of factors allows for large bias (e.g., perhaps small sample sizes makes our estimators more vulnerable to bias).
+We have some progress now: the long tails are primarily when the ICC is high, but we also see that MLM has bias with ICC is 0, if alpha is nonzero.
+
+We know things are more unstable in smaller samples sizes, so the tails could still be MCSE, with some of our bias estimates being large due to random chance.
+Or perhaps there is still some specific combination of factors that allow for large bias (e.g., perhaps small sample sizes makes our estimators more vulnerable to bias).
 In an actual analysis, we would make a note to investigate these anomalies later on.
 
-In general, playing around with factors so that the boxes are generally narrow is a good idea; it means that you have found a representation of the data where the variation within your bundles is less important.
+In general, trying to group your simulation scenarios so that their boxes are generally narrow is a good idea; narrow boxes means that you have found a representation of the data where you know what is driving the variation in your performance measure, and that the factors bundled inside the boxes are less important.
 This might not always be possible, if all your factors matter; in this case the width of your boxes tells you to what extent the bundled factors matter relative to the factors explicitly present in your plot.
+
+One might wonder, with only few trials per box, whether we should instead look at the individual scenarios.
+Unfortunately, that gets a bit cluttered:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(alpha), bias, }\AttributeTok{col=}\NormalTok{ method, }
+                   \AttributeTok{group=}\FunctionTok{paste0}\NormalTok{(alpha,ICC,method) ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ICC, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{( }\AttributeTok{size =} \FloatTok{0.5}\NormalTok{,}
+              \AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{(}\AttributeTok{width=}\FloatTok{0.7}\NormalTok{ ) ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{() }
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-218-1} \end{center}
+
+Using boxplots, even over such a few number of points, notably clarifies a visualization.
 
 \section{Aggregation}\label{aggregation}
 
 Boxplots can make seeing trends more difficult, as the eye is drawn to the boxes and tails, and the range of your plot axes can be large due to needing to accommodate the full tails and outliers of your results; this can compress the mean differences between groups, making them look small.
+They can also be artificially inflated, especially if the MCSEs are large.
 Instead of bundling, we can therefore aggregate, where we average all the scenarios within a box to get a single number of average performance.
 This will show us overall trends rather than individual simulation variation.
 
@@ -8520,13 +8567,7 @@ Our conclusions would then be more general: if we had not explored more scenario
 
 That said, if some of our scenarios had no bias, and some had large bias, when we aggregated we would report that there is generally a moderate amount of bias.
 This would not be entirely faithful to the actual results.
-If, however, the initial boxplots show results generally in one direction or another, then aggregation will be more faithful to the spirit of the results.
-
-Also, aggregated results can be misleading if you have scaling issues or extreme outliers.
-With bias, our scale is fairly well set, so we are good.
-But if we were aggregating standard errors over different sample sizes, then the larger standard errors of the smaller sample size simulations (and the greater variability in estimating those standard errors) would swamp the standard errors of the larger sample sizes.
-Usually, with aggregation, we want to average over something we believe does not change massively over the marginalized-out factors.
-To achieve this, we can often average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
+But when the initial boxplots show results generally in one direction or another, then aggregation can be quite faithful to the spirit of the results.
 
 A major advantage of aggregation over the bundling approach is we can have fewer replications per scenario.
 If the number of replicates within each scenario is small, then the performance measures for each scenario is estimated with a lot of error; the aggregate, by contrast, will be an average across many more replicates and thus give a good sense of \emph{average} performance.
@@ -8538,18 +8579,17 @@ For our cluster RCT, we might aggregate our bias across our sample sizes as foll
 \begin{Highlighting}[]
 \NormalTok{ssres }\OtherTok{\textless{}{-}} 
 \NormalTok{  sres }\SpecialCharTok{\%\textgreater{}\%} 
-  \FunctionTok{group\_by}\NormalTok{( method, ICC, alpha, size\_coef ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{summarise}\NormalTok{( }\AttributeTok{bias =} \FunctionTok{mean}\NormalTok{( bias ),}
-             \AttributeTok{n =} \FunctionTok{n}\NormalTok{() )}
+  \FunctionTok{group\_by}\NormalTok{( method, size\_coef, J, alpha ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{( }\AttributeTok{bias =} \FunctionTok{mean}\NormalTok{( bias ) )}
 \end{Highlighting}
 \end{Shaded}
 
-We now have a single bias estimate for each combination of ICC, alpha, and size\_coef; we have collapsed 9 scenarios into one overall scenario that generalizes bias across different sizes of experiment.
+We now have a single bias estimate for each combination of size\_coef, J, and alpha; we have collapsed 15 scenarios into one overall scenario that generalizes bias across different average cluster sizes and different ICCs.
 We can then plot, using many small multiples:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{( ssres, }\FunctionTok{aes}\NormalTok{( ICC, bias, }\AttributeTok{col=}\NormalTok{method ) ) }\SpecialCharTok{+}
+\FunctionTok{ggplot}\NormalTok{( ssres, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(J), bias, }\AttributeTok{col=}\NormalTok{method, }\AttributeTok{group=}\NormalTok{method ) ) }\SpecialCharTok{+}
   \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{  alpha, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
   \FunctionTok{geom\_point}\NormalTok{( }\AttributeTok{alpha=}\FloatTok{0.75}\NormalTok{ ) }\SpecialCharTok{+} 
   \FunctionTok{geom\_line}\NormalTok{( }\AttributeTok{alpha=}\FloatTok{0.75}\NormalTok{ ) }\SpecialCharTok{+}
@@ -8560,30 +8600,31 @@ We can then plot, using many small multiples:
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/agg_bias_plot_clusterRCT-1} \end{center}
 
-We see more clearly that greater variation in cluster size (alpha) leads to greater bias for the linear regression estimator, but only if the coefficient for size is nonzero (which makes sense given our theoretical understanding of the problem---if size is not related to treatment effect, it is hard to imagine how varying cluster sizes would cause much bias).
+We now see quite clearly that as \texttt{alpha} grows, linear regression gets more biased if cluster size relates to average impact in the cluster (\texttt{size\_coef}).
+Our finding makes sense given our theoretical understanding of the problem---if size is not related to treatment effect, it is hard to imagine how varying cluster sizes would cause much bias.
+
 We are looking at an interaction between our simulation factors: we only see bias for linear regression when cluster size relates to impact and there is variation in cluster size.
-As ICC increases, we are not seeing any major differences in the pattern of our results
-We also see that all the estimators have near zero bias when there is no variation in cluster size, with the overplotted lines on the top row of the figure.
+We also see that all the estimators have near zero bias when there is no variation in cluster size or the cluster size does not relate to outcome, as shown by the top row and left column facets.
+Finally, we see the methods all likely give the same answers when there is no cluster size variation, given the overplotted lines on the left column of the figure.
 
-If you have many levels of a factor, as we do with ICC, you can let ggplot aggregate directly by taking advantage of the smoothing options:
+We might take this figure as still too complex.
+So far we have learned that MLM does seem to react to ICC, and that LR reacts to \texttt{alpha} and \texttt{size\_coef} in combination.
+More broadly, with many levels of a factor, as we have with ICC, we can let ggplot aggregate directly by taking advantage of \texttt{geom\_smooth()}.
+This leads to the following:
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{( sres, }\FunctionTok{aes}\NormalTok{( ICC, bias, }\AttributeTok{col=}\NormalTok{method ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( alpha }\SpecialCharTok{\textasciitilde{}}\NormalTok{  size\_coef, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{( }\AttributeTok{alpha=}\FloatTok{0.10}\NormalTok{,}
-              \AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{(}\AttributeTok{width =} \FloatTok{0.04}\NormalTok{) ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_smooth}\NormalTok{( }\AttributeTok{se=}\ConstantTok{FALSE}\NormalTok{ ) }\SpecialCharTok{+} 
-  \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{theme\_minimal}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-220-1} \end{center}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-219-1} \end{center}
+Our story is fairly clear now: LR is biased when alpha is large and the cluster size relates to impact.
+MLM can be biased when ICC is low, if cluster size relates to impact (this is because it is driving towards person-weighting when there is little cluster variation).
 
-In the above, we let the original points show faintly as well, to give a sense of the variation across simulation trials.
+Aggregation is powerful, but it can be misleading if you have scaling issues or extreme outliers.
+With bias, our scale is fairly well set, so we are good.
+But if we were aggregating standard errors over different sample sizes, then the larger standard errors of the smaller sample size simulations (and the greater variability in estimating those standard errors) would swamp the standard errors of the larger sample sizes.
+Usually, with aggregation, we want to average over something we believe does not change massively over the marginalized-out factors.
+To achieve this, we can often average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
+We will see more examples of this kind of aggregation later on.
 
-\subsubsection{A note on how to aggregate}\label{a-note-on-how-to-aggregate}
+\subsubsection{Some notes on how to aggregate}\label{some-notes-on-how-to-aggregate}
 
 Some performance measures are biased with respect to the Monte Carlo uncertainty.
 The estimated standard error, for example, is biased; the variance, by contrast, is not.
@@ -8600,13 +8641,19 @@ For example, to estimate aggregated standard error you might do the following:
 \end{Highlighting}
 \end{Shaded}
 
-Because bias is linear, you do not need to worry about the bias of the standard error.
+Because bias is linear, you do not need to worry about the MCSE.
 But if you are looking at the magnitude of bias (\(|bias|\)), then you can run into issues when the biases are close to zero, if they are measured noisily.
-In this case, looking at average bias, not average \(|bias|\), is safer.
+For example, imagine you have two scenarios with true bias of 0.0, but your MCSE is 0.02.
+In one scenario, you estimate a bias of 0.017, and in the other -0.023.
+If you average the estimated biases, you get -0.003, which suggests a small bias as we would wish.
+Averaging the absolute biases, on the other hand, gives you 0.02, which could be deceptive.
+With high MCSE and small magnitudes of bias, looking at average bias, not average \(|bias|\), is safer.
 
-\section{Assessing true SEs}\label{assessing-true-ses}
+Alternatively, you can use the formula \(RMSE^2 = Bias^2 + SE^2\) to back out the average absolute bias from the RMSE and SE.
 
-We just did a deep dive into bias.\\
+\section{Comparing true SEs with standardization}\label{comparing-true-ses-with-standardization}
+
+We just did a deep dive into bias.
 Uncertainty (standard errors) is another primary performance criterion of interest.
 
 As an initial exploration, we plot the standard error estimates from our Cluster RCT simulation, using smoothed lines to visualize trends. We use \texttt{ggplot}'s \texttt{geom\_smooth} to aggregate over \texttt{size\_coef} and \texttt{alpha}, which we leave out of the plot.
@@ -8622,12 +8669,7 @@ We include individual data points to visualize variation around the smoothed est
 \end{Highlighting}
 \end{Shaded}
 
-\begin{verbatim}
-## `geom_smooth()` using method = 'loess' and
-## formula = 'y ~ x'
-\end{verbatim}
-
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-221-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-222-1} \end{center}
 
 We observe several broad trends in the standard error behavior.
 First, standard error increases with the intraclass correlation (ICC).
@@ -8640,8 +8682,8 @@ While we can extract all of these from the figure, the figure is still not ideal
 The dominant influence of design features like ICC and sample size obscures our ability to detect meaningful differences between methods.
 In other words, even though SE changes across scenarios, it's difficult to tell which method is actually performing better within each scenario.
 
-We can also view the same information using boxplots, effectively ``bundling'' over the left-out dimensions.
-We also put \texttt{n\_bar} in our bundles because maybe it does not matter that much:
+We can also view the same information by bundling over the left-out dimensions.
+We put \texttt{n\_bar} in our bundles because maybe it does not matter that much:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8653,7 +8695,7 @@ We also put \texttt{n\_bar} in our bundles because maybe it does not matter that
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-222-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-223-1} \end{center}
 
 Our plots are still dominated by the strong effects of ICC and the number of clusters (J). When performance metrics like standard error vary systematically with design features, it becomes difficult to compare methods meaningfully across scenarios.
 
@@ -8672,13 +8714,10 @@ we want to conclude that:
 Simulation results are often driven by broad design effects, which can obscure the specific methodological questions we care about. Standardizing helps bring those comparisons to the forefront.
 Let's try that next.
 
-\subsubsection{Standardizing to compare across simulation scenarios}\label{standardizing-to-compare-across-simulation-scenarios}
-
 One straightforward strategy for standardization is to compare each method's performance to a designated baseline. In this example, we use Linear Regression (LR) as our baseline.
 
-We focus on the standard error (SE) of each method's estimate, rescaling it relative to LR.
-We do this by, for each simulation scenario, dividing each method's SE by the SE of LR, to produce \texttt{SE.scale}.
-This relative measure, SE.scale, allows us to examine how much better or worse each method performs in terms of precision under varying conditions.
+We standardize by, for each simulation scenario, dividing each method's SE by the SE of LR, to produce \texttt{SE.scale}.
+This relative measure, \texttt{SE.scale}, allows us to examine how much better or worse, across our scenarios, each method performs relative to a chosen reference method.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8690,8 +8729,8 @@ This relative measure, SE.scale, allows us to examine how much better or worse e
 \end{Highlighting}
 \end{Shaded}
 
-We can then treat it as a measure like any other.
-Here we bundle:
+We can then treat \texttt{SE.scale} as a measure like any other.
+Here we bundle, showing how relative SE changes by J, \texttt{n\_bar} and ICC:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8703,43 +8742,17 @@ Here we bundle:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-224-1} \end{center}
-
-The figure above shows how each method compares to LR across simulation scenarios. We see that Aggregation performs worse than LR when the Intraclass Correlation Coefficient (ICC) is zero. However, when ICC is greater than zero, Aggregation yields improved precision.
-The Multilevel Model (MLM), in contrast, appears more adaptive. It captures the benefits of aggregation when ICC is high, but avoids the precision cost when ICC is zero. This adaptivity makes MLM appealing in practice when ICC is unknown or variable across contexts.
-
-Although faceting by n\_bar and J helps reveal potential interaction effects, it may be more effective to collapse across these variables for a cleaner summary.
-We are also not seeing how site size variation is impacting these results, and we might think that matters, especially for aggregation.
-
-As a warning regarding Monte Carlo uncertainty: when standardizing results, it is important to remember that uncertainty in the baseline measure (here, LR) propagates to the standardized values. This should be considered when interpreting variability in the scaled results.
-Uncertaintly for relative performance is generally tricky to assess.
-
-To clarify the main patterns, we average our SE.scale across simulation settings---relative performance is on the same scale, so averaging is a natural thing to do.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{s2 }\OtherTok{\textless{}{-}} 
-\NormalTok{  ssres }\SpecialCharTok{\%\textgreater{}\%} 
-  \FunctionTok{group\_by}\NormalTok{( ICC, alpha, method ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{summarise}\NormalTok{( }\AttributeTok{SE.scale =} \FunctionTok{mean}\NormalTok{( SE.scale ) )}
-
-\FunctionTok{ggplot}\NormalTok{( s2, }\FunctionTok{aes}\NormalTok{( ICC, SE.scale, }\AttributeTok{col=}\NormalTok{method ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_wrap}\NormalTok{( }\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\FunctionTok{percent\_format}\NormalTok{() ) }\SpecialCharTok{+}
-  \FunctionTok{labs}\NormalTok{( }\AttributeTok{title =} \StringTok{"Average relative SE to Linear Regression"}\NormalTok{,}
-        \AttributeTok{y =} \StringTok{"Relative Standard Error"}\NormalTok{ )}
-\end{Highlighting}
-\end{Shaded}
-
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-225-1} \end{center}
 
-Our aggregated plot of precision of aggregation and MLM relative to Linear Regression gives a simple story clearly told.
-The performance of aggregation improves with ICC.
-MLM also has benefits over LR, and does not pay much cost when ICC is low.
+The figure above shows how each method compares to LR across simulation scenarios.
+Aggregation clearly performs worse than LR when the Intraclass Correlation Coefficient (ICC) is zero. However, when ICC is greater than zero, Aggregation yields improved precision.
+The Multilevel Model (MLM), in contrast, appears more adaptive.
+It captures the benefits of aggregation when ICC is high, but avoids the precision cost when ICC is zero.
+This adaptivity makes MLM appealing in practice when ICC is unknown or variable across contexts.
 
-We can also visualize the variability in relative standard errors across simulation scenarios using boxplots.
-This allows us to examine how consistent each method's performance is under different ICC conditions.
+In looking at the plot we are seeing essentially identical rows and and fairly similar across columns.
+This suggests we should bundle the \texttt{n\_bar} to get a cleaner view of the main patterns, and that we can also bundle over \texttt{J} as well.
+We finally drop the \texttt{LR} results entirely, as it is the reference method and always has a relative SE of 1.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8747,46 +8760,60 @@ This allows us to examine how consistent each method's performance is under diff
   \FunctionTok{filter}\NormalTok{( method }\SpecialCharTok{!=} \StringTok{"LR"}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{ggplot}\NormalTok{( }\FunctionTok{aes}\NormalTok{( ICC, SE.scale, }\AttributeTok{col=}\NormalTok{method, }
                \AttributeTok{group =} \FunctionTok{interaction}\NormalTok{(ICC, method) ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_wrap}\NormalTok{( }\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha, }\AttributeTok{nrow=}\DecValTok{1}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{1}\NormalTok{  ) }\SpecialCharTok{+}
   \FunctionTok{geom\_boxplot}\NormalTok{( }\AttributeTok{position=}\StringTok{"dodge"}\NormalTok{, }\AttributeTok{width=}\FloatTok{0.1}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_continuous}\NormalTok{( }\AttributeTok{breaks=}\FunctionTok{unique}\NormalTok{( ssres}\SpecialCharTok{$}\NormalTok{ICC ) ) }\SpecialCharTok{+}
   \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{breaks=}\FunctionTok{seq}\NormalTok{(}\DecValTok{90}\NormalTok{, }\DecValTok{125}\NormalTok{, }\AttributeTok{by=}\DecValTok{5}\NormalTok{ ) ) }
 \end{Highlighting}
 \end{Shaded}
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-226-1} \end{center}
 
-These boxplots show the full distribution of relative standard errors across all simulated scenarios, separated by ICC level. We exclude LR as it is the reference method.
-
 The pattern is clear: when ICC = 0, Aggregation performs worse than LR, and MLM performs about the same. But as ICC increases, Aggregation and MLM both improve, and perform about the same to each other.
 This highlights the robustness of MLM across diverse conditions.
 
-We might also explore how uncertainty changes with other factors.
-Here, we see whether cluster size meaningfully helps:
+As a warning regarding Monte Carlo uncertainty: when standardizing results, it is important to remember that uncertainty in the baseline measure (here, LR) propagates to the standardized values.
+This should be considered when interpreting variability in the scaled results.
+Uncertainty for relative performance is generally tricky to assess.
+
+To clarify the main patterns, we then aggregate our SE.scale across the bundled simulation settings---relative performance is on the same scale, so averaging is now a natural thing to do.
+We have aggregated out sample sizes, and we go further and remove \texttt{size\_coef} since it does not seem to matter much, given the above plot:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{sres }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{filter}\NormalTok{( alpha }\SpecialCharTok{==} \FloatTok{0.8}\NormalTok{, size\_coef }\SpecialCharTok{==} \FloatTok{0.2}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
-\FunctionTok{ggplot}\NormalTok{( }\FunctionTok{aes}\NormalTok{( n\_bar, SE, }\AttributeTok{col=}\FunctionTok{factor}\NormalTok{(ICC), }\AttributeTok{group=}\NormalTok{ICC ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( J }\SpecialCharTok{\textasciitilde{}}\NormalTok{ method, }\AttributeTok{labeller =}\NormalTok{ label\_both, }\AttributeTok{scales =} \StringTok{"free"}\NormalTok{) }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{()}
+\NormalTok{s2 }\OtherTok{\textless{}{-}} 
+\NormalTok{  ssres }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{group\_by}\NormalTok{( ICC, alpha, method ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{( }\AttributeTok{SE.scale =} \FunctionTok{mean}\NormalTok{( SE.scale ) ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{( method }\SpecialCharTok{!=} \StringTok{"LR"}\NormalTok{ )}
+
+\FunctionTok{ggplot}\NormalTok{( s2, }\FunctionTok{aes}\NormalTok{( ICC, SE.scale, }\AttributeTok{col=}\NormalTok{method ) ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{( }\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{1}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\FunctionTok{percent\_format}\NormalTok{() ) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{( }\AttributeTok{title =} \StringTok{"Average relative SE to Linear Regression"}\NormalTok{,}
+        \AttributeTok{y =} \StringTok{"Relative Standard Error"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-227-1} \end{center}
 
-If the ICC is low, cluster size matters. Otherwise, the benefits are much more slim.
+Our aggregated plot of the precision of aggregation and MLM relative to Linear Regression gives a simple story clearly told.
+The performance of aggregation improves with ICC.
+MLM also has benefits over LR, and does not pay much cost when ICC is low.
 
 \section{The Bias-SE-RMSE plot}\label{the-bias-se-rmse-plot}
 
-We can also visualize bias and standard error together, along with RMSE, to get a fuller picture of performance.
-To illustrate, we subset to our biggest scenarios, in terms of sample size, and no ICC:
+We can visualize bias and standard error together, along with RMSE, to get a rich picture of performance.
+To illustrate, we subset to our scenarios where there is real bias for both LR and MLM (i.e., when ICC is 0; see findings under bias from above).
+We also subset to our middle values of \texttt{n\_bar\ =\ 80} and our large \texttt{J=80}, where uncertainty is small and thus the relative role of bias may be large.
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{bsr }\OtherTok{\textless{}{-}}\NormalTok{ sres }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{filter}\NormalTok{( n\_bar }\SpecialCharTok{==} \DecValTok{320}\NormalTok{, J}\SpecialCharTok{==}\DecValTok{80}\NormalTok{, ICC }\SpecialCharTok{==} \DecValTok{0}\NormalTok{ )}
+  \FunctionTok{filter}\NormalTok{( n\_bar }\SpecialCharTok{==} \DecValTok{80}\NormalTok{, J}\SpecialCharTok{==}\DecValTok{80}\NormalTok{, ICC }\SpecialCharTok{==} \DecValTok{0}\NormalTok{ )}
 
 \NormalTok{bsr }\OtherTok{\textless{}{-}}\NormalTok{ bsr }\SpecialCharTok{\%\textgreater{}\%}
 \NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{R, }\SpecialCharTok{{-}}\NormalTok{power, }\SpecialCharTok{{-}}\NormalTok{ESE\_hat, }\SpecialCharTok{{-}}\NormalTok{SD\_SE\_hat ) }\SpecialCharTok{\%\textgreater{}\%}
@@ -8797,10 +8824,12 @@ To illustrate, we subset to our biggest scenarios, in terms of sample size, and 
   \FunctionTok{summarise}\NormalTok{( }\AttributeTok{value =} \FunctionTok{mean}\NormalTok{( value ),}
              \AttributeTok{n =} \FunctionTok{n}\NormalTok{() )}
 
-\NormalTok{bsr}\SpecialCharTok{$}\NormalTok{measure }\OtherTok{=} \FunctionTok{factor}\NormalTok{( bsr}\SpecialCharTok{$}\NormalTok{measure, }\AttributeTok{levels=}\FunctionTok{c}\NormalTok{(}\StringTok{"bias"}\NormalTok{, }\StringTok{"SE"}\NormalTok{, }\StringTok{"RMSE"}\NormalTok{),}
-                      \AttributeTok{labels =}\FunctionTok{c}\NormalTok{(}\StringTok{"|bias|"}\NormalTok{, }\StringTok{"SE"}\NormalTok{, }\StringTok{"RMSE"}\NormalTok{ ) )}
+\NormalTok{bsr}\SpecialCharTok{$}\NormalTok{measure }\OtherTok{=} \FunctionTok{factor}\NormalTok{( bsr}\SpecialCharTok{$}\NormalTok{measure, }
+                      \AttributeTok{levels=}\FunctionTok{c}\NormalTok{(}\StringTok{"bias"}\NormalTok{, }\StringTok{"SE"}\NormalTok{, }\StringTok{"RMSE"}\NormalTok{),}
+                      \AttributeTok{labels =}\FunctionTok{c}\NormalTok{(}\StringTok{"bias"}\NormalTok{, }\StringTok{"SE"}\NormalTok{, }\StringTok{"RMSE"}\NormalTok{ ) )}
 
-\FunctionTok{ggplot}\NormalTok{( bsr, }\FunctionTok{aes}\NormalTok{( alpha, value, }\AttributeTok{col=}\NormalTok{method )) }\SpecialCharTok{+}
+\FunctionTok{ggplot}\NormalTok{( bsr, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(alpha), value, }\AttributeTok{col=}\NormalTok{method,}
+                  \AttributeTok{group =}\NormalTok{ method )) }\SpecialCharTok{+}
   \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ measure ) }\SpecialCharTok{+}
   \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{( }\AttributeTok{y =} \StringTok{""}\NormalTok{, }\AttributeTok{x =} \StringTok{"Site Variation"}\NormalTok{ )  }\SpecialCharTok{+}
@@ -8815,26 +8844,29 @@ To illustrate, we subset to our biggest scenarios, in terms of sample size, and 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-228-1} \end{center}
 
 The combination of bias, standard error, and RMSE provides a rich and informative view of estimator performance.
+The top row represents settings where effect size is independent of cluster size, while the bottom row reflects a correlation between size and effect.
+We see how bias, SE and RMSE grow as site variation increases (moving rightward in each panel).
+Notably, when effect size is related to cluster size (bottom row), both linear regression and MLM exhibit significant bias, leading to notable increase in RMSE over SE.
+In contrast, when effect size is unrelated to cluster size (top row), all methods show minimal bias, and the SEs are about the same; that said, we see aggregation paying a penalty as variation cluster size increases.
+Overall, we see RMSE is primarily driven by SE.
 
-As an illustration, in the above plot, we focus on a specific simulation scenario with n\_bar = 320, J = 80, and ICC = 0. The top row represents settings where effect size is independent of cluster size, while the bottom row reflects a correlation between size and effect.
-
-These types of visualizations directly illustrates the canonical relationship:
+The Bias-SE-RMSE visualization directly illustrates the canonical relationship:
 
 \[ \text{RMSE}^2 = \text{Bias}^2 + \text{SE}^2 \]
 
-In the plot we get overall performance (RMSE) clearly decomposed into into its two fundamental components: systematic error (bias) and variability (standard error).
+The plot shows overall performance (RMSE) decomposed into into its two fundamental components: systematic error (bias) and variability (standard error).
 Here we see how bias for LR, for example, is dominant when site variation is high.
-The differences in SE are small and so not the main reason for differences in overall estimator performance; bias is the main driver.
+The differences in SE across methods are small and are thus not the main reason for differences in overall estimator performance; bias is the main driver.
 
 This is the kind of diagnostic plot we often wish were included in more applied simulation studies.
 
-\section{Assessing estimated SEs}\label{assessing-estimated-ses}
+\section{Assessing the quality of the estimated SEs}\label{assessing-the-quality-of-the-estimated-ses}
 
 So far we have examined the performance of our \emph{point estimators}.
 We next look at ways to assess our \emph{estimated} standard errors.
 A good first question is whether they are about the right size, on average, across all the scenarios.
 
-Here it is very important to see if they are \emph{reliably} the right size, so the bundling method is an especially important tool here.
+When assessing estimated standard errors it is very important to see if they are \emph{reliably} the right size, making the bundling method an especially important tool here.
 We first see if the average estimated SE, relative to the true SE, is usually around 1 across all scenarios:
 
 \begin{Shaded}
@@ -8846,30 +8878,33 @@ We first see if the average estimated SE, relative to the true SE, is usually ar
         \FunctionTok{aes}\NormalTok{( ICC, inflate, }\AttributeTok{col=}\NormalTok{method,}
              \AttributeTok{group =} \FunctionTok{interaction}\NormalTok{(ICC,method) ) ) }\SpecialCharTok{+}
     \FunctionTok{facet\_grid}\NormalTok{( . }\SpecialCharTok{\textasciitilde{}}\NormalTok{ J, }\AttributeTok{labeller =}\NormalTok{ label\_both) }\SpecialCharTok{+}
-  \FunctionTok{geom\_boxplot}\NormalTok{( }\AttributeTok{position=}\StringTok{"dodge"}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{( }\AttributeTok{position=}\StringTok{"dodge"}\NormalTok{, }\AttributeTok{outlier.size=}\FloatTok{0.5}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept=}\DecValTok{1}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{labs}\NormalTok{( }\AttributeTok{color=}\StringTok{"n"}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{( }\AttributeTok{color=}\StringTok{"n"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Inflation"}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\FunctionTok{percent\_format}\NormalTok{() ) }
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-229-1} \end{center}
+\begin{center}\includegraphics[width=1\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-229-1} \end{center}
 
-We see that our estimated SEs are about right, on average, across all scenarios.
-When ICC is 0 and J is small, the MLM SEs are a bit too high.
-When J is 5, the LR estimator can be a bit low under some circumstances.
-We can start exploring these trends to dig into why our are wide (suggesting that other factors dictate when the SEs are biased).
+We see that, for the most part, our estimated SEs are about right, on average, across all scenarios.
+When the ICC is 0 and J is small, the MLM SEs are clearly too high.
+We also see that when J is 5, the LR estimator tends to be a bit low.
 
-We can look at the \(J = 80\) to see what MCSEs are like.
-The \texttt{simhelpers} \texttt{calc\_relative\_var()} method gives mcses for relative bias.
+We next start exploring to dig into why our boxplots are wide.
+In particular, we want to see if other factors dictate when the SEs are biased.
+We first subset to the \(J = 80\) scenarios to see if those box widths could just be due to the MCSEs.
+The \texttt{simhelpers} \texttt{calc\_relative\_var()} method gives mcses for relative bias of an estimated \emph{variance} to the true \emph{variance}.
+We thus square our estimated SEs to get variance estimates, and then use that function to see if the relative variance estimates are biased:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{se\_res }\OtherTok{\textless{}{-}}\NormalTok{ res }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{group\_by}\NormalTok{( n\_bar, J, ATE, size\_coef, ICC, alpha, method ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{summarize}\NormalTok{( }\FunctionTok{calc\_relative\_var}\NormalTok{( }\AttributeTok{estimates =}\NormalTok{ ATE\_hat,}
-                     \AttributeTok{var\_estimates =}\NormalTok{ SE\_hat}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{,}
-                     \AttributeTok{criteria =} \StringTok{"relative bias"}\NormalTok{ ) )}
+                                \AttributeTok{var\_estimates =}\NormalTok{ SE\_hat}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{,}
+                                \AttributeTok{criteria =} \StringTok{"relative bias"}\NormalTok{ ) )}
+  
 \NormalTok{se\_res }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{filter}\NormalTok{( J }\SpecialCharTok{==} \DecValTok{80}\NormalTok{, n\_bar }\SpecialCharTok{==} \DecValTok{80}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{ggplot}\NormalTok{( }\FunctionTok{aes}\NormalTok{( ICC, rel\_bias\_var, }\AttributeTok{col=}\NormalTok{method ) ) }\SpecialCharTok{+}
@@ -8886,12 +8921,15 @@ The \texttt{simhelpers} \texttt{calc\_relative\_var()} method gives mcses for re
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-230-1} \end{center}
 
-In looking at this plot, we see no real evidence of miscalibration.
-This makes us think the boxes in the prior plot are wide due to MCSE rather than other simulation factors driving some slight miscalibration in some scenarios when \(J\) is high.
+In looking at this plot, we see no real evidence of miscalibration: our confidence intervals are generally covering 1, meaning our average estimated variance is about the same as the true variance.
+This makes us think the boxes for \(J=80\) in the prior plot are wide due to MCSE rather than other simulation factors driving some slight miscalibration.
 We might then assume this applies to the \(J = 20\) case as well.
 
-Finally, we can look at how stable the estimated SEs are, relative to the actual uncertainty.
-We calculate the standard deviation of the estimated standard errors and compare that to the standard deviation of the point estimate.
+\subsection{Stability of estimated SEs}\label{stability-of-estimated-ses}
+
+We can also look at how stable the estimated SEs are, relative to the actual uncertainty they are trying to capture.
+We do this by calculating the standard deviation of the estimated standard errors and compare that to the standard deviation of the point estimate.
+This is related to the coefficient of variation of \texttt{SE\_hat}.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -8904,15 +8942,17 @@ We calculate the standard deviation of the estimated standard errors and compare
     \FunctionTok{facet\_grid}\NormalTok{( . }\SpecialCharTok{\textasciitilde{}}\NormalTok{ J, }\AttributeTok{labeller =}\NormalTok{ label\_both) }\SpecialCharTok{+}
   \FunctionTok{geom\_boxplot}\NormalTok{( }\AttributeTok{position=}\StringTok{"dodge"}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{labs}\NormalTok{( }\AttributeTok{color=}\StringTok{"n"}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\FunctionTok{percent\_format}\NormalTok{() ) }
+  \FunctionTok{scale\_y\_continuous}\NormalTok{( }\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\FunctionTok{percent\_format}\NormalTok{() ) }\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_continuous}\NormalTok{( }\AttributeTok{breaks =} \FunctionTok{unique}\NormalTok{( sres}\SpecialCharTok{$}\NormalTok{ICC ) )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-231-1} \end{center}
 
-It looks like MLM has more reliably estimated SEs than other methods when ICC is small.
-Aggregation has more trouble estimating uncertainty when J is small.
-Finally, LR's SEs are generally more unstable, relative to its performance, when \(J\) is larger.
+Overall, we have a lot of variation in the estimated SEs, relative to the actual uncertainty.
+We also see that MLM has more reliably estimated SEs than other methods when ICC is small.
+Aggregation has relatively more trouble estimating uncertainty when J is small.
+Finally, LR's SEs are slightly more unstable, relative to the other methods, when \(J\) is larger.
 
 Assessing the stability of standard errors is usually very in the weeds of a performance evaluation.
 It is a tricky measure: if the true SE is high for a method, then the relative instability will be lower, even if the absolute instability is the same.
@@ -8921,9 +8961,9 @@ People often look at confidence interval coverage and confidence interval width,
 
 \section{Assessing confidence intervals}\label{assessing-confidence-intervals}
 
-Coverage is a blend of how accurate our estimates are and how good our estimated SEs are.
+Coverage is a blend of how accurate (unbiased) our estimates are and how good our estimated SEs are.
 To assess coverage, we first calculate confidence intervals using the estimated effect, estimated standard error, and degrees of freedom.
-Once we have our calculated t-based intervals, we can average them across runs to get average width and coverage using \texttt{simhelpers}.
+Once we have our calculated \(t\)-based intervals, we can average them across runs to get average width and coverage using \texttt{simhelpers}'s \texttt{calc\_coverage()} method.
 A good confidence interval estimator would be one which is generally relatively short while maintaining proper coverage.
 
 Our calculations are as so:
@@ -8956,10 +8996,11 @@ We subset to \texttt{n\_bar\ =\ 80}, \texttt{size\_coef\ =\ 0.2} and \texttt{alp
 
 \FunctionTok{ggplot}\NormalTok{( c\_sub, }\FunctionTok{aes}\NormalTok{( ICC, coverage, }\AttributeTok{col=}\NormalTok{method, }\AttributeTok{group=}\NormalTok{method ) ) }\SpecialCharTok{+}
   \FunctionTok{facet\_grid}\NormalTok{( . }\SpecialCharTok{\textasciitilde{}}\NormalTok{ J, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{( }\AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{( }\AttributeTok{width=}\FloatTok{0.05}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{( }\AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{( }\AttributeTok{width=}\FloatTok{0.05}\NormalTok{) ) }\SpecialCharTok{+}
   \FunctionTok{geom\_errorbar}\NormalTok{( }\FunctionTok{aes}\NormalTok{( }\AttributeTok{ymax =}\NormalTok{ coverage }\SpecialCharTok{+} \DecValTok{2}\SpecialCharTok{*}\NormalTok{coverage\_mcse, }
-                      \AttributeTok{ymin =}\NormalTok{ coverage }\SpecialCharTok{{-}} \DecValTok{2}\SpecialCharTok{*}\NormalTok{coverage\_mcse ), }\AttributeTok{width=}\DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
+                      \AttributeTok{ymin =}\NormalTok{ coverage }\SpecialCharTok{{-}} \DecValTok{2}\SpecialCharTok{*}\NormalTok{coverage\_mcse ), }\AttributeTok{width=}\DecValTok{0}\NormalTok{,}
+                 \AttributeTok{position =} \FunctionTok{position\_dodge}\NormalTok{( }\AttributeTok{width=}\FloatTok{0.05}\NormalTok{) ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \FloatTok{0.95}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
@@ -8967,8 +9008,8 @@ We subset to \texttt{n\_bar\ =\ 80}, \texttt{size\_coef\ =\ 0.2} and \texttt{alp
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-233-1} \end{center}
 
 Generally coverage is good unless \(J\) is low or ICC is 0.
-Monte Carlo standard errors indicate that, in some settings, the observed coverage is reliably different from the nominal 95\%, suggesting issues with estimator bias, standard error estimation, or both.
-We might want to see if these results are general across other settings (see exercises).
+Monte Carlo standard error based confidence intervals on our performance metrics indicate that, in some settings, the observed coverage is reliably different from the nominal 95\%, suggesting issues with estimator bias, standard error estimation, or both.
+We might then want to see if these results are general across the other simulation scenarios (see exercises).
 
 For confidence interval width, we can calculate the average width relative to the width of LR across all scenarios:
 
@@ -9000,6 +9041,8 @@ For confidence interval width, we can calculate the average width relative to th
 
 Confidence interval width serves as a proxy for precision. Narrow intervals suggest more precise estimates.
 We see MLM has wider intervals, relative to LR, when ICC is low. When there is site variation, both Agg and MLM have shorter intervals.
+This plot essentially echos our standard error findings, as expected.
+There are mild differences due to differences in how the degrees of freedom are calculated, however.
 
 \section{Exercises}\label{exercises-8}
 
@@ -9025,6 +9068,11 @@ Make a final plot and draft a short write-up that captures how coverage is vulne
 In Section \ref{using-pmap-to-run-multifactor-simulations}, we generated results for a multifactor simulation of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson data-generating process. Create a plot that depicts the coverage rate of the confidence intervals for \(\rho\) across all four simulation factors.
 Write a brief explanation of how the plot is laid out and explain why you chose to construct it as you did.
 
+\subsection{Making another plot for assessing SEs}\label{making-another-plot-for-assessing-ses}
+
+In the main chapter we examined how SE changes as a function of various simulation factors.
+Now generate a plot to see whether and when cluster size meaningfully helps precision, and explain what you find.
+
 \chapter{Special Topics on Reporting Simulation Results}\label{special-topics-on-reporting-simulation-results}
 
 In this chapter we cover some special topics on reporting simulation results.
@@ -9033,16 +9081,17 @@ We then dive more deeply into what to do when you have only a few iterations per
 
 \section{Using regression to analyze simulation results}\label{using-regression-to-analyze-simulation-results}
 
-In Chapter \ref{presentation-of-results} we saw some examples of using regression and ANOVA to analyze simulation results.
-We next provide some further in-depth examples that give the code for doing this sort of thing.
+In Chapter \ref{presentation-of-results} we saw some examples of using regression and ANOVA on a set of simulation results to summarize overall patterns across scenarios.
+In this chapter we will provide some further in-depth examples along with the R code for doing this sort of thing.
 
 \subsection{Example 1: Biserial, revisited}\label{example-1-biserial-revisited-1}
 
-We first give the code that produced the final ANOVA summary table for the biserial correlation example in Chapter \ref{presentation-of-results}.
-In the visualization there, we saw that several factors appeared to impact bias, but we might want to get a sense of how much.
-Under modeling of that same chapter, we saw a table that partialed out the variance across several factors so we could see which simulation factors mattered most for bias.
+As our first in depth example, we walk through the analysis that produces the final ANOVA summary table for the biserial correlation example in Chapter \ref{presentation-of-results}.
+In the visualization there, we saw that several factors appeared to impact bias.
+On the eta table presented later in that same chapter, we saw a table that decomposed the variance across several factors so we could see which simulation factors mattered most for bias.
 
-To build that table, we first fit a regression model to see:
+To build that table, we first fit a regression model, regressing bias on all the simulation factors.
+We first convert each factor to a factor variable, so that R does not assume a continuous relationship.
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -9099,67 +9148,68 @@ To build that table, we first fit a regression model to see:
 ## F-statistic: 454.4 on 11 and 4788 DF,  p-value: < 2.2e-16
 \end{verbatim}
 
-The above printout gives main effects for each factor, averaged across other factors.
-Because \texttt{p1} and \texttt{n} are ordered factors, the \texttt{lm()} command automatically generates linear, quadradic, cubic and fourth order contrasts for them.
+The above printout gives main effects for each factor, averaged across the others.
+Because \texttt{p1} and \texttt{n} are ordered factors, the \texttt{lm()} command automatically generates linear, quadratic, cubic and fourth order contrasts for them.
 We smooth our \texttt{rho} factor, which has many levels of a continuous measure, with a quadratic curve.
 We could instead use splines or some local linear regression if we were worried about model fit for a complex relationship.
 
 The main effects are summaries of trends across contexts.
 For example, averaged across the other contexts, the ``sample cutoff'' condition is around 0.004 lower than the population (the baseline condition).
 
-We can also use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+As shown in Chapter \ref{presentation-of-results}, we can also use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
 To do this, we use \texttt{aov()} to fit an analysis of variance model:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{anova\_table }\OtherTok{\textless{}{-}} \FunctionTok{aov}\NormalTok{(bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ rho }\SpecialCharTok{*}\NormalTok{ p1 }\SpecialCharTok{*}\NormalTok{ fixed }\SpecialCharTok{*}\NormalTok{ n, }\AttributeTok{data =}\NormalTok{ r\_F)}
-\FunctionTok{summary}\NormalTok{(anova\_table)}
+\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\FunctionTok{summary}\NormalTok{(anova\_table)[[}\DecValTok{1}\NormalTok{]],}
+              \AttributeTok{digits =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{4}\NormalTok{,}\DecValTok{4}\NormalTok{,}\DecValTok{1}\NormalTok{,}\DecValTok{5}\NormalTok{) )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{verbatim}
-##                  Df   Sum Sq  Mean Sq  F value
-## rho               1 0.002444 0.002444  1673.25
-## p1                4 0.023588 0.005897  4036.41
-## fixed             1 0.015858 0.015858 10854.52
-## n                 4 0.013760 0.003440  2354.60
-## rho:p1            4 0.001722 0.000431   294.71
-## rho:fixed         1 0.003440 0.003440  2354.69
-## p1:fixed          4 0.001683 0.000421   287.98
-## rho:n             4 0.002000 0.000500   342.31
-## p1:n             16 0.019810 0.001238   847.51
-## fixed:n           4 0.013359 0.003340  2285.97
-## rho:p1:fixed      4 0.000473 0.000118    80.87
-## rho:p1:n         16 0.001470 0.000092    62.91
-## rho:fixed:n       4 0.002929 0.000732   501.23
-## p1:fixed:n       16 0.001429 0.000089    61.12
-## rho:p1:fixed:n   16 0.000429 0.000027    18.36
-## Residuals      4700 0.006866 0.000001         
-##                Pr(>F)    
-## rho            <2e-16 ***
-## p1             <2e-16 ***
-## fixed          <2e-16 ***
-## n              <2e-16 ***
-## rho:p1         <2e-16 ***
-## rho:fixed      <2e-16 ***
-## p1:fixed       <2e-16 ***
-## rho:n          <2e-16 ***
-## p1:n           <2e-16 ***
-## fixed:n        <2e-16 ***
-## rho:p1:fixed   <2e-16 ***
-## rho:p1:n       <2e-16 ***
-## rho:fixed:n    <2e-16 ***
-## p1:fixed:n     <2e-16 ***
-## rho:p1:fixed:n <2e-16 ***
-## Residuals                
-## ---
-## Signif. codes:  
-## 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-\end{verbatim}
+\begin{tabular}{l|r|r|r|r|r}
+\hline
+  & Df & Sum Sq & Mean Sq & F value & Pr(>F)\\
+\hline
+rho & 1 & 0.0024 & 0.0024 & 1673.3 & 0\\
+\hline
+p1 & 4 & 0.0236 & 0.0059 & 4036.4 & 0\\
+\hline
+fixed & 1 & 0.0159 & 0.0159 & 10854.5 & 0\\
+\hline
+n & 4 & 0.0138 & 0.0034 & 2354.6 & 0\\
+\hline
+rho:p1 & 4 & 0.0017 & 0.0004 & 294.7 & 0\\
+\hline
+rho:fixed & 1 & 0.0034 & 0.0034 & 2354.7 & 0\\
+\hline
+p1:fixed & 4 & 0.0017 & 0.0004 & 288.0 & 0\\
+\hline
+rho:n & 4 & 0.0020 & 0.0005 & 342.3 & 0\\
+\hline
+p1:n & 16 & 0.0198 & 0.0012 & 847.5 & 0\\
+\hline
+fixed:n & 4 & 0.0134 & 0.0033 & 2286.0 & 0\\
+\hline
+rho:p1:fixed & 4 & 0.0005 & 0.0001 & 80.9 & 0\\
+\hline
+rho:p1:n & 16 & 0.0015 & 0.0001 & 62.9 & 0\\
+\hline
+rho:fixed:n & 4 & 0.0029 & 0.0007 & 501.2 & 0\\
+\hline
+p1:fixed:n & 16 & 0.0014 & 0.0001 & 61.1 & 0\\
+\hline
+rho:p1:fixed:n & 16 & 0.0004 & 0.0000 & 18.4 & 0\\
+\hline
+Residuals & 4700 & 0.0069 & 0.0000 & NA & NA\\
+\hline
+\end{tabular}
 
 The advantage here is the multiple levels of our categorical factors get bundled together in our table of results, making a tidier display.
+Note we are including interactions between our simulation factors.
+The prior linear regression model was just estimating main effects of the factors, and not estimating these more complex relationships.
 
-The table in Chapter \ref{presentation-of-results} is a summary of this anova table, which we generate as follows:
+The eta table in Chapter \ref{presentation-of-results} is a summary of this anova table, which we generate as follows:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -9170,19 +9220,18 @@ The table in Chapter \ref{presentation-of-results} is a summary of this anova ta
   \FunctionTok{mutate}\NormalTok{( }\AttributeTok{order =} \DecValTok{1} \SpecialCharTok{+} \FunctionTok{str\_count}\NormalTok{(source, }\StringTok{":"}\NormalTok{ ) ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{group\_by}\NormalTok{( order ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{arrange}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{eta.sq, }\AttributeTok{.by\_group =} \ConstantTok{TRUE}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{relocate}\NormalTok{( order ) }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{2}\NormalTok{ )}
+  \FunctionTok{relocate}\NormalTok{( order ) }
 \end{Highlighting}
 \end{Shaded}
 
 We group the results by the order of the interaction, so that we can see the main effects first, then two-way interactions, and so on.
 We then sort within each group to put the high importance factors first.
-The resulting variance decomposition table (see Chapter \ref{presentation-of-results}) shows the amount of variation explained by each combination of factors.
+The resulting variance decomposition table shows the amount of variation explained by each combination of factors.
 
 \subsection{Example 2: Cluster RCT example, revisited}\label{example-2-cluster-rct-example-revisited}
 
-When we have several methods to compare, we can also use meta-regression to understand how these methods change as other simulation factors change.
-We next continue our running Cluster RCT example.
+When we have several methods to compare, we can use meta-regression to understand how these methods change as other simulation factors change.
+We next illustrate this with our running Cluster RCT example.
 
 We first turn our simulation levels (except for ICC, which has several levels) into factors, so R does not assume that sample size, for example, should be treated as a continuous variable:
 
@@ -9200,80 +9249,114 @@ We first turn our simulation levels (except for ICC, which has several levels) i
          \AttributeTok{data =}\NormalTok{ sres\_f )}
 
 \CommentTok{\# View the results}
-\NormalTok{stargazer}\SpecialCharTok{::}\FunctionTok{stargazer}\NormalTok{(M, }\AttributeTok{type =} \StringTok{"text"}\NormalTok{, }\AttributeTok{single.row =} \ConstantTok{TRUE}\NormalTok{ )}
+\FunctionTok{tidy}\NormalTok{( M ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{3}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{verbatim}
-## 
-## ==================================================
-##                            Dependent variable:    
-##                        ---------------------------
-##                                   bias            
-## --------------------------------------------------
-## n_bar80                      -0.003 (0.002)       
-## n_bar320                     -0.001 (0.002)       
-## J20                          -0.002 (0.002)       
-## J80                          -0.002 (0.002)       
-## size_coef0.2                  0.003 (0.002)       
-## ICC                           0.001 (0.003)       
-## alpha0.5                     -0.002 (0.002)       
-## alpha0.8                      0.001 (0.002)       
-## methodLR                    -0.012*** (0.004)     
-## methodMLM                     0.001 (0.004)       
-## n_bar80:methodLR             0.0001 (0.003)       
-## n_bar320:methodLR           -0.00001 (0.003)      
-## n_bar80:methodMLM            -0.0005 (0.003)      
-## n_bar320:methodMLM           -0.001 (0.003)       
-## J20:methodLR                 0.005* (0.003)       
-## J80:methodLR                 0.006* (0.003)       
-## J20:methodMLM                 0.001 (0.003)       
-## J80:methodMLM                 0.001 (0.003)       
-## size_coef0.2:methodLR       0.016*** (0.002)      
-## size_coef0.2:methodMLM        0.003 (0.002)       
-## ICC:methodLR                 -0.0003 (0.004)      
-## ICC:methodMLM                -0.006 (0.004)       
-## alpha0.5:methodLR            0.006** (0.003)      
-## alpha0.8:methodLR           0.017*** (0.003)      
-## alpha0.5:methodMLM            0.001 (0.003)       
-## alpha0.8:methodMLM            0.003 (0.003)       
-## Constant                      0.002 (0.003)       
-## --------------------------------------------------
-## Observations                       810            
-## R2                                0.273           
-## Adjusted R2                       0.248           
-## Residual Std. Error         0.014 (df = 783)      
-## F Statistic             11.283*** (df = 26; 783)  
-## ==================================================
-## Note:                  *p<0.1; **p<0.05; ***p<0.01
-\end{verbatim}
+\begin{tabular}{l|r|r|r|r}
+\hline
+term & estimate & std.error & statistic & p.value\\
+\hline
+(Intercept) & 0.002 & 0.003 & 0.872 & 0.384\\
+\hline
+n\_bar80 & -0.003 & 0.002 & -1.295 & 0.196\\
+\hline
+n\_bar320 & -0.001 & 0.002 & -0.657 & 0.511\\
+\hline
+J20 & -0.002 & 0.002 & -0.991 & 0.322\\
+\hline
+J80 & -0.002 & 0.002 & -0.885 & 0.376\\
+\hline
+size\_coef0.2 & 0.003 & 0.002 & 1.537 & 0.125\\
+\hline
+ICC & 0.001 & 0.003 & 0.272 & 0.786\\
+\hline
+alpha0.5 & -0.002 & 0.002 & -1.179 & 0.239\\
+\hline
+alpha0.8 & 0.001 & 0.002 & 0.419 & 0.676\\
+\hline
+methodLR & -0.012 & 0.004 & -3.060 & 0.002\\
+\hline
+methodMLM & 0.001 & 0.004 & 0.191 & 0.849\\
+\hline
+n\_bar80:methodLR & 0.000 & 0.003 & 0.037 & 0.971\\
+\hline
+n\_bar320:methodLR & 0.000 & 0.003 & -0.004 & 0.997\\
+\hline
+n\_bar80:methodMLM & 0.000 & 0.003 & -0.170 & 0.865\\
+\hline
+n\_bar320:methodMLM & -0.001 & 0.003 & -0.362 & 0.718\\
+\hline
+J20:methodLR & 0.005 & 0.003 & 1.722 & 0.085\\
+\hline
+J80:methodLR & 0.006 & 0.003 & 1.946 & 0.052\\
+\hline
+J20:methodMLM & 0.001 & 0.003 & 0.354 & 0.723\\
+\hline
+J80:methodMLM & 0.001 & 0.003 & 0.420 & 0.675\\
+\hline
+size\_coef0.2:methodLR & 0.016 & 0.002 & 6.741 & 0.000\\
+\hline
+size\_coef0.2:methodMLM & 0.003 & 0.002 & 1.294 & 0.196\\
+\hline
+ICC:methodLR & 0.000 & 0.004 & -0.062 & 0.951\\
+\hline
+ICC:methodMLM & -0.006 & 0.004 & -1.482 & 0.139\\
+\hline
+alpha0.5:methodLR & 0.006 & 0.003 & 2.210 & 0.027\\
+\hline
+alpha0.8:methodLR & 0.017 & 0.003 & 5.868 & 0.000\\
+\hline
+alpha0.5:methodMLM & 0.001 & 0.003 & 0.434 & 0.664\\
+\hline
+alpha0.8:methodMLM & 0.003 & 0.003 & 1.091 & 0.275\\
+\hline
+\end{tabular}
 
-We can quickly generate a lot of regression coefficients, making our meta-regression somewhat hard to interpret.
-The above model does not even have interactions of the simulation factors, even though the plots we have seen strongly suggest interactions among the simulation factors.
+With even a modestly complex simulation, we can quickly generate a lot of regression coefficients, making our meta-regression somewhat hard to interpret.
+The above model does not even have interactions between the simulation factors, even though the plots we have seen strongly suggest interactions among them.
 That said, picking out the significant coefficients is a quick way to obtain clues as to what is driving performance.
 For instance, several features interact with the LR method for bias.
 The other two methods seem less impacted.
 
 \subsubsection{Using LASSO to simplify the model}\label{using-lasso-to-simplify-the-model}
 
-We can simplify our model using LASSO regression, to drop coefficients that are less relevant.
+We can simplify a meta regression model using LASSO regression, to drop coefficients that are less relevant.
 This requires some work to make our model matrix of dummy variables with all the interactions.
+If using LASSO, we recommend fitting a separate model to each method being considered;
+the set of fit LASSO models can then be compared to see which methods react to what factors, and how.
+
+We first illustrate with LR, and then extend to all three.
+To use the LASSO we have to prepare our data first by hand---this involves converting all our factors to sets of dummy variables for the regression.
+We also generate all interaction terms up to the cubic level.
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{library}\NormalTok{(modelr)}
 \FunctionTok{library}\NormalTok{(glmnet)}
 
-\CommentTok{\# Define formula with all three{-}way interactions}
-\NormalTok{form }\OtherTok{\textless{}{-}}\NormalTok{ bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ( n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha) }\SpecialCharTok{*}\NormalTok{ method}
+\NormalTok{sres\_f\_LR }\OtherTok{\textless{}{-}}\NormalTok{ sres\_f }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{( method }\SpecialCharTok{==} \StringTok{"LR"}\NormalTok{ )}
 
 \CommentTok{\# Create model matrix}
-\NormalTok{X }\OtherTok{\textless{}{-}} \FunctionTok{model.matrix}\NormalTok{(form, }\AttributeTok{data =}\NormalTok{ sres\_f)[, }\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{]  }\CommentTok{\# drop intercept}
+\NormalTok{form }\OtherTok{\textless{}{-}}\NormalTok{ bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ( n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha )}\SpecialCharTok{\^{}}\DecValTok{3}
+\NormalTok{X }\OtherTok{\textless{}{-}} \FunctionTok{model.matrix}\NormalTok{(form, }\AttributeTok{data =}\NormalTok{ sres\_f\_LR)[, }\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{]}
+\CommentTok{\#          The [,{-}1] drops the intercept}
+\FunctionTok{dim}\NormalTok{(X)}
+\end{Highlighting}
+\end{Shaded}
 
+\begin{verbatim}
+## [1] 270  71
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
 \CommentTok{\# Fit LASSO}
-\NormalTok{fit }\OtherTok{\textless{}{-}} \FunctionTok{cv.glmnet}\NormalTok{(X, sres\_f}\SpecialCharTok{$}\NormalTok{bias, }\AttributeTok{alpha =} \DecValTok{1}\NormalTok{)}
+\NormalTok{fit }\OtherTok{\textless{}{-}} \FunctionTok{cv.glmnet}\NormalTok{(X, sres\_f\_LR}\SpecialCharTok{$}\NormalTok{bias, }\AttributeTok{alpha =} \DecValTok{1}\NormalTok{)}
 
-\CommentTok{\# Coefficients}
+\CommentTok{\# Non{-}zero coefficients}
 \FunctionTok{coef}\NormalTok{(fit, }\AttributeTok{s =} \StringTok{"lambda.1se"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{as.matrix}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{as.data.frame}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
@@ -9287,177 +9370,46 @@ This requires some work to make our model matrix of dummy variables with all the
 \hline
 term & lambda.1se\\
 \hline
-(Intercept) & 0.002\\
+(Intercept) & 0.004\\
 \hline
-size\_coef0.2 & 0.001\\
+size\_coef0.2 & 0.002\\
 \hline
-size\_coef0.2:methodLR & 0.007\\
-\hline
-alpha0.8:methodLR & 0.005\\
+size\_coef0.2:alpha0.8 & 0.021\\
 \hline
 \end{tabular}
+
+Note we have 71 covariates due to the many, many interactions and the fact that our sample sizes, etc., are all factors, not continuous.
 
 When using regression, and especially LASSO, which levels are baseline can impact the final results.
-Here ``Agg'' is our baseline method, and so our coefficients are showing how other methods differ from the Agg method.
-If we selected LR as baseline, then we might suddenly see Agg and MLM as having large coefficients.
+We have our smallest sample sizes, no variation, 0 ICC, and no \texttt{size\_coef} as baseline.
+We might imagine that other choices of baseline could suddenly make other factors appear with large coefficients.
+One trick to avoid selecting a baseline is to give dummy variables for all the factors, and fit LASSO with the colinear terms.
+Due to regularization, this would still work; we do not pursue this here, however.
 
-One trick is to give dummy variables for all the methods, and overload the \texttt{method} factor with the baseline method, so that it is always the first level.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{form }\OtherTok{\textless{}{-}}\NormalTok{ bias }\SpecialCharTok{\textasciitilde{}} \DecValTok{0} \SpecialCharTok{+}\NormalTok{ ( n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha) }\SpecialCharTok{*}\NormalTok{ method}
-\NormalTok{sres\_f}\SpecialCharTok{$}\NormalTok{method }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(sres\_f}\SpecialCharTok{$}\NormalTok{method)}
-\NormalTok{vars }\OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"n\_bar"}\NormalTok{, }\StringTok{"J"}\NormalTok{, }\StringTok{"size\_coef"}\NormalTok{, }\StringTok{"alpha"}\NormalTok{, }\StringTok{"method"}\NormalTok{)}
-\NormalTok{contr.identity }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x) \{}
-\NormalTok{  n }\OtherTok{=} \FunctionTok{nlevels}\NormalTok{(x)}
-\NormalTok{  m }\OtherTok{\textless{}{-}} \FunctionTok{diag}\NormalTok{(n)}
-  \FunctionTok{rownames}\NormalTok{(m) }\OtherTok{\textless{}{-}} \FunctionTok{colnames}\NormalTok{(m) }\OtherTok{\textless{}{-}} \FunctionTok{levels}\NormalTok{(x)}
-
-\NormalTok{  m}
-\NormalTok{\}}
-\FunctionTok{contr.identity}\NormalTok{(sres\_f}\SpecialCharTok{$}\NormalTok{n\_bar)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-##     20 80 320
-## 20   1  0   0
-## 80   0  1   0
-## 320  0  0   1
-\end{verbatim}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{X }\OtherTok{\textless{}{-}} \FunctionTok{model.matrix}\NormalTok{(}\SpecialCharTok{\textasciitilde{}} \DecValTok{0} \SpecialCharTok{+}\NormalTok{ ( n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef  }\SpecialCharTok{+}\NormalTok{ alpha) }\SpecialCharTok{*}\NormalTok{ method, }
-                  \AttributeTok{data =}\NormalTok{ sres\_f,}
-                  \AttributeTok{contrasts.arg =} \FunctionTok{lapply}\NormalTok{(sres\_f[,vars], }
-\NormalTok{                                         \textbackslash{}(x) }\FunctionTok{contr.identity}\NormalTok{(x)))}
-
-\FunctionTok{colnames}\NormalTok{(X)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-##  [1] "n_bar20"               
-##  [2] "n_bar80"               
-##  [3] "n_bar320"              
-##  [4] "J5"                    
-##  [5] "J20"                   
-##  [6] "J80"                   
-##  [7] "size_coef0"            
-##  [8] "size_coef0.2"          
-##  [9] "alpha0"                
-## [10] "alpha0.5"              
-## [11] "alpha0.8"              
-## [12] "methodAgg"             
-## [13] "methodLR"              
-## [14] "methodMLM"             
-## [15] "n_bar20:methodAgg"     
-## [16] "n_bar80:methodAgg"     
-## [17] "n_bar320:methodAgg"    
-## [18] "n_bar20:methodLR"      
-## [19] "n_bar80:methodLR"      
-## [20] "n_bar320:methodLR"     
-## [21] "n_bar20:methodMLM"     
-## [22] "n_bar80:methodMLM"     
-## [23] "n_bar320:methodMLM"    
-## [24] "J5:methodAgg"          
-## [25] "J20:methodAgg"         
-## [26] "J80:methodAgg"         
-## [27] "J5:methodLR"           
-## [28] "J20:methodLR"          
-## [29] "J80:methodLR"          
-## [30] "J5:methodMLM"          
-## [31] "J20:methodMLM"         
-## [32] "J80:methodMLM"         
-## [33] "size_coef0:methodAgg"  
-## [34] "size_coef0.2:methodAgg"
-## [35] "size_coef0:methodLR"   
-## [36] "size_coef0.2:methodLR" 
-## [37] "size_coef0:methodMLM"  
-## [38] "size_coef0.2:methodMLM"
-## [39] "alpha0:methodAgg"      
-## [40] "alpha0.5:methodAgg"    
-## [41] "alpha0.8:methodAgg"    
-## [42] "alpha0:methodLR"       
-## [43] "alpha0.5:methodLR"     
-## [44] "alpha0.8:methodLR"     
-## [45] "alpha0:methodMLM"      
-## [46] "alpha0.5:methodMLM"    
-## [47] "alpha0.8:methodMLM"
-\end{verbatim}
-
-Now do the LASSO on this colinear mess:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{fit }\OtherTok{\textless{}{-}} \FunctionTok{cv.glmnet}\NormalTok{(X, sres\_f}\SpecialCharTok{$}\NormalTok{bias, }\AttributeTok{alpha =} \DecValTok{1}\NormalTok{)}
-\FunctionTok{coef}\NormalTok{(fit, }\AttributeTok{s =} \StringTok{"lambda.1se"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{as.matrix}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{as.data.frame}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{rownames\_to\_column}\NormalTok{(}\StringTok{"term"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{filter}\NormalTok{(}\FunctionTok{abs}\NormalTok{(lambda}\FloatTok{.1}\NormalTok{se) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(}\AttributeTok{digits =} \DecValTok{3}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{tabular}{l|r}
-\hline
-term & lambda.1se\\
-\hline
-(Intercept) & 0.003\\
-\hline
-size\_coef0 & -0.001\\
-\hline
-size\_coef0.2 & 0.000\\
-\hline
-alpha0.8 & 0.000\\
-\hline
-size\_coef0.2:methodLR & 0.008\\
-\hline
-alpha0.8:methodLR & 0.006\\
-\hline
-\end{tabular}
-
-We can also extend to allow for pairwise interactions of simulation factors:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{form2 }\OtherTok{\textless{}{-}}\NormalTok{ bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ( n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha)}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{*}\NormalTok{ method}
-\end{Highlighting}
-\end{Shaded}
-
-Interestingly, we get basically the same result:
-
-\begin{tabular}{l|r}
-\hline
-term & lambda.1se\\
-\hline
-(Intercept) & 0.001\\
-\hline
-size\_coef0.2 & 0.001\\
-\hline
-size\_coef0.2:alpha0.8 & 0.003\\
-\hline
-size\_coef0.2:methodLR & 0.002\\
-\hline
-size\_coef0.2:alpha0.5:methodLR & 0.003\\
-\hline
-size\_coef0.2:alpha0.8:methodLR & 0.023\\
-\hline
-\end{tabular}
-
-\subsubsection{Fitting models to each method}\label{fitting-models-to-each-method}
-
-We know each method responds differently to the simulation factors, so we could fit three models, one for each method, and compare them.
+We next bundle the above to make three models, one for each method.
+We first rescale ICC to be on a 5 point scale to control it's relative coefficient size to the dummy variables, and then add a new feature of ``zeroICC'' as well (recalling the prior plots that showed ICC being 0 was unusual).
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{meth }\OtherTok{=} \FunctionTok{c}\NormalTok{( }\StringTok{"LR"}\NormalTok{, }\StringTok{"MLM"}\NormalTok{, }\StringTok{"Agg"}\NormalTok{ )}
+\NormalTok{sres\_f}\SpecialCharTok{$}\NormalTok{zeroICC }\OtherTok{=} \FunctionTok{ifelse}\NormalTok{( sres\_f}\SpecialCharTok{$}\NormalTok{ICC }\SpecialCharTok{==} \DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{ )}
+\NormalTok{sres\_f}\SpecialCharTok{$}\NormalTok{ICCsc }\OtherTok{=}\NormalTok{ sres\_f}\SpecialCharTok{$}\NormalTok{ICC }\SpecialCharTok{*} \DecValTok{5} \CommentTok{\# rescale ICC to be on a 5 point scale}
+
 \NormalTok{models }\OtherTok{\textless{}{-}} \FunctionTok{map}\NormalTok{( meth, }\ControlFlowTok{function}\NormalTok{(m) \{}
-\NormalTok{  M }\OtherTok{\textless{}{-}} \FunctionTok{lm}\NormalTok{( bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ (n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha)}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{, }
-      \AttributeTok{data =}\NormalTok{ sres\_f }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{filter}\NormalTok{( method }\SpecialCharTok{==}\NormalTok{ m ) )}
-  \FunctionTok{tidy}\NormalTok{( M )}
+  
+\NormalTok{  sres\_f\_LR }\OtherTok{\textless{}{-}}\NormalTok{ sres\_f }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{filter}\NormalTok{( method }\SpecialCharTok{==}\NormalTok{ m )}
+  
+\NormalTok{  form }\OtherTok{\textless{}{-}}\NormalTok{ bias }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ( n\_bar }\SpecialCharTok{+}\NormalTok{ J }\SpecialCharTok{+}\NormalTok{ size\_coef }\SpecialCharTok{+}\NormalTok{ ICCsc }\SpecialCharTok{+}\NormalTok{ alpha }\SpecialCharTok{+}\NormalTok{ zeroICC )}\SpecialCharTok{\^{}}\DecValTok{3}
+\NormalTok{  X }\OtherTok{\textless{}{-}} \FunctionTok{model.matrix}\NormalTok{(form, }\AttributeTok{data =}\NormalTok{ sres\_f\_LR)[, }\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{]}
+\NormalTok{  fit }\OtherTok{\textless{}{-}} \FunctionTok{cv.glmnet}\NormalTok{(X, sres\_f\_LR}\SpecialCharTok{$}\NormalTok{bias, }\AttributeTok{alpha =} \DecValTok{1}\NormalTok{)}
+  
+  \FunctionTok{coef}\NormalTok{(fit, }\AttributeTok{s =} \StringTok{"lambda.min"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{as.matrix}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{as.data.frame}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{rownames\_to\_column}\NormalTok{(}\StringTok{"term"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{rename}\NormalTok{( }\AttributeTok{estimate =}\NormalTok{ lambda.min ) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{filter}\NormalTok{(}\FunctionTok{abs}\NormalTok{(estimate) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) }
 \NormalTok{\} )}
 
 \NormalTok{models }\OtherTok{\textless{}{-}} 
@@ -9467,136 +9419,129 @@ We know each method responds differently to the simulation factors, so we could 
 
 \NormalTok{m\_res }\OtherTok{\textless{}{-}}\NormalTok{ models }\SpecialCharTok{\%\textgreater{}\%} 
 \NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( model, term, estimate ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{pivot\_wider}\NormalTok{( }\AttributeTok{names\_from=}\StringTok{"model"}\NormalTok{, }\AttributeTok{values\_from=}\StringTok{"estimate"}\NormalTok{ )}
+  \FunctionTok{pivot\_wider}\NormalTok{( }\AttributeTok{names\_from=}\StringTok{"model"}\NormalTok{, }\AttributeTok{values\_from=}\StringTok{"estimate"}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{order =} \FunctionTok{str\_count}\NormalTok{(term, }\StringTok{":"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(order) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{relocate}\NormalTok{(order)}
 
+\FunctionTok{options}\NormalTok{(}\AttributeTok{knitr.kable.NA =} \StringTok{\textquotesingle{}\textquotesingle{}}\NormalTok{)}
 \NormalTok{m\_res }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{2}\NormalTok{ )}
+\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( }\AttributeTok{digits =} \DecValTok{3}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{print}\NormalTok{( }\AttributeTok{na.print =} \StringTok{""}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{tabular}{l|r|r|r}
-\hline
-term & LR & MLM & Agg\\
-\hline
-(Intercept) & 0.01 & 0.00 & 0.01\\
-\hline
-n\_bar80 & -0.01 & -0.01 & -0.01\\
-\hline
-n\_bar320 & 0.00 & 0.00 & 0.00\\
-\hline
-J20 & -0.01 & 0.00 & -0.01\\
-\hline
-J80 & -0.01 & 0.00 & 0.00\\
-\hline
-size\_coef0.2 & 0.00 & 0.01 & 0.00\\
-\hline
-ICC & 0.01 & 0.02 & 0.01\\
-\hline
-alpha0.5 & -0.01 & -0.01 & -0.01\\
-\hline
-alpha0.8 & -0.01 & 0.00 & 0.00\\
-\hline
-n\_bar80:J20 & 0.01 & 0.01 & 0.01\\
-\hline
-n\_bar320:J20 & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar80:J80 & 0.01 & 0.01 & 0.01\\
-\hline
-n\_bar320:J80 & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar80:size\_coef0.2 & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar320:size\_coef0.2 & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar80:ICC & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar320:ICC & -0.01 & 0.00 & -0.01\\
-\hline
-n\_bar80:alpha0.5 & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar320:alpha0.5 & 0.00 & 0.00 & 0.01\\
-\hline
-n\_bar80:alpha0.8 & 0.00 & 0.00 & 0.00\\
-\hline
-n\_bar320:alpha0.8 & 0.00 & 0.00 & 0.00\\
-\hline
-J20:size\_coef0.2 & 0.00 & 0.00 & 0.00\\
-\hline
-J80:size\_coef0.2 & 0.00 & 0.00 & -0.01\\
-\hline
-J20:ICC & -0.01 & -0.02 & -0.01\\
-\hline
-J80:ICC & 0.00 & -0.01 & 0.00\\
-\hline
-J20:alpha0.5 & 0.01 & 0.01 & 0.01\\
-\hline
-J80:alpha0.5 & 0.01 & 0.01 & 0.01\\
-\hline
-J20:alpha0.8 & 0.02 & 0.01 & 0.01\\
-\hline
-J80:alpha0.8 & 0.01 & 0.00 & 0.00\\
-\hline
-size\_coef0.2:ICC & 0.01 & -0.01 & 0.01\\
-\hline
-size\_coef0.2:alpha0.5 & 0.02 & 0.00 & 0.00\\
-\hline
-size\_coef0.2:alpha0.8 & 0.04 & 0.01 & 0.00\\
-\hline
-ICC:alpha0.5 & -0.01 & -0.01 & -0.01\\
-\hline
-ICC:alpha0.8 & 0.00 & -0.01 & 0.00\\
-\hline
-\end{tabular}
+\begin{verbatim}
+## 
+## \begin{tabular}{r|l|r|r|r}
+## \hline
+## order & term & LR & MLM & Agg\\
+## \hline
+## 0 & (Intercept) & 0.000 & 0.001 & 0.001\\
+## \hline
+## 0 & n\_bar80 & -0.001 & -0.001 & \\
+## \hline
+## 0 & size\_coef0.2 & 0.002 & 0.002 & \\
+## \hline
+## 1 & J20:alpha0.8 & 0.002 &  & \\
+## \hline
+## 1 & size\_coef0.2:ICCsc & 0.001 &  & \\
+## \hline
+## 1 & size\_coef0.2:alpha0.5 & 0.008 &  & \\
+## \hline
+## 1 & size\_coef0.2:alpha0.8 & 0.026 & 0.003 & \\
+## \hline
+## 1 & ICCsc:alpha0.5 & 0.000 & -0.001 & \\
+## \hline
+## 1 & n\_bar80:ICCsc &  & 0.000 & \\
+## \hline
+## 1 & J20:ICCsc &  & 0.000 & \\
+## \hline
+## 2 & n\_bar80:J80:size\_coef0.2 & 0.000 &  & \\
+## \hline
+## 2 & n\_bar320:J20:ICCsc & -0.001 & -0.001 & \\
+## \hline
+## 2 & n\_bar80:J20:alpha0.8 & 0.004 & 0.005 & \\
+## \hline
+## 2 & n\_bar320:size\_coef0.2:alpha0.5 & 0.004 & 0.002 & \\
+## \hline
+## 2 & J20:size\_coef0.2:alpha0.5 & 0.001 &  & \\
+## \hline
+## 2 & J80:size\_coef0.2:alpha0.5 & 0.002 &  & \\
+## \hline
+## 2 & J20:size\_coef0.2:alpha0.8 & 0.008 &  & \\
+## \hline
+## 2 & J80:size\_coef0.2:alpha0.8 & 0.010 &  & \\
+## \hline
+## 2 & size\_coef0.2:ICCsc:alpha0.8 & 0.000 &  & \\
+## \hline
+## 2 & n\_bar80:size\_coef0.2:ICCsc &  & 0.000 & \\
+## \hline
+## 2 & J80:size\_coef0.2:zeroICC &  & 0.002 & \\
+## \hline
+## 2 & size\_coef0.2:alpha0.5:zeroICC &  & 0.003 & \\
+## \hline
+## 2 & size\_coef0.2:alpha0.8:zeroICC &  & 0.015 & \\
+## \hline
+## \end{tabular}
+\end{verbatim}
 
-Of course, this is table is hard to read. Better to instead plot the coefficients or use LASSO to simplify the model specification.
+Of course, this is table is hard to read. Better to instead plot the coefficients:
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\NormalTok{lvl }\OtherTok{=}\NormalTok{ m\_res}\SpecialCharTok{$}\NormalTok{term}
 \NormalTok{m\_resL }\OtherTok{\textless{}{-}}\NormalTok{ m\_res }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{pivot\_longer}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{term, }
+  \FunctionTok{pivot\_longer}\NormalTok{( }\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{( order, term ), }
                 \AttributeTok{names\_to =} \StringTok{"model"}\NormalTok{, }\AttributeTok{values\_to =} \StringTok{"estimate"}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{term =} \FunctionTok{factor}\NormalTok{(term, }\AttributeTok{levels =} \FunctionTok{unique}\NormalTok{(term)) ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{has\_nbar =} \FunctionTok{str\_detect}\NormalTok{(term, }\StringTok{"n\_bar"}\NormalTok{ ),}
-          \AttributeTok{has\_J =} \FunctionTok{str\_detect}\NormalTok{(term, }\StringTok{"J"}\NormalTok{),}
-          \AttributeTok{has\_size\_coef =} \FunctionTok{str\_detect}\NormalTok{(term, }\StringTok{"size\_coef"}\NormalTok{),}
-          \AttributeTok{has\_ICC =} \FunctionTok{str\_detect}\NormalTok{(term, }\StringTok{"ICC"}\NormalTok{),}
-          \AttributeTok{has\_alpha =} \FunctionTok{str\_detect}\NormalTok{(term, }\StringTok{"alpha"}\NormalTok{) )}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{term =} \FunctionTok{factor}\NormalTok{(term, }\AttributeTok{levels =} \FunctionTok{rev}\NormalTok{(lvl) ) )}
 
 \FunctionTok{ggplot}\NormalTok{( m\_resL,}
         \FunctionTok{aes}\NormalTok{( }\AttributeTok{x =}\NormalTok{ term, }\AttributeTok{y =}\NormalTok{ estimate, }
              \AttributeTok{fill =}\NormalTok{ model, }\AttributeTok{group =}\NormalTok{ model ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_wrap}\NormalTok{( }\SpecialCharTok{\textasciitilde{}}\NormalTok{ has\_nbar, }\AttributeTok{scales=}\StringTok{"free\_y"}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{( }\SpecialCharTok{\textasciitilde{}}\NormalTok{ model ) }\SpecialCharTok{+}
   \FunctionTok{geom\_bar}\NormalTok{( }\AttributeTok{stat =} \StringTok{"identity"}\NormalTok{, }\AttributeTok{position =} \StringTok{"dodge"}\NormalTok{ ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_hline}\NormalTok{(}\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
   \FunctionTok{coord\_flip}\NormalTok{()}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-244-1} \end{center}
+\begin{verbatim}
+## Warning: Removed 37 rows containing missing values or
+## values outside the scale range (`geom_bar()`).
+\end{verbatim}
 
-Here we see how LR stands out, but also how MLM stands out under different simulation factor combinations.
-Staring at this provides some understanding of how the methods are similar, and dissimilar.
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-240-1} \end{center}
+
+Here we see how LR stands out, but also how MLM stands out under different simulation factor combinations (see, e.g., the interaction of zeroICC, alpha being 0.8, and size\_coef being 0.2).
+This aggregate plot provides some understanding of how the methods are similar, and dissimilar.
 
 For another example we turn to the standard error.
-Here we regress \(log(SE)\) onto the coefficients, and we rescale ICC to be on a 5 point scale to control it's relative coefficeint size to the dummy variables.
-We regress \(log(SE)\) and then exponentiate the coefficients to get the relative change in SE.
-We can then interpret an exponentiated coefficient of, 0.64 for MLM for \texttt{n\_bar80} as a 36\% reduction of the standard error when we increase n\_bar from the baseline of 20 to 80.
+Here we regress \(log(SE)\) onto the coefficients.
+We then exponentiate the estimated coefficients to get the relative change in SE as a function of the factors.
+We can interpret an exponentiated coefficient of, for example, 0.64 for MLM for \texttt{n\_bar80} as a 36\% reduction of the standard error when we increase n\_bar from the baseline of 20 to 80.
+We use ordinary least squares and include all interactions up to three way interactions.
+We will then simply drop all the tiny coefficients, rather than use the full LASSO machinery, to simplify our output.
+This results in a plot similar to the above:
 
-Here we make a plot like above, but with these relative changes:
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-241-1} \end{center}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-245-1} \end{center}
-
-This clearly shows that the methods are basically the same in terms of uncertainty estimation.
-We also see some interesting trends, such as the impact of \texttt{n\_bar} declines when ICC is higher (see the interaction terms at rigth of plot).
+Our plot clearly shows that the three methods are basically the same in terms of uncertainty estimation, with a few differences when alpha is 0.8.
+We also see some interesting trends, such as the impact of n\_bar declines when ICC is higher (see the positive interaction terms at right of plot).
 
 \section{Using regression trees to find important factors}\label{using-regression-trees-to-find-important-factors}
 
-With more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher which factors are important and identify stable patterns.
-Another approach we might use to explore is to fit a regression tree on the simulation results.
+With more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher which factors are important and what patterns are stable.
+Another exploration approach we might use is regression trees.
+
+We wrote a utility method, a wrapper to the \texttt{rpart} package, to do this (\href{code/create_analysis_tree.R}{script here}).
+Here, for example, we see what predicts larger bias amounts:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{source}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"code/create\_analysis\_tree.R"}\NormalTok{ ) )}
-\FunctionTok{set.seed}\NormalTok{(}\DecValTok{4344443}\NormalTok{)}
+
+\FunctionTok{set.seed}\NormalTok{(}\DecValTok{12411}\NormalTok{)}
 \FunctionTok{create\_analysis\_tree}\NormalTok{( sres\_f,}
                       \AttributeTok{outcome =} \StringTok{"bias"}\NormalTok{,}
                       \AttributeTok{predictor\_vars =} \FunctionTok{c}\NormalTok{(}\StringTok{"method"}\NormalTok{, }\StringTok{"n\_bar"}\NormalTok{, }\StringTok{"J"}\NormalTok{,}
@@ -9605,15 +9550,12 @@ Another approach we might use to explore is to fit a regression tree on the simu
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-246-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-242-1} \end{center}
 
-We will not walk through the tree code, but you can review it \href{code/create_analysis_tree.R}{here}.
-This function is a wrapper of the \texttt{rpart} package.
-
-The default pruning is based on a cross-fitting evaluation, and our sample size is not too terribly high (just the number of simulation scenarios fit).
-Rerunning the code with a different seed can give a different tree.
-In general, it might be worth forcibly simplifying the tree.
-Trees are built greedily, so forcibly trimming often gives you the big things.
+The default pruning is based on a cross-fitting evaluation, but our sample size is not too terribly high (just the number of simulation scenarios fit) so this is quite unstable.
+Rerunning the code with a different seed will generally give a different tree.
+We find that it is often worth forcibly simplifying the tree.
+Trees are built greedily, so forcibly trimming often leaves you only with the big things.
 For example:
 
 \begin{Shaded}
@@ -9622,13 +9564,14 @@ For example:
                       \AttributeTok{outcome =} \StringTok{"bias"}\NormalTok{,}
                       \AttributeTok{predictor\_vars =} \FunctionTok{c}\NormalTok{(}\StringTok{"method"}\NormalTok{, }\StringTok{"n\_bar"}\NormalTok{, }\StringTok{"J"}\NormalTok{,}
                                          \StringTok{"size\_coef"}\NormalTok{, }\StringTok{"ICC"}\NormalTok{, }\StringTok{"alpha"}\NormalTok{),}
-                      \AttributeTok{tree\_title =} \StringTok{"Smaller Cluster RCT Bias Analysis Tree"}\NormalTok{ )}
+                      \AttributeTok{tree\_title =} \StringTok{"Smaller Cluster RCT Bias Analysis Tree"}\NormalTok{, }
+                      \AttributeTok{min\_leaves =} \DecValTok{5}\NormalTok{, }\AttributeTok{max\_leaves =} \DecValTok{10}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-247-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-243-1} \end{center}
 
-A very straightforward story: if \texttt{size\_coef} is not 0, we are using LR, and alpha is large, then we have large bias.
+This tree gives a very straightforward story: if \texttt{size\_coef} is not 0 and we are using LR, then alpha drives bias.
 
 We can also zero in on specific methods to understand how they engage with the simulation factors, like so:
 
@@ -9643,31 +9586,34 @@ We can also zero in on specific methods to understand how they engage with the s
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-248-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-244-1} \end{center}
 
 We force more leaves to get at some more nuance.
-We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient \emph{and} large alpha value.
+We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient \emph{and} a large alpha value.
 Then, when \(J\) is small, bias is even larger.
 
-Generally we would not use a tree like this for a final reporting of results, but they can be important tools for \emph{understanding} your results, which leads to how to make and select more conventional figures for final reporting.
+Generally we would not use a tree like this for a final reporting of results, but they can be important tools for \emph{understanding} your results, which leads to how to make and select more conventional figures for an outward facing document.
 
 \section{Analyzing results with few iterations per scenario}\label{analyzing-results-with-few-iterations-per-scenario}
 
-When your simulation iterations are expensive to run (i.e., when each model fitting takes several minutes), then running thousands of iterations for many scenarios may not be computationally feasible.
-But running simulations with a smaller number of iterations will yield very noisy estimates of estimator performance.
-For a given scenario, if the methods being evaluated are substantially different, then the main patterns in performance might become evident even with only a few iterations. More generally, however, the Monte Carlo Standard Errors (MCSEs) may be so large that you will have a hard time discriminating between systematic patterns and noise.
+When each simulation iteration is expensive to run (e.g., if fitting your model takes several minutes), then running thousands of iterations for many scenarios may not be computationally feasible.
+But running simulations with only a small number of iterations will yield very noisy estimates of estimator performance for that scenario.
 
-One tool to handle this is aggregation: if you use visualization methods that average across scenarios, those averages will have more precise estimates of (average) performance.
-Do not, by contrast, trust the bundling approaches--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
-Regression approaches can be particularly useful: the regressions will effectively average performance across scenario, and give summaries of overall trends.
+Now, if the methods being evaluated are substantially different, then differences in performance might still be evident even with only a few iterations.
+More generally, however, the Monte Carlo Standard Errors (MCSEs) may be so large that you will have a hard time discriminating between systematic patterns and noise.
+
+One tool to handle few iterations is aggregation: if you average across scenarios, those averages will have more precise estimates of (average) performance than the estimates of performance within the scenarios.
+Do not, by contrast, trust the bundling approach--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
+
+Meta regression approaches such as we saw above can be particularly useful: a regression will effectively average performance across scenario, and give summaries of overall trends.
 You can even fit random effects regression, specifically accounting for the noise in the scenario-specific performance measures.
-For more on this approach see \citet{gilbert2024multilevel}.
+For more on using random effects for your meta regression see \citet{gilbert2024multilevel}.
 
 \subsection{Example: ClusterRCT with only 100 replicates per scenario}\label{example-clusterrct-with-only-100-replicates-per-scenario}
 
-In the prior chapter we analyzed the results of our cluster RCT simulation with 1000 replicates per scenario.
-But say we only had 100 per scenario.
-Using the prior chapter as a guide, we recreate some of the plots to show how MCSE can distort the picture of what is going on.
+In the prior chapter we analyzed the results of our cluster RCT simulation with 1000 iterations per scenario.
+But say we only had 25 per scenario.
+Using the prior chapter as a guide, we next recreate some of the plots to show how MCSE can distort the picture of what is going on.
 
 First, we look at our single plot of the raw results.
 Before we plot, however, we calculate MCSEs and add them to the plot as error bars.
@@ -9675,79 +9621,76 @@ Before we plot, however, we calculate MCSEs and add them to the plot as error ba
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{sres\_sub }\OtherTok{\textless{}{-}} 
-\NormalTok{  sres }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  ssres }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{filter}\NormalTok{( n\_bar }\SpecialCharTok{==} \DecValTok{320}\NormalTok{, J }\SpecialCharTok{==} \DecValTok{20}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{mutate}\NormalTok{( }\AttributeTok{bias.mcse =}\NormalTok{ SE }\SpecialCharTok{/} \FunctionTok{sqrt}\NormalTok{( R ) )}
 
+\NormalTok{dodge }\OtherTok{\textless{}{-}} \FunctionTok{position\_dodge}\NormalTok{(}\AttributeTok{width =} \FloatTok{0.35}\NormalTok{)}
 \FunctionTok{ggplot}\NormalTok{( sres\_sub, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(alpha), bias, }
                        \AttributeTok{col=}\NormalTok{method, }\AttributeTok{pch=}\NormalTok{method, }\AttributeTok{group=}\NormalTok{method ) ) }\SpecialCharTok{+}
   \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ICC, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} 
+  \FunctionTok{geom\_point}\NormalTok{( }\AttributeTok{position =}\NormalTok{ dodge ) }\SpecialCharTok{+} 
   \FunctionTok{geom\_errorbar}\NormalTok{( }\FunctionTok{aes}\NormalTok{( }\AttributeTok{ymin =}\NormalTok{ bias }\SpecialCharTok{{-}} \DecValTok{2}\SpecialCharTok{*}\NormalTok{bias.mcse, }
                       \AttributeTok{ymax =}\NormalTok{ bias }\SpecialCharTok{+} \DecValTok{2}\SpecialCharTok{*}\NormalTok{bias.mcse ), }
-                 \AttributeTok{width =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
+                 \AttributeTok{width =} \DecValTok{0}\NormalTok{,}
+                 \AttributeTok{position =}\NormalTok{ dodge ) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{( }\AttributeTok{position =}\NormalTok{ dodge ) }\SpecialCharTok{+}
   \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{theme\_minimal}\NormalTok{() }
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{coord\_cartesian}\NormalTok{( }\AttributeTok{ylim =} \FunctionTok{c}\NormalTok{(}\SpecialCharTok{{-}}\FloatTok{0.10}\NormalTok{,}\FloatTok{0.10}\NormalTok{) )}
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-249-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-246-1} \end{center}
 
-Aggregation should smooth out some of our uncertainty.
-When we aggregate across 9 scenarios, our number of replicates goes from 100 to 900; our MCSEs should be about a third the size.
-Here is our aggregated bias plot:
+Our uncertainty is much less when ICC is 0; this is because our estimators are far more precise due to not having cluster variation to contend with.
+Other than the ICC = 0 case, we see substantial amounts of uncertainty, making it very hard to tell the different estimators apart.
+In the top row, second plot from left, we see that the three estimators are co-dependent: they all react similarly to the same datasets, so if we end up with datasets that randomly lead to large estimates, all three will give large estimates.
+The shape we are seeing is not a systematic bias, but rather a shared random variation.
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{sres\_sub2 }\OtherTok{\textless{}{-}} 
-\NormalTok{  sres }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{bias.mcse =}\NormalTok{ SE }\SpecialCharTok{/} \FunctionTok{sqrt}\NormalTok{( R ) ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{group\_by}\NormalTok{( n\_bar, J ) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{summarise}\NormalTok{( }
-    \AttributeTok{bias =} \FunctionTok{mean}\NormalTok{( bias ),}
-    \AttributeTok{bias.mcse =} \FunctionTok{sqrt}\NormalTok{( }\FunctionTok{mean}\NormalTok{( bias.mcse}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ )) }\SpecialCharTok{/} \FunctionTok{sqrt}\NormalTok{(}\FunctionTok{n}\NormalTok{()),}
-    \AttributeTok{.groups =} \StringTok{"drop"} 
-\NormalTok{  )}
+Here is the same plot with the full 1000 replicates, with the 100 replicate results overlaid in light color for comparison:
 
-\FunctionTok{ggplot}\NormalTok{( sres\_sub, }\FunctionTok{aes}\NormalTok{( }\FunctionTok{as.factor}\NormalTok{(alpha), bias, }
-                       \AttributeTok{col=}\NormalTok{method, }\AttributeTok{pch=}\NormalTok{method, }\AttributeTok{group=}\NormalTok{method ) ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( size\_coef }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ICC, }\AttributeTok{labeller =}\NormalTok{ label\_both ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} 
-  \FunctionTok{geom\_errorbar}\NormalTok{( }\FunctionTok{aes}\NormalTok{( }\AttributeTok{ymin =}\NormalTok{ bias }\SpecialCharTok{{-}} \DecValTok{2}\SpecialCharTok{*}\NormalTok{bias.mcse, }
-                      \AttributeTok{ymax =}\NormalTok{ bias }\SpecialCharTok{+} \DecValTok{2}\SpecialCharTok{*}\NormalTok{bias.mcse ), }
-                 \AttributeTok{width =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept =} \DecValTok{0}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{theme\_minimal}\NormalTok{() }
-\end{Highlighting}
-\end{Shaded}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-247-1} \end{center}
+
+The MCSEs have shrunk by around \(1/\sqrt{10} = 0.32\), as we would expect (generally the MCSEs will be on the order of \(1/\sqrt{R}\), where \(R\) is the number of replicates, so to halve the MCSE you need to quadruple the number of replicates).
+Also note the ICC=0.2 top facet has shifted to a flat, slightly elevated line: we do not yet know if the elevation is real, just as we did not know if the dip in the prior plot was real.
+Our confidence intervals are still including 0: it is possible there is no bias at all when the size coefficient is 0 (in fact we are fairly sure it is indeed the case).
+
+Moving back to our ``small replicates'' simulation, we can use aggregation to smooth out some of our uncertainty.
+For example, if we aggregate across 9 scenarios, our number of replicates goes from 100 to 900; our MCSEs should then be about a third the size.
+To calculate an aggregated MCSE, we aggregate our scenario-specific MCSEs as follows:
+\[ MCSE_{agg} = \sqrt{ \frac{1}{K^2} \sum_{k=1}^{K} MCSE_k^2 } \]
+
+where \(MCSE_k\) is the Monte Carlo Standard Error for scenario \(k\), and \(K\) is the number of scenarios being averaged.
+Assuming a collection of estimates are independent, the overall \(SE^2\) of an average is the average \(SE^2\) divided by \(K\).
+In code we have:
+
+Recall that the \texttt{SE} variable is simply the standard deviation of the estimates.
+
+We can then make our aggregated bias plot, aggregating across \texttt{n\_bar} and \texttt{J}:
 
 \begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-250-1} \end{center}
 
-To get aggregate MCSE, we aggregate our scenario-specific MCSEs as follows:
-\[ MCSE_{agg} = \sqrt{ \frac{1}{K^2} \sum_{k=1}^{K} MCSE_k^2 } \]
-
-where \(MCSE_i\) is the Monte Carlo Standard Error for scenario \(i\), and \(k\) is the number of scenarios.
-Assuming a collection of estimates are independent, the overall \(SE^2\) of the average is the average \(SE^2\) divided by \(K\).
-
-Even with the additional replicates per point, we see noticable noise in our plot.
-Note how our three methods track each other up and down in the zero-bias scenarios, giving a sense of a shared bias in some cases.
+Even with the additional replicates per point, we see noticeable noise in our plot: look at the top-right ICC of 0.8 facet, for example.
+Also note how our three methods continue to track each other up and down in top row, giving a sense of a shared error.
 This is because all methods are analyzing the same set of datasets; they have shared uncertainty.
 This uncertainty can be deceptive.
 It can also be a boon: if we are explicitly comparing the performance of one method vs another, the shared uncertainty can be subtracted out, similar to what happens in a blocked experiment \citep{gilbert2024multilevel}.
 
-Here we fit a multilevel model to the data.
+One way to take advantage of this is to fit a multilevel regression model to our raw simulation results with a random effect for dataset.
+We next fit such a model, taking advantage of the fact that bias is simply the average of the error across replicates.
+We first make a unique ID for each scenario and dataset, and then fit the model with a random effect for both.
+The first random effect allows for specific scenarios to have more or less bias beyond what our model predicts.
+The second random effect allows for a given dataset to have a larger or smaller error than expected, shared across the three estimators.
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{library}\NormalTok{(lme4)}
-\NormalTok{sub\_res }\OtherTok{\textless{}{-}}
-\NormalTok{  res }\SpecialCharTok{\%\textgreater{}\%} 
-  \FunctionTok{filter}\NormalTok{( runID }\SpecialCharTok{\textless{}=} \DecValTok{100}\NormalTok{ ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{res\_small }\OtherTok{\textless{}{-}}\NormalTok{ res\_small }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{mutate}\NormalTok{(}
     \AttributeTok{error =}\NormalTok{ ATE\_hat }\SpecialCharTok{{-}}\NormalTok{ ATE,}
     \AttributeTok{simID =} \FunctionTok{paste}\NormalTok{(n\_bar, J, size\_coef, ICC, alpha, }\AttributeTok{sep =} \StringTok{"\_"}\NormalTok{),}
+    \AttributeTok{dataID =} \FunctionTok{paste}\NormalTok{( simID, runID, }\AttributeTok{sep=}\StringTok{"\_"}\NormalTok{ ),}
     \AttributeTok{J =} \FunctionTok{as.factor}\NormalTok{(J),}
     \AttributeTok{n\_bar =} \FunctionTok{as.factor}\NormalTok{(n\_bar),}
     \AttributeTok{alpha =} \FunctionTok{as.factor}\NormalTok{(alpha),}
@@ -9755,57 +9698,44 @@ Here we fit a multilevel model to the data.
 \NormalTok{  )}
 
 \NormalTok{M }\OtherTok{\textless{}{-}} \FunctionTok{lmer}\NormalTok{( }
-\NormalTok{  error }\SpecialCharTok{\textasciitilde{}}\NormalTok{ method}\SpecialCharTok{*}\NormalTok{(J }\SpecialCharTok{+}\NormalTok{ n\_bar }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha }\SpecialCharTok{+}\NormalTok{ size\_coef) }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{runID) }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{simID),}
-  \AttributeTok{data =}\NormalTok{ sub\_res }
+\NormalTok{  error }\SpecialCharTok{\textasciitilde{}}\NormalTok{ method }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{dataID) }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{simID),}
+  \AttributeTok{data =}\NormalTok{ res\_small }
 \NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in checkConv(attr(opt, "derivs"),
+## opt$par, ctrl = control$checkConv, : Model failed
+## to converge with max|grad| = 0.00462697 (tol =
+## 0.002, component 1)
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
 \NormalTok{arm}\SpecialCharTok{::}\FunctionTok{display}\NormalTok{(M)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## lmer(formula = error ~ method * (J + n_bar + ICC + alpha + size_coef) + 
-##     (1 | runID) + (1 | simID), data = sub_res)
-##                        coef.est coef.se
-## (Intercept)            -0.09     0.05  
-## methodLR               -0.02     0.05  
-## methodMLM               0.00     0.05  
-## J20                     0.05     0.04  
-## J80                     0.04     0.04  
-## n_bar80                 0.06     0.04  
-## n_bar320                0.04     0.04  
-## ICC                    -0.03     0.06  
-## alpha0.5               -0.01     0.04  
-## alpha0.8                0.04     0.04  
-## size_coef0.2            0.04     0.03  
-## methodLR:J20            0.01     0.04  
-## methodMLM:J20           0.00     0.04  
-## methodLR:J80            0.02     0.04  
-## methodMLM:J80           0.00     0.04  
-## methodLR:n_bar80        0.01     0.04  
-## methodMLM:n_bar80       0.00     0.04  
-## methodLR:n_bar320       0.00     0.04  
-## methodMLM:n_bar320      0.00     0.04  
-## methodLR:ICC           -0.01     0.06  
-## methodMLM:ICC          -0.01     0.06  
-## methodLR:alpha0.5       0.00     0.04  
-## methodMLM:alpha0.5      0.00     0.04  
-## methodLR:alpha0.8       0.01     0.04  
-## methodMLM:alpha0.8      0.00     0.04  
-## methodLR:size_coef0.2   0.01     0.03  
-## methodMLM:size_coef0.2  0.00     0.03  
+## lmer(formula = error ~ method + (1 | dataID) + (1 | simID), data = res_small)
+##             coef.est coef.se
+## (Intercept) 0.00     0.00   
+## methodLR    0.01     0.00   
+## methodMLM   0.00     0.00   
 ## 
 ## Error terms:
 ##  Groups   Name        Std.Dev.
-##  simID    (Intercept) 0.19    
-##  runID    (Intercept) 0.02    
-##  Residual             0.33    
+##  dataID   (Intercept) 0.39    
+##  simID    (Intercept) 0.01    
+##  Residual             0.06    
 ## ---
-## number of obs: 2430, groups: simID, 270; runID, 3
-## AIC = 2046.9, DIC = 1712.4
-## deviance = 1849.6
+## number of obs: 81000, groups: dataID, 27000; simID, 270
+## AIC = -95344.2, DIC = -95430.3
+## deviance = -95393.3
 \end{verbatim}
 
-We can look at the random effects:
+We can look at how much each source of variation explains the overall error:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -9823,16 +9753,150 @@ We can look at the random effects:
 \hline
 grp & sd & ICC\\
 \hline
-simID & 0.19 & 0.24\\
+dataID & 0.39 & 0.98\\
 \hline
-runID & 0.02 & 0.00\\
+simID & 0.01 & 0.00\\
 \hline
-Residual & 0.33 & 0.75\\
+Residual & 0.06 & 0.02\\
 \hline
 \end{tabular}
 
-The above model is a multilevel model that allows us to estimate how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
-The random variation for \texttt{simID} captures unexplained variation due to the interactions of the simulation factors. We see a large value, indicating that many interactions are present, and our main effects are not fully capturing all trends.
+The random variation for \texttt{simID} captures unexplained variation due to the interactions of the simulation factors.
+It appears to be a trivial amount; almost all the variation is due to the dataset.
+This makes sense: each datasets is unbalanced due to random assignment, and that estimation error is part of the dataset random effect.
+
+So far we have not included any simulation factors: we are pushing variation across simulation into the random effect terms. We can instead include the simulation factors as fixed effects, to see how they impact bias.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{M2 }\OtherTok{\textless{}{-}} \FunctionTok{lmer}\NormalTok{( }
+\NormalTok{  error }\SpecialCharTok{\textasciitilde{}}\NormalTok{ method}\SpecialCharTok{*}\NormalTok{(J }\SpecialCharTok{+}\NormalTok{ n\_bar }\SpecialCharTok{+}\NormalTok{ ICC }\SpecialCharTok{+}\NormalTok{ alpha }\SpecialCharTok{+}\NormalTok{ size\_coef) }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{dataID) }\SpecialCharTok{+}\NormalTok{ (}\DecValTok{1}\SpecialCharTok{|}\NormalTok{simID),}
+  \AttributeTok{data =}\NormalTok{ res\_small }
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in checkConv(attr(opt, "derivs"),
+## opt$par, ctrl = control$checkConv, : Model failed
+## to converge with max|grad| = 0.0169698 (tol =
+## 0.002, component 1)
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{texreg}\SpecialCharTok{::}\FunctionTok{screenreg}\NormalTok{(M2)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## ======================================
+##                          Model 1      
+## --------------------------------------
+## (Intercept)                   0.00    
+##                              (0.01)   
+## methodLR                     -0.01 ***
+##                              (0.00)   
+## methodMLM                     0.00    
+##                              (0.00)   
+## J20                          -0.01    
+##                              (0.01)   
+## J80                          -0.01    
+##                              (0.01)   
+## n_bar80                      -0.00    
+##                              (0.01)   
+## n_bar320                      0.00    
+##                              (0.01)   
+## ICC                           0.00    
+##                              (0.01)   
+## alpha0.5                     -0.00    
+##                              (0.01)   
+## alpha0.8                      0.01    
+##                              (0.01)   
+## size_coef0.2                  0.01    
+##                              (0.00)   
+## methodLR:J20                  0.01 ***
+##                              (0.00)   
+## methodMLM:J20                 0.00    
+##                              (0.00)   
+## methodLR:J80                  0.01 ***
+##                              (0.00)   
+## methodMLM:J80                 0.00    
+##                              (0.00)   
+## methodLR:n_bar80              0.00 *  
+##                              (0.00)   
+## methodMLM:n_bar80            -0.00    
+##                              (0.00)   
+## methodLR:n_bar320             0.00    
+##                              (0.00)   
+## methodMLM:n_bar320           -0.00    
+##                              (0.00)   
+## methodLR:ICC                 -0.00    
+##                              (0.00)   
+## methodMLM:ICC                -0.01 ***
+##                              (0.00)   
+## methodLR:alpha0.5             0.01 ***
+##                              (0.00)   
+## methodMLM:alpha0.5            0.00    
+##                              (0.00)   
+## methodLR:alpha0.8             0.02 ***
+##                              (0.00)   
+## methodMLM:alpha0.8            0.00 *  
+##                              (0.00)   
+## methodLR:size_coef0.2         0.02 ***
+##                              (0.00)   
+## methodMLM:size_coef0.2        0.00 ** 
+##                              (0.00)   
+## --------------------------------------
+## AIC                      -95700.20    
+## BIC                      -95421.14    
+## Log Likelihood            47880.10    
+## Num. obs.                 81000       
+## Num. groups: dataID       27000       
+## Num. groups: simID          270       
+## Var: dataID (Intercept)       0.15    
+## Var: simID (Intercept)        0.00    
+## Var: Residual                 0.00    
+## ======================================
+## *** p < 0.001; ** p < 0.01; * p < 0.05
+\end{verbatim}
+
+The above models allow us to estimate how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
+
+Finally, we can see how much variation has been explained by comparing the random effect variances:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{ranef\_vars1 }\OtherTok{\textless{}{-}}
+  \FunctionTok{as.data.frame}\NormalTok{(}\FunctionTok{VarCorr}\NormalTok{(M)) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(}\AttributeTok{grp =}\NormalTok{ grp, }\AttributeTok{sd =}\NormalTok{ vcov) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{sd =} \FunctionTok{sqrt}\NormalTok{(sd),}
+          \AttributeTok{ICC =}\NormalTok{ sd}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(sd}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ ) )}
+\NormalTok{ranef\_vars2 }\OtherTok{\textless{}{-}}
+  \FunctionTok{as.data.frame}\NormalTok{(}\FunctionTok{VarCorr}\NormalTok{(M2)) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(}\AttributeTok{grp =}\NormalTok{ grp, }\AttributeTok{sd =}\NormalTok{ vcov) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{sd =} \FunctionTok{sqrt}\NormalTok{(sd),}
+          \AttributeTok{ICC =}\NormalTok{ sd}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(sd}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ ) )}
+\NormalTok{rr }\OtherTok{=} \FunctionTok{left\_join}\NormalTok{( ranef\_vars1, ranef\_vars2, }\AttributeTok{by =} \StringTok{"grp"}\NormalTok{, }
+                \AttributeTok{suffix =} \FunctionTok{c}\NormalTok{(}\StringTok{".null"}\NormalTok{, }\StringTok{".full"}\NormalTok{) )}
+\NormalTok{rr }\OtherTok{\textless{}{-}}\NormalTok{ rr }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{sd.red =}\NormalTok{ sd.full }\SpecialCharTok{/}\NormalTok{ sd.null )}
+\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(rr, }\AttributeTok{digits =} \DecValTok{2}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{tabular}{l|r|r|r|r|r}
+\hline
+grp & sd.null & ICC.null & sd.full & ICC.full & sd.red\\
+\hline
+dataID & 0.39 & 0.98 & 0.39 & 0.98 & 1.00\\
+\hline
+simID & 0.01 & 0.00 & 0.01 & 0.00 & 0.89\\
+\hline
+Residual & 0.06 & 0.02 & 0.06 & 0.02 & 0.99\\
+\hline
+\end{tabular}
 
 \section{What to do with warnings in simulations}\label{what-to-do-with-warnings-in-simulations}
 
@@ -10020,7 +10084,7 @@ We plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-259-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-262-1} \end{center}
 
 The above doesn't show differences clearly because all the SEs goes to zero as \(n\) increases.
 One move when we see strong trends like this is to log our outcome or otherwise re-scale the variables.
@@ -10037,7 +10101,7 @@ Using log-10 scales for both axes makes it clear that relative differences in pr
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-260-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-263-1} \end{center}
 
 One step better would be to re-scale based on our knowledge of standard errors.
 If we scale by the square root of sample size, we should get horizontal lines.
@@ -10059,7 +10123,7 @@ We now clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-262-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-265-1} \end{center}
 
 Overall, the scaled error of the mean is stable across the different distributions.
 The trimmed mean is advantageous when the degrees of freedom are small (note the blue line is far below the red line on the left hand plot): we are cropping outliers that destabilize our estimate, which leads to great wins.
@@ -10174,7 +10238,7 @@ We first look at boxplots:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-265-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-268-1} \end{center}
 
 We can also subset to look at how these trade-offs play out when \texttt{df0\ =\ 3}, where we are seeing the largest benefits from trimming in our prior analysis.
 We can then use lines to show the trends, which is a bit clearer:
@@ -10191,7 +10255,7 @@ We can then use lines to show the trends, which is a bit clearer:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-266-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-269-1} \end{center}
 
 Or maybe we can aggregate without losing too much information:
 
@@ -10209,7 +10273,7 @@ Or maybe we can aggregate without losing too much information:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-267-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-270-1} \end{center}
 
 In these \emph{Bias-SE-RMSE} plots, we see how different estimators have different biases and different
 uncertainties.
@@ -11765,7 +11829,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-301-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-304-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -12010,7 +12074,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-307-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-310-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -12216,10 +12280,6 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ==========================>----  8...
-\end{verbatim}
-
-\begin{verbatim}
 ##   Simulating ==============================>  1...
 \end{verbatim}
 
@@ -12232,7 +12292,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ================>--------------  5...
+##   Simulating ==>----------------------------  8...
 \end{verbatim}
 
 \begin{verbatim}
@@ -12248,7 +12308,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ======>------------------------  1...
+##   Simulating ===============>---------------  4...
 \end{verbatim}
 
 \begin{verbatim}
@@ -12264,7 +12324,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ===================>-----------  6...
+##   Simulating ======>------------------------  1...
 \end{verbatim}
 
 \begin{verbatim}
@@ -13363,7 +13423,7 @@ For example:
 
 \begin{verbatim}
 ##    user  system elapsed 
-##   0.037   0.000   0.036
+##   0.037   0.000   0.037
 \end{verbatim}
 
 Elapsed time is how much time actually passed.
@@ -13403,7 +13463,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-## Time difference of 0.04901648 secs
+## Time difference of 0.0491066 secs
 \end{verbatim}
 
 This can be useful, but be careful, as the time is stored along with the units. If your simulation takes a long time, it will flip from a lot of seconds to a few minutes, and you can end up thinking something that took much, much longer was actually fast.
@@ -13452,9 +13512,9 @@ For example, we can time how long it takes to analyze some data from our cluster
 ## # A tibble: 3 x 6
 ##   expression      min   median `itr/sec` mem_alloc
 ##   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>
-## 1 MLM         102.6ms 103.75ms      9.62   25.78MB
-## 2 OLS         114.5ms  114.7ms      8.63    2.51MB
-## 3 agg           6.8ms   7.05ms    141.    472.91KB
+## 1 MLM        105.33ms 107.14ms      9.34   25.78MB
+## 2 OLS        113.55ms 113.92ms      8.68    2.51MB
+## 3 agg          6.88ms   7.42ms    136.    472.97KB
 ## # i 1 more variable: `gc/sec` <dbl>
 \end{verbatim}
 
@@ -13466,7 +13526,7 @@ You can even get a viz of how long everything took:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-345-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-348-1} \end{center}
 
 The ``gc'' coloring in the above indicates runs where ``garbage collection'' took place, meaning R paused to empty out some used memory.
 
@@ -13524,7 +13584,7 @@ And we can make our custom plot of time:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-347-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-350-1} \end{center}
 
 Note the \texttt{timings} object is not quite a classic tibble, and the expression at start captures the code run. The ``name'' line grabs the names given in the initial evaluation so we can make the plot the way we want.
 
@@ -13619,9 +13679,9 @@ To see the difference between our version and R's version, we benchmark:
 \hline
 expression & min & median & itr/sec & speed\_up\\
 \hline
-Rfunction & 481us & 508us & 1936.95 & 1.0\\
+Rfunction & 479us & 512us & 1912.16 & 1.00\\
 \hline
-direct & 220us & 231us & 4205.98 & 2.2\\
+direct & 217us & 229us & 4241.04 & 2.23\\
 \hline
 \end{tabular}
 
@@ -13669,22 +13729,22 @@ For example, for our ANOVA example we could specify that we want \texttt{R} repl
 ##  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
 ## 
 ## $x_mat
-##             [,1]        [,2]      [,3]     [,4]
-##  [1,]  2.3735219  1.32903669 0.3558564 2.490760
-##  [2,] -0.7194113  3.85105493 1.4329658 2.519294
-##  [3,]  2.1180146  3.97565266 3.4351424 3.593595
-##  [4,]  3.9429046  2.49065485 3.4020948 2.820598
-##  [5,] -0.7272226  0.32755636 4.4110025 3.711010
-##  [6,]  3.7213418  2.69651673 1.7407744 4.109515
-##  [7,]  1.1660820  3.52230482 3.5595086 4.486810
-##  [8,]  3.6954237  3.03148024 1.9664989 3.056095
-##  [9,]  1.0710949 -0.05724683 0.5950723 1.127864
-## [10,]  9.7491811 -3.00482366 6.3129328 5.779200
-## [11,]  4.5881990  3.88266075 6.4348025 7.532055
-## [12,]  6.6998663  6.25434530 6.2358892 6.303799
-## [13,]  5.1075042  4.77459267 7.6542972 5.633892
-## [14,]  5.4565855  4.39064800 4.5676960 5.891393
-## [15,]  6.0138534  6.81560986 5.5549883 3.972158
+##             [,1]      [,2]        [,3]       [,4]
+##  [1,] -1.3636588 0.2222331 -0.02133678  2.8644350
+##  [2,]  0.9888753 1.4584378  3.07646144  2.2633001
+##  [3,]  3.6053705 5.1505453 -0.13767173 -1.5196025
+##  [4,]  2.5752054 2.1213946  5.00364585 -3.0626950
+##  [5,]  4.1250436 3.7017485  1.73955417  1.2933326
+##  [6,]  4.5874572 3.2125993  2.98976042  2.3596986
+##  [7,]  2.5262919 2.6632689  0.73782032  0.2670123
+##  [8,]  2.5395918 1.6464949  1.23149585 -0.2759674
+##  [9,]  0.8430465 1.2816296  2.01959173  3.1534465
+## [10,]  3.8326473 6.7732091  5.42478453  4.1684142
+## [11,]  1.2013117 2.7802496  8.68069609  5.5589565
+## [12,]  5.2417218 6.6454860  7.71799386  7.4059301
+## [13,]  5.0801275 7.3738410  6.34694537  6.9914307
+## [14,]  5.7676197 4.0715624  4.81740376  7.7048362
+## [15,]  6.3962093 7.2171724  6.49251170  5.8166998
 \end{verbatim}
 
 This approach is a bit more computationally efficient because the setup calculations (getting \texttt{N}, \texttt{g}, \texttt{group}, \texttt{mu\_full}, and \texttt{sigma\_full}) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to \texttt{rnorm()}. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
@@ -13734,10 +13794,11 @@ We just packaged the code from above:
 
 \begin{verbatim}
 ## $x_bar
-## [1] 0.7972378 2.9035285 3.0141870 5.7479209
+## [1] 1.049431 2.292670 6.942982 7.194796
 ## 
 ## $s_sq
-## [1] 2.1862972 1.8054042 1.3946062 0.9535058
+## [1] 3.301593387 2.216558131 0.000678492
+## [4] 0.185864577
 ## 
 ## $n
 ## [1] 3 6 2 4
@@ -13766,7 +13827,7 @@ Now we can re-write both our \(F\)-test functions to use the output of this func
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.002565816
+## [1] 0.00008347563
 \end{verbatim}
 
 \begin{Shaded}
@@ -13793,7 +13854,7 @@ Now we can re-write both our \(F\)-test functions to use the output of this func
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.04197643
+## [1] 0.002413265
 \end{verbatim}
 
 The results are the same as before.
@@ -13881,9 +13942,9 @@ We then put all these pieces in our revised \texttt{one\_run()} method as so:
 
 \begin{verbatim}
 ## # A tibble: 1 x 2
-##     ANOVA   Welch
-##     <dbl>   <dbl>
-## 1 0.00107 0.00209
+##     ANOVA  Welch
+##     <dbl>  <dbl>
+## 1 0.00419 0.0440
 \end{verbatim}
 
 The reason this is important is we are now doing our group aggregation only once, rather than once per method.
@@ -13906,9 +13967,9 @@ We benchmark to see our speedup:
 \hline
 expression & min & median & itr/sec & speed\_up\\
 \hline
-original & 1.46ms & 1.51ms & 651.01 & 1.0\\
+original & 1.48ms & 1.54ms & 639.86 & 1.0\\
 \hline
-one\_agg & 1.21ms & 1.25ms & 790.78 & 1.2\\
+one\_agg & 1.23ms & 1.28ms & 776.90 & 1.2\\
 \hline
 \end{tabular}
 
