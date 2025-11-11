@@ -238,7 +238,7 @@ Here is a plot of 30 observations from the bivariate Poisson distribution with m
 ```{r bivariate-Poisson-scatter}
 #| echo: false
 #| message: false
-#| fig.cap: "$N = 30$ observations from the bivariate Poisson distribution with $\\mu_1 = 10, \\mu_2 = 7, \rho = .65$."
+#| fig.cap: "$N = 30$ observations from the bivariate Poisson distribution with $\\mu_1 = 10, \\mu_2 = 7, \\rho = .65$."
 #| fig.width: 6
 #| fig.height: 4
 
@@ -310,7 +310,7 @@ Even simple checks such as these can be quite helpful in catching such bugs.
 
 Writing code for a complicated DGP can feel like a daunting task, but if you first focus on a recipe for how the data is generated, it is often not too bad to then convert that recipe into code.
 We now illustrate this process with a detailed case study involving a more complex data-generating process 
-Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the strength of effects across sites can affect how different data-analysis procedures behave [e.g., @miratrix2021applied; @Bloom:2016um].
+Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the strength of effects across sites can affect how different data-analysis procedures behave [e.g., @miratrix2021applied; @Bloom2016using].
 In this example, we are going to extend this work to explore best practices for estimating treatment effects in cluster randomized trials.
 In particular, we will investigate what happens when the treatment impact for each school is related to the size of the school.
 
@@ -585,16 +585,16 @@ For a particular fixed-length test, the set of item parameters would depend on t
 But we are not (yet) dealing with actual testing data, so we will need to make up an auxiliary model for these parameters.
 Perhaps we could just simulate some values?
 Arbitrarily, let's draw the difficulty parameters from a normal distribution with mean $\mu_\alpha = 0$ and standard deviation $\tau_\alpha = 1$.
-The discrimination parameters have to be greater than zero, and values near $\beta_m = 1$ make the model simplify (in other words, if $\beta_1 = 1$ then we can drop the parameter from the model), so let's draw them from a gamma distribution with mean $\mu_\beta = 1$ and standard deviation $\tau_\beta = 0.2$. 
+The discrimination parameters have to be greater than zero, and values near $\alpha_m = 1$ make the model simplify (in other words, if $\alpha_1 = 1$ then we can drop the parameter from the model), so let's draw them from a gamma distribution with mean $\mu_\alpha = 1$ and standard deviation $\tau_\alpha = 0.2$. 
 This decision requires a bit of work: gamma distributions are usually parameterized in terms of shape and rate, not mean and standard deviation.
 A bit of poking on Wikipedia gives us the answer, however:
-shape is equal to $\mu_\beta^2 \tau_\beta^2 = 0.2^2$ and rate is equal to $\mu_\beta \tau_\beta^2 = 0.2^2$.
+shape is equal to $\mu_\alpha^2 \tau_\alpha^2 = 0.2^2$ and rate is equal to $\mu_\alpha \tau_\alpha^2 = 0.2^2$.
 Finally, we imagine that all the test questions have four possible responses, and therefore set $\gamma_m = \frac{1}{4}$ for all the items, just like the instructor suggested.
 Each item requires three numbers; the easiest way to generate them is to let them all be independent of each other, so we do that.
 With that, let's make up some item parameters:
 ```{r}
-alphas <- rnorm(M, mean = 0, sd = 1.5)           # difficulty parameters
-betas <- rgamma(M, shape = 0.2^2, rate = 0.2^2)  # discrimination parameters
+betas <- rnorm(M, mean = 0, sd = 1.5)           # difficulty parameters
+alphas <- rgamma(M, shape = 0.2^2, rate = 0.2^2)  # discrimination parameters
 gammas <- rep(1 / 4, M)                          # guessing parameters
 ```
 
@@ -638,10 +638,13 @@ r_3PL_IRT <- function(
   thetas <- rnorm(N)
   
   # generate item parameters
-  alphas <- rnorm(M, mean = diff_M, sd = diff_SD)
-  betas <- rgamma(M, 
-                  shape = disc_M^2 * disc_SD^2, 
-                  rate = disc_M * disc_SD^2)
+
+  alphas <- rgamma(
+    M, 
+    shape = disc_M^2 * disc_SD^2, 
+    rate = disc_M * disc_SD^2
+  )
+  betas <- rnorm(M, mean = diff_M, sd = diff_SD)
   gammas <- rep(1 / item_options, M)
 
   # simulate item responses
@@ -830,7 +833,7 @@ Another model for generating bivariate counts with negative binomial marginal di
 $$
 \left(\begin{array}{c}Z_1 \\ Z_2 \end{array}\right) \sim N\left(\left[\begin{array}{c}0 \\ 0\end{array}\right], \ \left[\begin{array}{cc}1  & \rho \\ \rho & 1\end{array}\right]\right)
 $$
-Now find $U_1 = \Phi(Z_1)$ and $U_1 = \Phi(Z_1)$, where $\Phi()$ is the standard normal cumulative distribution function (called `pnorm()` in R).
+Now find $U_1 = \Phi(Z_1)$ and $U_2 = \Phi(Z_2)$, where $\Phi()$ is the standard normal cumulative distribution function (called `pnorm()` in R).
 Then generate the counts by evaluating $U_1$ and $U_2$ with the negative binomial quantile function, $F_{NB}^{-1}(x | \mu, p)$ with mean parameters $\mu$ and size parameter $p$ (this function is called `qnbinom()` in R):
 $$
 C_1 = F_{NB}^{-1}(U_1 | \mu_1, p_1) \qquad C_2 = F_{NB}^{-1}(U_2 |  \mu_2, p_2).
