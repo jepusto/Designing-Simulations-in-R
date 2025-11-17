@@ -166,7 +166,7 @@
 \title{Designing Monte Carlo Simulations in R}
 \author{Luke W. Miratrix and James E. Pustejovsky
 (Equal authors)}
-\date{2025-11-11}
+\date{2025-11-17}
 
 \begin{document}
 \maketitle
@@ -545,7 +545,7 @@ For example, the \texttt{rnorm()} function takes as input a number \texttt{n} an
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.5203421 -0.6884585  0.1672914
+## [1] -0.2573365 -0.4632367 -1.0270952
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -557,7 +557,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-## [1]  2.3450553  0.9016549 -1.3682721
+## [1] -0.3536126  0.8884513 -0.1920605
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let the user specify the mean and standard deviation of the distribution from which numbers are drawn:
@@ -569,7 +569,7 @@ The \texttt{rnorm()} function also has further input arguments that let the user
 \end{Shaded}
 
 \begin{verbatim}
-## [1]  9.949905 10.322265  9.214903
+## [1] 10.122328  9.371085 10.463736
 \end{verbatim}
 
 In writing code for simulations, we will make extensive use of this particular function and other functions that produce sequences of random numbers.
@@ -619,7 +619,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 6.778675e-72
+## [1] 3.342878e-67
 \end{verbatim}
 
 \begin{Shaded}
@@ -629,7 +629,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.7639374
+## [1] 0.875555
 \end{verbatim}
 
 \begin{Shaded}
@@ -639,7 +639,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.0002843784
+## [1] 0.00478181
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated sample of data. The function produces a different answer each time because its instructions involve generating random numbers each time it is called.
@@ -9046,6 +9046,74 @@ There are mild differences due to differences in how the degrees of freedom are 
 
 \section{Exercises}\label{exercises-8}
 
+In these exercises we continue to work with the simulation results from the Cluster RCT example in this chapter.
+We provide the saved simulation results in the file \href{results/simulation_CRT.rds}{\texttt{simulation\_CRT.rds}}, and load and process them as follows:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{( tidyverse )}
+\FunctionTok{library}\NormalTok{( simhelpers )}
+
+\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{( }\AttributeTok{file =} \StringTok{"results/simulation\_CRT.rds"}\NormalTok{ )}
+\FunctionTok{head}\NormalTok{( res )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 6 x 13
+##   n_bar     J   ATE size_coef   ICC alpha  reps
+##   <dbl> <dbl> <dbl>     <dbl> <dbl> <dbl> <dbl>
+## 1    20     5   0.2         0     0     0  1000
+## 2    20     5   0.2         0     0     0  1000
+## 3    20     5   0.2         0     0     0  1000
+## 4    20     5   0.2         0     0     0  1000
+## 5    20     5   0.2         0     0     0  1000
+## 6    20     5   0.2         0     0     0  1000
+## # i 6 more variables: seed <dbl>, runID <chr>,
+## #   method <chr>, ATE_hat <dbl>, SE_hat <dbl>,
+## #   p_value <dbl>
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sres }\OtherTok{\textless{}{-}}\NormalTok{ res }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{group\_by}\NormalTok{( n\_bar, J, ATE, size\_coef, ICC, alpha, method ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{( }\FunctionTok{calc\_absolute}\NormalTok{( }\AttributeTok{estimates =}\NormalTok{ ATE\_hat,}
+                            \AttributeTok{true\_param =}\NormalTok{ ATE,}
+                            \AttributeTok{criteria =} \FunctionTok{c}\NormalTok{(}\StringTok{"bias"}\NormalTok{,}\StringTok{"stddev"}\NormalTok{,}
+                                         \StringTok{"rmse"}\NormalTok{)),}
+             \FunctionTok{calc\_relative\_var}\NormalTok{( }\AttributeTok{estimates =}\NormalTok{ ATE\_hat,}
+                                \AttributeTok{var\_estimates =}\NormalTok{ SE\_hat}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{,}
+                                \AttributeTok{criteria =} \StringTok{"relative bias"}\NormalTok{ ),}
+             \AttributeTok{power =} \FunctionTok{mean}\NormalTok{( p\_value }\SpecialCharTok{\textless{}=} \FloatTok{0.05}\NormalTok{ ),}
+             \AttributeTok{ESE\_hat =} \FunctionTok{sqrt}\NormalTok{( }\FunctionTok{mean}\NormalTok{( SE\_hat}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ ) ),}
+             \AttributeTok{SD\_SE\_hat =} \FunctionTok{sqrt}\NormalTok{( }\FunctionTok{sd}\NormalTok{( SE\_hat}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ ) ),}
+             \AttributeTok{.groups =} \StringTok{"drop"}
+\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{rename}\NormalTok{( }\AttributeTok{R =}\NormalTok{ K\_absolute,}
+          \AttributeTok{RMSE =}\NormalTok{ rmse,}
+          \AttributeTok{RMSE\_mcse =}\NormalTok{ rmse\_mcse,}
+          \AttributeTok{SE =}\NormalTok{ stddev,}
+          \AttributeTok{SE\_mcse =}\NormalTok{ stddev\_mcse ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(  }\SpecialCharTok{{-}}\NormalTok{K\_relvar ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{ungroup}\NormalTok{()}
+\FunctionTok{names}\NormalTok{( sres )}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##  [1] "n_bar"             "J"                
+##  [3] "ATE"               "size_coef"        
+##  [5] "ICC"               "alpha"            
+##  [7] "method"            "R"                
+##  [9] "bias"              "bias_mcse"        
+## [11] "SE"                "SE_mcse"          
+## [13] "RMSE"              "RMSE_mcse"        
+## [15] "rel_bias_var"      "rel_bias_var_mcse"
+## [17] "power"             "ESE_hat"          
+## [19] "SD_SE_hat"
+\end{verbatim}
+
 \subsection{Assessing uncertainty}\label{assessing-uncertainty}
 
 Select a plot from this chapter that does not have monte carlo standard errors.
@@ -9511,7 +9579,7 @@ Of course, this is table is hard to read. Better to instead plot the coefficient
 ## values outside the scale range (`geom_bar()`).
 \end{verbatim}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-240-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-241-1} \end{center}
 
 Here we see how LR stands out, but also how MLM stands out under different simulation factor combinations (see, e.g., the interaction of zeroICC, alpha being 0.8, and size\_coef being 0.2).
 This aggregate plot provides some understanding of how the methods are similar, and dissimilar.
@@ -9524,7 +9592,7 @@ We use ordinary least squares and include all interactions up to three way inter
 We will then simply drop all the tiny coefficients, rather than use the full LASSO machinery, to simplify our output.
 This results in a plot similar to the above:
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-241-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-242-1} \end{center}
 
 Our plot clearly shows that the three methods are basically the same in terms of uncertainty estimation, with a few differences when alpha is 0.8.
 We also see some interesting trends, such as the impact of n\_bar declines when ICC is higher (see the positive interaction terms at right of plot).
@@ -9550,7 +9618,7 @@ Here, for example, we see what predicts larger bias amounts:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-242-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-243-1} \end{center}
 
 The default pruning is based on a cross-fitting evaluation, but our sample size is not too terribly high (just the number of simulation scenarios fit) so this is quite unstable.
 Rerunning the code with a different seed will generally give a different tree.
@@ -9569,7 +9637,7 @@ For example:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-243-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-244-1} \end{center}
 
 This tree gives a very straightforward story: if \texttt{size\_coef} is not 0 and we are using LR, then alpha drives bias.
 
@@ -9586,7 +9654,7 @@ We can also zero in on specific methods to understand how they engage with the s
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-244-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-245-1} \end{center}
 
 We force more leaves to get at some more nuance.
 We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient \emph{and} a large alpha value.
@@ -9641,7 +9709,7 @@ Before we plot, however, we calculate MCSEs and add them to the plot as error ba
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-246-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-247-1} \end{center}
 
 Our uncertainty is much less when ICC is 0; this is because our estimators are far more precise due to not having cluster variation to contend with.
 Other than the ICC = 0 case, we see substantial amounts of uncertainty, making it very hard to tell the different estimators apart.
@@ -9650,7 +9718,7 @@ The shape we are seeing is not a systematic bias, but rather a shared random var
 
 Here is the same plot with the full 1000 replicates, with the 100 replicate results overlaid in light color for comparison:
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-247-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-248-1} \end{center}
 
 The MCSEs have shrunk by around \(1/\sqrt{10} = 0.32\), as we would expect (generally the MCSEs will be on the order of \(1/\sqrt{R}\), where \(R\) is the number of replicates, so to halve the MCSE you need to quadruple the number of replicates).
 Also note the ICC=0.2 top facet has shifted to a flat, slightly elevated line: we do not yet know if the elevation is real, just as we did not know if the dip in the prior plot was real.
@@ -9669,7 +9737,7 @@ Recall that the \texttt{SE} variable is simply the standard deviation of the est
 
 We can then make our aggregated bias plot, aggregating across \texttt{n\_bar} and \texttt{J}:
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-250-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-251-1} \end{center}
 
 Even with the additional replicates per point, we see noticeable noise in our plot: look at the top-right ICC of 0.8 facet, for example.
 Also note how our three methods continue to track each other up and down in top row, giving a sense of a shared error.
@@ -10084,7 +10152,7 @@ We plot:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-262-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-263-1} \end{center}
 
 The above doesn't show differences clearly because all the SEs goes to zero as \(n\) increases.
 One move when we see strong trends like this is to log our outcome or otherwise re-scale the variables.
@@ -10101,7 +10169,7 @@ Using log-10 scales for both axes makes it clear that relative differences in pr
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-263-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-264-1} \end{center}
 
 One step better would be to re-scale based on our knowledge of standard errors.
 If we scale by the square root of sample size, we should get horizontal lines.
@@ -10123,7 +10191,7 @@ We now clearly see the trends.
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-265-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-266-1} \end{center}
 
 Overall, the scaled error of the mean is stable across the different distributions.
 The trimmed mean is advantageous when the degrees of freedom are small (note the blue line is far below the red line on the left hand plot): we are cropping outliers that destabilize our estimate, which leads to great wins.
@@ -10238,7 +10306,7 @@ We first look at boxplots:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-268-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-269-1} \end{center}
 
 We can also subset to look at how these trade-offs play out when \texttt{df0\ =\ 3}, where we are seeing the largest benefits from trimming in our prior analysis.
 We can then use lines to show the trends, which is a bit clearer:
@@ -10255,7 +10323,7 @@ We can then use lines to show the trends, which is a bit clearer:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-269-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-270-1} \end{center}
 
 Or maybe we can aggregate without losing too much information:
 
@@ -10273,7 +10341,7 @@ Or maybe we can aggregate without losing too much information:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-270-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-271-1} \end{center}
 
 In these \emph{Bias-SE-RMSE} plots, we see how different estimators have different biases and different
 uncertainties.
@@ -11829,7 +11897,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-304-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-305-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -12074,7 +12142,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-310-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-311-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -12292,7 +12360,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ==>----------------------------  8...
+##   Simulating ====>--------------------------  1...
 \end{verbatim}
 
 \begin{verbatim}
@@ -12308,7 +12376,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ===============>---------------  4...
+##   Simulating ================>--------------  5...
 \end{verbatim}
 
 \begin{verbatim}
@@ -12324,7 +12392,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ======>------------------------  1...
+##   Simulating =======>-----------------------  2...
 \end{verbatim}
 
 \begin{verbatim}
@@ -13463,7 +13531,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-## Time difference of 0.0491066 secs
+## Time difference of 0.04921293 secs
 \end{verbatim}
 
 This can be useful, but be careful, as the time is stored along with the units. If your simulation takes a long time, it will flip from a lot of seconds to a few minutes, and you can end up thinking something that took much, much longer was actually fast.
@@ -13483,7 +13551,7 @@ It has two functions, \texttt{tic()} and \texttt{toc()}, which you can use to ma
 \end{Shaded}
 
 \begin{verbatim}
-## Generating data: 0.037 sec elapsed
+## Generating data: 0.036 sec elapsed
 \end{verbatim}
 
 It is basically like \texttt{Sys.time()} but it has a few more features, such as being able to label the time you are measuring.
@@ -13512,9 +13580,9 @@ For example, we can time how long it takes to analyze some data from our cluster
 ## # A tibble: 3 x 6
 ##   expression      min   median `itr/sec` mem_alloc
 ##   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>
-## 1 MLM        105.33ms 107.14ms      9.34   25.78MB
-## 2 OLS        113.55ms 113.92ms      8.68    2.51MB
-## 3 agg          6.88ms   7.42ms    136.    472.97KB
+## 1 MLM        103.21ms 104.27ms      9.60   25.78MB
+## 2 OLS        113.78ms 114.07ms      8.65    2.51MB
+## 3 agg          6.76ms   6.88ms    145.    472.97KB
 ## # i 1 more variable: `gc/sec` <dbl>
 \end{verbatim}
 
@@ -13526,7 +13594,7 @@ You can even get a viz of how long everything took:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-348-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-349-1} \end{center}
 
 The ``gc'' coloring in the above indicates runs where ``garbage collection'' took place, meaning R paused to empty out some used memory.
 
@@ -13584,7 +13652,7 @@ And we can make our custom plot of time:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-350-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-351-1} \end{center}
 
 Note the \texttt{timings} object is not quite a classic tibble, and the expression at start captures the code run. The ``name'' line grabs the names given in the initial evaluation so we can make the plot the way we want.
 
@@ -13679,9 +13747,9 @@ To see the difference between our version and R's version, we benchmark:
 \hline
 expression & min & median & itr/sec & speed\_up\\
 \hline
-Rfunction & 479us & 512us & 1912.16 & 1.00\\
+Rfunction & 476us & 511us & 1933.25 & 1.00\\
 \hline
-direct & 217us & 229us & 4241.04 & 2.23\\
+direct & 219us & 234us & 4180.61 & 2.18\\
 \hline
 \end{tabular}
 
@@ -13729,22 +13797,22 @@ For example, for our ANOVA example we could specify that we want \texttt{R} repl
 ##  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
 ## 
 ## $x_mat
-##             [,1]      [,2]        [,3]       [,4]
-##  [1,] -1.3636588 0.2222331 -0.02133678  2.8644350
-##  [2,]  0.9888753 1.4584378  3.07646144  2.2633001
-##  [3,]  3.6053705 5.1505453 -0.13767173 -1.5196025
-##  [4,]  2.5752054 2.1213946  5.00364585 -3.0626950
-##  [5,]  4.1250436 3.7017485  1.73955417  1.2933326
-##  [6,]  4.5874572 3.2125993  2.98976042  2.3596986
-##  [7,]  2.5262919 2.6632689  0.73782032  0.2670123
-##  [8,]  2.5395918 1.6464949  1.23149585 -0.2759674
-##  [9,]  0.8430465 1.2816296  2.01959173  3.1534465
-## [10,]  3.8326473 6.7732091  5.42478453  4.1684142
-## [11,]  1.2013117 2.7802496  8.68069609  5.5589565
-## [12,]  5.2417218 6.6454860  7.71799386  7.4059301
-## [13,]  5.0801275 7.3738410  6.34694537  6.9914307
-## [14,]  5.7676197 4.0715624  4.81740376  7.7048362
-## [15,]  6.3962093 7.2171724  6.49251170  5.8166998
+##           [,1]       [,2]       [,3]        [,4]
+##  [1,] 1.458438  3.0764614  2.2633001  0.95896973
+##  [2,] 5.150545 -0.1376717 -1.5196025 -0.72067796
+##  [3,] 1.148677  4.6786998 -5.2005097  2.01699340
+##  [4,] 3.701749  1.7395542  1.2933326  2.90744878
+##  [5,] 3.212599  2.9897604  2.3596986  2.33359768
+##  [6,] 2.663269  0.7378203  0.2670123  4.33952954
+##  [7,] 1.646495  1.2314958 -0.2759674 -0.02558369
+##  [8,] 1.281630  2.0195917  3.1534465  1.37065837
+##  [9,] 3.121476  2.2686573  1.4740590  3.21720081
+## [10,] 2.780250  8.6806961  5.5589565  6.96140072
+## [11,] 6.443351  8.8415511  8.1437554  8.34831661
+## [12,] 7.373841  6.3469454  6.9914307  6.58025065
+## [13,] 4.071562  4.8174038  7.7048362  7.20986664
+## [14,] 7.217172  6.4925117  5.8166998  7.49165244
+## [15,] 5.410331  7.0764321  7.1027391  7.75844032
 \end{verbatim}
 
 This approach is a bit more computationally efficient because the setup calculations (getting \texttt{N}, \texttt{g}, \texttt{group}, \texttt{mu\_full}, and \texttt{sigma\_full}) only have to be done once instead of once per replication. It also makes clever use of vector recycling in the call to \texttt{rnorm()}. However, the structure of the resulting data is more complicated, which will make it more difficult to do the later estimation steps.
@@ -13794,11 +13862,10 @@ We just packaged the code from above:
 
 \begin{verbatim}
 ## $x_bar
-## [1] 1.049431 2.292670 6.942982 7.194796
+## [1] 1.276290 1.561670 5.494275 6.957693
 ## 
 ## $s_sq
-## [1] 3.301593387 2.216558131 0.000678492
-## [4] 0.185864577
+## [1] 1.4746098 2.2741734 3.8580826 0.8145309
 ## 
 ## $n
 ## [1] 3 6 2 4
@@ -13827,7 +13894,7 @@ Now we can re-write both our \(F\)-test functions to use the output of this func
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.00008347563
+## [1] 0.0002163748
 \end{verbatim}
 
 \begin{Shaded}
@@ -13854,7 +13921,7 @@ Now we can re-write both our \(F\)-test functions to use the output of this func
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.002413265
+## [1] 0.01291358
 \end{verbatim}
 
 The results are the same as before.
@@ -13942,9 +14009,9 @@ We then put all these pieces in our revised \texttt{one\_run()} method as so:
 
 \begin{verbatim}
 ## # A tibble: 1 x 2
-##     ANOVA  Welch
-##     <dbl>  <dbl>
-## 1 0.00419 0.0440
+##      ANOVA  Welch
+##      <dbl>  <dbl>
+## 1 0.000233 0.0176
 \end{verbatim}
 
 The reason this is important is we are now doing our group aggregation only once, rather than once per method.
@@ -13967,9 +14034,9 @@ We benchmark to see our speedup:
 \hline
 expression & min & median & itr/sec & speed\_up\\
 \hline
-original & 1.48ms & 1.54ms & 639.86 & 1.0\\
+original & 1.47ms & 1.53ms & 646.44 & 1.0\\
 \hline
-one\_agg & 1.23ms & 1.28ms & 776.90 & 1.2\\
+one\_agg & 1.22ms & 1.27ms & 780.52 & 1.2\\
 \hline
 \end{tabular}
 

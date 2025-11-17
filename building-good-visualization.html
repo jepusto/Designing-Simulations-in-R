@@ -23,7 +23,7 @@
 <meta name="author" content="Luke W. Miratrix and James E. Pustejovsky (Equal authors)" />
 
 
-<meta name="date" content="2025-11-11" />
+<meta name="date" content="2025-11-17" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -1288,6 +1288,57 @@ There are mild differences due to differences in how the degrees of freedom are 
 </div>
 <div id="exercises-8" class="section level2 hasAnchor" number="12.8">
 <h2><span class="header-section-number">12.8</span> Exercises<a href="building-good-visualization.html#exercises-8" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>In these exercises we continue to work with the simulation results from the Cluster RCT example in this chapter.
+We provide the saved simulation results in the file <a href="results/simulation_CRT.rds"><code>simulation_CRT.rds</code></a>, and load and process them as follows:</p>
+<div class="sourceCode" id="cb397"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb397-1"><a href="building-good-visualization.html#cb397-1" tabindex="-1"></a><span class="fu">library</span>( tidyverse )</span>
+<span id="cb397-2"><a href="building-good-visualization.html#cb397-2" tabindex="-1"></a><span class="fu">library</span>( simhelpers )</span>
+<span id="cb397-3"><a href="building-good-visualization.html#cb397-3" tabindex="-1"></a></span>
+<span id="cb397-4"><a href="building-good-visualization.html#cb397-4" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">readRDS</span>( <span class="at">file =</span> <span class="st">&quot;results/simulation_CRT.rds&quot;</span> )</span>
+<span id="cb397-5"><a href="building-good-visualization.html#cb397-5" tabindex="-1"></a><span class="fu">head</span>( res )</span></code></pre></div>
+<pre><code>## # A tibble: 6 × 13
+##   n_bar     J   ATE size_coef   ICC alpha  reps
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1    20     5   0.2         0     0     0  1000
+## 2    20     5   0.2         0     0     0  1000
+## 3    20     5   0.2         0     0     0  1000
+## 4    20     5   0.2         0     0     0  1000
+## 5    20     5   0.2         0     0     0  1000
+## 6    20     5   0.2         0     0     0  1000
+## # ℹ 6 more variables: seed &lt;dbl&gt;, runID &lt;chr&gt;,
+## #   method &lt;chr&gt;, ATE_hat &lt;dbl&gt;, SE_hat &lt;dbl&gt;,
+## #   p_value &lt;dbl&gt;</code></pre>
+<div class="sourceCode" id="cb399"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb399-1"><a href="building-good-visualization.html#cb399-1" tabindex="-1"></a>sres <span class="ot">&lt;-</span> res <span class="sc">%&gt;%</span> </span>
+<span id="cb399-2"><a href="building-good-visualization.html#cb399-2" tabindex="-1"></a>  <span class="fu">group_by</span>( n_bar, J, ATE, size_coef, ICC, alpha, method ) <span class="sc">%&gt;%</span></span>
+<span id="cb399-3"><a href="building-good-visualization.html#cb399-3" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="fu">calc_absolute</span>( <span class="at">estimates =</span> ATE_hat,</span>
+<span id="cb399-4"><a href="building-good-visualization.html#cb399-4" tabindex="-1"></a>                            <span class="at">true_param =</span> ATE,</span>
+<span id="cb399-5"><a href="building-good-visualization.html#cb399-5" tabindex="-1"></a>                            <span class="at">criteria =</span> <span class="fu">c</span>(<span class="st">&quot;bias&quot;</span>,<span class="st">&quot;stddev&quot;</span>,</span>
+<span id="cb399-6"><a href="building-good-visualization.html#cb399-6" tabindex="-1"></a>                                         <span class="st">&quot;rmse&quot;</span>)),</span>
+<span id="cb399-7"><a href="building-good-visualization.html#cb399-7" tabindex="-1"></a>             <span class="fu">calc_relative_var</span>( <span class="at">estimates =</span> ATE_hat,</span>
+<span id="cb399-8"><a href="building-good-visualization.html#cb399-8" tabindex="-1"></a>                                <span class="at">var_estimates =</span> SE_hat<span class="sc">^</span><span class="dv">2</span>,</span>
+<span id="cb399-9"><a href="building-good-visualization.html#cb399-9" tabindex="-1"></a>                                <span class="at">criteria =</span> <span class="st">&quot;relative bias&quot;</span> ),</span>
+<span id="cb399-10"><a href="building-good-visualization.html#cb399-10" tabindex="-1"></a>             <span class="at">power =</span> <span class="fu">mean</span>( p_value <span class="sc">&lt;=</span> <span class="fl">0.05</span> ),</span>
+<span id="cb399-11"><a href="building-good-visualization.html#cb399-11" tabindex="-1"></a>             <span class="at">ESE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
+<span id="cb399-12"><a href="building-good-visualization.html#cb399-12" tabindex="-1"></a>             <span class="at">SD_SE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">sd</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
+<span id="cb399-13"><a href="building-good-visualization.html#cb399-13" tabindex="-1"></a>             <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb399-14"><a href="building-good-visualization.html#cb399-14" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb399-15"><a href="building-good-visualization.html#cb399-15" tabindex="-1"></a>  <span class="fu">rename</span>( <span class="at">R =</span> K_absolute,</span>
+<span id="cb399-16"><a href="building-good-visualization.html#cb399-16" tabindex="-1"></a>          <span class="at">RMSE =</span> rmse,</span>
+<span id="cb399-17"><a href="building-good-visualization.html#cb399-17" tabindex="-1"></a>          <span class="at">RMSE_mcse =</span> rmse_mcse,</span>
+<span id="cb399-18"><a href="building-good-visualization.html#cb399-18" tabindex="-1"></a>          <span class="at">SE =</span> stddev,</span>
+<span id="cb399-19"><a href="building-good-visualization.html#cb399-19" tabindex="-1"></a>          <span class="at">SE_mcse =</span> stddev_mcse ) <span class="sc">%&gt;%</span></span>
+<span id="cb399-20"><a href="building-good-visualization.html#cb399-20" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(  <span class="sc">-</span>K_relvar ) <span class="sc">%&gt;%</span></span>
+<span id="cb399-21"><a href="building-good-visualization.html#cb399-21" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb399-22"><a href="building-good-visualization.html#cb399-22" tabindex="-1"></a><span class="fu">names</span>( sres )</span></code></pre></div>
+<pre><code>##  [1] &quot;n_bar&quot;             &quot;J&quot;                
+##  [3] &quot;ATE&quot;               &quot;size_coef&quot;        
+##  [5] &quot;ICC&quot;               &quot;alpha&quot;            
+##  [7] &quot;method&quot;            &quot;R&quot;                
+##  [9] &quot;bias&quot;              &quot;bias_mcse&quot;        
+## [11] &quot;SE&quot;                &quot;SE_mcse&quot;          
+## [13] &quot;RMSE&quot;              &quot;RMSE_mcse&quot;        
+## [15] &quot;rel_bias_var&quot;      &quot;rel_bias_var_mcse&quot;
+## [17] &quot;power&quot;             &quot;ESE_hat&quot;          
+## [19] &quot;SD_SE_hat&quot;</code></pre>
 <div id="assessing-uncertainty" class="section level3 hasAnchor" number="12.8.1">
 <h3><span class="header-section-number">12.8.1</span> Assessing uncertainty<a href="building-good-visualization.html#assessing-uncertainty" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>Select a plot from this chapter that does not have monte carlo standard errors.
