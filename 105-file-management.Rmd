@@ -11,39 +11,107 @@ library( purrr )
 
 # Organizing a simulation project
 
-As we saw earlier, a full multifactor simulation can generate a lot of output that can be hard to navigate.
-They are complex, multifaceted projects by design.
-This means that the project itself can be hard to manage.
-It can be easy to become overwhelmed by a steady accumulation of scripts that generate data, analyze data, run simulations, and so on.
 
-This section is designed to give you the computational skills and ideas that will make it easier to handle complex simulation projects.
-We start with a discussion of file and project management, then turn to parallel processing, and finally close with some core programming habits that we have found useful for keeping on top of this type of sprawling complexity.
+Full, multifactor simulations often grow into quite complex projects with many moving pieces. 
+As a project grows in complexity, you may end up producing a _lot_ of output, which can become hard to navigate and manage.
+The steady accretion of functions, scripts, stored results, and analysis can easily become overwhelming---to the point that you would dread sharing these work products with anyone.
+However, a bit of forethought and advance planning can make these types of projects much more tractable and manageable.
 
+In this section, we describe some organizing principles and programming practices that will make it easier to handle complex simulation projects.
+In this chapter, we discuss project organization, file management, and storing simulation results. 
+In Chapter \@ref(parallel-processing), we demonstrate  parallel processing methods that will help you to speed up the computation involved in multifactor simulations. 
+Finally, Chapter \@ref(debugging-and-testing) covers some basic debugging and testing techniques that we have found useful for keeping on top of this type of sprawling complexity.
+<!-- JEP: This isn't really an accurate characterization of the debugging-and-testing chapter? -->
 
-Simulations have two general phases: generate your results and analyze your results.
-The ending of the first phase should be to save the generated results.
-The beginning of the second phase should then be to load the results from a file and analyze them.
-These phases can be in a separate '.R' files.
-Dividing your simulations in this way allows for easily changing how one _analyzes_ an experiment without re-running the entire thing.
+## Simulation project structure 
 
-This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
+Multifactor simulation studies usually involve three distinct phases of work.
+The first phase involves developing functions for generating data, applying estimators or data analysis procedures to the data, calculating performance measures, and running the full simulation for a single scenario.
+The end-product of this phase is a set of functions or methods for executing a simulation.
+The second phase involves running the simulations across multiple scenarios, as discussed in Chapter \@ref(simulating-multiple-scenarios).
+The end-product of this phase is a set of results, containing estimates of performance measures for one or more methods under each condition.
+The third phase involves analyzing the simulation results and drawing conclusions about the performance of the method or methods under evaluation.
+The end-product of this phase is often a set of figures, tables, and text (perhaps taking the form of a memo, blog post, slide deck, or manuscript) that summarizes what you find.
+Each of the three phases involves a distinct set of processes and a different type of code. 
 
-For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
+As a bare-bones example, a multi-factor simulation will likely have three distinct pieces of code:
 
- * Code for generating data
- * Code for analyzing data
- * Code for running a single simulation scenario
+* A set of functions for running the simulation,
+* Code for creating the simulation design matrix, executing the calculations, and compiling all the results, and
+* Code for analyzing the results.
 
-If each of these pieces is large and complex, you might consider putting them in three different `.R` files.
-To do this, we need to talk about what kinds of R scripts exist, and also talk about how you can tell one script to load another script.
+In a very simple simulation that does not take long to execute, you might keep all of this code in a single file.
+However, if any of these components is more complex or takes time to execute, keeping everything in one file will become unwieldy.
 
+To stay organized when conducting a larger, multifactor simulation, we find it generally useful to keep a clear separation between phases. 
+In practice, this means keeping the code for each phase in its own, separate `.R` file and storing the results from each phase so that it can be re-run or revised without re-executing the entire set of calculations. 
+This approach is in keeping with a general principle for organizing large computational projects: keep the code for distinct tasks in different files. 
 
-## Well structured R scripts
+In this chapter, we describe strategies for organizing the code and work products involved in a multifactor simulation study. 
+We start by describing a directory structure that encourages a clear separation between phases of a project.
+We then offer examples and recommendations for how to structure individual files and how to store results after executing a simulation.
+The advice and recommendations we offer are drawn from our own experience working on large simulation projects (including the many mistakes we have made and lessons we have learned through trial-and-error).
+Of course, we readily acknowledge that our approach here is not the only way to approach things, and we make no claims of optimality.
+As you gain experience with your own work, you will develop your own habits and strategies. 
 
-In R, there are two critical file types that can hold R code: `.R` files (scripts) and `.Rmd` (or `.qmd`) markdown files.
-The former just holds R code, while the latter holds a mix of R code and text.
-The latter is what you would render (or knit) to make a final report--it will run the code, and mix the results in with the text to give a nicely formatted report with code, figures, tables, and other printout nicely embedded.
-These are what is typically used for smaller projects---all the code and discussion of code would be in a single, convienent place.
+## Principled directory structures
+
+_Tidy home, tidy mind_, as the saying goes. 
+With any computational project, our home is usually a file directory on your computer (or in the cloud).
+For multifactor simulation studies, we _strongly_ advocate using a well-organized directory structure, which will facilitate more organized---and easier to follow---coding practices.
+We recommend using an integrated development environment such as RStudio, Positron, or VS Code, using a directory structure organized as follows:
+
+```
+my_project/
+  proj.Rproj
+  README.md
+  R/
+  test/
+  data/
+  scripts/
+  results/
+```
+
+If you have ever looked at the source code for or developed your own R package, this structure will look familiar.
+
+* The `R/` directory is where you put the core R code for your simulation.
+  It should contain one or more `.R` scripts that hold the main functions for implementing a tidy simulation, including data-generating functions, analysis functions, performance calculation functions, and a simulation driver that pulls all the pieces together. 
+  With all of these functions saved in the same directory, you can then load these scripts into your workspace as needed to gain access to those functions.
+  You _should not_ put the scripts that actually execute the simulation or analyze the results in this folder.
+  Instead, the `R/` folder is reserved for the building blocks of the simulation.
+
+* The `test/` directory is where you put any code for testing the functions and methods you have developed.
+  You can even use the `testthat` package to write unit tests for your methods, and put those in the `test/` directory.
+
+* The `data/` directory is where you put any data files used in executing the simulation.
+  For instance, a simulation of a cluster-randomized experiment might make use of an empirical dataset containing features such as cluster sizes or covariate values, which are sampled when generating artificial datasets.
+  This directory is reserved for _source_ data, which may be read in as part of the simulation.
+  It should not contain any files that are _created_ as part of executing the simulation.
+
+* The `scripts/` directory is where you put your scripts that actually run the simulations and analyze simulation results.
+  Some of these scripts will make use of the functions saved in the `R/` directory.
+  You will likely have at least one script that runs the simulation and at least one script for analyzing the results.
+
+* The `results/` directory is where you will save any generated results of your simulation.
+  This directory should _only_ contain files that have been created by running code in the `scripts/` directory.
+  Sometimes it might be worth having `raw_results` and `results`, where `raw_results` are what you save as soon as you finish running the simulation, and `results` have final results where you may have merged and summarized the raw results.
+<!-- JEP: This last sentence could be about directories or it could be applied to files within a directory---what did you have in mind? Any preference? -->
+
+Using this structure will help you to maintain reproducibility of the full project.
+If any files in `data/`, `R/`, or `scripts/` are changed, then some or all of the files in `results/` may need to be updated.
+In principle, it should be possible to delete all of the files in `results/` and recreate them in full by re-running the files in the `scripts/` directory.
+
+## Well structured code files
+
+With a directory structure in place, conducting a simulation will require writing, testing, and revising code (potentially a lot of code!).
+There are two main types of files that analysts use to hold R code; plain `.R` scripts and R markdown (`.Rmd`) or Quarto (`.qmd`) notebooks.
+The former can only contain R syntax and comments, whereas the latter can hold a mix of R code chunks and written text.
+The latter work as the source code for creating reproducible reports; compiling them will automatically run the embedded code and interweave the results with the text, producing a formatted document that can display figures, tables, and other forms of output.
+
+For very small projects, it may be possible to put your entire code base in a single notebook, containing all of your functions, code for creating a simulation design and executing the simulations, and code for analyzing the results.
+An advantage of using a notebook here is that you can add plain text explanations and descriptions of the component pieces mixed in with the actual source code, so that rationales and design decisions are fully documented.
+Further, you can re-run the entire simulation at the click of a button, simply by re-compiling the the notebook.
+However, it is difficult to work this way if your simulations involve more intensive computations.
 
 For larger projects, you will be more dependant on the first type of file, the `.R` script.
 Ideally, the principle of modular programming would be applied to these files.
@@ -135,42 +203,6 @@ This is a good way to keep your testing code with the code it is testing.
 When you want to work on just the part of the project captured by your script, you can work inside the single file very easily, ignoring the other parts of your project.
 
 You can also (or instead) write testing code, which we will talk about further below.
-
-
-## Principled directory structures
-
-We _strongly advocate_ keeping a well-organized directory for your simulation.
-We recommend using RStudio, or a similar IDE, and having a directory structure like the following:
-
-```
-my_project/
-  proj.Rproj
-  README.md
-  R/
-  data/
-  results/
-  scripts/
-  test/
-```
-
-For those who have written R pacakges, this structure will look familiar.
-The `R/` directory is where you put your core R code.
-We will have `.R` scripts that just hold our core methods; we can then "load" these scripts into our workspace as needed to gain access to those methods.
-Saved methods might include the methods you have developed that you are planning on testing (unless they are in a separate package), and methods to generate data.
-We _do not_ put the scripts that run the actual simulation here.  The `R/` folder is to store the building blocks of our simulation only, not the final scripts that use those blocks to run and analyze our simulations themselves.
-
-The `data/` directory is where you put any data files you are using in your simulation.
-The `results/` directory is where you will save any generated results of your simulation.
-Sometimes it might be worth having `raw_results` and `results`, where `raw_results` are what you save as soon as you finish running the simulation, and `results` have final results where you may have merged and summarized the raw results.
-
-The `scripts/` directory is where you put your scripts that run the simulation and analyze simulation results.
-You will likely have one script that runs the simulation, and one or more scripts that analyze the results.
-
-Finally, the `test/` directory is where you put any testing code you have written to test your methods.
-You can even use the `testthat` package to write unit tests for your methods, and put those in the `test/` directory.
-This structure is not required, but it is a good idea to have a well-organized project of some type.
-
-
 
 
 ## Saving simulation results {#saving-files}
