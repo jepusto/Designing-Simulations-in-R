@@ -20,15 +20,15 @@ source("case_study_code/analyze_cluster_RCT.R")
 # Running the Simulation Process {#running-the-simulation-process}
 
 In the prior two chapters we saw how to write functions that generate data according to a particular model and functions that implement data-analysis procedures on simulated data.
-The next step in a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, p-values, or other quantities) from many replications of the whole process.
+The next step to build a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, $p$-values, or other quantities) from many replications of the whole process.
 
 As with most things R-related, there are many different techniques that can be used to repeat a set of calculations over and over. 
-In this chapter, we demonstrate several techniques for doing so.
+In this chapter, we demonstrate two key techniques for doing so.
 We then explain how to ensure reproducibility of simulation results by setting the seed used by R's random number generator.
 
 ## Repeating oneself {#repeating-oneself}
 
-Suppose that we want to simulate Pearson's correlation coefficient calculated based on a sample from the bivariate Poisson function.
+Suppose that we want to repeatedly generate bivariate Poisson data and then estimate the correlation for those data.
 We saw a DGP function for the bivariate Poisson in Section \@ref(DGP-functions), and an estimation function in Section \@ref(estimation-functions).
 To produce a simulated correlation coefficient, we need to run these two functions in turn:
 ```{r}
@@ -56,7 +56,7 @@ The second argument is an R expression that will be evaluated.
 The expression is wrapped in curly braces (`{}`) because it involves more than a single line of code.
 Including the option `id = "rep"` returns a dataset that includes a variable called `rep` to identify each replication of the process.
 Setting the option `stack = TRUE` will stack up the output of each expression into a single tibble, which will facilitate later calculations on the results.
-Setting this option is not necessary because it is `TRUE` by default; setting `stack = FALSE` will return the results in a list rather than a tibble (try this for yourself to see!).
+Explicitly setting this option is not necessary because it is `TRUE` by default; setting `stack = FALSE` will return the results in a list rather than a tibble (try this for yourself to see!).
 
 There are many other functions that work very much like `repeat_and_stack()`, including the base-R function `replicate()` and the now-deprecated function `rerun()` from `{purrr}`.
 The functions in the `map()` family from `{purrr}` can also be used to do the same thing as `repeat_and_stack()`.
@@ -197,14 +197,17 @@ The `simhelpers` package provides a function `bundle_sim()` that abstracts this 
 Thus, `bundle_sim()` provides a convenient alternative to writing your own `one_run()` function for each simulation, thereby saving a bit of typing (and avoiding an opportunity for bugs to creep into your code).
 
 `bundle_sim()` takes a DGP function and an estimation function as inputs and gives us back a new function that will run a simulation using whatever parameters we give it.
-Here is a basic example, which creates a function for simulating Pearson correlation coefficients with a bivariate Poisson distribution:
+The `bundle_sim()` function is a "factory" in that it creates a new function for you on the fly.
+Think of it as a (rather dumb) coding assistant who will take some direction and give you code back.
+
+Here is a basic example, where we create a function for running our simulation to evaluate how well our Pearson correlation coefficient confidence interval works on a bivariate Poisson distribution:
 ```{r}
 sim_r_Poisson <- bundle_sim(f_generate = r_bivariate_Poisson, 
                             f_analyze = r_and_z, 
                             id = "rep")
 ```
 
-If we specify the optional argument `id = "rep"`, the function will include a variable called `rep` with a unique identifier for each replication of the simulation process.
+If we specify the optional argument `id = "rep"`, the built function will generate a variable called `rep` with a unique identifier for each replication of the simulation.
 We can use the newly created function like so:
 ```{r, messages=FALSE}
 sim_r_Poisson( 4, N = 30, rho = 0.4, mu1 = 8, mu2 = 14)
@@ -223,7 +226,8 @@ The `bundle_sim()` function requires specifying a DGP function and a _single_ es
 For our cluster-randomized experiment example, we would then need to use our `estimate_Tx_Fx()` function that organizes all of the estimators (see Chapter \@ref(multiple-estimation-procedures)).
 We then use `bundle_sim()` to create a function for running an entire simulation:
 ```{r, messages=FALSE}
-sim_cluster_RCT <- bundle_sim( gen_cluster_RCT, estimate_Tx_Fx, id = "runID" )
+sim_cluster_RCT <- bundle_sim( gen_cluster_RCT, estimate_Tx_Fx,
+                               id = "runID" )
 ```
 We can call the newly created function like so:
 ```{r, messages=FALSE}
@@ -249,7 +253,7 @@ The function has several further features, which we will demonstrate in subseque
 
 ## Seeds and pseudo-random number generators {#seeds-and-pseudo-RNGs}
 
-In prior chapters, we have used built-in functions to generate random numbers and also written our own data-generating functions that produce artificial data following a specific random process.
+In prior chapters, we used built-in functions to generate random numbers and wrote our own data-generating functions that produce artificial data following a specific random process.
 With either type of function, re-running it with the exact same input parameters will produce different results.
 For instance, running the `rchisq` function with the same set of inputs will produce two different sequences of $\chi^2$ random variables:
 ```{r}
@@ -269,7 +273,8 @@ sim_B <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14)
 identical(sim_A, sim_B)
 ```
 Of course, this is the intended behavior of these functions, but it has an important consequence that needs some care and attention. 
-Using functions like `rchisq()`, `r_bivariate_Poisson()`, or `r_bivariate_Poisson()` in a simulation study means that the results will not be fully reproducible. 
+Using functions like `rchisq()`, `r_bivariate_Poisson()`, or `r_bivariate_Poisson()` in a simulation study means that the results will not be fully reproducible, meaning that if we run our simulation and write up our results, and then someone else tries to run our very same simulation using our very same code, they might not get the very same results.
+This can undermine transparency, and make it hard to verify if a set of presented results really came from a given codebase.
 
 When using DGP functions for simulations, it is useful to be able to exactly control the process of generating random numbers.
 This is much more feasible than it sounds: Monte Carlo simulations are random, at least in theory, but computers are deterministic.
@@ -293,6 +298,8 @@ set.seed(6)
 c2 <- rchisq(4, df = 3)
 rbind(c1, c2)
 ```
+The sequences are the same!
+
 Similarly, we can set the seed and run a series of calculations involving multiple functions that make use of the random number generator:
 ```{r}
 # First time

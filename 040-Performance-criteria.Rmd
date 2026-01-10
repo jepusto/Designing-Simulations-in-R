@@ -23,14 +23,22 @@ Once we run a simulation, we end up with a pile of results to sort through.
 For example, Figure \@ref(fig:CRT-ATE-hist) depicts the distribution of average treatment effect estimates from the cluster-randomized experiment simulation, which we generated in Chapter \@ref(running-the-simulation-process). 
 There are three different estimators, each with 1000 replications.
 Each histogram is an approximation of the _sampling distribution_ of the estimator, meaning its distribution across repetitions of the data-generating process.
-With results such as these, the question before us is now how to evaluate how well each procedure works. If we are comparing several different estimators, we also need to determine which ones work better or worse than others. In this chapter, we look at a variety of __performance measures__ that can answer these questions. 
+Visually, we see the three estimators look about the same---they sometimes estimate too low, and sometimes estimate too high.
+We also see linear regression is shifted up a bit, and maybe aggregation has a few more outlines.
+These observations are assessing how well each estimator _performs_, and we next dig into quantifying that performance more precisely with what we call _performance measures_.
+
+<!--Given these results, how do we evaluate how well each procedure works?
+If we are comparing several different estimators, how can we determine which ones work better or worse than others?
+In this chapter, we look at a variety of __performance measures__ that can answer these questions. 
+-->
 
 ```{r CRT-ATE-hist}
 #| fig.width: 8
 #| fig.height: 3
+#| out.width: "100%"
 #| echo: false
 #| message: false
-#| fig.cap: "Sampling distribution of average treatment effect estimates from a cluster-randomized trial with a true average treatment effect of 0.3."
+#| fig.cap: "Sampling distribution of average treatment effect estimates from a cluster-randomized trial with a true average treatment effect of 0.3 (dashed line)."
 
 cluster_RCT_mean <- 
   cluster_RCT_res %>%
@@ -39,72 +47,88 @@ cluster_RCT_mean <-
 ggplot(cluster_RCT_res) + 
   aes(ATE_hat, fill = method) +
   geom_vline(xintercept = 0.3, linetype = "dashed") + 
-  geom_vline(data = cluster_RCT_mean, aes(xintercept = ATE_hat, color = method)) + 
-  geom_point(data = cluster_RCT_mean, aes(x = ATE_hat, y = -1, color = method)) + 
+  geom_vline(data = cluster_RCT_mean, aes(xintercept = ATE_hat), color="black") + 
+  geom_point(data = cluster_RCT_mean, aes(x = ATE_hat, y = -1), color = "black") + 
   geom_histogram(alpha = 0.5) + 
   facet_wrap(~ method, nrow = 1) + 
   theme_minimal() + 
   labs(x = "Average treatment effect estimate", y = "") + 
   scale_y_continuous(labels = NULL) + 
+  scale_x_continuous( breaks=c( -.3, 0, 0.3, 0.6, 0.9 ) ) +
   theme(legend.position = "none")
 ```
 
-Performance measures are summaries of a sampling distribution that describe how an estimator or data analysis procedure behaves on average if we could repeat the data-generating process an infinite number of times.
+A _performance measure_ summarizes an estimator's sampling distribution to describe how an estimator would behave on average if we could repeat the data-generating process an infinite number of times.
 For example, the bias of an estimator is the difference between the average value of the estimator and the corresponding target parameter. 
-Bias measures the central tendency of the sampling distribution, capturing how far off, on average, the estimator would be from the true parameter value if we repeated the data-generating process an infinite number of times.
-In Figure \@ref(fig:CRT-ATE-hist), black dashed lines mark the true average treatment effect of 0.3 and the colored vertical lines with circles at the end mark the means of the estimators.
-The distance between the colored lines and the black dashed lines corresponds to the bias of the estimator. 
-This distance is nearly zero for the aggregation estimator and the multilevel model estimator, but larger for the linear regression estimator.
+Bias measures the central tendency of the sampling distribution, capturing whether we are systematically off, on average, from the true parameter value.
 
-Different types of data-analysis results produce different types of information, and so the relevant set of performance measures depends on the type of data analysis result we are studying.
-For procedures that produce point estimates or point predictions, conventional performance measures include bias, variance, and root mean squared error. 
+In Figure \@ref(fig:CRT-ATE-hist), the black dashed lines mark the true average treatment effect of 0.3 and the solid lines with the dot mark the means of the estimators.
+The horizontal distance between the solid and dashed lines corresponds to the bias of the estimator. 
+This distance is nearly zero for the aggregation estimator and the multilevel model estimator, but larger for the linear regression estimator.
+Our performance measure of bias would be about zero for Agg and MLM, and around 0.05 to 0.1 for linear regression.
+
+Many performance measures exist.
+For point estimates, conventional performance measures include bias, variance, and root mean squared error.
+Our definition of "success" could depend on which measure we find more important: is lower bias good?  Is it better than lower variance?
+
 If the point estimates come with corresponding standard errors, then we may also want to evaluate how accurately the standard errors represent the true uncertainty of the point estimators; conventional performance measures for capturing this include the relative bias and relative root mean squared error of the variance estimator.
 For procedures that produce confidence intervals or other types of interval estimates, conventional performance measures include the coverage rate and average interval width.
 Finally, for inferential procedures that involve hypothesis tests (or more generally, classification tasks), conventional performance measures include Type I error rates and power. 
 We describe each of these measures in Sections \@ref(assessing-point-estimators) through \@ref(assessing-inferential-procedures).
 
-Performance measures are defined with respect to sampling distributions, or the results of applying a data analysis procedure to data generated according to a particular process across an infinite number of replications.
-In defining specific measures, we will follow statistical conventions to denote the mean, variance, and other moments of the sampling distribution.
-For a random variable $T$, we will use the expectation operator $\E(T)$ to denote the mean of the sampling distribution of $T$, $\M(T)$ to denote the median of its sampling distribution, $\Var(T)$ to denote the variance of its sampling distribution, and $\Prob()$ to denote probabilities of specific outcomes with respect to its sampling distribution.
-We will use $\Q_p(T)$ to denote the $p^{th}$ quantile of a distribution, which is the value $x$ such that $\Prob(T \leq x) = p$. With this notation, the median of a continuous distribution is equivalent to the 0.5 quantile: $\M(T) = \Q_{0.5}(T)$.
+One might have other performance measures than these, depending on what kind of estimator or data analysis procedure we are evaluating.
+Perhaps it is some measure of classification accuracy such as the F1 rate.
+Or perhaps it is something very specific, such as the chance of an error larger than some threshold.
 
-For some simple combinations of data-generating processes and data analysis procedures, it may be possible to derive exact mathematical formulas for calculating some performance measures (such as exact mathematical expressions for the bias and variance of the linear regression estimator).
-But for many problems, the math is difficult or intractable---that's why we do simulations in the first place.
-Simulations do not produce the _exact_ sampling distribution or give us _exact_ values of performance measures.
-Instead, simulations generate _samples_ (usually large samples) from the the sampling distribution, and we can use these to compute _estimates_ of the performance measures of interest.
-In Figure \@ref(fig:CRT-ATE-hist), we calculated the bias of each estimator by taking the mean of 1000 observations from its sampling distribution. If we were to repeat the whole set of calculations (with a different seed), then our bias results would shift slightly because they are imperfect estimates of the actual bias.
+Regardless of measure chosen, the true performance of an estimator depends on the data generating process being used.
+We might see good performance against some DGPs, and bad performance against other DGPs.
+Performance measures are defined with respect to the sampling distribution of our estimator, which is the distribution of values we would see across different datasets that all came from the same DGP.
 
-In working with simulation results, it is important to keep track of the degree of uncertainty in performance measure estimates. 
+In the following, we define many of the most common measures in terms of standard statistical quantities such as the mean, variance, and other moments of the sampling distribution.
+Notation-wise, for a random variable $T$ (e.g., for some estimator $T$), we will use the expectation operator $\E(T)$ to denote the mean of the sampling distribution of $T$, $\M(T)$ to denote the median of its sampling distribution, $\Var(T)$ to denote the variance of its sampling distribution, and $\Prob()$ to denote probabilities of specific outcomes with respect to its sampling distribution.
+We will use $\Q_p(T)$ to denote the $p^{th}$ quantile of a distribution, which is the value $x$ such that $\Prob(T \leq x) = p$.
+With this notation, the median of a continuous distribution is equivalent to the 0.5 quantile: $\M(T) = \Q_{0.5}(T)$.
+Using this notation we can write, for example, that the bias of $T$ is $\E(T) - \theta$, where $\theta$ is the target parameter.
+We develop all of this further, below.
+
+For some simple combinations of data-generating processes and data analysis procedures, it may be possible to derive exact mathematical formulas for some performance measures (such as exact mathematical expressions for the bias and variance of the linear regression estimator).
+But for many problems, the math is difficult or intractable---which is partly why we do simulations in the first place.
+Simulations, however, do not produce the _exact_ sampling distribution or give us _exact_ values of performance measures.
+Instead, simulations generate _samples_ (usually large samples) from the the sampling distribution, and we can use these to _estimate_ the performance measures of interest.
+In Figure \@ref(fig:CRT-ATE-hist), for example, we estimated the bias of each estimator by taking the mean of 1000 observations from its sampling distribution.
+If we were to repeat the whole simulation (with a different seed), then our bias results would shift slightly because they are imperfect estimates of the actual bias.
+
+In working with simulation results, it is important to track how much uncertainty we have in our performance measure estimates. 
 We call such uncertainty _Monte Carlo error_ because it is the error arising from using a finite number of replications of the Monte Carlo simulation process.
-One way to quantify it is with the _Monte Carlo standard error (MCSE)_, or the standard error of a performance estimate based on a finite number of replications. 
+One way to quantify the simulation uncertainty is with the _Monte Carlo Standard Error (MCSE)_, which is the standard error of a performance estimate given a specific number of replications. 
 Just as when we analyze real data, we can apply statistical techniques to estimate the MCSE and even to generate confidence intervals for performance measures. 
 
-The magnitude of MCSE is driven by how many replications we use: if we only use a few, we will have noisy estimates of performance with large MCSEs; if we use millions of replications, the MCSE will usually be tiny.
-It is important to keep in mind that the MCSE is not measuring anything about how a data analysis procedure performs in general. 
-It only describes how precisely we have approximated a performance criterion, an artifact of how we conducted the simulation.
-Moreover, MCSEs are under our control.
-Given a desired MCSE, we can determine how many replications we would need to ensure our performance estimates have the specified level of precision.
+The magnitude of the MCSE is driven by how many replications we use: if we only use a few, we will have noisy estimates of performance with large MCSEs; if we use millions of replications, the MCSE will usually be tiny.
+It is important to keep in mind that the MCSE is not measuring anything about how our estimator performs. 
+It only describes how precisely we have _estimated_ its performance; MCSE is an artifact of how we conducted the simulation.
+The MCSE are also under our control: Given a desired MCSE, we can determine how many replications we would need to ensure our performance estimates have the specified level of precision.
 Section \@ref(MCSE) provides details about how to compute MCSEs for conventional performance measures, along with some discussion of general techniques for computing MCSE for less conventional measures.
 
 ## Measures for Point Estimators {#assessing-point-estimators}
 
 The most common performance measures used to assess a point estimator are bias, variance, and root mean squared error.
 Bias compares the mean of the sampling distribution to the target parameter.
+It answers, "Are we systematically too high or too low, on average?"
 Positive bias implies that the estimator tends to systematically over-state the quantity of interest, while negative bias implies that it systematically under-shoots the quantity of interest.
 If bias is zero (or nearly zero), we say that the estimator is unbiased (or approximately unbiased). 
 Variance (or its square root, the true standard error) describes the spread of the sampling distribution, or the extent to which it varies around its central tendency. 
-All else equal, we would like estimators to have low variance (or to be more precise).
+All else equal, we would like estimators to have low variance (which means being more precise).
 Root mean squared error (RMSE) is a conventional measure of the overall accuracy of an estimator, or its average degree of error with respect to the target parameter.
 For absolute assessments of performance, an estimator with low bias, low variance, and thus low RMSE is desired.
 In making comparisons of several different estimators, one with lower RMSE is usually preferable to one with higher RMSE. 
 If two estimators have comparable RMSE, then the estimator with lower bias would usually be preferable. 
 
 
-To define these quantities more precisely, let us consider a generic estimator $T$ that is targeting a parameter $\theta$.
+To define these quantities more precisely, consider a generic estimator $T$ that is targeting a parameter $\theta$.
 We call the target parameter the _estimand_.
-In most cases, in running our simulation we set the estimand $\theta$ and then generate a (typically large) series of $R$ datasets, for each of which $\theta$ is the true target parameter.
-We then analyze each dataset, obtaining a sample of estimates $T_1,...,T_R$.
-Formally, the bias, variance, and RMSE of $T$ are defined as
+In most cases, in running our simulation we set the estimand $\theta$ and then generate a (typically large) series of $R$ datasets, with $\theta$ being the true target parameter for each.
+We also analyze each dataset, obtaining a sample of estimates $T_1,...,T_R$.
+Formally, the bias, variance, and RMSE of $T$ are then defined as
 $$
 \begin{aligned}
 \Bias(T) &= \E(T) - \theta, \\ 
@@ -113,6 +137,10 @@ $$
 \end{aligned}
 (\#eq:bias-variance-RMSE)
 $$
+In words, bias is the average estimate minus the truth---is it systematically too high or too low, on average?
+The variance is the average squared deviation of the estimator from its own mean---how much does it vary around its average estimate? Is it precise?
+RMSE is the square root of the average squared deviation of the estimator from the truth---how far off are we, on average, from the truth? Does it predict well?
+
 These three measures are inter-connected. 
 In particular, RMSE is the combination of (squared) bias and variance, as in 
 $$ 
@@ -134,8 +162,11 @@ $$
 S_T^2 = \frac{1}{R - 1}\sum_{r=1}^R \left(T_r - \bar{T}\right)^2. 
 (\#eq:var-estimator)
 $$
-$S_T$ (the square root of $S^2_T$) is an estimate of the empirical standard error of $T$, or the standard deviation of the estimator across an infinite set of replications of the data-generating process.[^SE-meaning]
-We usually prefer to work with the empirical SE $S_T$ rather than the sampling variance $S_T^2$ because the former quantity has the same units as the target parameter.
+$S_T$ (the square root of $S^2_T$) is an estimate of the _true_ standard error, $SE$, of $T$, which is the standard deviation of the estimator across an infinite set of replications of the data-generating process.
+Generally, when people say "Standard Error" they actually mean _estimated_ Standard Error, ($\widehat{SE}$), as we generally calculate in a real data analysis (where we have only a single realization of the data-generating process).
+It is easy to forget that this standard error is itself an estimate of a parameter--the true SE---and thus has its own uncertainty.
+We usually prefer to work with the true SE $S_T$ rather than the sampling variance $S_T^2$ because the former quantity has the same units as the target parameter.
+
 Finally, the RMSE estimate can be calculated as
 $$ 
 \widehat{\RMSE}(T) = \sqrt{\frac{1}{R} \sum_{r = 1}^R \left( T_r - \theta\right)^2 }.  
@@ -144,29 +175,31 @@ $$
 Often, people talk about the MSE (Mean Squared Error), which is just the square of RMSE.
 Just as the true SE is usually easier to interpret than the sampling variance, units of RMSE are easier to interpret than the units of MSE.
 
-[^SE-meaning]: Generally, when people say "Standard Error" they actually mean _estimated_ Standard Error, ($\widehat{SE}$), as we would calculate in a real data analysis (where we have only a single realization of the data-generating process). It is easy to forget that this standard error is itself an estimate of a parameter--the true or empirical SE---and thus has its own uncertainty.
-
 
 It is important to recognize that the above performance measures depend on the scale of the parameter.
 For example, if our estimators are measuring a treatment impact in dollars, then the bias, SE, and RMSE of the estimators are all in dollars.
 (The variance and MSE would be in dollars squared, which is why we take their square roots to put them back on the more intepretable scale of dollars.)
 
 In many simulations, the scale of the outcome is an arbitrary feature of the data-generating process, making the absolute magnitude of performance measures less meaningful. 
-To ease interpretation of performance measures, it is useful to consider their magnitude relative to the baseline level of variation in the outcome.
-One way to achieve this is to generate data so the outcome has unit variance (i.e., we generate outcomes in _standardized units_).
-Doing so puts the bias, empirical standard error, and root mean squared error on the scale of standard deviation units, which can facilitate interpretation about what constitutes a meaningfully large bias or a meaningful difference in RMSE.
+To ease interpretation of performance measures, it is useful to consider their magnitude relative to some reference amount.
+We generally recommend using the baseline level of variation in the outcome.
+For example, we might have a bias of $0.2\sigma$, where $\sigma$ is the standard deviation of the outcome in the population.
 
-In addition to understanding the scale of these performance measures, it is also important to recognize that their magnitude depends on the metric of the parameter. 
-A non-linear transformation of a parameter will generally lead to changes in the magnitude of the performance measures.
+One way to automatically get all your performance metrics on such a standardized scale is to generate data so the outcome has unit variance (i.e., we generate outcomes in _standardized units_).
+This automatically puts the bias, empirical standard error, and root mean squared error on the scale of standard deviation units, which can facilitate interpretation about what constitutes a meaningfully large bias or a meaningful difference in RMSE.
+
+Finally, a non-linear transformation of a parameter will also generally change a performance measure.
 For instance, suppose that $\theta$ measures the proportion of time that something occurs.
-One natural way to transform this parameter would be to put it on the log-odds (logit) scale.
+This parameter could also be given on the log-odds (logit) scale.
 However, because the log-odds transformation is non-linear, 
 $$
 \text{Bias}\left[\text{logit}(T)\right] \neq \text{logit}\left(\text{Bias}[T]\right), \qquad \text{RMSE}\left[\text{logit}(T)\right] \neq \text{logit}\left(\text{RMSE}[T]\right),
 $$
 and so on.
+<!-- LWM: Not sure about following text, or whether we want the above blurb. What trying to say here? -->
+<!--
 This is a consequence of how these performance measures are defined. 
-One might see this property as a limitation on the utility of using bias and RMSE to measure the performance of an estimator, because these measures can be quite sensitive to the metric of the parameter.
+One might see this property as a limitation on the utility of using bias and RMSE to measure the performance of an estimator, because these measures can be quite sensitive to the metric of the parameter.-->
 
 ### Comparing the Performance of the Cluster RCT Estimation Procedures {#clusterRCTperformance}
 
@@ -175,9 +208,7 @@ runs <- readRDS( file = "results/cluster_RCT_simulation.rds" )
 ```
 
 We now demonstrate the calculation of performance measures for the point estimators of average treatment effects in the cluster-RCT example.
-In Chapter \@ref(running-the-simulation-process), we generated a large set of replications of several different treatment effect estimators.
-Using these results, we can assess the bias, standard error, and RMSE of three different estimators of the ATE.
-These performance measures address the following questions:
+Our three performance measures address the following questions:
 
 - Is the estimator systematically off? (bias)
 - Is it precise? (standard error)
@@ -189,7 +220,7 @@ Let us see how the three estimators compare on these measures.
 
 Bias is defined with respect to a target estimand.
 Here we assess whether our estimates are systematically different from the $\gamma_1$ parameter, which we defined in standardized units by setting the standard deviation of the student-level distribution of the outcome equal to one. 
-For these data, we generated data based on a school-level ATE parameter of 0.30 SDs.
+In our simulation, we generated data with a school-level ATE parameter of 0.30 SDs.
 
 ```{r cluster-bias}
 ATE <- 0.30
@@ -203,9 +234,9 @@ runs %>%
 ```
 
 There is no indication of major bias for aggregation or multi-level modeling.
-Linear regression, with a bias of about 0.09 SDs, appears about ten times as biased as the other estimators.
+Linear regression, with a bias of about 0.08 SDs, appears much more biased than the other estimators.
 This is because the linear regression is targeting the person-level average average treatment effect.
-The data-generating process of this simulation makes larger sites have larger effects, so the person-level average effect is going to be higher because those larger sites will count more.
+Our data-generating process makes larger sites have larger effects, so the person-level average effect is going to be higher because those larger sites will count more.
 In contrast, our estimand is the school-level average treatment effect, or the simple average of each school's true impact, which we have set to 0.30.
 The aggregation and multi-level modeling methods target this school-level average effect.
 If we had instead decided that the target estimand should be the person-level average effect, then we would find that linear regression is unbiased whereas aggregation and multi-level modeling are biased. 
@@ -213,9 +244,9 @@ This example illustrates how crucial it is to think carefully about the appropri
 
 #### Which method has the smallest standard error? {-}
 
-The empirical standard error measures the degree of variability in a point estimator.
-It reflects how stable our estimates are across replications of the data-generating process.
-We calculate the standard error by taking the standard deviation of the replications of each estimator.
+The standard error measures the degree of variability in a point estimator.
+It reflects how stable an estimator is across replications of the data-generating process.
+We estimate the standard error by taking the standard deviation of the set of estimates of each estimator.
 For purposes of interpretation, it is useful to compare the empirical standard errors to the variation in a benchmark estimator.
 Here, we treat the linear regression estimator as the benchmark and compute the magnitude of the empirical SEs of each method _relative_ to the SE of the linear regression estimator:
 
@@ -230,7 +261,7 @@ true_SE
 ```
 
 In a real data analysis, these standard errors are what we would be trying to approximate with a standard error estimator. 
-Aggregation and multi-level modeling have SEs about 8% smaller than linear regression.
+Aggregation and multi-level modeling have SEs about 4% smaller than linear regression, meaning these estimates tend to be a bit less variable across different datasets.
 For these data-generating conditions, aggregation and multi-level modeling are preferable to linear regression because they are more precise.
 
 #### Which method has the smallest Root Mean Squared Error? {-}
@@ -258,30 +289,38 @@ For aggregation and multi-level modeling, the RMSE is the same as the standard e
 For linear regression, the combination of bias plus increased variability yields a higher RMSE, with the standard error dominating the bias term (note how RMSE and SE are more similar than RMSE and bias).
 The difference between the estimators are pronounced because RMSE is the square root of the _squared_ bias and _squared_ standard error.
 Overall, aggregation and multi-level modeling have RMSEs around 17% smaller than linear regression---a consequential difference in accuracy.
+These estimators tend to give estimates that are closer to the truth than linear regression.
 
-### Less Conventional Performance Measures {#less-conventional-measures}
+### Robust Performance Measures {#less-conventional-measures}
 
-Depending on the model and estimation procedures being examined, a range of different measures might be used to assess estimator performance.
-For point estimation, we have introduced bias, variance and RMSE as three core measures of performance.
+<!--Depending on the model and estimation procedures being examined, a range of different measures might be used to assess estimator performance.-->
+For point estimation, we introduced bias, variance and RMSE as three core measures of performance.
 However, all of these measures are sensitive to outliers in the sampling distribution.
-Consider an estimator that generally does well, except for an occasional large mistake. Because conventional measures are based on arithmetic averages, they will indicate that the estimator performs very poorly overall.
-Other measures such as the median bias and the median absolute deviation of $T$ are less sensitive to outliers in the sampling distribution compared to the conventional measures.
-Estimating these measures will involve calculating sample quantiles of $T_1,...,T_R$, which are functions of the sample ordered from smallest to largest. 
-We will denote the $r^{th}$ order statistic as $T_{(r)}$ for $r = 1,...,R$.
+Consider an estimator that generally does well, except for an occasional large mistake.
+Because conventional measures are based on arithmetic averages, they could indicate that the estimator performs very poorly overall, when in fact it performs very well most of the time and terribly only rarely.
 
-Median bias is an alternative measure of the central tendency of a sampling distribution.
+If we are more curious about typical performance, then we could use other measures, such as the median bias and the median absolute deviation of $T$, that are less sensitive to outliers in the sampling distribution.
+These are called "robust" measures because they are not massively changed by only a few extreme values.
+The overall approach for most robust measures is to simply chop off some percent of the most extreme values, and then look at the center or spread of the remaining values.
+
+For example, median bias is an alternative measure of the central tendency of a sampling distribution.
+Here we "chop off" essentially all the values, focusing on the middle one only.
 Positive median bias implies that more than 50% of the sampling distribution exceeds the quantity of interest, while negative median bias implies that more than 50% of the sampling distribution fall below the quantity of interest.
 Formally, 
 $$ 
 \text{Median-Bias}(T) = \M(T) - \theta 
 (\#eq:median-bias).
 $$
-An estimator of median bias is computed using the sample median, as
+where $\M(T)$ is the median of $T$.
+
+We estimate median bias with the sample median, as
 $$
 \widehat{\text{Median-Bias}}(T) = M_T - \theta
 (\#eq:sample-median-bias)
 $$
-where $M_T = T_{((R+1)/2)}$ if $R$ is odd or $M_T = \frac{1}{2}\left(T_{(R/2)} + T_{(R/2+1)}\right)$ if $R$ is even.
+where, if we define $T_{(r)}$ as the $r^{th}$ order statistic for $r = 1,...,R$, we have $M_T = T_{((R+1)/2)}$ if $R$ is odd or $M_T = \frac{1}{2}\left(T_{(R/2)} + T_{(R/2+1)}\right)$ if $R$ is even.
+
+<!--Estimating these measures will involve calculating sample quantiles of $T_1,...,T_R$, which are functions of the sample ordered from smallest to largest. -->
 
 Another robust measure of central tendency uses the $p \times 100\%$-trimmed mean, which ignores the estimates in the lowest and highest $p$-quantiles of the sampling distribution.
 Formally, the trimmed-mean bias is
@@ -294,17 +333,17 @@ To estimate the trimmed bias, we take the mean of the middle $1 - 2p$ fraction o
 $$
 \widehat{\text{Trimmed-Bias}}(T; p) = \tilde{T}_{\{p\}} - \theta. (\#eq:sample-trimmed-bias)
 $$
-where
+where (assuming $pR$ is a whole number)
 $$
 \tilde{T}_{\{p\}} = \frac{1}{(1 - 2p)R} \sum_{r=pR + 1}^{(1-p)R} T_{(r)}
 $$
 For a symmetric sampling distribution, trimmed-mean bias will be the same as the conventional (mean) bias, but its estimator $\tilde{T}_{\{p\}}$ will be less affected by outlying values (i.e., values of $T$ very far from the center of the distribution) compared to $\bar{T}$.
-However, if a sampling distribution is not symmetric, trimmed-mean bias become distinct performance measures, which put less emphasis on large errors compared to the conventional bias measure.
+However, if a sampling distribution is not symmetric, trimmed-mean bias will be a distinct performance measure, different from mean bias, that puts less emphasis on large errors compared to the conventional bias measure.
 
 A further robust measure of central tendency is based on winsorizing the sampling distribution, or truncating all errors larger than a certain maximum size.
-Using a winsorized distribution amounts to arguing that you don't care about errors beyond a certain size, so anything beyond a certain threshold will be treated the same as if it were exactly on the threshold.
-The threshold for truncation is usually defined relative to the first and third quartiles of the sampling distribution, along with a given span of the inter-quartile range. 
-The thresholds for truncation are taken as 
+A winsorized distribution amounts to arguing that you don't care about errors beyond a certain size, so anything beyond a certain threshold will be treated the same as if it were exactly on the threshold.
+The threshold for truncation is often defined relative to the first and third quartiles of the sampling distribution, along with a given span of the inter-quartile range. 
+In this case, the thresholds for truncation would be
 $$
 \begin{aligned}
 L_w &= \Q_{0.25}(T) - w \times (\Q_{0.75}(T) - \Q_{0.25}(T)) \\ 
@@ -312,7 +351,7 @@ U_w &= \Q_{0.75}(T) + w \times (\Q_{0.75}(T) - \Q_{0.25}(T)),
 \end{aligned}
 $$
 where $\Q_{0.25}(T)$ and $\Q_{0.75}(T)$ are the first and third quartiles of the distribution of $T$, respectively, and $w$ is the number of inter-quartile ranges below which an observation will be treated as an outlier.[^fences]
-Let $X = \min\{\max\{T, L_w\}, U_w\}$.
+Once we have our thresholds, we let our truncated estimate be $X = \min\{\max\{T, L_w\}, U_w\}$.
 The winsorized bias, variance, and RMSE are then defined using winsorized values in place of the raw values of $T$, as
 $$
 \begin{aligned}
