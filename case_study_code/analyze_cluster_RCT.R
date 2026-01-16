@@ -1,7 +1,6 @@
 analysis_MLM <- function( dat ) {
   
-  M1 <- lme4::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
-  M1_test <- lmerTest::as_lmerModLmerTest(M1)
+  M1_test <- lmerTest::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
   M1_summary <- summary(M1_test)$coefficients
   
   tibble( 
@@ -9,6 +8,7 @@ analysis_MLM <- function( dat ) {
     SE_hat = M1_summary["Z","Std. Error"], 
     p_value = M1_summary["Z", "Pr(>|t|)"] 
   )
+  
 }
 
 analysis_OLS <- function( dat, se_type = "CR2" ) {
@@ -63,13 +63,7 @@ estimate_Tx_Fx <- function(
 }
 
 
-lmer_with_test <- purrr::compose(
-  summary,
-  lmerTest::as_lmerModLmerTest, 
-  lme4::lmer
-)
-
-quiet_safe_lmer <- purrr::quietly(purrr::safely(lmer_with_test))
+quiet_safe_lmer <- quietly( possibly( lmerTest::lmer, otherwise=NULL ) )
 
 analysis_MLM_safe <- function( dat, all_results = FALSE ) {
   
@@ -79,49 +73,50 @@ analysis_MLM_safe <- function( dat, all_results = FALSE ) {
     return(M1)
   } 
   
-  message <- ifelse( length( M1$message ) > 0, M1$message, NA_character_ )
-  warning <- ifelse( length( M1$warning ) > 0, M1$warning, NA_character_ )
-  error <- ifelse( length( M1$result$error) > 0, M1$result$error$message, NA_character_ )
+  if ( is.null( M1$result ) ) {
+    # we had an error!
+    tibble( ATE_hat = NA, SE_hat = NA, p_value = NA,
+            message = M1$message,
+            warning = M1$warning,
+            error = TRUE )
+  } else {
+    sum <- summary( M1$result )
+    tibble( 
+      ATE_hat = sum$coefficients["Z","Estimate"], 
+      SE_hat = sum$coefficients["Z","Std. Error"], 
+      p_value = sum$coefficients["Z", "Pr(>|t|)"],
+      message = list( M1$message ),
+      warning = list( M1$warning ),
+      error = FALSE )
+  }
   
-  tibble( 
-    ATE_hat = M1$result$result$coefficients["Z","Estimate"], 
-    SE_hat = M1$result$result$coefficients["Z","Std. Error"], 
-    p_value = M1$result$result$coefficients["Z", "Pr(>|t|)"],
-    message = message,
-    warning = warning,
-    error = error
-  )
 }
 
-analysis_MLM_contingent <- function( dat, all_results = FALSE ) {
+
+
+analysis_MLM_contingent <- function( dat ) {
   
   M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1 | sid), data=dat )
   
-  if (all_results) {
-    return(M1)
-  } 
-  
-  if (!is.null(M1$result$result)) { 
-    # If lmer() returns a result
-    res <- tibble( 
-      ATE_hat = M1$result$result$coefficients["Z","Estimate"], 
-      SE_hat = M1$result$result$coefficients["Z","Std. Error"], 
-      p_value = M1$result$result$coefficients["Z", "Pr(>|t|)"],
-    )
+  if (!is.null(M1$result)) { 
+    sum <- summary( M1$result )
+    tibble( 
+      ATE_hat = sum$coefficients["Z","Estimate"], 
+      SE_hat = sum$coefficients["Z","Std. Error"], 
+      p_value = sum$coefficients["Z", "Pr(>|t|)"] )
   } else {
     # If lmer() errors, fall back on OLS
     M_ols <- summary(lm(Yobs ~ Z, data = dat))
     res <- tibble( 
       ATE_hat = M_ols$coefficients["Z","Estimate"], 
       SE_hat = M_ols$coefficients["Z", "Std. Error"], 
-      p_value = M_ols$coefficients["Z","Pr(>|t|)"]
-    )
+      p_value = M_ols$coefficients["Z","Pr(>|t|)"] )
   }
 
   # Store original messages, warnings, errors  
   res$message <- ifelse( length( M1$message ) > 0, M1$message, NA_character_ )
   res$warning <- ifelse( length( M1$warning ) > 0, M1$warning, NA_character_ )
-  res$error <- ifelse( length( M1$result$error) > 0, M1$result$error$message, NA_character_ )
-  
+  res$error <- is.null( M1$result )
+
   return(res)
 }
