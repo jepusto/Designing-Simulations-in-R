@@ -3,7 +3,7 @@ output:
   pdf_document: default
   html_document: default
 ---
-# Data analysis procedures {#data-analysis-procedures}
+# Estimation procedures {#estimation-procedures}
 
 ```{r, include=FALSE}
 library(tidyverse)
@@ -15,24 +15,38 @@ source("case_study_code/gen_cluster_RCT_rev.R")
 source("case_study_code/analyze_cluster_RCT.R")
 ```
 
-The overall aims of many simulation studies have to do with understand how a particular data-analysis procedure works or comparing the performance of multiple, competing procedures. 
-Thus, the data-analysis procedure or procedures are the central object of study.
-Depending on the research question, the data-analysis procedure might be very simple---as simple as just computing a sample correlation--or it might involve a combination of several components. 
-For example, the procedure might entail first computing a diagnostic test for heteroskedasticity and then, depending on the outcome of the test, applying either a conventional formula or a heteroskedasticity-robust formula for standard errors.
-As another example, a data-analysis procedure might involve using multiple imputation for missingness on key variables, then fitting a statistical model, and then generating predicted values based on the model.
-Also depending on the research question, we might need to create _several_ functions that implement different estimation procedures to be compared.
+We do simulation studies to understand how to analyze data. 
+Thus, the central object of study is a _data analysis procedure_, or a set of steps or calculations carried out on a dataset.
+We want to know how well a procedure would work when applied in practice, and the data generating processes we described in Chapter \@ref(data-generating-processes) provides a stand-in for real data.
+To revisit our consumer product testing analogy from Chapter \@ref(introduction), the data analysis procedure is the product, and the data generating process is the set of trials to which we subject the product.
 
-In this chapter, we demonstrate how to implement data-analysis procedures in the form of R functions, which we call _estimation functions_, so that their performance can eventually be evaluated by repeatedly applying them to artificial data.
-We start by describing the high-level design of an estimation function, and illustrate with some simple examples. 
-We then discuss approaches for writing simulations that compare multiple data analysis procedures.
-Next, we describe strategies for validating the coded-up estimation functions before running a full simulation.
-Finally, we examine methods for handling common computational problems with estimation functions, such as handling non-convergence when using maximum likelihood estimation.
+Depending on the research question, a data-analysis procedure might be very simple---as simple as just computing a sample correlation---or it might involve something more complex, such as fitting a multilevel model and generating a confidence interval for a specific coefficient.
+A data analysis procedure might even involve a combination of several components.
+For example, the procedure might entail first running a variable screening procedure and then fitting a random forest on the selected predictor variables.
+As another example, a data-analysis procedure might involve using multiple imputation for missingness on key variables, then fitting a statistical model, and then generating predicted values based on the model. For sake of brevity, we will use the term _estimation procedure_ or just _estimator_ to encompass all of these procedures, even ones that involve multi-step or multi-component procedures.
+
+
+In this chapter, we demonstrate how to implement an estimator in the form of an R function, which we call an _estimation function_, so that its performance can eventually be evaluated by repeatedly applying it to artificial data. 
+We start by describing the high-level design of an estimation function and illustrate with some simple examples in Section \@ref(estimation-functions).
+
+Depending on the research question, we will often be interested in comparing several competing estimators.
+In this case, we will create _several_ functions that implement the estimators that we plan to compare.
+The easiest approach here is to implement each estimator in turn, and then bundle the collection in a final overall function.
+We describe how to do this in Section \@ref(multiple-estimation-procedures).
+
+In Section \@ref(validating-estimation-function), we describe strategies for validating the coded-up estimator before running a full simulation.
+We offer a few strategies for validating one's code, including checking against existing implementations, checking theoretical properties, and using simulations to check for bugs.
+
+For a full simulation, an estimator needs to be reliable, not crashing and giving answers across the wide range of datasets to which it is applied.
+An estimator will need to be able to handle odd edge cases or pathological datasets that might be generated as we explore a full range of simulation scenarios.
+To allow for this, Section \@ref(error-handling) demonstrates several methods for handling common computational problems, such as errors or warnings.
+
 
 ## Writing estimation functions {#estimation-functions}
 
 In the abstract, a function that implements an estimation procedure should have the following form:
 ```{r}
-estimate <- function(data) {
+estimator <- function(data) {
 
   # calculations/model-fitting/estimation procedures
   
@@ -40,37 +54,24 @@ estimate <- function(data) {
 }
 ```
 
-The function takes a dataset as input, fits a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and returns these quantities as output.
-The estimates could be point estimates of parameters, standard errors, confidence intervals, p-values, predictions, or other quantities.
+An estimator function should take a dataset as input, fit a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and return these quantities as output.
+It can return point estimates of parameters, standard errors, confidence intervals, $p$-values, predictions, or other quantities.
 The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of the corresponding function for generating simulated data. 
 However, in principle, we should also be able to run the estimation function on real data as well. 
 
-In Chapter \@ref(case-ANOVA) we wrote a function called `ANOVA_Welch_F()` for computing $p$-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:
-```{r, eval = FALSE, file = "case_study_code/ANOVA_Welch_F.R"}
+As a first example, suppose we want to evaluate a method for generating a confidence interval for Pearson's sample correlation coefficient when faced with non-normal data.
+For bivariate normal data, statistical theory provides some very useful facts. 
+In particular, it tells us that applying Fisher's $z$-transformation of Pearson's correlation coefficient, which is equivalent to the hyperbolic arc-tangent function (`atanh()` in R), produces a statistic that is very close to normally distributed. 
+It also tells us that the empirical standard error of the $z$-transformed correlation coefficient is simply $1 / \sqrt{N - 3}$, and thus independent of the correlation parameter.
+This makes $z$-transformation very useful for computing confidence intervals, which can then be back-transformed to the Pearson-$r$ scale.
+However, these results are specific to bivariate normal distributions.
+Would this transformation work well in the face of non-normal data, such as the bivariate Poisson distribution we coded in Chapter \@ref(data-generating-processes)?
 
-```
-Apply this function to a simulated dataset returns two p-values, one for the usual ANOVA $F$ test (which assumes homoskedasticity) and one for Welch's heteroskedastic $F$ test:
-```{r}
-sim_data <- generate_ANOVA_data(
-  mu = c(1, 2, 5, 6), 
-  sigma_sq = c(3, 2, 5, 1),
-  sample_size = c(3, 6, 2, 4)
-)
-ANOVA_Welch_F(sim_data)
-```
-Our `ANOVA_Welch_F()` function is designed to work with the output of `generate_ANOVA_data()` in that it assumes that the grouping variable is called `group` and the outcome is called `x`. 
-Relying on this assumption would be a poor choice if we were designing a function as part of an R package or for general-purpose use.
-However, because the primary use of the function is for simulation, it is reasonable to assume that the input data will always have appropriate variable names.
-
-In Chapter \@ref(data-generating-processes), we looked at a data-generating function for a bivariate Poisson distribution, an example of a non-normal bivariate distribution.
-We might use such a distribution to understand the behavior of Pearson's sample correlation coefficient and its normalizing transformation, known as Fisher's $z$-transformation, which is equivalent to the hyperbolic arc-tangent function (`atanh()` in R).
-When the sample measurements follow a bivariate normal distribution, Fisher's $z$-transformed correlation is very close to normally distributed and its standard error is simply $1 / \sqrt{N - 3}$, and thus independent of the correlation.
-This makes $z$-transformation very useful for computing confidence intervals, which can then be back-transformed to the Pearson-$r$ scale. 
-
-In this problem, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its $z$-transformation, compute confidence intervals for $z$, and then back-transform the confidence interval end-points.
-Here is an implementation of these calculations:
+For studying this question with simulation, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its $z$-transformation, compute confidence intervals for $z$, and then back-transform the confidence interval end-points.
+Here is an implementation of this sequence of calculations:
 ```{r, file = "case_study_code/r_and_z.R"}
 ```
+
 To check that the function returns a result of the expected form, we generate a small dataset using the `r_bivariate_Poisson()` function developed in the last chapter, then apply our estimation function to the result:
 ```{r}
 Pois_dat <- r_bivariate_Poisson(40, rho = 0.5, mu1 = 4, mu2 = 4)
@@ -79,7 +80,8 @@ r_and_z(Pois_dat)
 
 Although it is a little cumbersome to do so, we could also apply the estimation function to a real dataset.
 Here is an example, which calculates the correlation between ratings of judicial integrity and familiarity with the law from the `USJudgeRatings` dataset (which is included in base R).
-For the function to work on this dataset, we first need to rename the relevant variables.
+For the function to work on this dataset, we first need to rename the relevant variables because our function takes a `data.frame` with two columns named `C1` and `C2`:
+
 ```{r}
 data(USJudgeRatings)
 
@@ -87,35 +89,34 @@ USJudgeRatings %>%
   dplyr::select(C1 = INTG, C2 = FAMI) %>%
   r_and_z()
 ```
-The function returns a valid result---a quite strong correlation!
+The function returns a valid result---a quite strong correlation in this case!
 
-It is a good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
-This type of test ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
+It is good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
+Testing on real data ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
 Applying the function to a real dataset demonstrates that the function implements a procedure that could actually be applied in real data analysis contexts.
+
 
 ## Including Multiple Data Analysis Procedures {#multiple-estimation-procedures}
 
 Many simulations involve head-to-head comparisons between more than one data-analysis procedure. 
 As a design principle, we generally recommend writing different functions for each estimation method one is planning on evaluating. 
 Doing so makes it easier to add in additional methods as desired or to focus on just a subset of methods. 
-Writing separate function also leads to a code base that is flexible and useful for other purposes (such as analyzing real data).
+Writing separate functions also leads to a code base that is flexible and useful for other purposes (such as analyzing real data).
 Finally (repeating one of our favorite mantras), separating functions makes debugging easier because  it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.
 
-To see how this works in practice, we will return to the case study from Section \@ref(case-cluster), where we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
-Our data-generating process allowed for varying school sizes and heterogeneous treatment effects, which might be correlated with school size.
-Several different procedures might be used to estimate an overall average effect from a clustered experiment, including:
+To see how this works in practice, we return to the case study from Section \@ref(case-cluster), where we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
+Our data-generating process allowed for varying school sizes and heterogeneous treatment effects that are correlated with school size.
+Several different procedures might be used to estimate an overall average effect from a clustered experiment. We will consider three different procedures:
 
-* Estimating a multi-level regression model (also known as a hierarchical linear model),
-* Estimating an ordinary least squares (OLS) regression model and applying cluster-robust standard errors, or
-* Averaging the outcomes by school, then estimating a linear regression model on the mean outcomes.
+* Fitting a multi-level regression model (also known as a hierarchical linear model),
+* Fitting an ordinary least squares (OLS) regression model and applying cluster-robust standard errors, or
+* Averaging the outcomes by school, then fitting a linear regression model on the mean outcomes.
 
 All three of these methods are widely used and have some theoretical guarantees supporting their use. 
 Education researchers tend to be more comfortable using multi-level regression models, whereas economists tend to use OLS with clustered standard errors.
-<!-- JEP: Do we want to add any citations for further reading about these strategies? Any further comments about these methods? -->
-<!-- LWM: I think we don't need anything? -->
+<!-- JEP: Any rationale/precedent for the averaging approach? -->
 
-We next develop estimation functions for each of these procedures.
-We analyze as we expect would be done in practice; even though we generated data with a school size covariate, we do not include it in our estimation functions.
+We next develop estimation functions for each of these procedures, focusing on a simple model that does not include any covariates besides the treatment indicator.
 Each function needs to produce a point estimate, standard error, and $p$-value for the average treatment effect.
 To have data to practice on, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT_rev.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
 ```{r}
@@ -136,7 +137,6 @@ analysis_OLS_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis
 analysis_agg_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_agg <-")):(f_endings[3])]
 analysis_bundle_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "estimate_Tx_Fx <-")):(f_endings[4])]
 
-lmer_composing <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "compose")):which(str_detect(cluster_RCT_fun, "^\\)$"))]
 
 lmer_quietly <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "purrr::quietly"))]
                                   
@@ -145,18 +145,17 @@ analysis_MLM_contingent_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun
 ```
 
 For the multi-level modeling strategy, there are several different existing packages that we could use.
-We will implement an estimator using the popular `lme4` package, along with the `lmerTest` function for computing a $p$-value for the average effect.
+We will implement an estimator using the popular `lme4` package, via the `lmerTest` function which calculates a $p$-value for the average effect.
 Here is a basic implementation:
 ```{r, code = analysis_MLM_code}
 ```
 The function fits a multi-level model with a fixed coefficient for the treatment indicator and random intercepts for each school.
-To get a p-value for the treatment coefficient, we have to convert the model into an `lmerModLmerTest` object and then pass it through `summary()`. 
-The function outputs only the statistics in which we are interested.
+It outputs only the statistics in which we are interested.
 
-Our function makes use of the `lme4` and `lmerTest` packages.
-Rather than assuming that these packages will be loaded, we call relevant functions using the package name as a prefix, as in `lme4::lmer()`. 
-This way, we can run the function even if we have not loaded the packages in the global environment.
-This approach is also preferable to loading packages inside the function itself (e.g., with `require(lme4)`) because calling the function does not change which packages are loaded in the global environment.
+Our function makes use of the `lmerTest` package.
+Rather than assuming that this package will be loaded, we call the relevant function using the package name as a prefix: `lmerTest::lmer()`. 
+This way, we can run the function even if we have not loaded the package in the global environment.
+Referencing functions with their package prefix is also preferable to loading packages inside the function itself (e.g., with `require(lmerTest)`) because calling the function then does not change which packages are loaded in the global environment.
 
 Here is a function implementing OLS regression with cluster-robust standard errors:
 ```{r, code = analysis_OLS_code}
@@ -167,8 +166,10 @@ Adding this option would let us use the same function to compute (and compare) d
 We set a default option of `"CR2"`, just like the default of `lm_robust()`.
 
 Sometimes an analytic procedure involves multiple steps.
-For example, aggregation estimator first involves collapsing the data to a school-level dataset, and then analyzing at the school level.
-This is fine: we just wrap all the steps in a single estimation function: from the point of view of _using_ the function, it is a single call, no matter how complicated the process inside.
+For example, the aggregation estimator first involves collapsing the data to a school-level dataset, and then analyzing at the school level.
+This is no problem:  
+we just wrap all the steps in a single estimation function. 
+Once written, all we need to do is call the function---no matter how complicated the process inside.
 Here is the code for the aggregate-then-analyze approach:
 ```{r, code = analysis_agg_code}
 ```
@@ -176,8 +177,8 @@ Here is the code for the aggregate-then-analyze approach:
 Note the `stopifnot` command: it will throw an error if the condition is not true.
 This `stopifnot` ensures we do not have both treatment and control students within a single school--if we did, we would have more aggregated values than school ids due to the grouping!
 Putting *assert statements* in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors.
-A `stopifnot` statement halts your code as soon as something goes wrong, rather than letting that initial wrongness flow on to further work, creating odd results that are hard to understand.
-Here we are protecting ourselves from strange results if, for example, we messed up our DGP code to have treatment not nested within school, or we were using data that did not actually come from a cluster randomized experiment.
+A `stopifnot` statement halts your code as soon as something goes wrong, rather than letting that initial error flow on to further work, potentially creating odd results that are hard to understand.
+Here we are protecting ourselves from strange results if, for example, we messed up our DGP code to have treatment not nested within school, or if we were using data that did not actually come from a cluster randomized experiment.
 See Section \@ref(about-stopifnot) for more.
 
 All of our functions produce output in the same format:
@@ -194,20 +195,28 @@ Here is a function that bundles all the estimation procedures together:
 ```{r}
 estimate_Tx_Fx(dat)
 ```
-This is a common coding pattern for simulations that involve multiple estimation procedures. 
+This is a common coding pattern for simulations that involve multiple estimators. 
 Each procedure is expressed in its own function, then these are assembled together in a single function so that they can all easily be applied to the same dataset.
 Stacking the results row-wise will make it easy to compute performance measures for all methods at once.
 The benefit of stacking will become even more evident once we are working across multiple replications of the simulation process, as we will in Chapter \@ref(running-the-simulation-process).
 
-## Validating an Estimation Function
 
-Just as with data-generating functions, it is critical to verify the accuracy of an implemented estimation function.
+## Validating an Estimation Function {#validating-estimation-function}
+
+Just as with data-generating functions, it is critical to verify that an estimation function is correctly implemented.
 If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward way to do this is to compare your implementation to another existing implementation. 
-For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed, which rely more on statistical theory.
+For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed.
+
 
 ### Checking against existing implementations
 
-For our Welch test function, we can check the output of `ANOVA_Welch_F()` against the built-in `oneway.test` function. Let's do that with a fresh set of data:
+In Chapter \@ref(case-ANOVA), we wrote a function called `ANOVA_Welch_F()` for computing $p$-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:
+```{r, eval = FALSE, file = "case_study_code/ANOVA_Welch_F.R"}
+
+```
+
+We can test this function by comparing its output against the built-in `oneway.test` function, as follows:
+
 ```{r}
 sim_data <- generate_ANOVA_data(
   mu = c(1, 2, 5, 6), 
@@ -215,8 +224,7 @@ sim_data <- generate_ANOVA_data(
   sample_size = c(3, 6, 2, 4)
 )
 
-aov_results <- oneway.test(x ~ factor(group), data = sim_data, 
-                           var.equal = FALSE)
+aov_results <- oneway.test(x ~ factor(group), data = sim_data, var.equal = FALSE)
 aov_results
 
 Welch_results <- ANOVA_Welch_F(sim_data)
@@ -225,7 +233,7 @@ all.equal(aov_results$p.value, Welch_results$Welch)
 
 We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some perplexing errors due to rounding.
 
-For the bivariate correlation example, we can check the output of `r_and_z()` against R's built-in `cor.test()` function:
+For the bivariate correlation example introduced in Section \@ref(estimation-functions), we can check the output of `r_and_z()` against R's built-in `cor.test()` function:
 ```{r}
 Pois_dat <- r_bivariate_Poisson(15, rho = 0.6, mu1 = 14, mu2 = 8)
 
@@ -238,15 +246,21 @@ R_result <- tibble(r = R_result$estimate[["cor"]],
                    CI_hi = R_result$conf.int[2])
 R_result
 
-all.equal(R_result, my_result)
+all.equal( as.numeric(R_result), as.numeric(my_result) )
 ```
-This type of test is even more useful here because `r_and_z()` uses our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
+This type of check is all the more useful here because `r_and_z()` uses our own implementation of the confidence interval calculations, rather than relying on R's built-in functions as we did with `ANOVA_Welch_F()`.
+
+One might ask why you should bother implementing your own function if you already have a version implemented in R.
+In some cases, it might be possible to implement a faster version of a function because you can cut corners by skipping input data verification, providing fewer estimation options, or cutting out post-estimation processing. 
+Any of these could help with the overall speed of your simulation.
+On the other hand, gains in computational efficiency might not be worth the human time it would take to implement the calculations from scratch.
+See Chapter \@ref(optimize-code) for more discussion of this trade-off.
 
 
 ### Checking novel procedures
 
 Simulations are usually an integral part of projects to develop novel statistical methods. 
-Checking estimation functions in such projects presents a challenge: if an estimation procedure truly is new, how do you check that your code is correct?
+Checking estimation functions in such projects presents a challenge: if an estimator truly is new, how do you check that your code is correct?
 Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of the estimator to check that your implementation works as expected. 
 For instance, we might work out the algebraic properties of an estimator for a special case and then check that the result of the estimation function agrees with our algebra. 
 For some estimation problems, we might be able to identify theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified. 
@@ -293,8 +307,7 @@ Here is the tweaked function:
 ```{r}
 analysis_MLM <- function( dat, all_results = FALSE) {
   
-  M1 <- lme4::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
-  M1_test <- lmerTest::as_lmerModLmerTest(M1)
+  M1_test <- lmerTest::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
   
   if (all_results) {
     return(summary(M1_test))
@@ -309,9 +322,11 @@ analysis_MLM <- function( dat, all_results = FALSE) {
   )
 }
 ```
+
 Setting `all_results` to `TRUE` will return the entire function; keeping it at the default value of `FALSE` will return the same output as the other functions.
 Now let's apply the estimation function to a very large dataset, with variation in cluster sizes.
 We set `gamma_2 = 0` so that the estimation model is correctly specified:
+
 ```{r}
 dat <- gen_cluster_RCT( 
   J=5000, n_bar = 20, alpha = 0.9, p = 2 / 3, 
@@ -334,51 +349,55 @@ These limitations are typical of what can be accomplished through tests based on
 After all, if we had comprehensive theoretical results, we would not need to simulate anything in the first place!
 Nonetheless, it is good to work through such tests to the extent that relevant theory is available for the problem you are studying.
 
+
 ### Checking with simulations
 
 Checking, debugging, and revising should not be limited to when you are initially developing estimation functions. 
 It often happens that later steps in the process of conducting a simulation will reveal problems with the code for earlier steps.
 For instance, once you have run the data-generating and estimation steps repeatedly, calculated performance summaries, and created some graphs of the results, you might find an unusual or anomolous pattern in the performance of an estimator.
 This might be a legitimate result---perhaps the estimator really does behave weirdly or not work well---or it might be due to a problem in how you implemented the estimator or data-generating process.
-When faced with an unusual pattern, we recommend revisiting the estimation code to double check for bugs and also thinking further about what might lead to the anomoly.
+When faced with an unusual pattern, revisit the estimation code to double check for bugs and also think further about what might lead to the anomaly.
 Further exploration might lead you to a deeper understanding of how a method works and perhaps even an idea for how to improve the estimator or refine the data-generating process.
 
 A good illustration of this process comes from one of Luke's past research projects (see @pashley2024improving), in which he and other co-authors were working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
-The method they studied involved grouping units based on a covariate that predicts compliance status, then calculating estimates within each group, then summarizing the estimates across groups.
+The method they studied involved grouping units based on a covariate that predicts compliance status, then calculating estimates within each group, then averaging the estimates across groups.
 They used simulations to see whether this method would improve the accuracy of the overall summary effect estimate.
-In the first simulation, the estimates were full of NAs and odd results because the estimation function failed to account for what happens in groups of observations where the number of compliers was estimated to be zero.
-After repairing that problem and re-running everything, the simulation results still indicated serious and unexpected bias, which turned out to be due to an error in how the estimation function implemented the step of summarizing estimates across groups.
+In the first simulation, the estimates were full of missing values and odd results because the estimation function failed to account for what happens in groups of observations where the number of compliers was estimated to be zero.
+After repairing that problem and re-running everything, the simulation results still indicated serious and unexpected bias, which turned out to be due to an error in how the estimation function implemented the step of averaging estimates across groups.
 After again correcting and re-running, the simulation results showed that the gains in accuracy from this new method were minimal, even when the groups were formed based on a variable that was almost perfectly predictive of compliance status.
 Eventually, we understood that the groups with very few compliers produced such unstable estimates that they spoiled the overall average estimate.
 This inspired us to revise our estimation strategy and introduce a method that dropped or down-weighted strata with few compliers, which ultimately helped us to strengthen the contribution of our work.
 
 As this experience highlights, simulations seldom follow a single, well-defined trajectory.
 The point of conducting simulations is to help us, as researchers, learn about estimation methods so that we can analyze real data better.
-What we learn from simulation gives us a better understanding of the methods (potentially including a better understanding of theoretical results), leading to ideas about better methods to create new scenarios to explore in further simulations. 
+Simulations can strengthen our methodological and theoretical understanding, which can then inspire ideas for better approaches which we can then test in subsequent simulations.
 Of course, at some point one needs to step off this merry-go-round, write up the findings, cook dinner, and clean the bathroom.
-But, just like many other research endeavors, simulations follow a highly iterative process.
+But, just like many other research endeavors, simulations are often a highly iterative process.
 
-## Handling errors, warnings, and other hiccups
+
+## Handling errors, warnings, and other hiccups {#error-handling}
 
 Especially when working with more advanced estimation methods, it is possible that your estimation function will fail, throw an error, or return something uninterpretable for certain input datasets.
-For instance, maximum likelihood estimation often requires iterative, numerical optimization algorithms that sometimes fail to converge.
+For instance, maximum likelihood estimation often involves using iterative, numerical optimization algorithms that sometimes fail to converge.
 This might happen rarely enough that it takes a while to even notice that it is a problem, but even quite rare things can occur when you run simulations with many thousands of repetitions.
-Less dire but still annoying, your estimation function might generate warnings, which can pile up if you are running many repetitions. 
+Less dire but still annoying, your estimation function might occasionally generate warnings, which can pile up if you are running many repetitions. 
 In some cases, such warnings might also signal that the estimator produced a bad result, and
-it may not be clear whether we should retain this result (or include it in overall performance assessments).
+it may not be clear whether we should retain this result in the estimator's overall performance assessments.
 After all, the function tried to warn us that something is off!
 
 Errors and warnings in estimation functions pose two problems, one purely technical and one conceptual. 
-On a technical level, R functions stop running if they hit errors (though not warnings), so we need ways to handle the errors in order to get our simulations up and running.
-On a conceptual level, we need to decide how to use the information contained in errors and warnings, whether that be by further elaborating the estimation procedures to address different contingencies or by evaluating the performance of the estimators in a way that appropriately accounts for errors.
-We consider each of the problems here, then revisit the conceptual considerations in Chapter \@ref(performance-measures).
+On a technical level, R functions stop running if they hit an error, so we need ways to handle the errors in order to get our simulations up and running.
+Furthermore, warnings can clutter up the console and slow down code execution, so we may want to capture and suppress them as well.
+On a conceptual level, we need to decide how to use the information contained in errors and warnings, whether that be by further elaborating the estimators to address different contingencies or by evaluating the performance of the estimators in a way that appropriately accounts for these events.
+We consider both these problems here, and then revisit the conceptual considerations in Chapter \@ref(performance-measures), where we discuss assessing estimator performance.
+
 
 ### Capturing errors and warnings
 
 Some estimation functions will require complicated or stochastic calculations that can sometimes produce errors. 
 Intermittent errors can really be annoying and time-consuming if not addressed.
 To protect yourself, it is good practice to anticipate potential errors, preventing them from stopping code execution and allowing your simulations to keep running. 
-We will demonstrate some techniques for error-handling using tools from the `purrr` package.
+We next demonstrate some techniques for error-handling using tools from the `purrr` package.
 
 For illustrative purposes, consider the following error-prone function that sometimes returns what we want, sometimes returns `NaN` due to taking the square root of a negative number, and sometimes crashes completely because `broken_code()` does not exist:
 ```{r, error=TRUE}
@@ -393,42 +412,22 @@ my_complex_function = function( param ) {
 }
 ```
 
-Running it produces some results and an occasional warning, and some errors:
+Running it a few times produces a mix of results and warnings:
 ```{r, error=TRUE}
-set.seed(3)
-my_complex_function( 1 )
-my_complex_function( 10 )
-my_complex_function( 5 )
+set.seed(156858)
+my_complex_function( 7 )
+my_complex_function( 7 )
+my_complex_function( 4 )
 ```
 Running it many times produces warnings, then an error:
 ```{r, error=TRUE}
-resu <- replicate(20, my_complex_function( 7 ))
+set.seed( 131 )
+resu <- replicate(20, my_complex_function( 6 ))
 ```
+We need to "trap" these warnings and errors so they do not clutter or stop our simulation.
+Let's do the errors first.
 
-The `purrr` package includes a function called `safely` that makes it easy to trap errors. 
-To use it, we feed the estimation function into `safely()` to create a new version:
-```{r}
-my_safe_function <- safely( my_complex_function, otherwise = NA )
-my_safe_function( 7 )
-```
-The safe version of the function returns a list with two entries: the result (or NULL if there was an error), and the error message (or NULL if there was no error).
-`safely()` is an example of a _functional_ (or an _abverb_), which takes a function and returns a new function that does something slightly different.
-We include `otherwise = NA` so we always get a result, rather than a `NULL` when there is an error.
-
-We can use the safe function repeatedly and it will always return a result:
-```{r}
-resu <- replicate(20, my_safe_function( 7 ), simplify = FALSE)
-resu <- transpose( resu )
-unlist(resu$result)
-```
-The `transpose()` function takes a list of lists, and reorganizes them to give you a list of all the first elements, a list of all the second elements, etc.
-This is very powerful for wrangling data, because then we can make a tibble with list columns as so:
-```{r}
-tb <- tibble( result = unlist( resu$result ), error = resu$error )
-head( tb, n = 4 )
-```
-The `purrr` package includes several other functionals that are useful for handling errors and warnings.
-The `possibly()` wrapper will try to run a function and will return a specified value in the event of an error:
+The `purrr` package includes a function called `possibly()` that makes it easy to trap errors:
 ```{r}
 my_possible_function <- possibly( my_complex_function, otherwise = NA )
 my_possible_function( 7 )
@@ -436,88 +435,97 @@ my_possible_function( 7 )
 rs <- replicate(20, my_possible_function( 7 ))
 rs
 ```
-It works as a simpler version of `safely()`, which does not record error messages.
 
-The `quietly` functional leads to results that are bundled together with any console output, warnings, and messages, rather than printing anything to the console:
+`possibly()` is an example of a _functional_ (or an _abverb_ or "wrapper function"), which takes a function and returns a new function that does something slightly different.
+The new function has the exact same parameters as the function we put into it.
+The difference is the new version of the function will, if an error happens, return the value specified by the `otherwise` argument (here, `NA`), rather than stopping execution with an error.
+It does not silence the warnings, however.
+
+To handle warnings, the `quietly()` functional leads to results that are bundled together with any console output, warnings, and messages, rather than printing anything to the console:
 ```{r}
 my_quiet_function <- quietly( my_complex_function )
 
 my_quiet_function( 1 )
 ```
-This can be especially useful to reduce extraneous printing in a simulation, which can slow down code execution more than you might expect.
+Wrapping a function with `quietly()` can be especially useful to reduce extraneous printing in a simulation, which can slow down code execution more than you might expect.
 However, `quietly()` does not trap errors:
 ```{r, error=TRUE}
 rs <- replicate(20, my_quiet_function( 7 ))
 ```
-Double-wrapping your function will handle both errors and warnings, but the structure it produces gets a bit complicated:
+To handle both errors and warnings, we double-wrap the function, first with `possibly()` and then with `quietly()`:
 ```{r}
-my_safe_quiet_function <- quietly( safely( my_complex_function, otherwise = NA ) )
+my_safe_quiet_function <- quietly( possibly( my_complex_function, otherwise = NA ) )
 my_safe_quiet_function(7)
 ```
-Even though the result is a bit of a mess, this structure provides all the pieces that we need to do further calculations on the result (when available), along with errors, warnings, and other output.
 
 To see how this works in practice, we will adapt our `analysis_MLM()` function, which makes use of `lmer()` for fitting a multilevel model.
 Currently, the estimation function sometimes prints messages to the console:
 ```{r illustrate_warnings}
-set.seed(101012)  # (I picked this to show a warning.)
+set.seed(101012)  # (hand-picked to show a warning.)
 dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
 mod <- analysis_MLM(dat)
 ```
 Wrapping `lmer()` with `quietly()` makes it possible to catch such output and store it along with other results, as in the following:
 ```{r}
-quiet_lmer <- quietly(lme4::lmer)
-qmod <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
-qmod
+quiet_safe_lmer <- quietly( possibly( lmerTest::lmer, otherwise=NULL ) )
+M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+M1
 ```
-However, the `lmerTest` package does not like the structure of the results, and produces an error:
-```{r, error = TRUE}
-lmerTest::as_lmerModLmerTest(qmod$result)
+We then pick apart the pieces and construct a dataset of results:
+```{r}
+if ( is.null( M1$result ) ) {
+  # we had an error!
+  tibble( ATE_hat = NA, SE_hat = NA, p_value = NA,
+          message = M1$message,
+          warning = M1$warning,
+          error = TRUE )
+} else {
+  sum <- summary( M1$result )
+  tibble( 
+    ATE_hat = sum$coefficients["Z","Estimate"], 
+    SE_hat = sum$coefficients["Z","Std. Error"], 
+    p_value = sum$coefficients["Z", "Pr(>|t|)"],
+    message = list( M1$message ),
+    warning = list( M1$warning ),
+    error = FALSE )
+}
 ```
-
-<!--All of this seems to have gotten tremendously complicated for this part of the book.  Wasn't it simpler before?  E.g., why need the double-wrapping here?  And why not just wrap the originally implemented method to avoid the weirdness with lmertest? -->
-
-We can side-step this by combining  `as_lmerModLmerTest()` and `lmer()` into a single function.
-While we are at it, we also layer on `summary()`.
-To do so, we use the `compose()` functional from `purrr`, which takes a list of functions and wraps them into one: 
-```{r, code = lmer_composing}
-```
-The resulting `lmer_with_test()` function acts as if we were calling `lmer()`, then feeding the result into `as_lmerModLmerTest()`, then feeding the result into `summary()`.
-We then wrap the combination function with `safely()` and `quietly()`:
-```{r, code = lmer_quietly}
-```
-Now we can use our suitably quieted and safe function in a new version of the estimation function:
-```{r, code = analysis_MLM_safe_code}
-```
-This quiet version runs without extraneous messages:
+Now we can plug in the above code to make a nicely quieted and safe function.
+This version runs without extraneous messages:
 ```{r}
 mod <- analysis_MLM_safe(dat)
 mod
 ```
 
 Now we have the estimation results along with any diagnostic information from messages or warnings.
-Storing this information will let us evaluate what proportion of the time there was a warning or message, run additional analyses on the subset of  replications where there was no such warning, or even modify the estimation procedure to take the diagnostics into account.
+Storing this information will let us evaluate what proportion of the time there was a warning or message, run additional analyses on the subset of replications where there was no such warning, or even modify the estimator to take the diagnostics into account.
+We have solved the technical problem---our code will run and give results---but not the conceptual one: what does it mean when our estimator gives an NA or a convergence warning with a nominal answer?
+How do we decide how good our estimator is when it does this?
 
-### Adapting estimation procedures for errors and warnings {#adapting-for-errors}
+
+### Adapting estimators for errors and warnings {#adapting-for-errors}
 
 So far, we have seen techniques for handling technical hiccups that occur when data analysis procedures do not always produce results.
 But how do we account for the absence of results in a simulation? 
 In Chapter \@ref(performance-measures), we will delve into the conceptual issues with summarizing the performance of methods that do not always provide an answer.
-One of the best solutions to such problems still concerns the formulation of estimation functions, and so we introduce it here.
-That solution is to _re-define the estimator_ to include contingencies for handling lack of results.
+However, one of the best solutions to such problems still concerns the formulation of estimation functions, and so we introduce it here.
+That solution is to _re-define the estimator_ to include contingencies for handling a lack of results.
 
 Consider a data analyst who was planning to apply a fancy statistical model to their data, but then finds that the model does not converge. 
 What would that analyst do in practice (besides cussing and taking a snack break)?
 Rather than giving up entirely, they would probably think of an alternative analysis and attempt to apply it, perhaps by simplifying the model in some way. 
 To the extent that we can anticipate such possibilities, we can build these error-contingent alternative analyses into our estimation function.
+Because of this, it would be more precise to talk about an _estimation procedure_ or a _data-analysis procedure_ rather than just an _estimator_. 
+An analysis may be many different steps in a branching structure of analysis.
 
-To illustrate, let's look at an error (a not-particularly-subtle one) that can crop up in the cluster-randomized trial example when clusters are very small:
+To illustrate, let's look at an error (a not-particularly-subtle one) that could crop up in the cluster-randomized trial example when clusters are very small:
 ```{r}
 set.seed(65842)
 tiny_dat <- gen_cluster_RCT( J = 10, n_bar = 2, alpha = 0.5)
 analysis_MLM_safe(tiny_dat)
 table(tiny_dat$sid)
 ```
-The error occurs because all 10 simulated schools include a single student, making it impossible to estimate a random-intercepts multilevel model.
+The error occurs because all 10 simulated schools happened to include a single student, making it impossible to estimate a random-intercepts multilevel model.
 A natural fall-back analysis here would be to estimate an ordinary least squares regression analysis.
 
 Suppose that our imaginary analyst is not especially into nuance, and so will fall back onto ordinary least squares whenever the multilevel model produces an error. 
@@ -539,10 +547,82 @@ Of course, studying such a model is only interesting to the extent that the deci
 
 The adaptive estimation approach does lead to more complex estimation functions, which entail implementing multiple estimation methods and a set of decision rules for applying them.
 Often, the set of contingencies that need to be handled will not be immediately obvious, so you may find that you need to build and refine the decision rules as you learn more about how they work.
-Running an estimation procedure over multiple, simulated datasets is an excellent (if aggravating!) way to identify errors and edge cases.
-We turn to procedures for doing so in the next chapter.
+Running an estimator over multiple, simulated datasets is an excellent (if aggravating!) way to identify errors and edge cases.
+We turn to procedures for doing so in Chapter \@ref(running-the-simulation-process).
+
+
+### The `safely()` option
+
+There is one final `purrr` option, `safely()`, which traps the full error message, instead of just replacing the output with a fixed value as `possibly()` does.
+`safely()` returns a list with two entries: the original result of the original function (or some fixed value if there was an error), and the error message (or NULL if there was no error).
+ 
+To use it, we feed our function into `safely()` to create a new version:
+```{r}
+my_safe_function <- safely( my_complex_function, otherwise = NA )
+my_safe_function( 7 )
+```
+Just as with `possibly()`, we can include `otherwise = NA` to set a return value if there is an error.
+
+We can use the safe function repeatedly and it will always return a result:
+```{r}
+resu <- replicate(20, my_safe_function( 7 ), simplify = FALSE)
+```
+
+We still get warnings, but any errors are trapped so the function does not crash.
+
+We end up with a 20-entry list, with each element consisting of a pair of the result and error message:
+```{r}
+length( resu )
+resu[[3]]
+```
+We can massage our data to a more easy to parse format:
+```{r}
+resu <- transpose( resu )
+unlist(resu$result)
+```
+
+The `transpose()` function takes a list of lists, and reorganizes them to give you a list of all the first elements, a list of all the second elements, etc.
+`transpose()` is very powerful for wrangling data, because then we can make a tibble with list columns as so:
+
+```{r}
+tb <- tibble( result = unlist( resu$result ), 
+              error = resu$error )
+print( tb, n = 4 )
+```
+
+We now have our results all organized, and we can see which iterations produced errors.
+
+Unfortunately, to use `safely()` and `quietly()` together, we get a bit of a mess.
+Extending our cluster RCT example, we have:
+
+```{r}
+quiet_safe_lmer <- quietly( safely( lmerTest::lmer, otherwise=NULL ) )
+M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
+M1
+```
+The resulting object has the estimation results buried inside it.
+Even though the result is a bit of a mess, this structure provides all the pieces that we need, including any errors, warnings, and other output.
+
+We can then have, for example, code such as this in our estimation function:
+
+```{r, eval=FALSE}
+if ( is.null( M1$result$result ) ) {
+  # we had an error!
+  error = M1$result$error
+  
+} else {
+  # We did not.  Do the same as above
+  error = NULL
+}
+# etc.
+```
+
+Fortunately, once we have written all this code, we can tuck it inside our estimation function, and then forget about it.
+Once written, applying the function will produce a tidy table of results that we can easily analyze.
+
 
 ## Exercises
+
 
 ### More Heteroskedastic ANOVA {#BFFs-forever}
 
@@ -573,6 +653,7 @@ In the classic simulation by Brown and Forsythe (1974), they not only looked at 
 
 4. The [`onewaytests` package](https://cran.r-project.org/package=onewaytests) implements a variety of different hypothesis testing procedures for one-way ANOVA. Validate your `Welch_ANOVA_F()` function by comparing the results to the output of the relevant functions from `onewaytests`.
 
+
 ### Contingent testing {#contingent-testing}
 
 In the one-way ANOVA problem, one approach that an analyst might think to take is to conduct a preliminary significance test for heterogeneity of variances (such as Levene's test or Bartlett's test), and then report the $p$-value from the homoskedastic ANOVA F test if variance heterogeneity is not detected but the $p$-value from the BFF\* test if variance heteogeneity is detected. 
@@ -602,6 +683,7 @@ For each of these tests, you will need to figure out the appropriate syntax by r
 
 3. For `analysis_agg()`, check the output by aggregating the data to the school-level, fitting the linear model using `lm()`, and computing standard errors using `vcovHC()` from the `sandwich` package.
 
+
 ### Extending the cluster-RCT functions {#CRT-ANCOVA-estimators}
 
 Exercise \@ref(cluster-RCT-baseline) from Chapter \@ref(data-generating-processes) asked you to extend the data-generating function for the cluster-randomized trial to include generating a student-level covariate, $X$, that is predictive of the outcome. 
@@ -621,6 +703,7 @@ Use your modified function to generate a dataset.
     ```
     Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.
 
+
 ### Contingent estimator processing {#contingent-estimator-processing}
 
 In Section \@ref(adapting-for-errors) we developed a version of `analysis_MLM()` that fell back on OLS regression in the event that `lmer()` produced any error.
@@ -633,6 +716,7 @@ Can you fix these problems?
 Handle event the contingency where all clusters are singletons by skipping the model-fitting step, returning `NA` values for the point estimator, standard error, and p-value, and returning an informative message in the `error` variable. Test that the function is working as expected.
 
 2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code that replaces any `NA` values with corresponding results of `analysis_OLS()`. Test that the function is working as expected.
+
 
 ### Estimating 3-parameter item response theory models {#IRT-3PL-estimation}
 
