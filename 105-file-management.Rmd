@@ -4,13 +4,12 @@ editor_options:
   chunk_output_type: console
 ---
 ```{r, include =FALSE}
-library( purrr )
+library( tidyverse )
 ```
 
 # (PART) Computational Considerations {-}
 
-# Organizing a simulation project
-
+# Organizing a simulation project {#organizing-a-simulation-project}
 
 Multi-factor simulations can easily grow into quite complex projects with many moving pieces. 
 As a project grows in complexity, the steady accretion of functions, scripts, stored results, and analysis can become overwhelming---to the point that you would dread sharing these work products with anyone.
@@ -36,7 +35,7 @@ The third phase involves analyzing the simulation results and drawing conclusion
 The end-product of this phase is often a set of figures, tables, and text (perhaps taking the form of a memo, blog post, slide deck, or manuscript) that summarizes what you find.
 
 To stay organized when conducting a larger, multifactor simulation, we find it generally useful to keep a clear separation between phases. 
-In practice, this means keeping the code for each phase in its own, separate file and storing the results from each phase so that it can be re-run or revised without re-executing the entire set of calculations. 
+In practice, this means keeping the code for each phase in a separate file (or set of files) and storing the results from each phase so that code for subsequent phases can be re-run or revised without re-executing the entire code base. 
 This approach is in keeping with a general principle for organizing large computational projects: keep the code for distinct tasks in different files. 
 
 In this chapter, we describe strategies for organizing the code and work products involved in a multifactor simulation study. 
@@ -64,8 +63,8 @@ However, it is difficult to work this way if the simulation involves more intens
 For larger or more computationally demanding projects, we find it useful to make more use of the first type of file, the humble `.R` script.
 Ideally, you should follow the principles of modular programming for the code in these files.
 Each `.R` file should hold a collection of code that is related to a single task.
-Accordingly, we distinguish between two types of of `.R` scripts: those that _just_ have functions that can be used for other purposes and those that carry out numerical calculations.
-The former type only contain functions, so that the only consequence of running them from top to bottom will be to load some new functions into your workspace.
+Accordingly, we distinguish between two types of of `.R` scripts: those that only contain functions that can be used for other purposes and those that carry out numerical calculations.
+The former type just holds functions, so that the only consequence of running them from top to bottom will be to load some new functions into your workspace.
 The latter type are traditional scripts that do calculations, store or load data files, and create graphs and other summaries of data.
 
 ### Putting headers in your .R file
@@ -88,7 +87,7 @@ You can also see the same table of contents by clicking the `Outline` button in 
 ### The source command {#about-source-command}
 
 If your code is organized across more than one file, you will need a way to call one file from another. 
-This is the purpose of the `source()` command, which effectively "cuts and pastes" the contents of the given file into your R work session.
+This is the purpose of the `source()` command, which effectively cuts-and-pastes the contents of the given file into your R session.
 For example, the following code runs three separate R scripts in turn:
 
 ```{r demo_source_multiple, eval=FALSE}
@@ -98,7 +97,7 @@ source( here::here( "R/simulation_support.R" ) )
 ```
 
 If the named file has code to run, it will run it.
-If the named file has a list of methods, those methods will now be available for use.
+If the named file collects a set of methods, those methods will now be available for use.
 The `here::here()` command is a convenience function that allows you to specify a file path relative to your R project root directory, so you can easily find your files.[^working-directory-weirdness]
 
 [^working-directory-weirdness]: If you are used to using RStudio projects, you might wonder why you should use `here::here()`. If you always open your project from the `.Rproj` file, then the working directory will always start out set to the root directory, but it will not necessarily remain so (if a script calls `setwd()`, for instance). Further, when `.Rmd` or `.qmd` notebooks are compiled, the working directory is temporarily changed to the location of the notebook, so relative file references will work differently than in plain `.R` scripts. Wrapping file names in `here::here()` ensures that they will always be evaluated relative to the root directory of the project.
@@ -120,7 +119,7 @@ With a whole library of options, you can then readily run multiple simulations t
 We followed this approach in one recent simulation project examining estimators for an instrumental variable analysis, a common approach to handling non-compliance in randomized experiments. 
 In this project, we wrote several different data generating functions that implemented different types of non-compliance patterns.
 Our `data_generators.R` code file then had several methods.
-When we sourced it, we end up wit the following methods available to call:
+When we sourced it, we end up with the following methods available to call:
 
 ```
 > ls()
@@ -132,15 +131,15 @@ When we sourced it, we end up wit the following methods available to call:
 The `describe()` and `summarize()` methods printed various statistics about a sample dataset; we used used these to examine generated datasets and debug the data generating functions.
 We also had a variety of different data generating methods, which we developed over the course of the project as we were trying to chase down errors in our estimators and understand strange behavior.
 
-For this project, we also stored estimation functions in a different file.
+For this project, we stored estimation functions in a separate file from the data-generating functions.
 Doing so made it easier to use these functions for purposes other than running simulations.
-We also did some empirical data analysis as part of the project, and so we could simply source the file with our estimation functions and apply them to a real dataset. 
+The project also involved doing some empirical data analysis, and so we could simply source the file with our estimation functions and apply them to a real dataset. 
 This ensured that our simulation and applied analysis were exactly aligned in terms of the estimators we were using.
-As we debugged and tweaked our estimators, we could immediately re-run our applied analysis to update the results, without worrying about whether the calculations were consistent with the simulation code.
+As we debugged and tweaked our estimators, we could immediately re-run our applied analysis to update the results, without worrying about whether the calculations were up-to-date and consistent with the simulation code.
 
 ### Storing testing code {#storing-testing-code}
 
-If you have an extended `.R` file with a list of functions, you might also want to store a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+If you have an extended `.R` file with a collection of functions, you might also want to store some code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
 One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
 
 ```{r}
@@ -162,12 +161,12 @@ When you want to work on just the part of the project captured by your script, y
 
 In previous chapters, we have emphasized the importance of writing code to validate that your functions work as intended. 
 Sometimes, such validation code will involve more than just a quick call to the function.
-In such cases, it can be useful to organize validation code in its own file, separate from the function or functions that it tests.
+In such cases, it can be beneficial to organize validation code in its own file, separate from the function or functions that it tests.
 You would then need to `source()` the files containing the function to be tested.
 This approach does have the drawback that the testing code is not in close proximity to the function to be tested, so you need to work across multiple files when developing and running the test code. 
-However, unlike with the `FALSE` blocks, organizing your test code in a separate file makes it easier to re-run a collection tests.
-It becomes more appealing when the validation code involves calls to functions that are themselves stored in separate files or when it involves invoking packages that are not needed for the main calculations involved in the simulation. 
-This approach is also closer to how you might work when developing code for an R package, with unit tests that check the correctness of critical functions.[^unit-testing] 
+However, unlike with the `FALSE` blocks, organizing your test code in a separate file makes it easier to re-run a collection of several tests.
+This approach to organizing becomes more appealing when the validation code involves calls to functions that are themselves stored in separate files or when it involves invoking packages that are not needed for the main calculations involved in the simulation. 
+It is also closer to how you might work when developing code for an R package, with unit tests that check the correctness of critical functions.[^unit-testing] 
 
 [^unit-testing]: For more on unit testings, see Chapters 13 through 15 of @Wickham2023packages.
 
@@ -225,15 +224,15 @@ Multifactor simulations can be error-prone and time-consuming to run, and analyz
 Because of this, it pays to be cautious and save raw simulation results, so that they can be accessed and analyzed without having to re-run the code that generated them.
 As a bare minimum for any multifactor simulation, we recommend saving the complete set of results to a file. 
 In many instances, it may make sense to go further by saving results for each unique condition as soon as it is complete. 
-This approach provides an additional level of protection in the event that you need to re-run parts of the simulation or if the code crashes out in rare circumstances or for only a subset of the conditions.
+The latter approach provides an additional level of protection in the event that you need to re-run parts of the simulation or if the code crashes out in rare circumstances or for only a subset of the conditions.
 
 ### File formats
 
 An initial consideration is what format to use when saving simulation results. 
 Two main candidates are the generic `.csv` format or the R-specific `.rds` format.
 
-The first option involves saving a dataset as a comma-separated value file.
-For instance, after your simulation has completed, you could save it in the file `results/simulation_CRT.csv")` like so:
+The first option is to save each dataset as a comma-separated value file.
+For instance, after your simulation has completed, you could save it in the file `results/simulation_CRT.csv` like so:
 ```{r, eval=FALSE}
 dir.create("results", showWarnings = FALSE)
 write_csv( res, "results/simulation_CRT.csv" )
@@ -253,166 +252,141 @@ Further, saving a dataset as `.csv` and then reading it back into R results in a
 
 [^factor-to-char]: For example, a variable that was initially created with `factor()` will be converted into a plain character vector, and the ordering of the factor levels will be lost.
 
-Alternatively, you can use the `saveRDS()` and `readRDS()` methods; these save objects to a file such that when you load them, they are as you left them.
-The RDS saving keeps your R object as given.
-
-
+A second option is to use the `saveRDS()` and `readRDS()` methods.
+For instance, you could save a dataset containing simulation results in the file `results/simulation_CRT.rds` like so:
+```{r, eval=FALSE}
+dir.create("results", showWarnings = FALSE)
+saveRDS( res, "results/simulation_CRT.rds" )
+```
+The `saveRDS()` command is a base R function that takes an R object and a file name as input and creates a file that stores the object in a serialized (usually binary) format.
+Once stored, you can load the object back into R for analysis using the `readRDS()` function:
+```{r, eval=FALSE}
+res <- readRDS( "results/simulation_CRT.csv" )
+```
+One major advantage of storing results in `.rds` format is that they can be reloaded in the exact same form in which they were saved. There is no conversion between file formats, and so no loss of meta-data about variable formats, labels, or the like. 
+Another advantage is that `.rds` can hold _any_ type of R object---whether it be a dataset, a function, a fitted model. 
+Because of this, it can be used to save tibbles even if they included nested listed-columns or other more exotic structures. 
+The main disadvantage is that the contents of the file cannot be interpreted without reading it back into R.
 
 ### Saving simulations as you go
 
-If you are not sure you have time to run your entire simulation, or you think your computer might crash half way through, or something similar, you can save each chunk you run as you go, in its own file.  You then stack those files at the end to get your final results.
-With clever design, you can even then selectively delete files to rerun only parts of your larger simulation---but be sure to rerun everything from scratch before you run off and publish your results, to avoid embarrassing errors.
+For some projects involving multifactor simulations with multiple data-generating conditions, it can be useful to save results from each condition in its own file. 
+You then need to read in and combine the results across files to get a final dataset containing all the results.
+This is a prudent step to take if you are not sure you will have time to run the entire simulation, if you are worried that your R session might crash half way through because of an error, or if you are trying to debug an error that only occurs under certain conditions.
+This approach to saving results is also effective when running simulations in parallel, as we will discuss in Chapter \@ref(parallel-processing).
+With a bit of further machinery, it makes it possible to selectively delete files and rerun only parts of a larger simulation.[^careful]
 
-Here, for example, is a script from a research project examining how one might use post-stratification to improve the precision of an IV estimate.
-This is the script that runs the simulation.
-Note the sourcing of other scripts that have all the relevant functions; these are not important here.
-Due to modular programming, we can see what this script does, even without those detail.
+[^careful]: Of course this requires some care to ensure everything is still reproducible. Before you run off and publish results from the simulation, you might want to rerun everything from scratch and ensure everything is up to date, to avoid potentially embarrassing errors.
 
-```{r IV_simulation_driver, eval=FALSE}
-source( "R/simulation_functions.R" )
-
-if ( !file.exists("results/frags" ) ) {
-    dir.create("results/frags")
-}
-
-# Number of simulation replicates per scenario
-R = 1000
-
-# Do simulation breaking up R into this many chunks
-M_CHUNK = 10
-
-###### Set up the multifactor simulation #######
-
-# chunkNo is a hack to make a bunch of smaller chunks for doing parallel more
-# efficiently.
-factors = expand_grid( chunkNo = 1:M_CHUNK,
-                       N = c( 500, 1000, 2000 ),
-                       pi_c = c( 0.05, 0.075, 0.10 ),
-                       nt_shift = c( -1, 0, 1 ),
-                       pred_comp = c( "yes", "no" ),
-                       pred_Y = c( "yes", "no" ),
-                       het_tx = c( "yes", "no" ),
-                       sd0 = 1
-                       )
-factors <- factors %>% mutate(
-    reps = R / M_CHUNK,
-    seed = 16200320 + 1:n()
-)
+We will illustrate this approach to storing results by revisiting the simulation study on confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution, building on our development in Chapter \@ref(simulating-multiple-scenarios).
+This simulation involved four different factors, each with multiple levels, with data-generating conditions created as follows:
+```{r}
+params <- expand_grid( 
+  N = c(10, 20, 30),
+  mu1 = c(4, 8, 12),
+  lambda = c(0.5, 1.0),
+  rho = seq(0.0, 0.7, 0.1) 
+) %>%
+  mutate( mu2 = mu1 * lambda )
 ```
 
-This generates a data frame of all our factor combinations.
-This is our list of "tasks" (each row of factors).
-These tasks have repeats: the "chunks" means we do a portion of each scenario, as specified by our simulation factors, as a process.
-This would allow for greater parallelization (e.g., if we had more cores), and also lets us save our work without finishing an entire scenario of, in this case, 1000 iterations.
+```{r, echo = FALSE}
+source( "case_study_code/r_bivariate_Poisson.R" )
+source( "case_study_code/r_and_z.R" )
+source( "case_study_code/evaluate_CIs.R" )
 
-To set up our simulation we make a little helper method to do one row.
-With each row, once we have run it, we save it to disk.
-This means if we kill our simulation half-way through, most of the work would be saved.
-Our function is then going to either do the simulation (and save the result to disk immediately), or, if it can find the file with the results from a previous run, load those results from disk:
+# library(future)
+# plan(multisession, workers = 8L)
 
-```{r, eval=FALSE}
-safe_run_sim = safely( run_sim )
-file_saving_sim = function( chunkNo, seed, ... ) {
-    fname = paste0( "results/frags/fragment_", chunkNo, "_", seed, ".rds" )
-    res = NA
-    if ( !file.exists(fname) ) {
-        res = safe_run_sim( chunkNo=chunkNo, seed=seed, ... )
-        saveRDS(res, file = fname )
-    } else {
-        res = readRDS( file=fname )
-    }
-    return( res )
-}
 ```
 
-Note how we wrap our core `run_sim` method (that takes all our simulation factors and runs a simulation for those factors) in `safely`; `run_sim()` was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
-Our method cleverly either loads a saved result, or generates it, for a given chunk.
-This means from whatever is calling the function, it will look exactly the same whether it is loading a saved result or generating a new one.
+In Chapter \@ref(simulating-multiple-scenarios), we used `bundle_sim()` to create a simulation driver for executing the simulation for a given scenario and then used `evaluate_by_row()` to call the simulation driver for every condition listed in `params`:
+```{r, eval = FALSE}
+library(simhelpers)
 
-We next run the simulation by calling `file_saving_sim()` for all of our simulation scenarios.
+Pearson_sim <- bundle_sim( f_generate = r_bivariate_Poisson, f_analyze = r_and_z, f_summarize = evaluate_CIs )
 
-```{r demo_run_on_fly_code, eval=FALSE}
-# Shuffle the rows so we run in random order to load balance.
-factors = sample_n(factors, nrow(factors) )
-
-if ( TRUE ) {
-    # Run in parallel
-    parallel::detectCores()
-    
-    library(future)
-    library(furrr)
-    
-    #plan(multiprocess) # choose an appropriate plan from future package
-    #plan(multicore)
-    plan(multisession, workers = parallel::detectCores() - 2 )
-    
-    factors$res <- future_pmap(factors, .f = file_saving_sim,
-                          .options = furrr_options(seed = NULL),
-                          .progress = TRUE )
-    
-} else {
-  # Run not in parallel, used for debugging
-  factors$res <- pmap(factors, .f = file_saving_sim )
-}
-
-tictoc::toc()
+sim_results <- evaluate_by_row( params, Pearson_sim, reps = 100 )
 ```
 
-Note how we shuffle the rows of our task list so that which process gets what task is randomized.
-If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
-See \@ref(parallel-processing) for more on parallel processing.
+To store the results from each condition in its own file, we need to modify the simulation driver to save its result to file rather than just returning it.
+One way to do so is to wrap `Pearson_sim()` inside another function:
+```{r}
+Pearson_sim_save <- function(..., filename = NA_character_) {
+  res <- safely(Pearson_sim)(...)
+  if (is.null(res$error)) saveRDS(res$result, file = filename)
+  return(res$error)
+}
+```
+This function calls the simulation driver, `Pearson_sim()` using any arguments in the `...`. 
+To prevent an error from stopping the entire simulation, we have wrapped the simulation driver in `safely()` to trap errors. 
+As long as `Pearson_sim()` does not return an error, it saves the results from the simulation in a file with the user-specified `filename`.
+The function returns any errors as output so that it they can examined to figure out what went wrong.
 
-The `if-then` structure allows us to easily switch between parallel and nonparallel code.
-This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
-Plus it would be all mixed up since multiple processes are working simultaneously.
+To use the function, we'll first need to create a file name for every condition in the simulation.
+We also create a unique seed for each condition, which will get passed to the simulation driver to ensure computational reproducibility.
+```{r}
+params <- 
+  params %>%
+  mutate(
+    seed = 20260129 + row_number(),
+    filename = paste0("results/pearson-sim/pearson-row", seed, ".rds")
+  ) %>%
+  select(-lambda)
+```
 
-The above overall structure allows the researcher to delete one of the "fragment" files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
-This means the researcher can insert a `browser()` command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+We can then call `evaluate_by_row()` with `Pearson_sim_save()` as the simulation driver: 
+```{r, eval = FALSE}
+sim_errors <- evaluate_by_row(params, Pearson_sim_save, reps = 100 )
+```
+This will create a set of `r nrow(params)` files containing the simulation results from every condition.
+The object `sim_errors` will include a column containing the error messages from any conditions that did not complete.
+In the event that some conditions produced errors or if we had to stop execution of the simulations before every condition was run, some of the results will still be saved, and we will only need to re-run the remaining conditions. 
 
-The seed setting ensures reproducibility.
-Once we are done, we need to clean up our results:
+To illustrate how to re-run a subset of results, suppose that we had only been able to run and save results for the first three conditions.
+The directory containing simulation results will then only contain three files:
+```{r, eval = FALSE}
+completed_rows <- list.files("results/pearson-sim", full.names = TRUE)
+completed_rows
+```
+```{r, echo = FALSE}
+completed_rows <- list.files("results/pearson-sim", full.names = TRUE)[1:3]
+completed_rows
+```
+To avoid repeating the simulations for these conditions, we can screen them out before running `evaluate_by_row()` again, as in:
+```{r, eval = FALSE}
+sim_errors <- 
+  params %>%
+  filter(!(filename %in% completed_rows)) %>%
+  evaluate_by_row(Pearson_sim_save, reps = 100 )
+```
 
-```{r run_sim_demo_code, eval=FALSE}
+Once all the conditions are run, the directory `results/pearson-sim` will have a set of files containing all the simulation results.
+The only thing left to do is read these files in and combine them into a single dataset.
+To do so, we will first get the names of the files with `list.files()` and check that everything is complete
+```{r}
+completed_rows <- list.files("results/pearson-sim", full.names = TRUE)
+setdiff(params$filename, completed_rows)
+```
+We can then read in the files using `map()` to call `readRDS()` on each file:
+```{r}
 sim_results <- 
-    factors %>% 
-    unnest(cols = res)
+  params %>%
+  # ensure we only read in completed conditions
+  filter(filename %in% completed_rows) %>%
+  # read in results from every condition
+  mutate(
+    res = map(filename, readRDS)
+  ) %>%
+  unnest(res) %>%
+  select(-filename)
 
-# Cut apart the results and error messages
-sim_results$sr = rep( c("res","err"), nrow(sim_results)/2)
-sim_results = pivot_wider( sim_results, names_from = sr, values_from = res )
-
-saveRDS( sim_results, file="results/simulation_results.rds" )
 ```
-
-Our final `simulation_results.rds` file will have all the results from our simulation, made by stacking all of the fragments of our simulation together.
-
-
-### Loading and combining files of simulation results
-
-Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
-This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.
-
-
-```{r load_all_sims_function, eval=FALSE}
-load.all.sims = function( filehead="raw_results/" ) {
-  
-  files = list.files( filehead, full.names=TRUE)
-  
-  res = map_df( files, function( fname ) {
-    cat( "Reading results from ", fname, "\n" )
-    rs = readRDS( file = fname )
-    rs$filename = fname
-    rs
-  })
-  res
-}
+The dataset `sim_results` now has all the results from every condition evaluated, organized by stacking the fragments from each of the individual conditions.
+We use the `filename` variable stored in the list of simulation conditions so that the parameter settings of each condition are available in the same dataset as the results.
+To avoid having to repeat the process or reading in the files, we could also save the full set of results in a separate `.rds` file:
+```{r}
+saveRDS(sim_results, file = "results/pearson-simulation-all-results.rds")
 ```
-
-You would use as so:
-```{r use_load_all_sims, eval=FALSE}
-results <- load.all.sims( filehead="raw_results/" )
-results <- bind_rows( results )
-```
-
 
 

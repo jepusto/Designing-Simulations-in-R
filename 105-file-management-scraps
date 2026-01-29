@@ -19,3 +19,126 @@ my_write_csv <- function( data, path, file ) {
 This will look for a path (starting from your R Project, by taking advantage of the `here` package), and put your data file in that spot.
 If the spot doesn't exist, it will make it for you.
 
+
+Here, for example, is a script from a research project examining how one might use post-stratification to improve the precision of an IV estimate.
+This is the script that runs the simulation.
+Note the sourcing of other scripts that have all the relevant functions; these are not important here.
+Due to modular programming, we can see what this script does, even without those detail.
+
+```{r IV_simulation_driver, eval=FALSE}
+source( "R/simulation_functions.R" )
+
+if ( !file.exists("results/frags" ) ) {
+    dir.create("results/frags")
+}
+
+# Number of simulation replicates per scenario
+R = 1000
+
+# Do simulation breaking up R into this many chunks
+M_CHUNK = 10
+
+###### Set up the multifactor simulation #######
+
+# chunkNo is a hack to make a bunch of smaller chunks for doing parallel more
+# efficiently.
+factors = expand_grid( chunkNo = 1:M_CHUNK,
+                       N = c( 500, 1000, 2000 ),
+                       pi_c = c( 0.05, 0.075, 0.10 ),
+                       nt_shift = c( -1, 0, 1 ),
+                       pred_comp = c( "yes", "no" ),
+                       pred_Y = c( "yes", "no" ),
+                       het_tx = c( "yes", "no" ),
+                       sd0 = 1
+                       )
+factors <- factors %>% mutate(
+    reps = R / M_CHUNK,
+    seed = 16200320 + 1:n()
+)
+```
+
+This generates a data frame of all our factor combinations.
+This is our list of "tasks" (each row of factors).
+These tasks have repeats: the "chunks" means we do a portion of each scenario, as specified by our simulation factors, as a process.
+This would allow for greater parallelization (e.g., if we had more cores), and also lets us save our work without finishing an entire scenario of, in this case, 1000 iterations.
+
+To set up our simulation we make a little helper method to do one row.
+With each row, once we have run it, we save it to disk.
+This means if we kill our simulation half-way through, most of the work would be saved.
+Our function is then going to either do the simulation (and save the result to disk immediately), or, if it can find the file with the results from a previous run, load those results from disk:
+
+```{r, eval=FALSE}
+safe_run_sim = safely( run_sim )
+file_saving_sim = function( chunkNo, seed, ... ) {
+    fname = paste0( "results/frags/fragment_", chunkNo, "_", seed, ".rds" )
+    res = NA
+    if ( !file.exists(fname) ) {
+        res = safe_run_sim( chunkNo=chunkNo, seed=seed, ... )
+        saveRDS(res, file = fname )
+    } else {
+        res = readRDS( file=fname )
+    }
+    return( res )
+}
+```
+
+Note how we wrap our core `run_sim` method (that takes all our simulation factors and runs a simulation for those factors) in `safely`; `run_sim()` was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
+Our method cleverly either loads a saved result, or generates it, for a given chunk.
+This means from whatever is calling the function, it will look exactly the same whether it is loading a saved result or generating a new one.
+
+We next run the simulation by calling `file_saving_sim()` for all of our simulation scenarios.
+
+```{r demo_run_on_fly_code, eval=FALSE}
+# Shuffle the rows so we run in random order to load balance.
+factors = sample_n(factors, nrow(factors) )
+
+if ( TRUE ) {
+    # Run in parallel
+    parallel::detectCores()
+    
+    library(future)
+    library(furrr)
+    
+    #plan(multiprocess) # choose an appropriate plan from future package
+    #plan(multicore)
+    plan(multisession, workers = parallel::detectCores() - 2 )
+    
+    factors$res <- future_pmap(factors, .f = file_saving_sim,
+                          .options = furrr_options(seed = NULL),
+                          .progress = TRUE )
+    
+} else {
+  # Run not in parallel, used for debugging
+  factors$res <- pmap(factors, .f = file_saving_sim )
+}
+
+tictoc::toc()
+```
+
+Note how we shuffle the rows of our task list so that which process gets what task is randomized.
+If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
+See \@ref(parallel-processing) for more on parallel processing.
+
+The `if-then` structure allows us to easily switch between parallel and nonparallel code.
+This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
+Plus it would be all mixed up since multiple processes are working simultaneously.
+
+The above overall structure allows the researcher to delete one of the "fragment" files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
+This means the researcher can insert a `browser()` command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+
+The seed setting ensures reproducibility.
+Once we are done, we need to clean up our results:
+
+```{r run_sim_demo_code, eval=FALSE}
+sim_results <- 
+    factors %>% 
+    unnest(cols = res)
+
+# Cut apart the results and error messages
+sim_results$sr = rep( c("res","err"), nrow(sim_results)/2)
+sim_results = pivot_wider( sim_results, names_from = sr, values_from = res )
+
+saveRDS( sim_results, file="results/simulation_results.rds" )
+```
+
+Our final `simulation_results.rds` file will have all the results from our simulation, made by stacking all of the fragments of our simulation together.
