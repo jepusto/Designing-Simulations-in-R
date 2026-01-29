@@ -75,7 +75,7 @@ gen_cluster_RCT <- function( n_bar = 10,
 #### Analysis functions #####
 
 
-quiet_lmer = purrr::quietly( lmer )
+quiet_lmer = purrr::quietly( lmerTest::lmer )
 
 quiet_analysis_MLM <- function( dat ) {
   M1 = quiet_lmer( Yobs ~ 1 + Z + (1|sid),
