@@ -117,7 +117,7 @@ We connect the points with lines to help us see trends within each of the small 
 The lines help us visually track which group of points goes with which.
 
 We immediately see that when there is a lot of site variation (`alpha = 0.80`), and it relates to outcome (`size_coef=0.2`), linear regression is very different from the other two methods.
-We also see that when `alpha` is 0 and `size_coef` is 0, we may also have a negative bias when $J = 5`.
+We also see that when `alpha` is 0 and `size_coef` is 0, we may also have a negative bias when $J = 5$.
 Before we get too excited about this surprising result, we add MCSEs to our plot to see if this is a real effect or just noise:
 
 ```{r}
@@ -137,9 +137,9 @@ ggplot( sres_sub, aes( as.factor(J), bias,
 Our confidence intervals exclude zero!
 Our excitement mounts.
 We next subset our overall results again to check all the scenarios with `alpha = 0`, and `size_coef = 0` to see if this is a real effect.
-We can still plot all our data, as for that subset of scenarios we still only have three factors, `ICC`, `J_bar`, and `n_bar`, left to plot.
+We can still plot all our data, as for that subset of scenarios we still only have three factors, `ICC`, `J_bar`, and `n_bar`, left to plot (we omit the code as it is similar to above).
 
-```{r}
+```{r, echo=FALSE}
 null_sub <- sres %>%
   dplyr::filter( alpha == 0, size_coef == 0 )
 ggplot( null_sub, aes( ICC, bias, 
@@ -186,14 +186,14 @@ If the boxes are wide, then we know that the factors that vary within the box ma
 With bundling, we generally need a good number of simulation runs per scenario, so that the MCSE in the performance measures does not make our boxplots look substantially more variable (wider) than the truth.
 Consider a case where all the scenarios within a box have zero _true_ bias; if the MCSE were large, the _estimated_ biases would still vary and we would see a wide boxplot when we should not.
 
-To illustrate bundling, we replicate our small subset figure from above, but instead of each point (with a given `J', `alpha`, and `size_coef`) just being the single scenario with `n_bar=80` and `ICC = 0.20`, we plot all the scenarios in a boxplot at that location.
+To illustrate bundling, we replicate our small subset figure from above, but instead of each point (with a given `J`, `alpha`, and `size_coef`) just being the single scenario with `n_bar=80` and `ICC = 0.20`, we plot all the scenarios (across the `n_bar` and `ICC` values) in a boxplot at that location.
 We put the boxes for the three methods side-by-side to directly compare them:
 
 ```{r clusterRCT_plot_bias_v1}
 ggplot( sres, aes( as.factor(J), bias, col=method, 
                    group=paste0(method, J) ) ) +
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
-  geom_boxplot( coef = Inf, width=0.7, fill="grey" ) +
+  geom_boxplot( width=0.7, fill="grey", outlier.size = 0.5 ) +
   geom_hline( yintercept = 0 ) +
   theme_minimal() 
 
@@ -216,8 +216,8 @@ ggplot( sres, aes( as.factor(ICC), bias, col=as.factor(alpha), group=paste0(ICC,
 -->
 
 All of our simulation trials are represented in this plot.
-Each box is a collection of simulation trials. E.g., for `J = 5`, `size_coef = 0`, and `alpha = 0.8` each of the three boxes contains 15 scenarios representing the varying ICC and cluster size.
-Here are the 15 results in the top right box for the Aggregation method:
+Each box is a collection of trials. E.g., for `J = 5`, `size_coef = 0`, and `alpha = 0.8` each of the three boxes contains 15 scenarios representing the varying ICC and cluster size.
+Here are the 15 results in the `J = 5` box in the top right facet for the Aggregation method:
 ```{r}
 filter( sres, 
         J == 5, 
@@ -238,24 +238,25 @@ The apparent outliers (long tails) for some of the boxplots suggest that the two
 They could also be due to MCSE, and given that we primariy see these tails when $J$ is small, this is a real concern.
 MCSE aside, a long tail means that some scenario in the box had a high level of estimated bias.
 We could try bundling along different aspects to see if either of the remaining factors (e.g., ICC) explains these differences.
-Here we try bundling cluster size and number of clusters.
+Here we try bundling cluster size and number of clusters (we again omit the code).
 
-```{r clusterRCT_plot_bias_v2}
+```{r clusterRCT_plot_bias_v2, echo=FALSE}
 ggplot( sres, aes( as.factor(alpha), bias, col=method, 
                    group=paste0(method, alpha) ) ) +
   facet_grid( size_coef ~ ICC, labeller = label_both ) +
-  geom_boxplot( coef = Inf, width=0.7, fill="grey" ) +
+  geom_boxplot( width=0.7, fill="grey", outlier.size=0.5 ) +
   geom_hline( yintercept = 0 ) +
   theme_minimal() 
 ```
 
-We have some progress now: the long tails are primarily when the ICC is high, but we also see that MLM has bias with ICC is 0, if alpha is nonzero.
+We have some progress now: the long tails are primarily when the ICC is high, but we also see that MLM has bias when the ICC is 0, if alpha is nonzero.
 
-We know things are more unstable in smaller samples sizes, so the tails could still be MCSE, with some of our bias estimates being large due to random chance.
+Estimates of bias will be more unstable in smaller samples sizes, because the estimators themselves are more unstable (recall the MCSE of bias is $SE/\sqrt{R}$, with $R$ the number of trials and $SE$ is the true standard error of the estimator).
+Because of this instability, the tails could still be MCSE, with some of our bias estimates being large due to random chance.
 Or perhaps there is still some specific combination of factors that allow for large bias (e.g., perhaps small sample sizes makes our estimators more vulnerable to bias).
 In an actual analysis, we would make a note to investigate these anomalies later on.
 
-In general, trying to group your simulation scenarios so that their boxes are generally narrow is a good idea; narrow boxes means that you have found a representation of the data where you know what is driving the variation in your performance measure, and that the factors bundled inside the boxes are less important.
+In general, trying to group your simulation scenarios so that their boxes are generally small is a good idea; small boxes means that you have found a representation of the data where you know what is driving the variation in your performance measure, and that the factors bundled inside the boxes are less important.
 This might not always be possible, if all your factors matter; in this case the width of your boxes tells you to what extent the bundled factors matter relative to the factors explicitly present in your plot.
 
 One might wonder, with only few trials per box, whether we should instead look at the individual scenarios.
@@ -278,10 +279,9 @@ Using boxplots, even over such a few number of points, notably clarifies a visua
 
 Boxplots can make seeing trends more difficult, as the eye is drawn to the boxes and tails, and the range of your plot axes can be large due to needing to accommodate the full tails and outliers of your results; this can compress the mean differences between groups, making them look small.
 They can also be artificially inflated, especially if the MCSEs are large.
-Instead of bundling, we can therefore aggregate, where we average all the scenarios within a box to get a single number of average performance.
-This will show us overall trends rather than individual simulation variation.
+Instead of bundling, we can therefore aggregate, where we average all the scenarios within a box to get a single number of average performance, to see overall trends.
 
-When we aggregate, and average over some of the factors, we collapse our simulation results down to fewer moving parts.
+When we aggregate, i.e. average over some of the factors, we collapse our simulation results down to fewer moving parts.
 Aggregation across factors is better than not having varied those factors in the first place!
 A performance measure averaged over a factor is a more general answer of how things work in practice than having not varied the factor at all.
 
@@ -316,46 +316,33 @@ ggplot( ssres, aes( as.factor(J), bias, col=method, group=method ) ) +
   theme_minimal()
 ```
 
-We now see quite clearly that as `alpha` grows, linear regression gets more biased if cluster size relates to average impact in the cluster (`size_coef`).
+We now see quite clearly that as `alpha` grows, linear regression gets more biased if cluster size relates to average impact in the cluster (`size_coef = 0.2`).
 Our finding makes sense given our theoretical understanding of the problem---if size is not related to treatment effect, it is hard to imagine how varying cluster sizes would cause much bias.
 
 We are looking at an interaction between our simulation factors: we only see bias for linear regression when cluster size relates to impact and there is variation in cluster size.
-We also see that all the estimators have near zero bias when there is no variation in cluster size or the cluster size does not relate to outcome, as shown by the top row and left column facets.
+We also see that all the estimators have near zero bias when there is no variation in cluster size or the cluster size does not relate to outcome, as shown by the top row and left column of facets.
 Finally, we see the methods all likely give the same answers when there is no cluster size variation, given  the overplotted lines on the left column of the figure.
 
-We might take this figure as still too complex.
 So far we have learned that MLM does seem to react to ICC, and that LR reacts to `alpha` and `size_coef` in combination.
+We can continue to explore by changing our $x$-axis, e.g., to ICC.
 More broadly, with many levels of a factor, as we have with ICC, we can let ggplot aggregate directly by taking advantage of `geom_smooth()`.
 This leads to the following:
 
 ```{r, echo=FALSE, message=FALSE}
-ggplot( sres, aes( ICC, bias, col=as.factor(alpha),
+ggplot( sres, aes( ICC, bias, col=method,
                  group=interaction(method,alpha) ) ) +
-  facet_grid( size_coef ~ method, labeller = label_both ) +
+  facet_grid( size_coef ~ alpha, labeller = label_both ) +
   geom_smooth( alpha=0.75, se=FALSE, method="loess", span=1.5 ) +
   geom_hline( yintercept = 0 ) +
   theme_minimal()
 ```
 
-Our story is fairly clear now: LR is biased when alpha is large and the cluster size relates to impact.
-MLM can be biased when ICC is low, if cluster size relates to impact (this is because it is driving towards person-weighting when there is little cluster variation).
+Our story is fairly clear now: LR is increasingly biased as alpha grows large and the cluster size relates to impact.
+MLM is also biased in these cases, but only when ICC is low (this is because it is driving towards person-weighting when there is little cluster variation).
 
+Our figure does have what appears to be a negative bias trend for `alpha = 0.5` and higher `ICC`---we expect this is Monte Carlo error, as we do not have a theoretical reason to expect bias here; simulations will often have unfortunate, and misleading, patterns that are driven by random chance.
+We could (and probably should) run further analyses or a second simulation to check our assumptions here.
 
-<!-- This no longer used 
-```{r old_version, message=FALSE, warning=FALSE, include=FALSE, eval=FALSE}
-ggplot( sres, aes( ICC, bias, col=method ) ) +
-  facet_grid( alpha ~  size_coef, labeller = label_both ) +
-  geom_point( alpha=0.10,
-              position = position_dodge(width = 0.04) ) +
-  geom_smooth( se=FALSE ) + 
-  geom_hline( yintercept = 0 ) +
-  theme_minimal()
-
-```
-
-In the above, we let the original points show faintly as well, to give a sense of the variation across simulation trials.
-Here we see how MLM is biased when ICC is 0 (see bottom right line).
--->
 
 Aggregation is powerful, but it can be misleading if you have scaling issues or extreme outliers.
 With bias, our scale is fairly well set, so we are good.
@@ -379,22 +366,22 @@ agg_perf <- sres %>%
   summarise( SE = sqrt( mean( SE^2 ) ) )
 ```
 
-Because bias is linear, you do not need to worry about the MCSE.
-But if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
-For example, imagine you have two scenarios with true bias of 0.0, but your MCSE is 0.02.
+MCSE can sometimes distort an aggregation of a performance measure.
+For example, if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
+In particular, imagine you have two scenarios with true bias of 0.0, but your MCSE is 0.02.
 In one scenario, you estimate a bias of 0.017, and in the other -0.023.
 If you average the estimated biases, you get -0.003, which suggests a small bias as we would wish.
 Averaging the absolute biases, on the other hand, gives you 0.02, which could be deceptive.
 With high MCSE and small magnitudes of bias, looking at average bias, not average $|bias|$, is safer.
 
 Alternatively, you can use the formula $RMSE^2 = Bias^2 + SE^2$ to back out the average absolute bias from the RMSE and SE.
+In this approach, first aggregate to get overall RMSE and SE, and then calculate $Bias^2$ as $RMSE^2 - SE^2$.
 
 
 ## Comparing true SEs with standardization
 
 We just did a deep dive into bias.
 Uncertainty (standard errors) is another primary performance criterion of interest.
-
 As an initial exploration, we plot the standard error estimates from our Cluster RCT simulation, using smoothed lines to visualize trends. We use `ggplot`'s `geom_smooth` to aggregate over `size_coef` and `alpha`, which we leave out of the plot.
 We include individual data points to visualize variation around the smoothed estimates:
 
@@ -413,12 +400,12 @@ Second, standard error decreases as the number of clusters (J) increases, which 
 In contrast, increasing the cluster size (n_bar) has relatively little effect on the standard error (the rows of our facets look about the same).
 Lastly, all methods show fairly similar levels of standard error overall.
 
-While we can extract all of these from the figure, the figure is still not ideal for _comparing_ our methods.
+While we can extract all of these observations from the figure, the figure is  not ideal for _comparing_ our methods.
 The dominant influence of design features like ICC and sample size obscures our ability to detect meaningful differences between methods.
 In other words, even though SE changes across scenarios, it’s difficult to tell which method is actually performing better within each scenario.
 
 We can also view the same information by bundling over the left-out dimensions.
-We put `n_bar` in our bundles because maybe it does not matter that much:
+We add `n_bar` to our bundles, instead of faceting by it, because maybe it does not matter that much:
 ```{r}
 ggplot( sres, aes( ICC, SE, col=method, group=paste0( ICC, method ) ) ) +
   facet_grid( . ~  J, labeller = label_both ) +
@@ -429,18 +416,19 @@ ggplot( sres, aes( ICC, SE, col=method, group=paste0( ICC, method ) ) ) +
 
 Our plots are still dominated by the strong effects of ICC and the number of clusters (J). When performance metrics like standard error vary systematically with design features, it becomes difficult to compare methods meaningfully across scenarios.
 
-To address this, we shift our focus through standardization. Instead of noting that:
+To address this, we shift our focus through standardization.
+We want to shift from observations such as:
 
 > “All my SEs are getting smaller,”
 
-we want to conclude that:
+to conclusions such as:
 
 > “Estimator 1 has systematically higher SEs than Estimator 2 across scenarios.”
 
-Simulation results are often driven by broad design effects, which can obscure the specific methodological questions we care about. Standardizing helps bring those comparisons to the forefront.
-Let's try that next.
-
-One straightforward strategy for standardization is to compare each method’s performance to a designated baseline. In this example, we use Linear Regression (LR) as our baseline.
+Simulation results are often driven by broad design effects, which can obscure the specific methodological questions we care about.
+We can therefore standardize, by calculating a relative performance measure, to bring our desired comparisons to the forefront.
+One straightforward strategy for standardization is to compare each method’s performance to a designated baseline.
+In this example, we use Linear Regression (LR) as our baseline.
 
 We standardize by, for each simulation scenario, dividing each method’s SE by the SE of LR, to produce `SE.scale`.
 This relative measure, `SE.scale`, allows us to examine how much better or worse, across our scenarios, each method performs relative to a chosen reference method.
@@ -456,7 +444,7 @@ ssres <-
 We can then treat `SE.scale` as a measure like any other.
 Here we bundle, showing how relative SE changes by J, `n_bar` and ICC:
 
-```{r}
+```{r, out.width="100%"}
 ggplot( ssres, aes( ICC, SE.scale, col=method,
                     group = interaction(ICC, method) ) ) +
   facet_grid( n_bar ~  J, labeller = label_both ) +
@@ -465,14 +453,15 @@ ggplot( ssres, aes( ICC, SE.scale, col=method,
 ```
 
 The figure above shows how each method compares to LR across simulation scenarios.
-Aggregation clearly performs worse than LR when the Intraclass Correlation Coefficient (ICC) is zero. However, when ICC is greater than zero, Aggregation yields improved precision.
+Aggregation clearly performs worse than LR when the Intraclass Correlation Coefficient (ICC) is zero.
+However, when the ICC is greater than zero, Aggregation yields improved precision.
 The Multilevel Model (MLM), in contrast, appears more adaptive.
-It captures the benefits of aggregation when ICC is high, but avoids the precision cost when ICC is zero.
-This adaptivity makes MLM appealing in practice when ICC is unknown or variable across contexts.
+It captures the benefits of aggregation when the ICC is high, but avoids the precision cost when ICC is zero.
+This adaptability makes MLM appealing in practice when the ICC is unknown or variable across contexts.
 
-In looking at the plot we are seeing essentially identical rows and and fairly similar across columns.
-This suggests we should bundle the `n_bar` to get a cleaner view of the main patterns, and that we can also bundle over `J` as well.
-We finally drop the `LR` results entirely, as it is the reference method and always has a relative SE of 1.
+In looking at the plot we are seeing essentially identical rows and fairly similar columns.
+This suggests we should bundle the `n_bar` to get a cleaner view of the main patterns, and that we could also bundle over `J` as well.
+We finally can drop the `LR` results entirely, as it is the reference method and always has a relative SE of 1.
 
 ```{r}
 ssres %>% 
@@ -486,7 +475,8 @@ ssres %>%
   scale_y_continuous( breaks=seq(90, 125, by=5 ) ) 
 ```
 
-The pattern is clear: when ICC = 0, Aggregation performs worse than LR, and MLM performs about the same. But as ICC increases, Aggregation and MLM both improve, and perform about the same to each other.
+The pattern is clear: when ICC = 0, Aggregation performs worse than LR, and MLM performs about the same.
+But as ICC increases, Aggregation and MLM both improve, and perform about the same to each other.
 This highlights the robustness of MLM across diverse conditions.
 
 
@@ -579,9 +569,9 @@ This is the kind of diagnostic plot we often wish were included in more applied 
 
 So far we have examined the performance of our _point estimators_.
 We next look at ways to assess our _estimated_ standard errors.
-A good first question is whether they are about the right size, on average, across all the scenarios.
+A good first question is whether they are _calibrated_ (about the right size on average) across all the scenarios.
 
-When assessing estimated standard errors it is very important to see if they are _reliably_ the right size, making the bundling method an especially important tool here.
+When assessing estimated standard errors it is very important to see if they are _reliably_ the right size across the scenarios, making bundling an especially important tool here.
 We first see if the average estimated SE, relative to the true SE, is usually around 1 across all scenarios:
 
 ```{r, out.width="100%"}
@@ -663,6 +653,27 @@ It is a tricky measure: if the true SE is high for a method, then the relative i
 Thinking through what might be driving what can be difficult, and is often not central to the main purpose of an evaluation.
 People often look at confidence interval coverage and confidence interval width, instead, to assess the quality of estimated SEs.
 
+We can instead try using the degree of freedom calculations we saw in Section \@ref(performance-stability).
+We plug in $\widehat{df} = \frac{2 \bar{V}^2}{S_V^2}$ for each scenario and plot:
+
+```{r}
+sres <- mutate( sres,
+               df_hat = 2 * ( ESE_hat^4 ) / ( SD_SE_hat^4 ) )
+ggplot( sres, 
+        aes( ICC, df_hat, col=method,
+             group = interaction(ICC,method) ) ) +
+    facet_grid( . ~ J, labeller = label_both) +
+  geom_boxplot( position="dodge" ) +
+  labs( color="n" ) +
+  scale_y_log10( breaks = c( 2.5, 5, 10, 20, 40, 80, 160 ),
+                 labels = c( 2.5, 5, 10, 20, 40, 80, 160 )
+                 ) +
+  geom_hline( yintercept = c(5,20,80), lty=2, col="grey" ) +
+  scale_x_continuous( breaks = unique( sres$ICC ) )
+```
+
+The multilevel model generally has higher estimated degrees of freedom, especially when ICC is low, and Linear Regression has generally lower degrees of freedom overall (except when ICC is zero).
+
 
 ## Assessing confidence intervals
 
@@ -698,11 +709,12 @@ c_sub <- covres %>%
 ggplot( c_sub, aes( ICC, coverage, col=method, group=method ) ) +
   facet_grid( . ~ J, labeller = label_both ) +
   geom_line( position = position_dodge( width=0.05)) +
-  geom_point( position = position_dodge( width=0.05) ) +
+  geom_point( position = position_dodge( width=0.05), size = 2 ) +
   geom_errorbar( aes( ymax = coverage + 2*coverage_mcse, 
                       ymin = coverage - 2*coverage_mcse ), width=0,
                  position = position_dodge( width=0.05) ) +
-  geom_hline( yintercept = 0.95 )
+  geom_hline( yintercept = 0.95 ) +
+  scale_y_continuous( labels = scales::percent_format() )
 ```
 
 Generally coverage is good unless $J$ is low or ICC is 0.
@@ -740,8 +752,19 @@ There are mild differences due to differences in how the degrees of freedom are 
 
 
 
+## Conclusions
 
+Visualization is rarely a single plot; it is the process of iterating from messy, exploratory graphs to a small set of figures that communicate the main findings.
+In this chapter we walked through four core tools for that process---subsetting, many small multiples, bundling, and aggregation---and showed how they can be used together to manage the complexity of multifactor simulations.
+Subsetting helps with orientation and sanity checks, small multiples reveal interactions, bundling summarizes variability across scenarios, and aggregation highlights broad trends when the raw results are too noisy or too high dimensional to interpret directly.
 
+We illustrated these tools using the Cluster RCT case study, beginning with bias and then extending the same workflow to standard errors, RMSE, estimated standard errors, and confidence interval performance.
+A recurring theme was that raw performance measures are often dominated by design effects such as ICC and sample size, which can obscure the method comparisons we care about.
+Standardization---especially expressing performance relative to a baseline method---can make comparisons far clearer, though it also propagates uncertainty from the baseline and should be interpreted with care.
+
+Ultimately, the goal of visualization is to discover and communicate structure: where is performance stable and when does it change?
+The plots in this chapter provide a template for an overall workflow, and we encourage you to use the code and approach in your own work.
+There are further tools, and further concerns, that build on this core set of techniques; that is what we discuss in the following chapter.
 
 ## Exercises
 
@@ -778,6 +801,13 @@ sres <- res %>%
   ungroup()
 names( sres )
 ```
+
+### Checking bias
+
+Under the discussion of aggregation, we closed with a plot suggesting negative bias as ICC increases when `size_coef=0`.
+Investigate that finding, either by digging into the results more or by running additional simulations.
+_Do not_ re-run the entire simulation; sometimes a targeted investigation can be just as effective for answering a specific question.
+
 
 
 ### Assessing uncertainty

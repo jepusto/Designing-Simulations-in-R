@@ -6,12 +6,21 @@ gen_cluster_RCT <- function(
     gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
     sigma2_u = 0, sigma2_e = 1
 ) {
+  stopifnot( alpha >= 0 )
   
   # generate schools sizes 
   n_min <- round( n_bar * (1 - alpha) )
   n_max <- round( n_bar * (1 + alpha) )
-  nj <- sample( n_min:n_max, J, replace = TRUE )
   
+  if (n_min < n_max) { 
+    nj <- sample( n_min:n_max, J, replace = TRUE )
+  } else {
+    if ( alpha > 0 ) {
+      warning( "alpha > 0 has no effect when there is no variation in site size" )
+    }
+    nj <- rep(n_bar, J)
+  }
+
   # Generate average control outcome for all schools
   # (the random effects)
   u0j <- rnorm( J, mean = 0, sd = sqrt(sigma2_u) )
