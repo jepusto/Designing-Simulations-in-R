@@ -11,7 +11,7 @@ set.seed(20250606)
 source("case_study_code/generate_ANOVA_data.R")
 source("case_study_code/ANOVA_Welch_F.R")
 source("case_study_code/r_bivariate_Poisson.R")
-source("case_study_code/gen_cluster_RCT_rev.R")
+source("case_study_code/gen_cluster_RCT.R")
 source("case_study_code/analyze_cluster_RCT.R")
 ```
 
@@ -40,7 +40,7 @@ In this case, we will have _several_ functions that implement different estimati
 The easiest approach here is to implement each estimator in turn, and then bundle the collection in a final overall function.
 We discuss how to do this in Section \@ref(multiple-estimation-procedures).
 
-Next, we describe strategies for validating the coded-up estimator before running a full simulation in Section \@ref(validating-estimation-function).
+Next, we describe strategies for validating the coded-up estimator before running a full simulation in Section \@ref(running-the-simulation-process).
 We offer a few strategies for validating ones code, including checking against existing implementations, checking theoretical properties, and using simulations to check for bugs.
 
 For a full simulation, an estimator needs to be reliable, not crashing and giving answers across the wide range of datasets thrown at it.
@@ -140,12 +140,13 @@ Several different procedures might be used to estimate an overall average effect
 All three of these methods are widely used and have some theoretical guarantees supporting their use. 
 Education researchers tend to be more comfortable using multi-level regression models, whereas economists tend to use OLS with clustered standard errors.
 <!-- JEP: Do we want to add any citations for further reading about these strategies? Any further comments about these methods? -->
-<!-- LWM: I think we don't need anything? -->
+<!-- LWM: We can cite my working draft of the cluster rct paper when I post it? -->
 
 We next develop estimation functions for each of these procedures.
 We analyze as we expect would be done in practice; even though we generated data with a school size covariate, we do not include it in our estimation functions.
 Each function needs to produce a point estimate, standard error, and $p$-value for the average treatment effect.
-To have data to practice on, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT_rev.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
+To have data to practice on, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
+<!-- LWM: Do we put the solution to the exercise here?  Or leave it out? -->
 ```{r}
 dat <- gen_cluster_RCT( 
   J=16, n_bar = 30, alpha = 0.8, p = 0.5, 
@@ -413,7 +414,7 @@ Furthermore, warnings can clutter up the console and slow down code execution, s
 On a conceptual level, we need to decide how to use the information contained in errors and warnings, whether that be by further elaborating the estimators to address different contingencies or by evaluating the performance of the estimators in a way that appropriately accounts for these events.
 We consider both these problems here, and then revisit the conceptual considerations in Chapter \@ref(performance-measures), where we discuss assessing estimator performance.
 
-### Capturing errors and warnings
+### Capturing errors and warnings {#error-handling}
 
 Some estimation functions will require complicated or stochastic calculations that can sometimes produce errors. 
 Intermittent errors can really be annoying and time-consuming if not addressed.
@@ -474,6 +475,7 @@ However, `quietly()` does not trap errors:
 ```{r, error=TRUE}
 rs <- replicate(20, my_quiet_function( 7 ))
 ```
+
 We can, however, double-wrap the function so it can handle both errors and warnings:
 ```{r}
 my_safe_quiet_function <- quietly( possibly( my_complex_function, otherwise = NA ) )
@@ -487,43 +489,57 @@ set.seed(101012)  # (I picked this to show a warning.)
 dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
 mod <- analysis_MLM(dat)
 ```
+
 Wrapping `lmer()` with `quietly()` makes it possible to catch such output and store it along with other results, as in the following:
 ```{r}
 quiet_safe_lmer <- quietly( possibly( lmerTest::lmer, otherwise=NULL ) )
 M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
 M1
 ```
-We then pick apart the pieces and make a dataframe of them:
+
+In our analysis method, we then pick apart the pieces and make a dataframe of them (we also add in a generally preferred optimizer, bobyqa, to try and avoid the warnings and errors in the first place):
 
 ```{r}
-if ( is.null( M1$result ) ) {
-  # we had an error!
-  tibble( ATE_hat = NA, SE_hat = NA, p_value = NA,
-          message = M1$message,
-          warning = M1$warning,
-          error = TRUE )
-} else {
-  sum <- summary( M1$result )
-  tibble( 
-    ATE_hat = sum$coefficients["Z","Estimate"], 
-    SE_hat = sum$coefficients["Z","Std. Error"], 
-    p_value = sum$coefficients["Z", "Pr(>|t|)"],
-    message = list( M1$message ),
-    warning = list( M1$warning ),
-    error = FALSE )
+analysis_MLM_safe <- function( dat ) {
+  
+  M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1 | sid),
+                         data=dat,
+                         control = lme4::lmerControl(
+                           optimizer = "bobyqa"
+                         ) )
+ 
+  if ( is.null( M1$result ) ) {
+    # we had an error!
+    tibble( ATE_hat = NA, SE_hat = NA, p_value = NA,
+            message = M1$message,
+            warning = M1$warning,
+            error = TRUE )
+  } else {
+    sum <- summary( M1$result )
+    
+    tibble( 
+      ATE_hat = sum$coefficients["Z","Estimate"], 
+      SE_hat = sum$coefficients["Z","Std. Error"], 
+      p_value = sum$coefficients["Z", "Pr(>|t|)"],
+      message = length( M1$messages ) > 0,
+      warning = length( M1$warning ) > 0,
+      error = FALSE
+      )
+  }
 }
 ```
-Now we can plug the above code to make a nicely quieted and safe function.
-This quiet version runs without extraneous messages:
+
+Our improved function runs without extraneous messages and returns the estimation results along with any diagnostic information from messages or warnings:
+
 ```{r}
 mod <- analysis_MLM_safe(dat)
 mod
 ```
 
-Now we have the estimation results along with any diagnostic information from messages or warnings.
 Storing this information will let us evaluate what proportion of the time there was a warning or message, run additional analyses on the subset of replications where there was no such warning, or even modify the estimator to take the diagnostics into account.
 We have solved the technical problem---our code will run and give results---but not the conceptual one: what does it mean when our estimator gives an NA or a convergence warning with a nominal answer?
 How do we decide how good our estimator is when it does this?
+
 
 ### Adapting estimators for errors and warnings {#adapting-for-errors}
 

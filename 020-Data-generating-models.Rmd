@@ -242,6 +242,7 @@ Here is a plot of 30 observations from the bivariate Poisson distribution with m
 #| fig.width: 6
 #| fig.height: 4
 
+set.seed( 40440 )
 bvp_dat <- r_bivariate_Poisson(
   30, 
   rho = 0.65, 
@@ -252,9 +253,12 @@ ggplot(bvp_dat) +
   aes(C1, C2) + 
   geom_vline(xintercept = 0) + 
   geom_hline(yintercept = 0) + 
-  scale_x_continuous(expand = expansion(0,c(0,1))) + 
-  scale_y_continuous(expand = expansion(0,c(0,1))) + 
-  geom_point(position = position_jitter(width = 0.2, height = 0.2)) + 
+  scale_x_continuous(expand = expansion(0,c(0,1)),
+                      breaks = c( 2, 4, 6, 8, 10, 12, 14, 16 )) + 
+  scale_y_continuous(expand = expansion(0,c(0,1)),
+                     breaks = c( 2, 4, 6, 8, 10, 12 )) + 
+  coord_fixed() +
+  geom_point(position = position_jitter(width = 0.075, height = 0.075)) + 
   theme_minimal()
 ```
 Plots like these are useful for building intuitions about a model. For instance, we can inspect \@ref(fig:bivariate-Poisson-scatter) to get a sense of the order of magnitude and range of the observations, as well as the likelihood of obtaining multiple observations with identical counts.
@@ -444,9 +448,9 @@ The mathematical model gives us the details we need to execute with each of thes
 Here is the skeleton of a DGP function with arguments for each of the parameters we might want to control, including defaults for each (see \@ref(default-arguments) for more on function defaults):
 
 ```{r, echo = FALSE}
-source( "case_study_code/gen_cluster_RCT.R" )
+source( "case_study_code/gen_cluster_RCT_bug.R" )
 
-cluster_RCT_fun <- readLines("case_study_code/gen_cluster_RCT.R")
+cluster_RCT_fun <- readLines("case_study_code/gen_cluster_RCT_bug.R")
 skeleton <- c(cluster_RCT_fun[1:10], "  # Code (see below) goes here", "}")
 ```
 
@@ -477,7 +481,7 @@ Next, we use the site characteristics to generate the individual-level variables
 
 A key piece here is the `rep()` function that takes a list and repeats each element of the list a specified number of times.
 In particular, `rep()` repeats each number ($1, 2, \ldots, J$), the corresponding number of times as listed in `nj`.
-Putting the code above into the function skeleton will produce a complete DGP function (view the [complete function here](/case_study_code/gen_cluster_RCT.R)).
+Putting the code above into the function skeleton will produce a complete DGP function (view the [complete function here](/case_study_code/gen_cluster_RCT_bug.R)).
 We can then call the function as so:
 ```{r}
 dat <- gen_cluster_RCT( 
@@ -486,7 +490,7 @@ dat <- gen_cluster_RCT(
   sigma2_u = 0.4, sigma2_e = 1
 )
 
-dat
+head( dat )
 ```
 
 With this function, we can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the site size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of site size variation (`alpha`).
@@ -534,10 +538,12 @@ A further consequence of setting the overall scale of the outcome to 1 is that t
 The standardized mean difference for a treatment impact is defined as the average impact over the standard deviation of the outcome among control observations.^[An alternative definition is based on the pooled standard deviation, but this is usually a bad choice if one suspects treatment variation. More treatment variation should not reduce the effect size for the same absolute average impact.]
 Letting $\delta$ denote the standardized mean difference parameter, 
 $$ \delta = \frac{E(Y | Z_j = 1) - E(Y | Z_j = 0)}{SD( Y | Z_j = 0 )} = \frac{\gamma_1}{\sqrt{ \sigma^2_u + \sigma^2_\epsilon } } $$
-Because we have constrained the total variance, $\gamma_1$ is equivalent to $\delta$. This equivalence holds for any value of $\gamma_0$, so we do not have to worry about manipulating $\gamma_0$ in the simulations---we can simply leave it at its default value.
-
+Because we have constrained the total variance to 1, $\gamma_1$ is equivalent to $\delta$.
+This equivalence holds for any value of $\gamma_0$, so we do not have to worry about manipulating $\gamma_0$ in the simulations---we can simply leave it at its default value.
+The $\gamma_2$ parameter only impacts outcomes on the treatment side, with larger values induces more variation. Standardizing on something stable (here the control side) rather than something that changes in reaction to various parameters (which would happen if we standardized by overall variation or pooled variation) will lead to more interpretable quantities.
 <!-- JEP: Do we want to discuss anything about interpretation of gamma_2? Or add an exercise about it? -->
-<!-- LWM: I don't think there is a need -->
+<!-- LWM: I added the prior sentence.  Is this what you mean? Or what kind of exercise? -->
+
 
 ## Sometimes a DGP is all you need {#three-parameter-IRT}
 
@@ -719,8 +725,7 @@ The exercises below will give you further practice in developing, testing, and e
 Of course, we have not covered every consideration and challenge that arises when writing DGPs for simulations---there is _much_ more to explore!
 
 We will cover some further challenges in subsequent chapters.
-<!-- JEP: Links to specific further chapters? -->
-<!-- LWM: TODO later when book is settled. -->
+See, for example, Chapters \@ref(sec:power) and \@ref(potential-outcomes).
 Yet more challenges will surely arise as you apply simulations in your own work.
 Even though such challenges might not align with the examples or contexts that we have covered here, the concepts and principles that we have introduced should allow you to reason about potential solutions.
 In doing so, we encourage you adopt the attitude of a chef in a test kitchen by trying out your ideas with code.

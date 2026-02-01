@@ -11,6 +11,9 @@ library( estimatr )
 options(list(dplyr.summarise.inform = FALSE))
 
 
+source( here::here( "case_study_code/gen_cluster_RCT.R" ) )
+
+source( here::here( "case_study_code/analyze_cluster_RCT.R" ) )
 
 
 # Utility function for printout
@@ -19,156 +22,43 @@ scat = function( str, ... ) {
 }
 
 
-gen_cluster_RCT <- function( n_bar = 10,
-                             J = 30,
-                             p = 0.5,
-                             gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-                             sigma2_u = 0, sigma2_e = 1,
-                             alpha = 0 ) {
+
+quiet_analyze_data <- function(dat,
+                               CR_se_type = "CR2",
+                               agg_se_type = "HC2") {
   
-  stopifnot( alpha >= 0 )
+  # MLM
+  a = Sys.time()
+  MLM <- analysis_MLM_safe(dat)
+  MLM$seconds <- as.numeric(Sys.time() - a, units = "secs")
   
-  # generate site sizes 
-  n_min = round( n_bar * (1 - alpha) )
-  n_max = round( n_bar * (1 + alpha) )
-  if ( n_max == n_min ) {
-    if ( alpha > 0 ) {
-      warning( "alpha > 0 has no effect when there is no variation in site size" )
-    }
-    nj = rep( n_min, J )
-  } else {
-    nj <- sample( n_min:n_max, J, replace=TRUE )
-  }
+  # OLS
+  a = Sys.time()
+  LR <- analysis_OLS(dat, se_type = CR_se_type)
+  LR$seconds <- as.numeric(Sys.time() - a, units = "secs")
+  LR$message <- 0
+  LR$warning <- 0
+  LR$error <- 0
   
-  # Generate average control outcome and average ATE for all sites
-  # (The random effects)
-  u0j = rnorm( J, mean=0, sd=sqrt( sigma2_u ) )
+  # Aggregated
+  a = Sys.time()
+  Agg <- analysis_agg(dat, se_type = agg_se_type)
+  Agg$seconds <- as.numeric(Sys.time() - a, units = "secs")
+  Agg$message <- 0
+  Agg$warning <- 0
+  Agg$error <- 0
   
-  # randomize units within each site (proportion p to treatment)
-  Zj = ifelse( sample( 1:J ) <= J * p, 1, 0)
-  
-  # Calculate site intercept for each site
-  beta_0j = gamma_0 + gamma_1 * Zj + gamma_2 * Zj * (nj-n_bar)/n_bar + u0j
-  
-  # Make individual site membership
-  sid = as.factor( rep( 1:J, nj ) )
-  dd = data.frame( sid = sid )
-  
-  # Make individual level tx variables
-  dd$Z = Zj[ dd$sid ]
-  
-  # Generate the residuals 
-  N = sum( nj )
-  e = rnorm( N, mean=0, sd=sqrt( sigma2_e ) )
-  
-  # Bundle and send out
-  dd <- mutate( dd, 
-                sid=as.factor(sid),
-                Yobs = beta_0j[sid] + e, 
-                Z = Zj[ sid ] )
-  
-  dd
+  bind_rows(MLM = MLM, LR = LR, Agg = Agg, .id = "method")
 }
 
 
 
-#### Analysis functions #####
 
-
-quiet_lmer = purrr::quietly( lmer )
-
-quiet_analysis_MLM <- function( dat ) {
-  M1 = quiet_lmer( Yobs ~ 1 + Z + (1|sid),
-                   data=dat )
-  message1 = ifelse( length( M1$message ) > 0, 1, 0 )
-  warning1 = ifelse( length( M1$warning ) > 0, 1, 0 )
-  M1 = M1$result
-  
-  est = fixef( M1 )[["Z"]]
-  se = se.fixef( M1 )[["Z"]]
-  sc = summary(M1)$coefficients
-  pv = sc["Z",5]
-  df = sc["Z", "df"]
-  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv,
-          message = message1, warning = warning1 )
-}
-
-
-analysis_MLM <- function( dat ) {
-  M1 = lmer( Yobs ~ 1 + Z + (1|sid),
-             data=dat )
-  
-  est = fixef( M1 )[["Z"]]
-  se = se.fixef( M1 )[["Z"]]
-  sc = summary(M1)$coefficients
-  pv = sc["Z",5]
-  df = sc["Z", "df"]
-  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv )
-}
-
-
-analysis_OLS <- function( dat ) {
-  M2 <- lm_robust( Yobs ~ 1 + Z, 
-                   data=dat, clusters=sid )
-  est <- M2$coefficients[["Z"]]
-  se  <- M2$std.error[["Z"]]
-  pv <- M2$p.value[["Z"]]
-  df <- M2$df[["Z"]]
-  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv )
-}
-
-
-analysis_agg <- function( dat ) {
-  datagg <- 
-    dat %>% 
-    group_by( sid, Z ) %>%
-    summarise( 
-      Ybar = mean( Yobs ),
-      n = n(),
-      .groups = "drop"
-    )
-  
-  stopifnot( nrow( datagg ) == length(unique(dat$sid) ) )
-  
-  M3 <- lm_robust( Ybar ~ 1 + Z, 
-                   data=datagg, se_type = "HC2" )
-  est <- M3$coefficients[["Z"]]
-  se <- M3$std.error[["Z"]]
-  df <- M3$df[["Z"]]
-  pv <- M3$p.value[["Z"]]
-  tibble( ATE_hat = est, SE_hat = se, df = df, p_value = pv )
-}
-
-
-
-analyze_data = function( dat ) {
-  MLM = analysis_MLM( dat )
-  LR = analysis_OLS( dat )
-  Agg = analysis_agg( dat )
-  
-  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
-             .id = "method" )
-}
-
-
-quiet_analyze_data = function( dat ) {
-  MLM = quiet_analysis_MLM( dat )
-  LR = analysis_OLS( dat )
-  Agg = analysis_agg( dat )
-  LR$message = 0
-  LR$warning = 0
-  Agg$message = 0
-  Agg$warning = 0
-  bind_rows( MLM = MLM, LR = LR, Agg = Agg,
-             .id = "method" )
-}
-
-
-run_CRT_sim <- function(reps, 
-                        n_bar = 10, J = 30, p = 0.5,
-                        ATE = 0, ICC = 0.4,
-                        size_coef = 0, alpha = 0,
-                        seed = NULL, aggregate = TRUE) {
+run_CRT_sim <- function( reps, 
+                         n_bar = 10, J = 30, p = 0.5,
+                         ATE = 0, ICC = 0.4,
+                         size_coef = 0, alpha = 0,
+                         seed = NULL ) {
   
   stopifnot( ICC >= 0 && ICC < 1 )
   
@@ -197,7 +87,6 @@ if ( FALSE ) {
   dat <- gen_cluster_RCT( 5, 3 )
   dat
   
-  undebug( quiet_analysis_MLM )
   quiet_analyze_data( dat )
   
   res <- run_CRT_sim( reps = 5, alpha=0.5 )

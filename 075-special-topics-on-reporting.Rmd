@@ -635,82 +635,66 @@ knitr::kable(rr, digits = 2)
 ## What to do with warnings in simulations
 
 Sometimes our analytic strategy might give some sort of warning (or fail altogether).
-For example, from the cluster randomized experiment case study we have:
+In Section \@ref(error-handling) we saw how to trap such warnings or errors.
+In particular, in Section \@ref(error-handling) we illustrated error trapping on the multilevel model for the cluster RCT experiment by revising our `analysis_MLM()` method to a `analysis_MLM_safe()` method, which gave output from the MLM method that looked like this:
 
 ```{r, include=FALSE}
 source( "case_study_code/clustered_data_simulation.R" )
 ```
 
 ```{r}
-set.seed(101012)  # (I picked this to show a warning.)
+set.seed(101012)  # (I picked this to show an issue.)
 dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
-mod <- lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+analysis_MLM_safe( dat )
 ```
 
+For this dataset, for example, we see that there was a convergence issue that gave rise to the indicated message.
 
+Once the full simulation is run, we can examine the patterns of these warnings and errors to see if they are a serious or minor problem.
+We first do this by calculating the rate of errors or warning messages as a performance measure across the simulation scenarios.
+Especially if we plan on possibly droping some trials, it is important to see how often things are acting peculiarly.
 
-We have to make a deliberate decision as to what to do about this:
- 
- - Keep these "weird" trials?
- - Drop them?
-
-Generally, when a method fails or gives a warning is something to investigate in its own right.
-Ideally, failure would not be too common, meaning we could drop those trials, or keep them, without really impacting our overall results.
-But one should at least know what one is ignoring.
-
-If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
-If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn't give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
-
-If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
-Especially if you drop some trials, it is important to see how often things are acting pecularly.
-
-As discussed earlier, the main tool for doing this is the `quietly()` function:
-```{r}
-quiet_lmer = quietly( lmer )
-qmod <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
-qmod
-```
-
-You then might have, in your analyzing code:
-```{r, eval=FALSE}
-analyze_data <- function( dat ) {
-    
-    M1 <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
-    message1 = ifelse( length( M1$message ) > 0, 1, 0 )
-    warning1 = ifelse( length( M1$warning ) > 0, 1, 0 )
-
-    # Compile our results
-    tibble( ATE_hat = coef(M1)["Z"],
-            SE_hat = se.coef(M1)["Z"],
-            message = message1,
-            warning = warning1 )
-}
-```
-
-Now you have your primary estimates, and also flags for whether there was a convergence issue.
-In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
-
-
-For example, in our cluster RCT running example, we know that ICC is an important driver of when these convergence issues might occur, so we can explore how often we get a convergence message by ICC level:
-
-<!-- JEP: The results seem to be missing the `message` variable, so these calculations are broken. -->
+For example, in our cluster RCT running example, we know that ICC is an important driver of when convergence issues might occur, so we can explore how often we get a convergence message by ICC level by calculating the number of messages, warnings, or errors per 1000 iterations:
 
 ```{r examine_convergence_rates}
 res %>% 
+  dplyr::filter( method == "MLM" ) %>%
   group_by( method, ICC ) %>%
-  summarise( message = mean( message ) ) %>%
-  pivot_wider( names_from = "method", values_from="message" )
+  summarise( message = 1000*mean( message ),
+             warning = 1000*mean( warning ),
+             error = 1000*mean( error ) ) %>%
+  pivot_wider( names_from = method,
+               values_from=c( "message", "warning", "error" ) )
 ```
 
 We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
-At this point we might decide to drop those runs with a message or keep them.
-In this case, we decide to keep.
-It should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
+Thankfully, we never saw actual errors and our warnings were very rare.
+
+At this point we have to decide whether to drop the problematic runs or keep them.
+Ideally, failure would not be too common, meaning we could drop or keep the problematic iterations without really impacting our overall results.
+
+In our case, for example, it should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
 Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
 We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
 
+Importantly, if the decision is to drop, then the entire simulation iteration, including the other estimators, should be dropped even if the other estimators worked fine!
+If there is something particularly unusual about the dataset that caused the concern, then dropping for one estimator and keeping for the others would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+Consider, for example, if the dropped datasets were fundamentally harder to evaluate.
 
 
+## Conclusions
 
+
+Designed experiments in simulation are only as useful as the summaries you make of their output.
+In this chapter, we showed a few advanced ways of moving from raw simulation outputs to interpretable summaries using regression, ANOVA, LASSO, trees, and multilevel meta-models.
+These tools let you parse the main effects of your simulation factors along with their interactions, and can help turn many scenario-level estimates into clear statements about where methods work and where they break.
+They can also help protect against how Monte Carlo simulation error can potentially distort findings.
+
+We also focused on two specific areas where analyzing a set of results can be tricky: when each iteration is expensive (so you do not have too many of them), and when sometimes your estimators fail or perform poorly in a way that raises warnings or flags.
+In the former case, aggregation and multilevel models can be especially useful when replicates are expensive.
+In the latter, evaluate when failures occur, and then either drop them consistently or explicitly model them.
+
+Overall, these tools give a way to go deeper into a set of simulation results.
+Often the findings here would not be presented in the main text, but they can be important supporting detail, especially when placed in a supplement.
 
 
