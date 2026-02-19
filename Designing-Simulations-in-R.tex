@@ -166,7 +166,7 @@
 \title{Designing Monte Carlo Simulations in R}
 \author{Luke W. Miratrix and James E. Pustejovsky
 (Equal authors)}
-\date{2026-01-16}
+\date{2026-02-19}
 
 \begin{document}
 \maketitle
@@ -545,7 +545,7 @@ For example, the \texttt{rnorm()} function takes as input a number \texttt{n} an
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 1.3143553 0.9168695 0.3055075
+## [1]  0.03144481 -0.93589225  0.28688487
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -557,7 +557,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] -0.6328591  0.7834093  0.7471130
+## [1] -1.8057384 -0.3347077  0.1843636
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let the user specify the mean and standard deviation of the distribution from which numbers are drawn:
@@ -569,7 +569,7 @@ The \texttt{rnorm()} function also has further input arguments that let the user
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 10.038247  9.904912  9.970906
+## [1] 11.12055 10.05619  8.93425
 \end{verbatim}
 
 In writing code for simulations, we will make extensive use of this particular function and other functions that produce sequences of random numbers.
@@ -619,7 +619,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 9.10024e-71
+## [1] 2.406846e-68
 \end{verbatim}
 
 \begin{Shaded}
@@ -629,7 +629,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 0.3086165
+## [1] 0.2991426
 \end{verbatim}
 
 \begin{Shaded}
@@ -639,7 +639,7 @@ Having created the function, we can then use it with any inputs that we like:
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 1.049529e-06
+## [1] 0.0003864819
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated sample of data. The function produces a different answer each time because its instructions involve generating random numbers each time it is called.
@@ -11235,54 +11235,84 @@ In exchange, we end up with a simulation that might be more faithfully capturing
 
 \chapter{Organizing a simulation project}\label{organizing-a-simulation-project}
 
-As we saw earlier, a full multifactor simulation can generate a lot of output that can be hard to navigate.
-They are complex, multifaceted projects by design.
-This means that the project itself can be hard to manage.
-It can be easy to become overwhelmed by a steady accumulation of scripts that generate data, analyze data, run simulations, and so on.
+Multi-factor simulations can easily grow into quite complex projects with many moving pieces.
+As a project grows in complexity, the steady accretion of functions, scripts, stored results, and analysis can become overwhelming---to the point that you would dread sharing these work products with anyone.
+Fortunately, a bit of forethought and advance planning can make these types of projects much more tractable and manageable.
 
-This section is designed to give you the computational skills and ideas that will make it easier to handle complex simulation projects.
-We start with a discussion of file and project management, then turn to parallel processing, and finally close with some core programming habits that we have found useful for keeping on top of this type of sprawling complexity.
+In the next several chapters, we describe some organizing principles and programming practices that will make it easier to handle complex simulation projects.
+In this chapter, we discuss project organization, file management, and storing simulation results.
+In Chapter \ref{parallel-processing}, we demonstrate parallel processing methods that will help you to speed up the computation involved in multifactor simulations.
+Finally, in Chapter \ref{debugging-and-testing}, we introduce some basic debugging and testing techniques that we have found useful for keeping on top of complex code bases.
 
-Simulations have two general phases: generate your results and analyze your results.
-The ending of the first phase should be to save the generated results.
-The beginning of the second phase should then be to load the results from a file and analyze them.
-These phases can be in a separate `.R' files.
-Dividing your simulations in this way allows for easily changing how one \emph{analyzes} an experiment without re-running the entire thing.
+\section{Simulation project structure}\label{simulation-project-structure}
 
-This is the simplest version of a general principle of a larger project: put code for different purposes in different files.
+In a very simple simulation that does not take long to execute, you might keep all of the code, output, and analysis in a single file.
+However, if any of the computations take substantial time to execute, keeping everything in one file will become unwieldy.
+For more complex or more computationally demanding simulations, there are big benefits to organizing your code across more than one file.
 
-For example, at the minimum, for a complex multifactor simulation, you will likely have three general collections of code, not including the code to run the multifactor simulation itself:
+Multifactor simulation studies usually involve three distinct phases of work, each involving a different set of processes and different types of code.
+The first phase involves developing functions for generating data, applying estimators or data analysis procedures to the data, calculating performance measures, and running the full simulation for a single scenario.
+The end-product of this phase is a set of functions or methods for executing a simulation.
+The second phase involves running the simulations across multiple scenarios, as discussed in Chapter \ref{simulating-multiple-scenarios}.
+The end-product of this phase is a set of results, containing estimates of performance measures for one or more methods under each condition.
+The third phase involves analyzing the simulation results and drawing conclusions about the performance of the method or methods under evaluation.
+The end-product of this phase is often a set of figures, tables, and text (perhaps taking the form of a memo, blog post, slide deck, or manuscript) that summarizes what you find.
 
-\begin{itemize}
-\tightlist
-\item
-  Code for generating data
-\item
-  Code for analyzing data
-\item
-  Code for running a single simulation scenario
-\end{itemize}
+To stay organized when conducting a larger, multifactor simulation, we find it generally useful to keep a clear separation between phases.
+In practice, this means keeping the code for each phase in a separate file (or set of files) and storing the results from each phase so that code for subsequent phases can be re-run or revised without re-executing the entire code base.
+This approach is in keeping with a general principle for organizing large computational projects: keep the code for distinct tasks in different files.
 
-If each of these pieces is large and complex, you might consider putting them in three different \texttt{.R} files.
-To do this, we need to talk about what kinds of R scripts exist, and also talk about how you can tell one script to load another script.
+In this chapter, we describe strategies for organizing the code and work products involved in a multifactor simulation study.
+We start by offering guidance and recommendations for how to structure individual files and make use of code that is organized across more than one file.
+We then describe a directory structure that encourages a clear separation between phases of a project.
+Finally, we discuss strategies for storing and organizing results when executing a simulation.
+The advice and recommendations we offer are drawn from our own experience working on large simulation projects (including the many mistakes we have made and lessons we have learned through trial-and-error).
+Of course, we readily acknowledge that the approach we describe here is not the only way to do things, and we make no claims of optimality.
+As you gain experience with your own work, you will develop your own systems, habits, and strategies.
+We offer this guidance as a starting point from which to build.
 
-\section{Well structured R scripts}\label{well-structured-r-scripts}
+\section{Well structured code files}\label{well-structured-code-files}
 
-In R, there are two critical file types that can hold R code: \texttt{.R} files (scripts) and \texttt{.Rmd} (or \texttt{.qmd}) markdown files.
-The former just holds R code, while the latter holds a mix of R code and text.
-The latter is what you would render (or knit) to make a final report--it will run the code, and mix the results in with the text to give a nicely formatted report with code, figures, tables, and other printout nicely embedded.
-These are what is typically used for smaller projects---all the code and discussion of code would be in a single, convienent place.
+Conducting a simulation will require writing, testing, and revising code (potentially quite a bit of code!).
+There are two main types of files that analysts use to hold R code; plain \texttt{.R} scripts and R markdown (\texttt{.Rmd}) or Quarto (\texttt{.qmd}) notebooks.
+The former can only contain R syntax and comments, whereas the latter can hold a mix of R code chunks and written text.
+The latter work as the source code for creating reproducible reports.
+Compiling a notebook will automatically run the embedded code and interweave the results with the text, producing a formatted document that can display figures, tables, and other forms of output.
 
-For larger projects, you will be more dependant on the first type of file, the \texttt{.R} script.
-Ideally, the principle of modular programming would be applied to these files.
-Each \texttt{.R} file would hold a collection of code that is related to a single task.
-There are two main types of of \texttt{.R} script: those that \emph{just} have functions that can be used for other purposes (meaning that if you run them, the only thing that happens is you end up with some new functions in your current workspace), and those that are traditional scripts such that when you run them, R will do a variety of specified tasks.
+For very small projects, it may be possible to store your entire code base in a single notebook, containing all of your functions, code for creating a simulation design and executing the simulations, and code for analyzing the results.
+An advantage of using a notebook here is that you can add plain text explanations and descriptions of the component pieces mixed in with the actual source code, so that rationales and design decisions are fully documented.
+Further, you can re-run the entire simulation at the click of a button, simply by re-compiling the the notebook.
+However, it is difficult to work this way if the simulation involves more intensive computation.
+
+For larger or more computationally demanding projects, we find it useful to make more use of the first type of file, the humble \texttt{.R} script.
+Ideally, you should follow the principles of modular programming for the code in these files.
+Each \texttt{.R} file should hold a collection of code that is related to a single task.
+Accordingly, we distinguish between two types of of \texttt{.R} scripts: those that only contain functions that can be used for other purposes and those that carry out numerical calculations.
+The former type just holds functions, so that the only consequence of running them from top to bottom will be to load some new functions into your workspace.
+The latter type are traditional scripts that do calculations, store or load data files, and create graphs and other summaries of data.
+
+\subsection{Putting headers in your .R file}\label{putting-headers-in-your-.r-file}
+
+When you write an \texttt{.R} script, it is a good idea to put a header at the top of the file that describes the file's purpose.
+Within the file, you can also describe the contents with shorter section headers.
+For instance, a very simple section header might look like this:
+
+\begin{verbatim}
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data generating functions ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+\end{verbatim}
+
+Note the \texttt{-\/-\/-\/-} at the end of the middle line.
+Using four trailing dashes trailing dashes indicates a section of the code that RStudio's parser can interpret.
+If you click on the dropdown at the bottom of the RStudio source pane, you will see a pop-up table of contents that allows you to quickly navigate to different parts of your source file.
+You can also see the same table of contents by clicking the \texttt{Outline} button in the top right corner of the source pane.
 
 \subsection{The source command}\label{about-source-command}
 
-Inside of an R script you can ``source'' other \texttt{.R} files.
-The \texttt{source()} command essentially ``cuts and pastes'' the contents of the given file into your R work session.
-E.g.,
+If your code is organized across more than one file, you will need a way to call one file from another.
+This is the purpose of the \texttt{source()} command, which effectively cuts-and-pastes the contents of the given file into your R session.
+For example, the following code runs three separate R scripts in turn:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -11293,22 +11323,26 @@ E.g.,
 \end{Shaded}
 
 If the named file has code to run, it will run it.
-If the named file has a list of methods, those methods will now be available for use.
-The \texttt{here::here()} command is a convenience function that allows you to specify a file path relative to your R project root directory, so you can easily find your files.
+If the named file collects a set of methods, those methods will now be available for use.
+The \texttt{here::here()} command is a convenience function that allows you to specify a file path relative to your R project root directory, so you can easily find your files.\footnote{If you are used to using RStudio projects, you might wonder why you should use \texttt{here::here()}. If you always open your project from the \texttt{.Rproj} file, then the working directory will always start out set to the root directory, but it will not necessarily remain so (if a script calls \texttt{setwd()}, for instance). Further, when \texttt{.Rmd} or \texttt{.qmd} notebooks are compiled, the working directory is temporarily changed to the location of the notebook, so relative file references will work differently than in plain \texttt{.R} scripts. Wrapping file names in \texttt{here::here()} ensures that they will always be evaluated relative to the root directory of the project.}
 
-You can even source files inside files that are sourced.
-For example, \texttt{simulation\_support.R} could, inside it, source the other two files.
-You would then only source the single simulation support file in your primary simulation script.
+The \texttt{source()} command is simple and literal---it runs a specified script from top to bottom, regardless of the contents.
+In particular, if the sourced script includes further calls of \texttt{source()}, the referenced code will be run.
+For example, the \texttt{simulation\_support.R} script could include calls to source the other two files.
+In this case, you would only need to source the single \texttt{simulation\_support.R} file to load the contents of all three files.
+Although this might seem convenient, it does create some constraints as well.
+With this structure, there would be no way to source the contents of \texttt{simulation\_support.R} without also sourcing \texttt{data\_generators.R} and \texttt{estimators.R}.
+For this reason, we tend to avoid using \texttt{source()} in scripts that might themselves be sourced.
 
-One reason for putting code in individual files is you can then have testing code in each of your files (in False blocks, see below), testing each of your components.
-Then, when you are not focused on that component, you don't have to look at that testing code.
+One reason for storing code in individual files and using \texttt{source()} is that you can then include testing code in each of your files to both demonstrate the syntax and check the correctness of your functions.
+Then, when you are not focused on that particular function or component, you don't have to look at that testing code.
+Another good reason for this type of modular organization is that is supports developing a broader simulation universe, potentially with a variety of data generating functions.
+With a whole library of options, you can then readily run multiple simulations that involve some different components and some shared features.
 
-Another good reason for this type of modular organizing is you can then allow for a whole simulation universe, writing a variety of data generators that together form a library of options.
-You can then easily create different simulations that use your different pieces, in your larger project.
-
-For example, in one recent simulation project on estimators for an Instrumental Variable analysis, we had several different data generators for generating different types of compliance patterns (IVs are often used to handle noncompliance in randomized experiments).
+We followed this approach in one recent simulation project examining estimators for an instrumental variable analysis, a common approach to handling non-compliance in randomized experiments.
+In this project, we wrote several different data generating functions that implemented different types of non-compliance patterns.
 Our \texttt{data\_generators.R} code file then had several methods.
-When we sourced it, we end up wit the following list of methods:
+When we sourced it, we end up with the following methods available to call:
 
 \begin{verbatim}
 > ls()
@@ -11317,31 +11351,18 @@ When we sourced it, we end up wit the following list of methods:
 [7] "make_dat_tuned"     "rand_exp"           "summarize_sim_data"
 \end{verbatim}
 
-The \texttt{describe()} and \texttt{summarize()} methods printed various statistics about a sample dataset; these are used to debug and understand how the generated data looks.
-We also had a variety of different DGP methods because we had different versions that came up as we were trying to chase down errors in our estimators and understand strange behavior.
+The \texttt{describe()} and \texttt{summarize()} methods printed various statistics about a sample dataset; we used used these to examine generated datasets and debug the data generating functions.
+We also had a variety of different data generating methods, which we developed over the course of the project as we were trying to chase down errors in our estimators and understand strange behavior.
 
-Putting the estimators in a different file also had a nice additional purpose: we also had an applied data example in our work, and we could simply source that single file and use those estimators on our actual data.
-This ensured our simulation and applied analysis were perfectly aligned in terms of the estimators we were using.
-Also, as we debugged our estimators and tweaked them, we immediately could re-run our applied analysis to update those results with minimal effort.
+For this project, we stored estimation functions in a separate file from the data-generating functions.
+Doing so made it easier to use these functions for purposes other than running simulations.
+The project also involved doing some empirical data analysis, and so we could simply source the file with our estimation functions and apply them to a real dataset.
+This ensured that our simulation and applied analysis were exactly aligned in terms of the estimators we were using.
+As we debugged and tweaked our estimators, we could immediately re-run our applied analysis to update the results, without worrying about whether the calculations were up-to-date and consistent with the simulation code.
 
-Modular programming is key.
+\subsection{Storing testing code}\label{storing-testing-code}
 
-\subsection{Putting headers in your .R file}\label{putting-headers-in-your-.r-file}
-
-When you write a \texttt{.R} script, it is a good idea to put a header at the top of the file, giving a description of the file's purpose.
-Then, you can also put dividers in your file, e.g.,
-
-\begin{verbatim}
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-# Data generating functions ----
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-\end{verbatim}
-
-Note the \texttt{-\/-\/-\/-} at the end of the middle line: if you add those trailing dashes, then if you click on the dropdown at the bottom of your RStudio, you will see a pop-up table of contents that allows you to quickly navigate to different parts of your source file.
-
-\subsection{Storing testing code in your scripts}\label{about-keeping-tests-with-FALSE}
-
-If you have an extended \texttt{.R} file with a list of functions, you might also want to store a lot of code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+If you have an extended \texttt{.R} file with a collection of functions, you might also want to store some code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
 One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a ``FALSE block,'' that might look like so:
 
 \begin{Shaded}
@@ -11358,270 +11379,277 @@ One way to keep this code around, but not have it run all the time when you run 
 \end{Highlighting}
 \end{Shaded}
 
-You can then, when you open and look at the script, paste the code inside the block into the console when you want to run it.
-If you source the script, however, it will not run at all, and thus your code will source faster and not print out any extraneous output.
-This is a good way to keep your testing code with the code it is testing.
+When you open and look at this script, you can then paste the code inside the block into the console when you want to run it.
+However, if you \texttt{source()} the script, the \texttt{FALSE} block will not run at all, so you can avoid extraneous output or computations that are not actually needed.
+This is a good way to keep simple demo code or testing code in close proximity to the function it is testing.
 When you want to work on just the part of the project captured by your script, you can work inside the single file very easily, ignoring the other parts of your project.
 
-You can also (or instead) write testing code, which we will talk about further below.
+In previous chapters, we have emphasized the importance of writing code to validate that your functions work as intended.
+Sometimes, such validation code will involve more than just a quick call to the function.
+In such cases, it can be beneficial to organize validation code in its own file, separate from the function or functions that it tests.
+You would then need to \texttt{source()} the files containing the function to be tested.
+This approach does have the drawback that the testing code is not in close proximity to the function to be tested, so you need to work across multiple files when developing and running the test code.
+However, unlike with the \texttt{FALSE} blocks, organizing your test code in a separate file makes it easier to re-run a collection of several tests.
+This approach to organizing becomes more appealing when the validation code involves calls to functions that are themselves stored in separate files or when it involves invoking packages that are not needed for the main calculations involved in the simulation.
+It is also closer to how you might work when developing code for an R package, with unit tests that check the correctness of critical functions.\footnote{For more on unit testings, see Chapters 13 through 15 of \citet{Wickham2023packages}.}
 
 \section{Principled directory structures}\label{principled-directory-structures}
 
-We \emph{strongly advocate} keeping a well-organized directory for your simulation.
-We recommend using RStudio, or a similar IDE, and having a directory structure like the following:
+\emph{Tidy home, tidy mind}, as the saying goes.
+With any computational project, our home is usually a directory on our computer (or in a cloud).
+For multifactor simulation studies, we \emph{strongly} advocate using an organized and clearly labelled directory structure, which will facilitate more intentional---and easier to follow---coding practices.
+We recommend using an integrated development environment such as RStudio, Positron, or VS Code and building a directory structure as follows:
 
 \begin{verbatim}
 my_project/
   proj.Rproj
   README.md
   R/
-  data/
-  results/
-  scripts/
   test/
+  data/
+  scripts/
+  results/
 \end{verbatim}
 
-For those who have written R pacakges, this structure will look familiar.
-The \texttt{R/} directory is where you put your core R code.
-We will have \texttt{.R} scripts that just hold our core methods; we can then ``load'' these scripts into our workspace as needed to gain access to those methods.
-Saved methods might include the methods you have developed that you are planning on testing (unless they are in a separate package), and methods to generate data.
-We \emph{do not} put the scripts that run the actual simulation here. The \texttt{R/} folder is to store the building blocks of our simulation only, not the final scripts that use those blocks to run and analyze our simulations themselves.
+If you have ever looked at the source code for or developed your own R package, this structure will look familiar.
 
-The \texttt{data/} directory is where you put any data files you are using in your simulation.
-The \texttt{results/} directory is where you will save any generated results of your simulation.
-Sometimes it might be worth having \texttt{raw\_results} and \texttt{results}, where \texttt{raw\_results} are what you save as soon as you finish running the simulation, and \texttt{results} have final results where you may have merged and summarized the raw results.
+\begin{itemize}
+\item
+  The \texttt{R/} directory is where to put the core R code for your simulation.
+  It should contain one or more \texttt{.R} scripts that hold the main functions for implementing a tidy simulation, including data-generating functions, analysis functions, performance calculation functions, and a simulation driver that pulls all the pieces together.
+  With all of these functions saved in the same directory, you can then \texttt{source()} the scripts as needed to gain access to your functions.
+  You \emph{should not} put the scripts that actually execute the simulation or analyze the results in this folder.
+  Instead, the \texttt{R/} folder is reserved for the building blocks of the simulation.
+\item
+  The \texttt{test/} directory is where to put any code for testing the functions and methods you have developed.
+  You could even write formal unit tests for your methods using a testing framework such as the \texttt{testthat} package, and put those in the \texttt{test/} directory.
+\item
+  The \texttt{data/} directory is where to put any data files used in executing the simulation.
+  For instance, a simulation of a cluster-randomized experiment might make use of an empirical dataset containing features such as cluster sizes or covariate values, which are sampled when generating artificial datasets.
+  This directory is reserved for \emph{source} data, which may be read in as part of the simulation.
+  It should not contain any files that are \emph{created} as part of executing the simulation.
+\item
+  The \texttt{scripts/} directory is where to put scripts that actually run the simulations and analyze simulation results.
+  Some of these scripts will make use of functions saved in the \texttt{R/} directory.
+  You will likely have at least one script that runs the simulation and at least one script for analyzing the results.
+\item
+  The \texttt{results/} directory is where to save any generated results of your simulation.
+  This directory should \emph{only} contain files that have been created by running code in the \texttt{scripts/} directory.
+  Sometimes it might be worth having separate directories \texttt{raw\_results} and \texttt{results}, where \texttt{raw\_results} holds output created from running the simulation driver, and \texttt{results} holds final results produced from merging and summarizing the raw results.
+\end{itemize}
 
-The \texttt{scripts/} directory is where you put your scripts that run the simulation and analyze simulation results.
-You will likely have one script that runs the simulation, and one or more scripts that analyze the results.
-
-Finally, the \texttt{test/} directory is where you put any testing code you have written to test your methods.
-You can even use the \texttt{testthat} package to write unit tests for your methods, and put those in the \texttt{test/} directory.
-This structure is not required, but it is a good idea to have a well-organized project of some type.
+Using this structure will help you to maintain reproducibility of the full project.
+If any files in \texttt{data/}, \texttt{R/}, or \texttt{scripts/} are changed, then some or all of the files in \texttt{results/} may need to be updated.
+In principle, it should be possible to delete all of the files in \texttt{results/} and recreate them in full by re-running the files in the \texttt{scripts/} directory.
 
 \section{Saving simulation results}\label{saving-files}
 
-Always save your simulation results to a file.
-Simulations are painful and time consuming to run, and you will invariably want to analyze the results of them in a variety of different ways, once you have looked at your preliminary analysis.
-We advocate saving your simulation as soon as it is complete.
-But there are some ways to do better than that, such as saving as you go.
-This can protect you if your simulation occasionally crashes, or if you want to rerun only parts of your simulation for some reason.
+Multifactor simulations can be error-prone and time-consuming to run, and analyzing raw simulation results often involves several rounds of iteration and refinement.
+Because of this, it pays to be cautious and save raw simulation results, so that they can be accessed and analyzed without having to re-run the code that generated them.
+As a bare minimum for any multifactor simulation, we recommend saving the complete set of results to a file.
+In many instances, it may make sense to go further by saving results for each unique condition as soon as it is complete.
+The latter approach provides an additional level of protection in the event that you need to re-run parts of the simulation or if the code crashes out in rare circumstances or for only a subset of the conditions.
 
-\subsection{Saving simulations in general}\label{saving-simulations-in-general}
+\subsection{File formats}\label{file-formats}
 
-Once your simulation has completed, you can save it like so:
+An initial consideration is what format to use when saving simulation results.
+Two main candidates are the generic \texttt{.csv} format or the R-specific \texttt{.rds} format.
+
+The first option is to save each dataset as a comma-separated value file.
+For instance, after your simulation has completed, you could save it in the file \texttt{results/simulation\_CRT.csv} like so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{dir.create}\NormalTok{(}\StringTok{"results"}\NormalTok{, }\AttributeTok{showWarnings =} \ConstantTok{FALSE}\NormalTok{ )}
+\FunctionTok{dir.create}\NormalTok{(}\StringTok{"results"}\NormalTok{, }\AttributeTok{showWarnings =} \ConstantTok{FALSE}\NormalTok{)}
 \FunctionTok{write\_csv}\NormalTok{( res, }\StringTok{"results/simulation\_CRT.csv"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-\texttt{write\_csv()} is a tidyverse file-writing command; see ``R for Data Science''
-textbook, 11.5.
-
-You can then load it, just before analysis, as so:
+The \texttt{write\_csv()} function comes from the \texttt{readr} package, which is part of the \texttt{tidyverse} suite.
+It takes a dataset and a file name as input and creates a comma-separated value file containing the contents of the dataset.\footnote{See Section 11.5 of the \emph{R for Data Science} textbook \citep{Wickham2023data} for further details.}
+Once stored, you can load the dataset back into R for analysis using the \texttt{read\_csv()} function:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{res }\OtherTok{=} \FunctionTok{read\_csv}\NormalTok{( }\StringTok{"results/simulation\_CRT.csv"}\NormalTok{ )}
+\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{read\_csv}\NormalTok{( }\StringTok{"results/simulation\_CRT.csv"}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
-There are two general tools for saving. The \texttt{read/write\_csv} methods save your file in a way where you can open it with a spreadsheet program and look at it.
-But your results should be in a vanilla, rectangular format (non-fancy data frame without list columns).
+A key advantage of storing results as \texttt{.csv} is that it is a general format, so the file can be read by others even if they are not familiar with R.
+The format also makes for convenient viewing in a spreadsheet program.
+However, storing results in this format will only work for plain, rectangular datasets with no special features (such as list-columns).
+Further, saving a dataset as \texttt{.csv} and then reading it back into R results in a loss of meta-data, such as variable labels and column data-types.\footnote{For example, a variable that was initially created with \texttt{factor()} will be converted into a plain character vector, and the ordering of the factor levels will be lost.}
 
-Alternatively, you can use the \texttt{saveRDS()} and \texttt{readRDS()} methods; these save objects to a file such that when you load them, they are as you left them.
-The RDS saving keeps your R object as given.
-The simpler format of a csv file means your factors, if you have them, may not preserve as factors, and so forth.
+A second option is to use the \texttt{saveRDS()} and \texttt{readRDS()} methods.
+For instance, you could save a dataset containing simulation results in the file \texttt{results/simulation\_CRT.rds} like so:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{dir.create}\NormalTok{(}\StringTok{"results"}\NormalTok{, }\AttributeTok{showWarnings =} \ConstantTok{FALSE}\NormalTok{)}
+\FunctionTok{saveRDS}\NormalTok{( res, }\StringTok{"results/simulation\_CRT.rds"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+The \texttt{saveRDS()} command is a base R function that takes an R object and a file name as input and creates a file that stores the object in a serialized (usually binary) format.
+Once stored, you can load the object back into R for analysis using the \texttt{readRDS()} function:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{( }\StringTok{"results/simulation\_CRT.csv"}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+One major advantage of storing results in \texttt{.rds} format is that they can be reloaded in the exact same form in which they were saved. There is no conversion between file formats, and so no loss of meta-data about variable formats, labels, or the like.
+Another advantage is that \texttt{.rds} can hold \emph{any} type of R object---whether it be a dataset, a function, a fitted model.
+Because of this, it can be used to save tibbles even if they included nested listed-columns or other more exotic structures.
+The main disadvantage is that the contents of the file cannot be interpreted without reading it back into R.
 
 \subsection{Saving simulations as you go}\label{saving-simulations-as-you-go}
 
-If you are not sure you have time to run your entire simulation, or you think your computer might crash half way through, or something similar, you can save each chunk you run as you go, in its own file. You then stack those files at the end to get your final results.
-With clever design, you can even then selectively delete files to rerun only parts of your larger simulation---but be sure to rerun everything from scratch before you run off and publish your results, to avoid embarrassing errors.
+For some projects involving multifactor simulations with multiple data-generating conditions, it can be useful to save results from each condition in its own file.
+You then need to read in and combine the results across files to get a final dataset containing all the results.
+This is a prudent step to take if you are not sure you will have time to run the entire simulation, if you are worried that your R session might crash half way through because of an error, or if you are trying to debug an error that only occurs under certain conditions.
+This approach to saving results is also effective when running simulations in parallel, as we will discuss in Chapter \ref{parallel-processing}.
+With a bit of further machinery, it makes it possible to selectively delete files and rerun only parts of a larger simulation.\footnote{Of course this requires some care to ensure everything is still reproducible. Before you run off and publish results from the simulation, you might want to rerun everything from scratch and ensure everything is up to date, to avoid potentially embarrassing errors.}
 
-Here, for example, is a script from a research project examining how one might use post-stratification to improve the precision of an IV estimate.
-This is the script that runs the simulation.
-Note the sourcing of other scripts that have all the relevant functions; these are not important here.
-Due to modular programming, we can see what this script does, even without those detail.
+We will illustrate this approach to storing results by revisiting the simulation study on confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution, building on our development in Chapter \ref{simulating-multiple-scenarios}.
+This simulation involved four different factors, each with multiple levels, with data-generating conditions created as follows:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{source}\NormalTok{( }\StringTok{"R/simulation\_functions.R"}\NormalTok{ )}
-
-\ControlFlowTok{if}\NormalTok{ ( }\SpecialCharTok{!}\FunctionTok{file.exists}\NormalTok{(}\StringTok{"results/frags"}\NormalTok{ ) ) \{}
-    \FunctionTok{dir.create}\NormalTok{(}\StringTok{"results/frags"}\NormalTok{)}
-\NormalTok{\}}
-
-\CommentTok{\# Number of simulation replicates per scenario}
-\NormalTok{R }\OtherTok{=} \DecValTok{1000}
-
-\CommentTok{\# Do simulation breaking up R into this many chunks}
-\NormalTok{M\_CHUNK }\OtherTok{=} \DecValTok{10}
-
-\DocumentationTok{\#\#\#\#\#\# Set up the multifactor simulation \#\#\#\#\#\#\#}
-
-\CommentTok{\# chunkNo is a hack to make a bunch of smaller chunks for doing parallel more}
-\CommentTok{\# efficiently.}
-\NormalTok{factors }\OtherTok{=} \FunctionTok{expand\_grid}\NormalTok{( }\AttributeTok{chunkNo =} \DecValTok{1}\SpecialCharTok{:}\NormalTok{M\_CHUNK,}
-                       \AttributeTok{N =} \FunctionTok{c}\NormalTok{( }\DecValTok{500}\NormalTok{, }\DecValTok{1000}\NormalTok{, }\DecValTok{2000}\NormalTok{ ),}
-                       \AttributeTok{pi\_c =} \FunctionTok{c}\NormalTok{( }\FloatTok{0.05}\NormalTok{, }\FloatTok{0.075}\NormalTok{, }\FloatTok{0.10}\NormalTok{ ),}
-                       \AttributeTok{nt\_shift =} \FunctionTok{c}\NormalTok{( }\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{ ),}
-                       \AttributeTok{pred\_comp =} \FunctionTok{c}\NormalTok{( }\StringTok{"yes"}\NormalTok{, }\StringTok{"no"}\NormalTok{ ),}
-                       \AttributeTok{pred\_Y =} \FunctionTok{c}\NormalTok{( }\StringTok{"yes"}\NormalTok{, }\StringTok{"no"}\NormalTok{ ),}
-                       \AttributeTok{het\_tx =} \FunctionTok{c}\NormalTok{( }\StringTok{"yes"}\NormalTok{, }\StringTok{"no"}\NormalTok{ ),}
-                       \AttributeTok{sd0 =} \DecValTok{1}
-\NormalTok{                       )}
-\NormalTok{factors }\OtherTok{\textless{}{-}}\NormalTok{ factors }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}
-    \AttributeTok{reps =}\NormalTok{ R }\SpecialCharTok{/}\NormalTok{ M\_CHUNK,}
-    \AttributeTok{seed =} \DecValTok{16200320} \SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{n}\NormalTok{()}
-\NormalTok{)}
+\NormalTok{params }\OtherTok{\textless{}{-}} \FunctionTok{expand\_grid}\NormalTok{( }
+  \AttributeTok{N =} \FunctionTok{c}\NormalTok{(}\DecValTok{10}\NormalTok{, }\DecValTok{20}\NormalTok{, }\DecValTok{30}\NormalTok{),}
+  \AttributeTok{mu1 =} \FunctionTok{c}\NormalTok{(}\DecValTok{4}\NormalTok{, }\DecValTok{8}\NormalTok{, }\DecValTok{12}\NormalTok{),}
+  \AttributeTok{lambda =} \FunctionTok{c}\NormalTok{(}\FloatTok{0.5}\NormalTok{, }\FloatTok{1.0}\NormalTok{),}
+  \AttributeTok{rho =} \FunctionTok{seq}\NormalTok{(}\FloatTok{0.0}\NormalTok{, }\FloatTok{0.7}\NormalTok{, }\FloatTok{0.1}\NormalTok{) }
+\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{( }\AttributeTok{mu2 =}\NormalTok{ mu1 }\SpecialCharTok{*}\NormalTok{ lambda )}
 \end{Highlighting}
 \end{Shaded}
 
-This generates a data frame of all our factor combinations.
-This is our list of ``tasks'' (each row of factors).
-These tasks have repeats: the ``chunks'' means we do a portion of each scenario, as specified by our simulation factors, as a process.
-This would allow for greater parallelization (e.g., if we had more cores), and also lets us save our work without finishing an entire scenario of, in this case, 1000 iterations.
-
-To set up our simulation we make a little helper method to do one row.
-With each row, once we have run it, we save it to disk.
-This means if we kill our simulation half-way through, most of the work would be saved.
-Our function is then going to either do the simulation (and save the result to disk immediately), or, if it can find the file with the results from a previous run, load those results from disk:
+In Chapter \ref{simulating-multiple-scenarios}, we used \texttt{bundle\_sim()} to create a simulation driver for executing the simulation for a given scenario and then used \texttt{evaluate\_by\_row()} to call the simulation driver for every condition listed in \texttt{params}:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{safe\_run\_sim }\OtherTok{=} \FunctionTok{safely}\NormalTok{( run\_sim )}
-\NormalTok{file\_saving\_sim }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( chunkNo, seed, ... ) \{}
-\NormalTok{    fname }\OtherTok{=} \FunctionTok{paste0}\NormalTok{( }\StringTok{"results/frags/fragment\_"}\NormalTok{, chunkNo, }\StringTok{"\_"}\NormalTok{, seed, }\StringTok{".rds"}\NormalTok{ )}
-\NormalTok{    res }\OtherTok{=} \ConstantTok{NA}
-    \ControlFlowTok{if}\NormalTok{ ( }\SpecialCharTok{!}\FunctionTok{file.exists}\NormalTok{(fname) ) \{}
-\NormalTok{        res }\OtherTok{=} \FunctionTok{safe\_run\_sim}\NormalTok{( }\AttributeTok{chunkNo=}\NormalTok{chunkNo, }\AttributeTok{seed=}\NormalTok{seed, ... )}
-        \FunctionTok{saveRDS}\NormalTok{(res, }\AttributeTok{file =}\NormalTok{ fname )}
-\NormalTok{    \} }\ControlFlowTok{else}\NormalTok{ \{}
-\NormalTok{        res }\OtherTok{=} \FunctionTok{readRDS}\NormalTok{( }\AttributeTok{file=}\NormalTok{fname )}
-\NormalTok{    \}}
-    \FunctionTok{return}\NormalTok{( res )}
+\FunctionTok{library}\NormalTok{(simhelpers)}
+
+\NormalTok{Pearson\_sim }\OtherTok{\textless{}{-}} \FunctionTok{bundle\_sim}\NormalTok{( }\AttributeTok{f\_generate =}\NormalTok{ r\_bivariate\_Poisson, }\AttributeTok{f\_analyze =}\NormalTok{ r\_and\_z, }\AttributeTok{f\_summarize =}\NormalTok{ evaluate\_CIs )}
+
+\NormalTok{sim\_results }\OtherTok{\textless{}{-}} \FunctionTok{evaluate\_by\_row}\NormalTok{( params, Pearson\_sim, }\AttributeTok{reps =} \DecValTok{100}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+To store the results from each condition in its own file, we need to modify the simulation driver to save its result to file rather than just returning it.
+One way to do so is to wrap \texttt{Pearson\_sim()} inside another function:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Pearson\_sim\_save }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(..., }\AttributeTok{filename =} \ConstantTok{NA\_character\_}\NormalTok{) \{}
+\NormalTok{  res }\OtherTok{\textless{}{-}} \FunctionTok{safely}\NormalTok{(Pearson\_sim)(...)}
+  \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{is.null}\NormalTok{(res}\SpecialCharTok{$}\NormalTok{error)) }\FunctionTok{saveRDS}\NormalTok{(res}\SpecialCharTok{$}\NormalTok{result, }\AttributeTok{file =}\NormalTok{ filename)}
+  \FunctionTok{return}\NormalTok{(res}\SpecialCharTok{$}\NormalTok{error)}
 \NormalTok{\}}
 \end{Highlighting}
 \end{Shaded}
 
-Note how we wrap our core \texttt{run\_sim} method (that takes all our simulation factors and runs a simulation for those factors) in \texttt{safely}; \texttt{run\_sim()} was crashing very occasionally, and so to make the code more robust, we wrapped it so we could see any error messages.
-Our method cleverly either loads a saved result, or generates it, for a given chunk.
-This means from whatever is calling the function, it will look exactly the same whether it is loading a saved result or generating a new one.
+This function calls the simulation driver, \texttt{Pearson\_sim()} using any arguments in the \texttt{...}.
+To prevent an error from stopping the entire simulation, we have wrapped the simulation driver in \texttt{safely()} to trap errors.
+As long as \texttt{Pearson\_sim()} does not return an error, it saves the results from the simulation in a file with the user-specified \texttt{filename}.
+The function returns any errors as output so that it they can examined to figure out what went wrong.
 
-We next run the simulation by calling \texttt{file\_saving\_sim()} for all of our simulation scenarios.
+To use the function, we'll first need to create a file name for every condition in the simulation.
+We also create a unique seed for each condition, which will get passed to the simulation driver to ensure computational reproducibility.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\CommentTok{\# Shuffle the rows so we run in random order to load balance.}
-\NormalTok{factors }\OtherTok{=} \FunctionTok{sample\_n}\NormalTok{(factors, }\FunctionTok{nrow}\NormalTok{(factors) )}
-
-\ControlFlowTok{if}\NormalTok{ ( }\ConstantTok{TRUE}\NormalTok{ ) \{}
-    \CommentTok{\# Run in parallel}
-\NormalTok{    parallel}\SpecialCharTok{::}\FunctionTok{detectCores}\NormalTok{()}
-    
-    \FunctionTok{library}\NormalTok{(future)}
-    \FunctionTok{library}\NormalTok{(furrr)}
-    
-    \CommentTok{\#plan(multiprocess) \# choose an appropriate plan from future package}
-    \CommentTok{\#plan(multicore)}
-    \FunctionTok{plan}\NormalTok{(multisession, }\AttributeTok{workers =}\NormalTok{ parallel}\SpecialCharTok{::}\FunctionTok{detectCores}\NormalTok{() }\SpecialCharTok{{-}} \DecValTok{2}\NormalTok{ )}
-    
-\NormalTok{    factors}\SpecialCharTok{$}\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{future\_pmap}\NormalTok{(factors, }\AttributeTok{.f =}\NormalTok{ file\_saving\_sim,}
-                          \AttributeTok{.options =} \FunctionTok{furrr\_options}\NormalTok{(}\AttributeTok{seed =} \ConstantTok{NULL}\NormalTok{),}
-                          \AttributeTok{.progress =} \ConstantTok{TRUE}\NormalTok{ )}
-    
-\NormalTok{\} }\ControlFlowTok{else}\NormalTok{ \{}
-  \CommentTok{\# Run not in parallel, used for debugging}
-\NormalTok{  factors}\SpecialCharTok{$}\NormalTok{res }\OtherTok{\textless{}{-}} \FunctionTok{pmap}\NormalTok{(factors, }\AttributeTok{.f =}\NormalTok{ file\_saving\_sim )}
-\NormalTok{\}}
-
-\NormalTok{tictoc}\SpecialCharTok{::}\FunctionTok{toc}\NormalTok{()}
+\NormalTok{params }\OtherTok{\textless{}{-}} 
+\NormalTok{  params }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{seed =} \DecValTok{20260129} \SpecialCharTok{+} \FunctionTok{row\_number}\NormalTok{(),}
+    \AttributeTok{filename =} \FunctionTok{paste0}\NormalTok{(}\StringTok{"results/pearson{-}sim/pearson{-}row"}\NormalTok{, seed, }\StringTok{".rds"}\NormalTok{)}
+\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{lambda)}
 \end{Highlighting}
 \end{Shaded}
 
-Note how we shuffle the rows of our task list so that which process gets what task is randomized.
-If some tasks are much longer (e.g., due to larger sample size) then this will get balanced out across our processes.
-See \ref{parallel-processing} for more on parallel processing.
+We can then call \texttt{evaluate\_by\_row()} with \texttt{Pearson\_sim\_save()} as the simulation driver:
 
-The \texttt{if-then} structure allows us to easily switch between parallel and nonparallel code.
-This makes debugging easier: when running in parallel, stuff printed to the console does not show until the simulation is over.
-Plus it would be all mixed up since multiple processes are working simultaneously.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sim\_errors }\OtherTok{\textless{}{-}} \FunctionTok{evaluate\_by\_row}\NormalTok{(params, Pearson\_sim\_save, }\AttributeTok{reps =} \DecValTok{100}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
 
-The above overall structure allows the researcher to delete one of the ``fragment'' files from the disk, run the simulation code, and have it just do one tiny piece of the simulation.
-This means the researcher can insert a \texttt{browser()} command somewhere inside the code, and debug the code, in the natural context of how the simulation is being run.
+This will create a set of 144 files containing the simulation results from every condition.
+The object \texttt{sim\_errors} will include a column containing the error messages from any conditions that did not complete.
+In the event that some conditions produced errors or if we had to stop execution of the simulations before every condition was run, some of the results will still be saved, and we will only need to re-run the remaining conditions.
 
-The seed setting ensures reproducibility.
-Once we are done, we need to clean up our results:
+To illustrate how to re-run a subset of results, suppose that we had only been able to run and save results for the first three conditions.
+The directory containing simulation results will then only contain three files:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{completed\_rows }\OtherTok{\textless{}{-}} \FunctionTok{list.files}\NormalTok{(}\StringTok{"results/pearson{-}sim"}\NormalTok{, }\AttributeTok{full.names =} \ConstantTok{TRUE}\NormalTok{)}
+\NormalTok{completed\_rows}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "results/pearson-sim/pearson-row20260130.rds"
+## [2] "results/pearson-sim/pearson-row20260131.rds"
+## [3] "results/pearson-sim/pearson-row20260132.rds"
+\end{verbatim}
+
+To avoid repeating the simulations for these conditions, we can screen them out before running \texttt{evaluate\_by\_row()} again, as in:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sim\_errors }\OtherTok{\textless{}{-}} 
+\NormalTok{  params }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\NormalTok{(filename }\SpecialCharTok{\%in\%}\NormalTok{ completed\_rows)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{evaluate\_by\_row}\NormalTok{(Pearson\_sim\_save, }\AttributeTok{reps =} \DecValTok{100}\NormalTok{ )}
+\end{Highlighting}
+\end{Shaded}
+
+Once all the conditions are run, the directory \texttt{results/pearson-sim} will have a set of files containing all the simulation results.
+The only thing left to do is read these files in and combine them into a single dataset.
+To do so, we will first get the names of the files with \texttt{list.files()} and check that everything is complete
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{completed\_rows }\OtherTok{\textless{}{-}} \FunctionTok{list.files}\NormalTok{(}\StringTok{"results/pearson{-}sim"}\NormalTok{, }\AttributeTok{full.names =} \ConstantTok{TRUE}\NormalTok{)}
+\FunctionTok{setdiff}\NormalTok{(params}\SpecialCharTok{$}\NormalTok{filename, completed\_rows)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## character(0)
+\end{verbatim}
+
+We can then read in the files using \texttt{map()} to call \texttt{readRDS()} on each file:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{sim\_results }\OtherTok{\textless{}{-}} 
-\NormalTok{    factors }\SpecialCharTok{\%\textgreater{}\%} 
-    \FunctionTok{unnest}\NormalTok{(}\AttributeTok{cols =}\NormalTok{ res)}
-
-\CommentTok{\# Cut apart the results and error messages}
-\NormalTok{sim\_results}\SpecialCharTok{$}\NormalTok{sr }\OtherTok{=} \FunctionTok{rep}\NormalTok{( }\FunctionTok{c}\NormalTok{(}\StringTok{"res"}\NormalTok{,}\StringTok{"err"}\NormalTok{), }\FunctionTok{nrow}\NormalTok{(sim\_results)}\SpecialCharTok{/}\DecValTok{2}\NormalTok{)}
-\NormalTok{sim\_results }\OtherTok{=} \FunctionTok{pivot\_wider}\NormalTok{( sim\_results, }\AttributeTok{names\_from =}\NormalTok{ sr, }\AttributeTok{values\_from =}\NormalTok{ res )}
-
-\FunctionTok{saveRDS}\NormalTok{( sim\_results, }\AttributeTok{file=}\StringTok{"results/simulation\_results.rds"}\NormalTok{ )}
+\NormalTok{  params }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# ensure we only read in completed conditions}
+  \FunctionTok{filter}\NormalTok{(filename }\SpecialCharTok{\%in\%}\NormalTok{ completed\_rows) }\SpecialCharTok{\%\textgreater{}\%}
+  \CommentTok{\# read in results from every condition}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{res =} \FunctionTok{map}\NormalTok{(filename, readRDS)}
+\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{unnest}\NormalTok{(res) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{filename)}
 \end{Highlighting}
 \end{Shaded}
 
-Our final \texttt{simulation\_results.rds} file will have all the results from our simulation, made by stacking all of the fragments of our simulation together.
-
-\subsection{Dynamically making directories}\label{dynamically-making-directories}
-
-If you are generating a lot of files, then you should put them somewhere.
-But where?
-It can be nice to dynamically generate a directory for your files on fly.
-One way to do this is to write a function that will make any needed directory, if it doesn't exist, and then put your file in that spot.
-For example, you might have your own version of \texttt{write\_csv} as:
+The dataset \texttt{sim\_results} now has all the results from every condition evaluated, organized by stacking the fragments from each of the individual conditions.
+We use the \texttt{filename} variable stored in the list of simulation conditions so that the parameter settings of each condition are available in the same dataset as the results.
+To avoid having to repeat the process or reading in the files, we could also save the full set of results in a separate \texttt{.rds} file:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{my\_write\_csv }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( data, path, file ) \{}
-  
-  \ControlFlowTok{if}\NormalTok{ ( }\SpecialCharTok{!}\FunctionTok{dir.exists}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( path ) ) ) \{}
-    \FunctionTok{dir.create}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( path ), }\AttributeTok{recursive=}\ConstantTok{TRUE}\NormalTok{ ) }
-\NormalTok{  \}}
-  \FunctionTok{write\_csv}\NormalTok{( data, }\FunctionTok{paste0}\NormalTok{( path, file ) )}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-This will look for a path (starting from your R Project, by taking advantage of the \texttt{here} package), and put your data file in that spot.
-If the spot doesn't exist, it will make it for you.
-
-\subsection{Loading and combining files of simulation results}\label{loading-and-combining-files-of-simulation-results}
-
-Once your simulation files are all generated, the following code will stack them all into a giant set of results, assuming all the files are themselves data frames stored in RDS objects.
-This function will try and stack all files found in a given directory; for it to work, you should ensure there are no other files stored there.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{load.all.sims }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( }\AttributeTok{filehead=}\StringTok{"raw\_results/"}\NormalTok{ ) \{}
-  
-\NormalTok{  files }\OtherTok{=} \FunctionTok{list.files}\NormalTok{( filehead, }\AttributeTok{full.names=}\ConstantTok{TRUE}\NormalTok{)}
-  
-\NormalTok{  res }\OtherTok{=} \FunctionTok{map\_df}\NormalTok{( files, }\ControlFlowTok{function}\NormalTok{( fname ) \{}
-    \FunctionTok{cat}\NormalTok{( }\StringTok{"Reading results from "}\NormalTok{, fname, }\StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{ )}
-\NormalTok{    rs }\OtherTok{=} \FunctionTok{readRDS}\NormalTok{( }\AttributeTok{file =}\NormalTok{ fname )}
-\NormalTok{    rs}\SpecialCharTok{$}\NormalTok{filename }\OtherTok{=}\NormalTok{ fname}
-\NormalTok{    rs}
-\NormalTok{  \})}
-\NormalTok{  res}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-You would use as so:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{results }\OtherTok{\textless{}{-}} \FunctionTok{load.all.sims}\NormalTok{( }\AttributeTok{filehead=}\StringTok{"raw\_results/"}\NormalTok{ )}
-\NormalTok{results }\OtherTok{\textless{}{-}} \FunctionTok{bind\_rows}\NormalTok{( results )}
+\FunctionTok{saveRDS}\NormalTok{(sim\_results, }\AttributeTok{file =} \StringTok{"results/pearson{-}simulation{-}all{-}results.rds"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
@@ -12282,7 +12310,7 @@ Consider:
 
 Testing your code is a good way to ensure that it does what you expect.
 We have seen some demonstration of testing code early on, such as when we made plots of our simulated data to see if it looked like we expected.
-This kind of code could be stored in the script with the functions being tested, so that you can run it again later to see if the code still works as expected, using the \texttt{FALSE} trick discussed in Section \ref{about-keeping-tests-with-FALSE}.
+This kind of code could be stored in the script with the functions being tested, so that you can run it again later to see if the code still works as expected, using the \texttt{FALSE} trick discussed in Section \ref{storing-testing-code}.
 
 That sort of testing is important, but it can be hard to bring oneself to go and rerun it after making what seems like a trivial change to the core code.
 It can also be hard to track down the ripple effects of changing a low-level method that is used by many other methods.
@@ -12620,7 +12648,7 @@ We can group each treatment arm and look at discipline over the years:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-316-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-329-1} \end{center}
 
 Our treatment group drops faster than the control. We see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated.
 
@@ -12865,7 +12893,7 @@ We can also plot the nominal rejection rates under the null:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-322-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-335-1} \end{center}
 
 We see the fixed effect models have elevated rates of rejection.
 Interestingly, these rates do not seem particularly dependent on sample size or treatment-control imbalance (note lack of significant coefficeints on our regression model).
@@ -13083,7 +13111,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ==>----------------------------  5...
+##   Simulating =======>-----------------------  2...
 \end{verbatim}
 
 \begin{verbatim}
@@ -13099,7 +13127,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating ==============>----------------  4...
+##   Simulating ================>--------------  5...
 \end{verbatim}
 
 \begin{verbatim}
@@ -13115,7 +13143,7 @@ The method in fact runs a multifactor experiment:
 \end{verbatim}
 
 \begin{verbatim}
-##   Simulating =====>-------------------------  1...
+##   Simulating ========>----------------------  2...
 \end{verbatim}
 
 \begin{verbatim}
@@ -14214,7 +14242,7 @@ For example:
 
 \begin{verbatim}
 ##    user  system elapsed 
-##   0.036   0.000   0.037
+##   0.037   0.000   0.037
 \end{verbatim}
 
 Elapsed time is how much time actually passed.
@@ -14254,7 +14282,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-## Time difference of 0.04913497 secs
+## Time difference of 0.0489006 secs
 \end{verbatim}
 
 This can be useful, but be careful, as the time is stored along with the units. If your simulation takes a long time, it will flip from a lot of seconds to a few minutes, and you can end up thinking something that took much, much longer was actually fast.
@@ -14274,7 +14302,7 @@ It has two functions, \texttt{tic()} and \texttt{toc()}, which you can use to ma
 \end{Shaded}
 
 \begin{verbatim}
-## Generating data: 0.037 sec elapsed
+## Generating data: 0.036 sec elapsed
 \end{verbatim}
 
 It is basically like \texttt{Sys.time()} but it has a few more features, such as being able to label the time you are measuring.
@@ -14303,9 +14331,9 @@ For example, we can time how long it takes to analyze some data from our cluster
 ## # A tibble: 3 x 6
 ##   expression      min   median `itr/sec` mem_alloc
 ##   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>
-## 1 MLM        103.38ms 103.83ms      9.59   25.78MB
-## 2 OLS        114.36ms 115.49ms      8.58    2.51MB
-## 3 agg          6.76ms   7.01ms    142.    472.97KB
+## 1 MLM        101.84ms 103.53ms      9.63   25.78MB
+## 2 OLS        115.84ms 116.06ms      8.50    2.51MB
+## 3 agg          6.59ms   6.77ms    147.    472.98KB
 ## # i 1 more variable: `gc/sec` <dbl>
 \end{verbatim}
 
@@ -14317,7 +14345,7 @@ You can even get a viz of how long everything took:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-360-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-373-1} \end{center}
 
 The ``gc'' coloring in the above indicates runs where ``garbage collection'' took place, meaning R paused to empty out some used memory.
 
@@ -14375,7 +14403,7 @@ And we can make our custom plot of time:
 \end{Highlighting}
 \end{Shaded}
 
-\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-362-1} \end{center}
+\begin{center}\includegraphics[width=0.75\linewidth]{Designing-Simulations-in-R_files/figure-latex/unnamed-chunk-375-1} \end{center}
 
 Note the \texttt{timings} object is not quite a classic tibble, and the expression at start captures the code run. The ``name'' line grabs the names given in the initial evaluation so we can make the plot the way we want.
 
@@ -14470,9 +14498,9 @@ To see the difference between our version and R's version, we benchmark:
 \hline
 expression & min & median & itr/sec & speed\_up\\
 \hline
-Rfunction & 472us & 500us & 1981.65 & 1.00\\
+Rfunction & 473us & 499us & 1978.51 & 1.00\\
 \hline
-direct & 217us & 226us & 4322.54 & 2.21\\
+direct & 215us & 225us & 4350.35 & 2.22\\
 \hline
 \end{tabular}
 
@@ -14757,9 +14785,9 @@ We benchmark to see our speedup:
 \hline
 expression & min & median & itr/sec & speed\_up\\
 \hline
-original & 1.45ms & 1.49ms & 661.89 & 1.0\\
+original & 1.42ms & 1.48ms & 667.11 & 1.00\\
 \hline
-one\_agg & 1.21ms & 1.24ms & 799.26 & 1.2\\
+one\_agg & 1.19ms & 1.24ms & 800.59 & 1.19\\
 \hline
 \end{tabular}
 
