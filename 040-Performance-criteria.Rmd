@@ -7,6 +7,8 @@ output:
 ```{r include = FALSE}
 library(tidyverse)
 library(simhelpers)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::filter)
 options(list(dplyr.summarise.inform = FALSE))
 source("case_study_code/gen_cluster_RCT.R")
 
@@ -1316,11 +1318,11 @@ You can calculate MCSE similarly for nearly any performance measures you can com
 
 ## Performance Calculations with the `simhelpers` Package
 
-The `simhelpers` package provides several functions for calculating most of the performance measures that we have reviewed, along with MCSEs for each performance measures.
+The `simhelpers` package provides several functions for calculating most of the performance measures that we have reviewed, along with MCSEs for each measure.
 The functions are easy to use. 
 Consider this set of simulation runs on the Welch dataset:
 
-```{r simhelpers-MCSEs}
+```{r simhelpers-MCSEs, include=FALSE}
 library( simhelpers )
 data( welch_res )
 
@@ -1328,19 +1330,24 @@ welch <-
   welch_res %>%
   dplyr::select(-seed, -iterations ) %>%
   mutate(method = case_match(method, "Welch t-test" ~ "Welch", .default = method))
-
-head(welch)
 ```
 
-We can calculate performance measures across all the range of scenarios.
-Here is the rejection rate for the traditional $t$-test based on the subset of simulation results with sample sizes of $n_1 = n_2 = 50$ and a mean difference of 0, using $\alpha$ levels of .01 and .05:
+```{r}
+head(welch)
+```
+ method == "t-test"
+ 
+We first assess the rejection rate for the traditional $t$-test based on the subset of simulation results with sample sizes of $n_1 = n_2 = 50$ and a mean difference of 0, using $\alpha$ levels of .01 and .05:
 
 ```{r}
-welch_sub <- filter(welch, method == "t-test", n1 == 50, n2 == 50, mean_diff == 0 )
+welch_sub <- filter(welch, method == "t-test",
+                    n1 == 50, n2 == 50, mean_diff == 0 )
 
 calc_rejection(welch_sub, p_values = p_val, alpha = c(.01, .05))
 ```
 The column labeled `K_rejection` reports the number of replications used to calculate the performance measures.
+The MCSE columns are the Monte Carlo uncertainty for the measures.
+Here we see we are measuring rejection rate quite precisely.
 
 Here is the coverage rate calculated for the same condition:
 ```{r}
@@ -1351,18 +1358,23 @@ calc_coverage(
 )
 ```
 
-The performance functions are designed to be used within a `tidyverse`-style workflow, including on grouped datasets. For instance, we can calculate rejection rates for every distinct scenario examined in the simulation:
+The performance functions are designed to be used within a `tidyverse`-style workflow, including on grouped datasets.
+For instance, we can calculate the performance measures for all the methods for our given scenario:
 ```{r}
-all_rejection_rates <- 
-  welch %>% 
-  group_by( n1, n2, mean_diff, method ) %>%
+welch_sub <- filter(welch, n1 == 50, n2 == 50,
+                    mean_diff == 0 )
+welch_sub %>% 
+  group_by( method ) %>%
   summarise( 
     calc_rejection( p_values = p_val, alpha = c(.01, .05) ) 
   )
 ```
-The resulting summaries are reported in table \@ref(tab:Welch-rejection).
 
-```{r Welch-rejection, echo = FALSE, message = FALSE}
+See below for more examples of using `simhelpers` to calculate different performance measures.
+Later, when we analyze multifactor simulations, this grouping becomes even more powerful: we will group by the simulation factors and evaluate performance for all our scenarios at once.
+
+<!--
+```{r Welch-rejection, echo = FALSE, message = FALSE, eval=FALSE}
 library(kableExtra)
 
 all_rejection_rates %>%
@@ -1375,7 +1387,7 @@ all_rejection_rates %>%
     bootstrap_options = c("striped","compact","hover")
   ) 
 ```
-
+-->
 
 
 
@@ -1383,7 +1395,7 @@ all_rejection_rates %>%
 
 In Section \@ref(clusterRCTperformance), we computed performance measures for three point estimators of the school-level average treatment effect in a cluster RCT.
 We can carry out the same calculations using the `calc_absolute()` function from `simhelpers`, which also provides MCSEs. 
-Examining the MCSEs is useful to ensure that 1000 replications of the simulation is suffiicent to provide reasonably precise estimates of the performance measures. 
+Examining the MCSEs is useful to ensure that 1000 replications of the simulation is sufficient to provide reasonably precise estimates of performance.
 In particular, we have:
 
 ```{r cluster-MCSE-calculation}
@@ -1399,9 +1411,10 @@ runs %>%
   )
 ```
 
-We see the MCSEs are quite small relative to the linear regression bias term and all the SEs (`stddev`) and RMSEs.
+We see the MCSEs are quite small relative to the linear regression bias term, the SEs (`stddev`), and RMSEs.
 Results based on 1000 replications seems adequate to support our conclusions about the gross trends identified.
-We have _not_ simulated enough to rule out the possibility that the aggregation estimator and multilevel modeling estimator could be slightly biased.  Given our MCSEs, they could have true bias of as much as 0.01 (two MCSEs).
+We have _not_ simulated enough to rule out the possibility that the aggregation estimator and multilevel modeling estimator could be slightly biased.
+Given our MCSEs, they could have true bias of as much as 0.01 (two MCSEs).
 
 For our variance estimators, we can use the `calc_variance()` function to compute performance measures and MCSEs using the jackknife:
 
@@ -1442,7 +1455,7 @@ Likewise, the performance of a hypothesis testing procedure will often strongly 
 Thus, to understand "performance," most simulations will involve evaluating a data analysis procedure on several measures to arrive at a holistic understanding of its performance.
 
 Moreover, the main aim of many simulations is to compare the performance of several different estimators or to determine which of several data analysis procedures is preferable. 
-For such aims, we will need to use a suite of performance measures to understand how different procedures work differently, when and how one is superior to the other, and what factors influence differences in performance.
+For such aims, we use a suite of performance measures to understand how different procedures work differently, when and how one is superior to the other, and what factors influence differences in performance.
 
 Finally, we will actually need to assess how performance _changes_ in response to different conditions as given by the DGP.
 In the next chapters we talk about how to expand a simulation from a single scenario to multiple scenarios.
