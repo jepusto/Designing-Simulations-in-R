@@ -337,6 +337,11 @@ Another exploration approach we might use is regression trees.
 We wrote a utility method, a wrapper to the `rpart` package, to do this ([script here](code/create_analysis_tree.R)).
 Here, for example, we see what predicts larger bias amounts:
 
+```{r, include=FALSE}
+# To silence loading messages
+source( here::here( "code/create_analysis_tree.R" ) )
+```
+
 ```{r}
 source( here::here( "code/create_analysis_tree.R" ) )
 
@@ -394,11 +399,11 @@ More generally, however, the Monte Carlo Standard Errors (MCSEs) may be so large
 One tool to handle few iterations is aggregation: if you average across scenarios, those averages will have more precise estimates of (average) performance than the estimates of performance within the scenarios.
 Do not, by contrast, trust the bundling approach--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
 
-Meta regression approaches such as we saw above can be particularly useful: a regression will effectively average performance across scenario, and give summaries of overall trends.
+Meta regression approaches such as we saw above can also be useful: a regression effectively averages performance across scenario, and give summaries of overall trends.
 You can even fit random effects regression, specifically accounting for the noise in the scenario-specific performance measures.
 For more on using random effects for your meta regression see @gilbert2024multilevel.
 
-### Example: ClusterRCT with only 100 replicates per scenario
+### Example: ClusterRCT with only 25 replicates per scenario
 
 
 ```{r, include=FALSE}
@@ -407,7 +412,7 @@ set.seed( 40440 )
 # Make small dataset
 res_small <- res %>%
   mutate( runID = as.numeric( runID ) ) %>%
-  filter( runID <= 100 )
+  filter( runID <= 25 )
 
 ssres <- res_small %>%
   group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
@@ -427,13 +432,12 @@ summary( ssres$R )
 ```
 
 In the prior chapter we analyzed the results of our cluster RCT simulation with 1000 iterations per scenario.
-But say we only had 25 per scenario.
+But say we only had 25 iterations per scenario.
 Using the prior chapter as a guide, we next recreate some of the plots to show how MCSE can distort the picture of what is going on.
 
-First, we look at our single plot of the raw results.
-Before we plot, however, we calculate MCSEs and add them to the plot as error bars.
+We start again with bias, and generate a single plot of the raw results for a subset of our scenarios, along with error bars from the MCSEs.
 
-```{r}
+```{r, echo=FALSE}
 sres_sub <- 
   ssres %>%
   filter( n_bar == 320, J == 20 ) %>%
@@ -456,10 +460,11 @@ ggplot( sres_sub, aes( as.factor(alpha), bias,
 
 Our uncertainty is much less when ICC is 0; this is because our estimators are far more precise due to not having cluster variation to contend with.
 Other than the ICC = 0 case, we see substantial amounts of uncertainty, making it very hard to tell the different estimators apart.
-In the top row, second plot from left, we see that the three estimators are co-dependent: they all react similarly to the same datasets, so if we end up with datasets that randomly lead to large estimates, all three will give large estimates.
-The shape we are seeing is not a systematic bias, but rather a shared random variation.
+In the top row, second plot from left, we see that the three estimators are co-dependent: they all react similarly to the same datasets.
+In other words, the point estimates are correlated: if a dataset happens to have high-outcome units in the treated group, all the estimators will give larger estimates of an average effect.
+The seeming trend we are seeing is not systematic bias, but rather shared random variation.
 
-Here is the same plot with the full 1000 replicates, with the 100 replicate results overlaid in light color for comparison:
+Here is the same plot with the full 1000 replicates, with the 25 replicate results overlaid in light color for comparison:
 
 ```{r, echo=FALSE}
 sres_sub_full <- 
@@ -489,9 +494,9 @@ ggplot( sres_sub_full, aes( as.factor(alpha), bias,
   coord_cartesian( ylim = c(-0.10,0.10) )
 ```
 
-The MCSEs have shrunk by around $1/\sqrt{10} = 0.32$, as we would expect (generally the MCSEs will be on the order of $1/\sqrt{R}$, where $R$ is the number of replicates, so to halve the MCSE you need to quadruple the number of replicates).
-Also note the ICC=0.2 top facet has shifted to a flat, slightly elevated line: we do not yet know if the elevation is real, just as we did not know if the dip in the prior plot was real.
-Our confidence intervals are still including 0: it is possible there is no bias at all when the size coefficient is 0 (in fact we are fairly sure it is indeed the case).
+With 1000 iterations, MCSEs are around $1/\sqrt{40} = 16\%$ the size, as we would expect (generally MCSEs are on the order of $1/\sqrt{R}$, where $R$ is the number of replicates, so to halve a MCSE you need to quadruple the number of replicates).
+Also note the ICC=0.2 top facet has shifted to a flat, slightly elevated line: we do not yet know if the elevation is real, just as we did not know if the dip in the prior plot was real, but we do know that whatever might be happening is of a much smaller scale than suggested by the prior plot.
+Our confidence intervals mostly all still include 0: it is possible there is no bias at all when the size coefficient is 0 (in fact we are fairly sure this is indeed the case).
 
 ```{r, include=FALSE}
 # Checking MCSEs are smaller as expected
@@ -499,12 +504,13 @@ summary( sres_sub_full$bias.mcse / sres_sub$bias.mcse )
 ```
 
 Moving back to our "small replicates" simulation, we can use aggregation to smooth out some of our uncertainty.
-For example, if we aggregate across 9 scenarios, our number of replicates goes from 100 to 900; our MCSEs should then be about a third the size.
-To calculate an aggregated MCSE, we aggregate our scenario-specific MCSEs as follows:
+For example, if we aggregate across 9 scenarios, our number of replicates goes from 25 to 225 and our MCSEs should be about a third the size.
+To calculate an aggregated MCSE, aggregate the scenario-specific MCSEs as follows:
 $$ MCSE_{agg} = \sqrt{ \frac{1}{K^2} \sum_{k=1}^{K} MCSE_k^2 } $$
 
 where $MCSE_k$ is the Monte Carlo Standard Error for scenario $k$, and $K$ is the number of scenarios being averaged.
 Assuming a collection of estimates are independent, the overall $SE^2$ of an average is the average $SE^2$ divided by $K$.
+
 In code we have:
 
 ```{r, echo=FALSE}
@@ -552,13 +558,12 @@ summary( ss$bias.mcse.x / ss$bias.mcse.y )
 
 
 Even with the additional replicates per point, we see noticeable noise in our plot: look at the top-right ICC of 0.8 facet, for example.
-Also note how our three methods continue to track each other up and down in top row, giving a sense of a shared error.
-This is because all methods are analyzing the same set of datasets; they have shared uncertainty.
-This uncertainty can be deceptive.
-It can also be a boon: if we are explicitly comparing the performance of one method vs another, the shared uncertainty can be subtracted out, similar to what happens in a blocked experiment [@gilbert2024multilevel].
+Also note how our three methods continue to track each other up and down in the top row, due to shared error.
+This shared error can be deceptive.
+It can also be a boon: if we are explicitly comparing the performance of one method vs another, we can subtract out the shared error, similar to what happens in a blocked experiment [@gilbert2024multilevel].
 
-One way to take advantage of this is to fit a multilevel regression model to our raw simulation results with a random effect for dataset.
-We next fit such a model, taking advantage of the fact that bias is simply the average of the error across replicates.
+One way to remove this error to get a more precise head to head comparison of the estimators is to fit a multilevel regression model to our raw simulation results with a random effect for dataset.
+We next fit such a model, taking advantage of the fact that estimated bias is simply the average of the error across replicates.
 We first make a unique ID for each scenario and dataset, and then fit the model with a random effect for both.
 The first random effect allows for specific scenarios to have more or less bias beyond what our model predicts.
 The second random effect allows for a given dataset to have a larger or smaller error than expected, shared across the three estimators.
@@ -595,22 +600,38 @@ knitr::kable(ranef_vars, digits = 2)
 ```
 
 The random variation for `simID` captures unexplained variation due to the interactions of the simulation factors.
-It appears to be a trivial amount; almost all the variation is due to the dataset.
-This makes sense: each datasets is unbalanced due to random assignment, and that estimation error is part of the dataset random effect.
+Relative to the dataset variation, it seems to be a trivial amount.
+This makes sense: each datasets is unbalanced due to random assignment, and that estimation error, shared across all three estimators, is part of the dataset random effect.
 
-So far we have not included any simulation factors: we are pushing variation across simulation into the random effect terms.  We can instead include the simulation factors as fixed effects, to see how they impact bias.
+So far we have not included any simulation factors: we are pushing variation across simulation into the random effect terms.
+We can instead include the simulation factors as fixed effects, to see how they impact bias.
 
 ```{r}
 M2 <- lmer( 
-  error ~ method*(J + n_bar + ICC + alpha + size_coef) + (1|dataID) + (1|simID),
+  error ~ method*(J + n_bar + ICC + alpha * size_coef) + (1|dataID) + (1|simID),
   data = res_small 
 )
-texreg::screenreg(M2)
 ```
 
-The above models allow us to estimate how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
+We then extract the fixed effects and sort by p-value to see which factors are most important for bias.
+We adjust our p-values with a simple Benjamini-Hochberg false discovery rate correction to try and cut down the number of terms to those that are most likely to be real, and not just noise.
+```{r}
+library( broom.mixed )
+terms <- tidy( M2 ) %>%
+  dplyr::filter( effect == "fixed" ) %>%
+  dplyr::select( term, estimate, std.error, p.value )  %>%
+  mutate(p_fdr = p.adjust(p.value, method = "BH") )
 
-Finally, we can see how much variation has been explained by comparing the random effect variances:
+terms %>%
+  filter( p_fdr < 0.10 ) %>%
+  arrange( p_fdr ) %>%
+  knitr::kable( digits=c(3) )
+```
+
+We see what we have seen before: the LR method is notably biased when `size_coef` is non-zero and `alpha` is high.
+We have estimated how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
+
+Finally, we can see how much variation has been explained by the simulation factors by comparing the random effect variances:
 ```{r}
 ranef_vars1 <-
   as.data.frame(VarCorr(M)) %>%
@@ -625,9 +646,11 @@ ranef_vars2 <-
 rr = left_join( ranef_vars1, ranef_vars2, by = "grp", 
                 suffix = c(".null", ".full") )
 rr <- rr %>%
-  mutate( sd.red = sd.full / sd.null )
+  mutate( var.red = sd.full^2 / sd.null^2 )
 knitr::kable(rr, digits = 2)
 ```
+
+Our model is explaining an estimated 16% of the variation across simulation scenarios.
 
 <!-- LWM: This is not working cleanly, and we are not seeing reduction in unexplained simulation variation at all ---- cut, update, do what? --->
 

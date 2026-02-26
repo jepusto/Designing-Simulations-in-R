@@ -16,30 +16,38 @@ library(furrr)
 ```
 
 
-Especially if you take our advice of "when in doubt, go more general" and if you calculate monte carlo standard errors, you will quickly come up against the limits of your computer.
-Simultions can be incredibly computationally intensive, and there are a few means for dealing with that.
-The first, touched on at times throughout the book, is to optimize ones code by looking for ways to remove extraneous calculation (e.g., by writing ones own methods rather than using the safety-checking and thus sometimes slower methods in R, or by saving calculations that are shared across different estimation approaches).
-The second is to use more computing power.
+Especially if you take our advice of "when in doubt, go more general" and if are running enough replicates to get nice and samll Monte Carlo errors, you will quickly come up against the computational limits of your computer.
+Simulations can be incredibly computationally intensive, and there are a few means for dealing with that.
+The first is to optimize code by removing extraneous calculation (e.g., by writing methods from scratch rather than using the safety-checking and thus sometimes slower methods in R, or by saving calculations that are shared across different estimation approaches) to make it run faster.
+This approach is usually quite hard, and the benefits often minimal; see Appendix @ref(optimize-code) for further discussion and examples.
+The second is to use more computing power by making the simulation _parallel_.
 This latter approach is the topic of this chapter.
 
-There are two general ways to do parallel calculation.
-The first is to take advantage of the fact that most modern computers have multiple cores (i.e., computers) built in.
-With this approach, we tell R to use more of the processing power of your desktop or laptop.
+_Parallel computation_ is where you have multiple computers working on a problem at the same time.
+Simulations are very easy to do in parallel.
+With a multifactor experiment it is very easy to break apart the overall into pieces.
+For example, each computer could do one of your scenarios in a multi-factor simulation.
+Even without a multifactor experiment, due to the cycle of "generate data, then analyze," it is easy to have a bunch of computers doing the same thing, as long as they are generating different datasets, with a final collection step where all the individual iterations are combined into a single set at the end.
+In either case, the _total_ work is the same, but since each computer is doing a piece at the same time, the overall simulation will be completed much sooner.
+
+There are three general ways to do parallel calculation.
+The first is to take advantage of the fact that most modern computers come with multiple cores (i.e., computers) built in.
+For this simplest approach, we simply tell R to use more of this processing power.
 If your computer has eight cores, you can easily get a near eight-fold increase in the speed of your simulation.
 
-The second is to use cloud computing, or compute on a cluster.
-A computing cluster is a network of hundreds or thousands of computers, coupled with commands where you break apart a simulation into pieces and send the pieces to your army of computers.
-Conceptually, this is the same as when you do baby parallel on your desktop: more cores equals more simulations per minute and thus faster simulation overall.
+The second is to use cloud computing, putting your simulation on a virtual computer that might have 50 or more cores.
+Other than having to handle moving files back and forth from your machine to the cloud, this is not much different from the first approach: you are still just telling R to use more cores, but now you have more cores to use.
+Even if the speed-up itself is not massive, this approach also takes the computing off your computer entirely, making it easier to set up a job to run for days or weeks without making your day to day life any more difficult.
+
+The third way is to use a computing cluster.
+A cluster is a network of hundreds or thousands of computers, coupled with commands for breaking apart a simulation into pieces and sending the pieces to that vast army.
+Conceptually, this approach is the same as when you do baby parallel on your desktop: more cores equals more simulations per minute and thus faster simulation overall.
 But the interface to a cluster can be a bit tricky, and very cluster-dependent.
 
-But once you get it up and running, it can be a very powerful tool.
-First, it takes the computing off your computer entirely, making it easier to set up a job to run for days or weeks without making your day to day life any more difficult.
-Second, it gives you hundreds of cores, potentially, which means a speed-up of hundreds rather than four or eight.
+But once you get a cluster up and running, it can be a very powerful tool.
+Not only is it off your personal computer, a cluster can potentially give you hundreds of cores, which means a speed-up of hundreds rather than four or eight.
 
-Simulations are a very natural choice for parallel computation.
-With a multifactor experiment it is very easy to break apart the overall into pieces.
-For example, you might send each factor combination to a single machine.
-Even without multi factor experiments, due to the cycle of "generate data, then analyze," it is easy to have a bunch of computers doing the same thing, with a final collection step where all the individual iterations are combined into one at the end.
+
 
 
 ## Parallel on your computer
@@ -94,8 +102,8 @@ tictoc::tic()
 
 Note the `.options = furrr_options(seed = NULL)` part of the argument.
 This is to silence some warnings.
-Given how tasks are handed out, R will get upset if you don't do some handholding regarding how it should set seeds for pseudoranom number generation.
-In particular, if you don't set the seed, the multiple sessions could end up having the same starting seed and thus run the exact same simulations (in principle).
+Given how tasks are handed out, R will get upset if you do not do some handholding regarding how it should set seeds for pseudoranom number generation.
+In particular, if you do not set the seed, the multiple sessions could end up having the same starting seed and thus run the exact same simulations (in principle).
 We have seen before how to set specific seed for each simulation scenario, but `furrr` doesn't know we have done this.
 This is why the extra argument about seeds: it is being explicit that we are handling seed setting on our own.
 
@@ -138,26 +146,26 @@ In general, a "cluster" is a system of computers that are connected up to form a
 These clusters will have some overlaying coordinating programs that you, the user, will interact with to set up a "job," or set of jobs, which is a set of tasks you want some number of the computers on the cluster to do for you in tandum.
 
 These coordinating programs will differ, depending on what cluster you are using, but have some similarities that bear mention.
-For running simulations, you only need the smallest amount of knowledge about how to engage with these systems because you don't need all the individual computers working on your project communicating with each other (which is the hard part of distributed computing, in general).
+For running simulations, you only need the smallest amount of knowledge about how to engage with these systems because you do not need all the individual computers working on your project communicating with each other (which is the hard part of distributed computing, in general).
 
 
-### What is a command-line interface?
+### Command-line interfaces and CMD mode in R
 
 In the good ol' days, when things were simpler, yet more difficult, you would interact with your computer via a "command-line interface."
 The easiest way to think about this is as an R console, but in a different language that the entire computer speaks.
-A command line interface is designed to do things like find files with a specific name, or copy entire directories, or, importantly, start different programs.
-Another place you may have used a command line inteface is when working with Git: anything fancy with Git is often done via command-line.
+A command line interface is designed to do things such as find files with a specific name, or copy entire directories, or, importantly, start different programs.
+One place you may have used a command line inteface is when working with Git: anything fancy with Git is often done via command-line.
 People will talk about a "shell" (a generic term for this computer interface) or "bash" or "csh."
 You can get access to a shell from within RStudio by clicking on the "Terminal" tab.
-Try it, if you've never done anything like this before, and type
+Try it, if you have never done anything like this before, and type (the ">" is not part of what you type):
 
 ```
-ls
+> ls
 ```
 
 It should list some file names.
 Note this command does _not_ have the parenthesis after the command, like in R or most other programming languages.
-The syntax of a shell is usually mystifying and brutal: it is best to just steal scripts from the internet and try not to think about it too much, unless you want to think about it a lot.
+The syntax of a shell is usually mystifying and brutal: it is best to just steal scripts from the internet or some generative AI and try not to think about it too much, unless you want to think about it a lot.
 
 Importantly for us, from the command line interface you can start an R program, telling it to start up and run a script for you.
 This way of running R is noninteractive: you say "go do this thing," and R starts up, goes and does it, and then quits.
@@ -176,11 +184,9 @@ Sys.sleep(30)
 cat( "Finished\n" )
 ```
 
-Then open the terminal and type (the ">" is not part of what you type):
-```
-> ls
-```
-Do you see your `dumb_job.R` file?  If not, your terminal session is in the wrong directory.
+After you save, open the terminal and type `ls` to list the files, as above.
+Do you see your `dumb_job.R` file?
+If not, your terminal session is in the wrong directory.
 In your computer system, files are stored in a directory structure, and when you open a terminal, you are somewhere in that structure.
 
 To find out where, you can type
@@ -198,69 +204,93 @@ Once you are in the directory with your file, type:
 > R CMD BATCH dumb_job.R R_output.txt --no-save
 ```
 
-The above command says "Run R" (the first part) in batch mode (the "CMD BATCH" part), meaning source the `dumb_job.R` script as soon as R starts, saving all console output in the file `R_output.txt` (it will be saved in the current directory where you run the program), and where you don't save the workspace when finished.
+The above command says "Run R" (the first part) in batch mode (the "CMD BATCH" part), meaning source the `dumb_job.R` script as soon as R starts, saving all console output in the file `R_output.txt` (it will be saved in the current directory where you run the program), and where you do not save the workspace when finished.
 
 This command should take about a minute to complete, because our script sleeps a lot (the sleep represents your script doing a lot of work, like a real simulation would do).
 Once the command completes (you will see your ">" prompt come back), verify that you have the `R_output.txt` and the data file `sim_results.csv` by typing `ls`.
 If you open up your Finder or Microsoft equivilent, you can actually see the `R_output.txt` file appear half-way through, while your job is running.
-If you open it, you will see the usual header of R telling you what it loading, the "Making numbers" comment, and so forth.
-R is saving everything as it works through your script.
+If you open it, you will see the usual header of R loading up, the "Making numbers" comment, and so forth.
+R is saving all the output as it works through your script.
 
-Running R in this fashion is the key element to a basic way of setting up a massive job on the cluster: you will have a bunch of R programs all "going and doing something" on different computers in the cluster.
-They will all save their results to files (they will have files of different names, or you will not be happy with the end result) and then you will gather these files together to get your final set of results.
+Running R in this fashion is the key element to a basic way of setting up a massive job on the cluster: you launch a bunch of R programs that are each running a script like this on different computers in the cluster.
+They will all save their results to files (they will have files of different names so you do not overwrite your work) and then you will gather these files together to get your final set of results.
 
 *Small Exercise:* Try putting an error in your `dumb_job.R` script.  What happens when you run it in batch mode?
 
-### Running a job on a cluster
+### Task dispatchers and command line scripts
 
-In the above, you can run a command on the command-line, and the command line interfact will pause while it runs.
+In the above, you can run a command on the command-line, but the command line interface will pause while it runs.
 As you saw, when you hit return with the above R command, the program just sat there for a minute before you got your command-line prompt back, due to the sleep.
 
-When you properlly run a big job (program) on a cluster, it doesn't quite work that way.
-You will instead set a program to run, but tell the cluster to run it somewhere else (people might say "run in the background").
-This is good because you get your command-line prompt back, and can do other things, while the program runs in the background.
+When you properly run a big job (program) on a cluster, it does not quite work that way.
+You will instead set a program to run, but tell the cluster to run it somewhere else (people might say "run it in the background").
+This is good because you get your command-line prompt back, and can use it to tell your computer to do other things, all while the program is running.
 
-There are various methods for doing this, but they usually boil down to a request from you to some sort of managerial process that takes requests and assigns some computer, somewhere, to do them.
-(Imagine a dispatcher at a taxi company.  You call up, ask for a ride, and it sends you a taxi to do it.  The dispatcher is just fielding requests, assinging them to taxis.)
+There are various methods for starting a job, but they usually boil down to a request from you to some sort of managerial process (a dispatcher) that takes requests and assigns some computer, somewhere, to do them.
+For a sense of this process, imagine a dispatcher at a taxi company.
+You call up, ask for a ride, and the dispatcher sends you a taxi to do it.
+The dispatcher is just fielding requests, assinging them to taxis.
 
-For example, one dispatcher is the slurm (which may or may not be on the cluster you are attempting to use; this is where a lot of this information gets very cluster-specific).
+One dispatcher on some clusters is called `slurm` (which may or may not be on the cluster you are attempting to use; this is where a lot of this information gets very cluster-specific).
 
 You first set up a script that describes the job to be run.
 It is like a work request.
-This would be a plain text file, such as this example (`sbatch_runScript.txt`):
+These scripts are plain text files, such as this example (`sbatch_runScript.txt`):
 
 ```
 #!/bin/bash
-#SBATCH -n 32 													# Number of cores requested
-#SBATCH -N 1 													  # Ensure that all cores are on one machine
-#SBATCH -t 480													# Runtime in minutes
-#SBATCH -p stats												# Partition to submit to
-#SBATCH --mem-per-cpu=1000 		 		  	  # Memory per cpu in MB
-#SBATCH --open-mode=append				  		# Append to output file, don't truncate
-#SBATCH -o /output/directory/out/%j.out # Standard out goes to this file
-#SBATCH -e /output/directory/out/%j.err # Standard err goes to this file
-#SBATCH --mail-type=ALL        					# Type of email notification- BEGIN,END,FAIL,ALL
-#SBATCH --mail-user=email@gmail.com 		# Email address
 
-# You might have some special loading of modules in the computing environment
+# Number of cores requested
+#SBATCH -n 32
+
+# Ensure that all cores are on one machine
+#SBATCH -N 1
+
+# Upper bound on runtime in minutes
+#SBATCH -t 480
+
+# Partition to submit to
+#SBATCH -p stats
+
+# Memory per cpu in MB
+#SBATCH --mem-per-cpu=1000
+
+# Append to output file, don't truncate
+#SBATCH --open-mode=append
+
+# Standard out goes to this file
+#SBATCH -o /output/directory/out/%j.out
+
+# Standard err goes to this file
+#SBATCH -e /output/directory/out/%j.err
+
+# Email notification options : BEGIN, END, FAIL, ALL
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=email@gmail.com
+
+# Load modules for the computing environment
 source new-modules.sh
 module load gcc/7.1.0-fasrc01
 module load R
+
+# Set user R library path
 export R_LIBS_USER=$HOME/apps/R:$R_LIBS_USER
 
-#R file to run, and txt files to produce for output and errors
-R CMD BATCH estimator_performance_simulation.R logs/R_output_${INDEX_VAR}.txt --no-save --no-restore
+# Run R script; write output to indexed log file
+R CMD BATCH estimator_performance_simulation.R \
+                 logs/R_output_${INDEX_VAR}.txt \
+                 --no-save --no-restore
 ```
 
-This file starts with a bunch of variables that describe how sbatch should handle the request.
-It then has a series of commands that get the computer environment ready.
+This file starts by setting a bunch of variables that describe how sbatch should handle the request.
+It then has a series of commands that gets the computer environment ready.
 Finally, it has the `R CMD BATCH` command that does the work you want.
 
 These scripts can be quite confusing to understand.
 There are so many options!
 What do these things even do?
 The answer is, for researchers early on their journey to do this kind of work, "Who knows?"
-The general rule is to find an example file for the system you are working on that works, and then modify it for your own purposes.
+The general rule is to find a working example file for the system you are on, and then modify it for your own purposes.
 
 Once you have such a file, you could run it on the command line, like this:
 
@@ -271,21 +301,28 @@ sbatch -o stdout.txt \
 ```
 
 You do this, and it will _not_ sit there and wait for the job to be done.
-The `sbatch` command will instead send the job off to some computer which will do the work in parallel.
+The `sbatch` command will instead send the job off to some computer which will do the work in the background.
 
-Interestingly, your R script could, at this point, do the "one computer" parallel type code listed above.
-Note the script above has 32 cores; your single job could then have 32 cores all working away on their individual pieces of the simulation, as before (e.g., with `future_pmap`).
+Interestingly, your R script could, at this point, do the "one computer" parallel type code listed above and use `future_pmap()` or similar.
+Note the script above asks for 32 cores; your single job could then have 32 cores all working away on their individual pieces of the simulation, as before.
 You would have a 32-fold speedup, in this case.
 
 This is the core element to having your simulation run on a cluster.
 The next step is to do this _a lot_, sending off a bunch of these jobs to different computers.
 
+### Moving files to and from a cluster
 
-Some final tips
+One of the larger issues with working on a cluster is you will need to get all your code _to_ the cluster and get all of your results _back_.
+One approach for getting the code to the cluster is to use GitHub.
+Make a project, and then check out the project on the cluster.
+This has the advantage of making it easier to develop your code on your local computer, where you can easily run your RStudio or other IDE.
+It also has the advantage of allowing you to record which GitHub version of code you ran, so you can know exactly which code produced which results.
 
- * Remember to save a workspace or RDS!!   Once you tell Odyssey to run an R file, it, well, runs the R file. But, you probably want information after it's done - like an R object or even an R workspace. For any R file you want to run on Odyssey, remember at the end of the R file to put a command to save something after everything else is done. If you want to save a bunch of R objects, an R workspace might be a good way to go, but those files can be huge. A lot of times I find myself wanting only one or two R objects, and RDS files are a lot smaller.
+For getting your results off the cluster it is not recommended to use GitHub as total of all of your results may take many gigabytes of space.
+They are also not really in the spirit of a verson control system.
+Instead, use a scp client such as FileZilla to transfer files back to your personal computer.
 
- * Moving files from a cluster to your computer. You will need to first upload your files and code to the cluster, and then, once you've saved your workspace/RDS, you need those back on your computer. Using a scp client such as FileZilla is an easy way to do this file-transfer stuff.  You can also use a Git repo for the code, but checking in the simulation results is not generally advisable: they are big, and not really in the spirit of a verson control system.  Download your simulation results outside of Git, and keep your code in Git, is a good rule of thumb.
+Overall, download your simulation results outside of Git, and keep your code in Git, is a good rule of thumb.
 
 
 ### Checking on a job
@@ -337,7 +374,7 @@ This multiple dispatching of sbatch commands is the final component for large si
 Asking for multiple, smaller, jobs is also nicer for the cluster than having one giant job that goes on for a long time.
 By dividing a job into smaller pieces, and asking the scheduler to schedule those pieces, you can let the scheduler share and allocate resources between you and others more fairly.
 It can make a list of your jobs, and farm them out as it has space.
-This might go faster for you; with a really big job, the scheduler can't even allocate it until the needed number of workers is available.
+This might go faster for you; with a really big job, the scheduler could not even allocate it until the needed number of workers are available.
 With smaller jobs, you can take a lot of little spaces to get your work done.
 Especially since simulation is so independent (just doing the same thing over and over) there is rarely any need for one giant process that has to do everything.
 
@@ -375,7 +412,7 @@ done
 ```
 
 One question is then how do the different processes know what part of the simulation they should be working on?
-E.g., each worker needs to have its own seed so it don't do exactly the same simulation as a different worker!
+E.g., each worker needs to have its own seed so it does not do exactly the same simulation as a different worker!
 The workers also need their own filenames so they save things in their own files.
 The key is the `export INDEX_VAR` line: this puts a variable in the environment that will be set to a specific number.
 Inside your R script, you can get that index like so:
@@ -402,7 +439,7 @@ This still doesn't exactly answer how to have each worker know what to work on.
 Conider the case of our multifactor experiment, where we have a large combination of simulation trials we want to run.
 
 There are two approaches one might use here.
-One simple approach is the following: we first generate all the factors with `expand_grid()` as usual, and then we take the row of this grid that corresponds to our index.
+One simple approach is the following: generate all the factors with `expand_grid()` as usual, and then take the row of this grid that corresponds to our index.
 
 ```{r, eval=FALSE}
 sim_factors = expand_grid( ... )

@@ -338,4 +338,51 @@ runs %>%
   mutate( inflate = 100 * hat / true )
 ```
 
+## Calibrated simulations within the potential outcomes framework
+
+In the area of causal inference, the potential outcomes framework provides a natural path for generating calibrated simulations.
+Also see Chapter \@ref(calibrated-simulations) for more discussion of calibration at a high level.
+
+Under the calibration framework, we would take an existing randomized experiment or observational study and then impute all the missing potential outcomes under some specific scheme.
+This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then fully known.
+For our simulation we then synthetically, and repeatedly, randomize and "observe" outcomes to be analyzed with the methods we are testing.
+We could also resample from our dataset to generate datasets of different size, or to have a superpopulation target as our estimand.
+
+The key feature here is the imputation step: how do we build our full set of covariates and outcomes?
+There are a variety of options that have different pros and cons.
+
+### Matching-based imputation
+One baseline method one can use is to generate a matched-pairs dataset by, for each unit, finding a close match given all the demographic and other covariate information of the sample.
+The opposite pair of each matched unit then gives the imputed potential outcome.  
+By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population, with all outcomes being "real," as they are taken from actual data.
+Such matching can mostly preserve complex relationships between covariates and outcomes in a manner that is not model dependent.
+In particular, if outcomes tend to be coarsely defined (e.g., on an integer scale) or have specific clumps (such as zero-inflation or rounding), this structure will be preserved.
+
+One concern with the matching approach is the noise in the matching could in general dilute the structure of the treatment effect as the control- and treatment-side potential outcomes may be very unrelated, creating a lot of so-called idiosyncratic treatment variation (unit-to-unit variation in the treatment effects that is not explained by the covariates).
+This is akin to measurement error diluting found relationships in linear models.
+
+We could reduce such variation by first imputing missing outcomes using some model (e.g., a random forest) fit to the original data, and then matching on all units including the imputed potential outcome as a hidden "covariate."
+This is not a data analysis strategy, but instead a method of generating synthetic data that both has a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.
+
+### Model-based imputation
+
+A second approach for imputing the missing potential outcomes is to specify a treatment effect model, predict treatment effects for all units and use the predicted effects to impute the treatment potential outcome for all control units.
+For example, if we fit $\hat{\tau}(X)$ to the original data, where $\hat{tau}(X)$ estimates the treatment effect for a unit with covariate value $X$, we can then impute $Y_i(1) = Y_i(0) + \hat{\tau}(X_i)$ for all control units and $Y_i(0) = Y_i(1) - \hat{f}(X_i)$ for all treated units.
+This imputation perfectly preserves the complex structure between the covariates and the $Y_i(0)$s for the original controls and covariates and $Y_i(1)$ for the original treated.
+
+One drawback is the imputed outcomes may not be values we actually see on the counterfactual side.
+For example, if the original outcomes are binary, but if $\hat{\tau}(X)$ estimates fractional effects, then the imputed outcomes will not be binary, and could even be negative or above 1.
+
+A second possible drawback is this form of imputation does not give any idiosyncratic treatment variation.
+To add in idiosyncratic variation we would need to generate a distribution of perturbations and add these to the imputed outcomes just as we would an error term in a regression model.  
+
+One advantage of the modeling approach is it allows for varying the amount of treatment effect.
+We can, for example, scale $\hat{\tau}(X)$ by some factor to increase or decrease the size of the treatment effects in our imputed dataset.
+
+
+
+### Using the imputed data
+Regardless of how we generate the missing potential outcomes, once we have a "fully observed" sample with the full set of treatment and control potential outcomes for all of our units, we can calculate any target estimands we like on our population, and then compare our estimators to these ground truths (even if they have no parametric analog) as desired.
+
+
 
