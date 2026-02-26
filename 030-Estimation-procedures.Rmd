@@ -125,7 +125,7 @@ Education researchers tend to be more comfortable using multi-level regression m
 
 We next develop estimation functions for each of these procedures, focusing on a simple model that does not include any covariates besides the treatment indicator.
 Each function needs to produce a point estimate, standard error, and $p$-value for the average treatment effect.
-To have data to practice on, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
+To have data to practice on, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](case_study_code/gen_cluster_RCT.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
 <!-- LWM: Do we put the solution to the exercise here?  Or leave it out? -->
 ```{r}
 dat <- gen_cluster_RCT( 
@@ -547,7 +547,7 @@ tiny_dat <- gen_cluster_RCT( J = 10, n_bar = 2, alpha = 0.5)
 analysis_MLM_safe(tiny_dat)
 table(tiny_dat$sid)
 ```
-The error occurs because all 10 simulated schools happened to include a single student, making it impossible to estimate a random-intercepts multilevel model.
+The error occurs because all 10 simulated schools happened to include a single student each, making it impossible to estimate a random-intercepts multilevel model.
 A natural fall-back analysis here would be to estimate an ordinary least squares regression analysis.
 
 Suppose that our imaginary analyst is not especially into nuance, and so will fall back onto ordinary least squares whenever the multilevel model produces an error. 
@@ -555,7 +555,7 @@ We can express this logic in our estimation function by first catching the error
 ```{r, code = analysis_MLM_contingent_code}
 ```
 We still store the messages, warnings, and errors from the initial `lmer()` fit so that we can keep track of how often errors occur.
-The function now returns an treatment effect estimate even if `lmer()` errors:
+The function now returns a treatment effect estimate even if `lmer()` errors out:
 ```{r}
 analysis_MLM_contingent(tiny_dat)
 ```
@@ -648,9 +648,9 @@ Once written, applying the function will produce a tidy table of results that we
 
 ### More Heteroskedastic ANOVA {#BFFs-forever}
 
-In the classic simulation by Brown and Forsythe (1974), they not only looked at the performance of the homoskedastic ANOVA-F test and Welch's heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.
+In the classic simulation by @brown1974SmallSampleBehavior, they not only looked at the performance of the homoskedastic ANOVA-F test and Welch's heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.
 
-1. Write a function that implements the Brown-Forsythe F\* test (the BFF\* test!) as described on p. 130 of Brown and Forsythe (1974), using the following code skeleton:
+1. This exercise continues the running example introduces in Chapter \@ref(ANOVA-hypothesis-testing-function). Write a function that implements the Brown-Forsythe F\* test (the BFF\* test!) as described on p. 130 of @brown1974SmallSampleBehavior, using the following code skeleton:
     ```{r}
     BF_F <- function( data ) {
       
@@ -659,6 +659,7 @@ In the classic simulation by Brown and Forsythe (1974), they not only looked at 
       return(pval)
     }
     ```
+    
     Run the following code to check that your function produces a result:
     ```{r, eval = FALSE}
     sim_data <- generate_ANOVA_data(
@@ -671,7 +672,7 @@ In the classic simulation by Brown and Forsythe (1974), they not only looked at 
    
 2. Try calling your `BF_F` function on a variety of datasets of different sizes and shapes, to make sure it works. What kinds of datasets should you test out?
 
-3. Add the BFF\* test into the output of `Welch_ANOVA_F()` by calling your `BF_F()` function inside the body of `Welch_ANOVA_F()`. 
+3. Add the BFF\* test into the output of `ANOVA_Welch_F()` (see Chapter \@ref(ANOVA-hypothesis-testing-function)) by calling your `BF_F()` function inside the body of `ANOVA_Welch_F()`.^[Note that Exercise \@ref(BF-other-tests) had you do this using an R package; see next exercise below for using that package to validate your code.]
 
 4. The [`onewaytests` package](https://cran.r-project.org/package=onewaytests) implements a variety of different hypothesis testing procedures for one-way ANOVA. Validate your `Welch_ANOVA_F()` function by comparing the results to the output of the relevant functions from `onewaytests`.
 
@@ -711,19 +712,19 @@ For each of these tests, you will need to figure out the appropriate syntax by r
 Exercise \@ref(cluster-RCT-baseline) from Chapter \@ref(data-generating-processes) asked you to extend the data-generating function for the cluster-randomized trial to include generating a student-level covariate, $X$, that is predictive of the outcome. 
 Use your modified function to generate a dataset. 
 
-1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor.
+1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor. Your function should return three estimates, a MLM version (`analysis_MLM_cov()`), aggregated version (`analysis_agg_cov()`), and OLS version (`analysis_OLS_cov()`. Wrap all three in a final function `estimate_Tx_Fx_cov()` that applies all three methods to the same dataset and returns a tidy dataframe of results. Test that your functions work as expected.
 
 2. Further extend the functions to include an input argument for the set of predictors to be included in the model, as in the following skeleton for the multi-level model estimator:
     ```{r, eval = FALSE}
-    analysis_MLM <- function(dat, predictors = "Z") {
+    analysis_MLM <- function(dat, predictors = "W") {
       
     }
     
     analysis_MLM( dat )
-    analysis_MLM( dat, predictors = c("Z","X"))
-    analysis_MLM( dat, predictors = c("Z","X", "X:Z"))
+    analysis_MLM( dat, predictors = c("W","X"))
+    analysis_MLM( dat, predictors = c("W","X", "X:W"))
     ```
-    Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.
+    Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.  You can also instead write your function to take a formula to define your predictors, as in an argument of `predictors = ~ W + X + W:X`. You will then need to wrangle the formula; large language models will help you write this code.
 
 
 ### Contingent estimator processing {#contingent-estimator-processing}
@@ -735,9 +736,9 @@ For another, if we are using this function as one of several estimation strategi
 Can you fix these problems?
 
 1. Revise `analysis_MLM_contingent()` so that it checks whether all clusters are single observations _before_ fitting the multilevel model.
-Handle event the contingency where all clusters are singletons by skipping the model-fitting step, returning `NA` values for the point estimator, standard error, and p-value, and returning an informative message in the `error` variable. Test that the function is working as expected.
+If all clusters are singletons, skip the model-fitting step, return an `NA` values for the point estimator, standard error, and p-value, and return an informative message in the `error` variable. Test that the function works as expected.
 
-2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code that replaces any `NA` values with corresponding results of `analysis_OLS()`. Test that the function is working as expected.
+2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will now sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code in `estimate_Tx_Fx()` that replaces any `NA` values for the MLM results with corresponding results of `analysis_OLS()`. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Writing code in this way, vs. having the `analysis_MLM_contingent()` run OLS internally, is an efficiency move where we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.
 
 
 ### Estimating 3-parameter item response theory models {#IRT-3PL-estimation}
@@ -746,13 +747,13 @@ Exercise \@ref(IRT-DGP-parameters) asked you to write a data-generating function
 Use your function to generate a large dataset.
 Using functions from the [`{ltm}`](https://cran.r-project.org/package=ltm), [`{mirt}`](https://cran.r-project.org/package=mirt), or [`{TAM}`](https://cran.r-project.org/package=TAM) packages, _estimate_ the parameters of the 3-parameter IRT model based on the simulated dataset.
 
-1. Write a function to _estimate_ a 3-parameter IRT model and return a dataset containing estimates of the item characteristics $(\alpha_m,\beta_m, \gamma_m)$.
+1. Write a function to _estimate_ a 3-parameter IRT model and return a dataset containing estimates of the item characteristics $(\alpha_m, \beta_m, \gamma_m)$.
 
-2. Add an option to the function to allow the user to specify known values of $\gamma_m$.
+2. Add an option to the function to allow the user to specify a shared known value `gamma` for the $\gamma_m$. Your function would then estimate the $\gamma_m$ if `gamma = NULL`, and assume all items had that value if `gamma` is not `NULL`.
 
-3. Create a graphic showing how the item parameter estimates compare to the true item characteristics.
+3. Create a graphic showing how the item parameter estimates compare to the true item characteristics for a single run of your DGP, with $M=20$ items and $N=1000$ respondents.
 
-4. Write a function or set of functions to apply 1-parameter, 2-parameter, and 3-parameter models and return datasets containing the person ability estimates $\theta_1,...,\theta_N$ and corresponding standard errors of measurement.
+4. Write a function or set of functions that use the [`{mirt}`](https://cran.r-project.org/package=mirt) package to estimate and return the student-level ability estimates $\theta_1,...,\theta_N$ along with their standard errors, given a test dataset.
 
 
 ### Meta-regression with selective reporting {#Vevea-Hedges-estimation}
