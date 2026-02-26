@@ -125,8 +125,9 @@ Education researchers tend to be more comfortable using multi-level regression m
 
 We next develop estimation functions for each of these procedures, focusing on a simple model that does not include any covariates besides the treatment indicator.
 Each function needs to produce a point estimate, standard error, and $p$-value for the average treatment effect.
-To have data to practice on, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
+To write estimation functions, it is useful to work with an example dataset that has the same structure as the data that will be simulated. To that end, we generate a sample dataset using [a revised version of `gen_cluster_RCT()`](/case_study_code/gen_cluster_RCT.R), which corrects the bug discussed in Exercise \@ref(cluster-RCT-checks):
 <!-- LWM: Do we put the solution to the exercise here?  Or leave it out? -->
+<!-- JEP: I guess leave it out? -->
 ```{r}
 dat <- gen_cluster_RCT( 
   J=16, n_bar = 30, alpha = 0.8, p = 0.5, 
@@ -399,11 +400,11 @@ Furthermore, warnings can clutter up the console and slow down code execution, s
 On a conceptual level, we need to decide how to use the information contained in errors and warnings, whether that be by further elaborating the estimators to address different contingencies or by evaluating the performance of the estimators in a way that appropriately accounts for these events.
 We consider both these problems here, and then revisit the conceptual considerations in Chapter \@ref(performance-measures), where we discuss assessing estimator performance.
 
-### Capturing errors and warnings
+### Capturing errors and warnings {#error-handling}
 
 Some estimation functions will require complicated or stochastic calculations that can sometimes produce errors. 
 Intermittent errors can really be annoying and time-consuming if not addressed.
-To protect yourself, it is good practice to anticipate potential errors, preventing them from stopping code execution and allowing your simulations to keep running. 
+To protect yourself, it is good practice to anticipate potential errors, so that you can prevent them from stopping code execution and allow your simulations to keep running. 
 We next demonstrate some techniques for error-handling using tools from the `purrr` package.
 
 For illustrative purposes, consider the following error-prone function that sometimes returns what we want, sometimes returns `NaN` due to taking the square root of a negative number, and sometimes crashes completely because `broken_code()` does not exist:
@@ -476,12 +477,12 @@ mod <- analysis_MLM(dat)
 
 Wrapping `lmer()` with `quietly()` makes it possible to catch such output and store it along with other results, as in the following:
 ```{r}
-quiet_safe_lmer <- quietly( possibly( lmerTest::lmer, otherwise=NULL ) )
+quiet_safe_lmer <- quietly( possibly( lmerTest::lmer, otherwise = NULL ) )
 M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
 M1
 ```
 
-In our analysis method, we then pick apart the pieces and make a dataframe out of them (we also add in a generally preferred optimizer, bobyqa, to try and avoid the warnings and errors in the first place):
+In our estimation function, we replace the original `lmer()` call with our quiet-and-safe version, `quiet_safe_lmer()`. We then pick apart the pieces of its output to return a tidy dataset of results. (Separately, we also add in a generally preferred optimizer, bobyqa, to try and avoid the warnings and errors in the first place.) The resulting function is:
 
 ```{r}
 analysis_MLM_safe <- function( dat ) {
@@ -499,6 +500,7 @@ analysis_MLM_safe <- function( dat ) {
             warning = M1$warning,
             error = TRUE )
   } else {
+    # no error!
     sum <- summary( M1$result )
     
     tibble( 
@@ -597,7 +599,7 @@ We end up with a 20-entry list, with each element consisting of a pair of the re
 length( resu )
 resu[[3]]
 ```
-We can massage our data to a more easy to parse format:
+We can massage our data into a format that is easier to parse:
 ```{r}
 resu <- transpose( resu )
 unlist(resu$result)
