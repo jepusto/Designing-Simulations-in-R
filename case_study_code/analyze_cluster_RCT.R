@@ -76,24 +76,28 @@ analysis_MLM_safe <- function( dat, all_results = FALSE ) {
   if ( is.null( M1$result ) ) {
     # we had an error!
     tibble( ATE_hat = NA, SE_hat = NA, p_value = NA,
-            message = M1$message,
-            warning = M1$warning,
+            message = length( M1$message ) > 0,
+            warning = length( M1$warning > 0 ),
             error = TRUE )
   } else {
     sum <- summary( M1$result )
+    
     tibble( 
       ATE_hat = sum$coefficients["Z","Estimate"], 
       SE_hat = sum$coefficients["Z","Std. Error"], 
       p_value = sum$coefficients["Z", "Pr(>|t|)"],
-      message = list( M1$message ),
-      warning = list( M1$warning ),
+      message = length( list( M1$messages ) ) > 0,
+      warning = length( list( M1$warning ) ) > 0,
       error = FALSE )
   }
   
 }
 
 
-
+#' This is to illustrate how we can implement a data analytic workflow
+#' mimicing human decision-making.
+#'
+#' This is _not_ what we use for the simulation results.
 analysis_MLM_contingent <- function( dat ) {
   
   M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1 | sid), data=dat )
