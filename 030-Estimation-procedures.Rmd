@@ -523,7 +523,7 @@ mod
 ```
 
 Recall that `analysis_MLM()` was one part of our method that ran all three estimators (MLM, OLS, and Agg) on our data.
-If we do not want to protect the other methods (perhaps because they do not seem to fail) we can write our overall "quiet" version of our `analyze_data()` function as so:
+If we do not want to protect the other methods (perhaps because they do not seem to fail) we can write a "quiet" version of our `analyze_data()` function as so:
 
 ```{r}
 quiet_analyze_data <- function(dat,
@@ -583,7 +583,8 @@ What would that analyst do in practice (besides cussing and taking a snack break
 Rather than giving up entirely, they would probably think of an alternative analysis and attempt to apply it, perhaps by simplifying the model in some way. 
 To the extent that we can anticipate such possibilities, we can build these error-contingent alternative analyses into our estimation function.
 In short, we can implement an _estimation procedure_ or a _data-analysis procedure_ rather than just an _estimator_. 
-In the real world, an overall analysis may be many different steps in a branching structure; we can capture that in our code, and then evaluate how well that overall _approach_ works in our simulations.
+In the real world, an overall analysis strategy may involve multiple steps in a branching structure.
+We can try to emulate such strategies in our code, and then evaluate how well that multiple-step approach works using simulations.
 
 To illustrate, consider an error (a not-particularly-subtle one) that could crop up in the cluster-randomized trial example when clusters are very small:
 ```{r, error=TRUE}
@@ -761,7 +762,7 @@ For each of these tests, you will need to figure out the appropriate syntax by r
 Exercise \@ref(cluster-RCT-baseline) from Chapter \@ref(data-generating-processes) asked you to extend the data-generating function for the cluster-randomized trial to include generating a student-level covariate, $X$, that is predictive of the outcome. 
 Use your modified function to generate a dataset. 
 
-1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor. Your function should return three estimates, a MLM version (`analysis_MLM_cov()`), aggregated version (`analysis_agg_cov()`), and OLS version (`analysis_OLS_cov()`. Wrap all three in a final function `analyze_data_cov()` that applies all three methods to the same dataset and returns a tidy dataframe of results. Test that your functions work as expected.
+1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor. Your function should return three estimates: an MLM version (`analysis_MLM_cov()`), an aggregated version (`analysis_agg_cov()`), and an OLS version (`analysis_OLS_cov()`. Wrap all three in a final function `analyze_data_cov()` that applies all three methods to the same dataset and returns a tidy dataframe of results. Test that your functions work as expected.
 
 2. Further extend the functions to include an input argument for the set of predictors to be included in the model, as in the following skeleton for the multi-level model estimator:
     ```{r, eval = FALSE}
@@ -773,7 +774,7 @@ Use your modified function to generate a dataset.
     analysis_MLM( dat, predictors = c("W","X"))
     analysis_MLM( dat, predictors = c("W","X", "X:W"))
     ```
-    Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.  You can also instead write your function to take a formula to define your predictors, as in an argument of `predictors = ~ W + X + W:X`. You will then need to wrangle the formula; large language models will help you write this code.
+    Hint: Check out the `reformulate()` function, which makes it easy to build formulas for different sets of predictors.  Alternately, you could instead design the function to take a formula that defines the set of predictors, as in `predictors = ~ W + X + W:X`. With this approach, you will need to wrangle the formula into a useable form.
 
 
 ### Contingent estimator processing {#contingent-estimator-processing}
@@ -787,8 +788,7 @@ Can you fix these problems?
 1. Revise `analysis_MLM_contingent()` so that it checks whether all clusters are single observations _before_ fitting the multilevel model.
 If all clusters are singletons, skip the model-fitting step, return an `NA` values for the point estimator, standard error, and p-value, and return an informative message in the `error` variable. Test that the function works as expected.
 
-2. Revise `analyze_data()` to use your new version of `analysis_MLM_contingent()`. The revised function will now sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code in `analyze_data()` that replaces any `NA` values for the MLM results with corresponding results of `analysis_OLS()`. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Writing code in this way, vs. having the `analysis_MLM_contingent()` run OLS internally, is an efficiency move where we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.
-
+2. Revise `analyze_data()` to use your new version of `analysis_MLM_contingent()`. The revised function will now sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code in `analyze_data()` that replaces any `NA` values for the MLM results with corresponding results of `analysis_OLS()`. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Compared to having  `analysis_MLM_contingent()` run OLS internally, writing code this way improves efficiency because we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.
 
 ### Estimating 3-parameter item response theory models {#IRT-3PL-estimation}
 
@@ -798,7 +798,7 @@ Using functions from the [`{ltm}`](https://cran.r-project.org/package=ltm), [`{m
 
 1. Write a function to _estimate_ a 3-parameter IRT model and return a dataset containing estimates of the item characteristics $(\alpha_m, \beta_m, \gamma_m)$.
 
-2. Add an option to the function to allow the user to specify a shared known value `gamma` for the $\gamma_m$. Your function would then estimate the $\gamma_m$ if `gamma = NULL`, and assume all items had that value if `gamma` is not `NULL`.
+2. Add an option to the function to allow the user to specify a shared known value `gamma` for the $\gamma_m$. Your function would then assume all items had that value if `gamma` is not `NULL`, but would estimate the $\gamma_m$ if `gamma = NULL`.
 
 3. Create a graphic showing how the item parameter estimates compare to the true item characteristics for a single run of your DGP, with $M=20$ items and $N=1000$ respondents.
 
