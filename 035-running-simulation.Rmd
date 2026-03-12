@@ -20,7 +20,7 @@ source("case_study_code/analyze_cluster_RCT.R")
 # Running the Simulation Process {#running-the-simulation-process}
 
 In the prior two chapters we saw how to write functions that generate data according to a particular model and functions that implement data-analysis procedures on simulated data.
-The next step to build a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, $p$-values, or other quantities) from many replications of the whole process.
+The next step in building a simulation involves putting these two pieces together, running the DGP function and the data-analysis function repeatedly to obtain results (in the form of point estimates, standard errors, confidence intervals, $p$-values, or other quantities) from many replications of the whole process.
 
 As with most things R-related, there are many different techniques that can be used to repeat a set of calculations over and over. 
 In this chapter, we demonstrate two key techniques for doing so.
@@ -28,7 +28,7 @@ We then explain how to ensure reproducibility of simulation results by setting t
 
 ## Repeating oneself {#repeating-oneself}
 
-Suppose that we want to repeatedly generate bivariate Poisson data and then estimate the correlation for those data.
+Suppose that we want to repeatedly generate bivariate Poisson data and then use the data to estimate the correlation between the variates.
 We saw a DGP function for the bivariate Poisson in Section \@ref(DGP-functions), and an estimation function in Section \@ref(estimation-functions).
 To produce a simulated correlation coefficient, we need to run these two functions in turn:
 ```{r}
@@ -55,12 +55,12 @@ The first argument specifies the number of times to repeat the calculation.
 The second argument is an R expression that will be evaluated. 
 The expression is wrapped in curly braces (`{}`) because it involves more than a single line of code.
 Including the option `id = "rep"` returns a dataset that includes a variable called `rep` to identify each replication of the process.
-Setting the option `stack = TRUE` will stack up the output of each expression into a single tibble, which will facilitate later calculations on the results.
+Setting the option `stack = TRUE` will stack up the output of each expression into a single tibble, which will facilitate further calculations on the results.
 Explicitly setting this option is not necessary because it is `TRUE` by default; setting `stack = FALSE` will return the results in a list rather than a tibble (try this for yourself to see!).
 
 There are many other functions that work very much like `repeat_and_stack()`, including the base-R function `replicate()` and the now-deprecated function `rerun()` from `{purrr}`.
 The functions in the `map()` family from `{purrr}` can also be used to do the same thing as `repeat_and_stack()`.
-See Appendix \@ref(more-repeating-oneself) for more discussion of these alternatives.
+See Appendix \@ref(more-repeating-oneself) for more discussion of these options.
 
 
 ## One run at a time
@@ -129,8 +129,7 @@ Once we have a function to execute a single run, we can produce multiple results
 R <- 1000
 ATE <- 0.30
 runs <- repeat_and_stack( R, 
-                          one_run( n_bar = 30, J = 20, 
-                                   gamma_1 = ATE ),
+                          one_run( n_bar = 30, J = 20, gamma_1 = ATE ),
                           id = "runID") 
 ```
 
@@ -146,7 +145,7 @@ In Chapter \@ref(performance-measures), we will look systematically at ways to q
 
 In Section \@ref(DGP-standardization), we discussed how to index the DGP of the cluster-randomized experiment using an intra-class correlation (ICC) instead of using two separate variance components.
 This type of re-parameterization can be handled as part of writing a wrapper function for executing the DGP and estimation procedures.
-Here is a revised version of `one_run()`, which renames some of the more obscure model parameters using terms that are easier to interpret:
+Here is a revised version of `one_run()`[^stopifnot], which also renames some of the more obscure model parameters using terms that are easier to interpret:
 
 ```{r revised_CRT, eval=FALSE}
 one_run <- function( 
@@ -163,10 +162,10 @@ one_run <- function(
   quiet_analyze_data(dat)
 }
 ```
-Note the `stopifnot`: it is wise to ensure our parameter transforms are all reasonable, so we do not get unexplained errors or strange results later on.
+
+[^stopifnot]: Note the use of `stopifnot` in the body of `one_run()`. 
+It is wise to ensure our parameter transforms are all reasonable, so we do not get unexplained errors or strange results later on.
 It is best if your code fails as soon as possible!  Otherwise debugging can be quite hard.
-<!-- JEP: This seems like a tangent. -->
-<!-- LWM: Yes it is!---but it seems quick.  You vote remove? -->
 
 For details on `quiet_analyze_data()`, see Section \@ref(error-handling).
 Also see Section \@ref(multiple-estimation-procedures) for how `analyze_data()` bundles the three different estimation methods we are evaluating.
@@ -224,6 +223,7 @@ run_CRT_sim( reps = 1000,
              size_coef = 0.5, alpha = 0.5 )
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
+
 Our simulation function takes easy to interpret parameters (`ATE`, `ICC`) rather than the raw variance components.
 It runs simulations in effect size units, and provides "knobs" to the simulation that are directly interpretable.
 
@@ -234,10 +234,9 @@ The techniques that we have demonstrated for repeating a set of calculations eac
 The `simhelpers` package provides a function `bundle_sim()` that abstracts this common pattern and allows you to automatically stitch together (or "bundle") a DGP function and an estimation function, so that they can be run once or multiple times.
 Thus, `bundle_sim()` provides a convenient alternative to writing your own `one_run()` and `run_CRT_sim()` functions, thereby saving a bit of typing and providing some security against bugs creeping into your code.
 
-`bundle_sim()` takes a DGP function and an estimation function as inputs and gives us back a new function that will run a simulation using whatever parameters we give it.
+The `bundle_sim()` function takes a DGP function and an estimation function as inputs and gives us back a new function that will run a simulation using whatever parameters we give it.
 The `bundle_sim()` function is a "factory" in that it creates a new function for you on the fly.
-Think of it as a (rather dumb) coding assistant who will take some direction and give you code back.
-
+<!-- JEP: Do we use this term elsewhere in the book? In our discussion of safely() and possibly(), we introduced the term _functional_, which is with consistent with how Hadley talks about such functions. -->
 Here is a basic example, where we create a function for running our simulation to evaluate how well our Pearson correlation coefficient confidence interval works on a bivariate Poisson distribution:
 ```{r}
 sim_r_Poisson <- bundle_sim( f_generate = r_bivariate_Poisson, 
@@ -276,7 +275,9 @@ runs <- sim_cluster_RCT( reps = 2,
                          sigma2_u = 0.2, sigma2_e = 0.8 )
 ```
 
-The `bundle_sim()` function is just a convenient way to create a function that pieces together the steps in the simulation process, which is especially useful when the component functions include many input parameters.
+The `bundle_sim()` function is just a convenient way to create a function that pieces together the steps in the simulation process.
+This is especially useful when the component functions include many input parameters.
+Think of it as a not overly smart coding assistant who will take some basic directions and give you some code back.
 The function has several further features, which we will demonstrate in subsequent chapters.
 
 One limitation is `bundle_sim()` produces a function with input names that exactly match the inputs of the DGP function that we give it. 
@@ -307,11 +308,12 @@ sim_B <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14)
 identical(sim_A, sim_B)
 ```
 Of course, this is the intended behavior of these functions, but it has an important consequence that needs some care and attention. 
-Using functions like `rchisq()`, `r_bivariate_Poisson()`, or `r_bivariate_Poisson()` in a simulation study means that the results will not be fully reproducible, meaning that if we run our simulation and write up our results, and then someone else tries to run our very same simulation using our very same code, they might not get the very same results.
-This can undermine transparency, and make it hard to verify if a set of presented results really came from a given codebase.
+Using functions like `rchisq()`, `r_bivariate_Poisson()`, or `r_bivariate_Poisson()` in a simulation study means that the results will not be fully reproducible.
+If we run the simulation code and write up our results, and then someone else tries to run the same simulation using the very same code, they will not get the very same results.
+This undermines transparency and makes it hard to verify if a set of presented results really came from a given codebase.
 
 When using DGP functions for simulations, it is useful to be able to exactly control the process of generating random numbers.
-This is much more feasible than it sounds: Monte Carlo simulations are random, at least in theory, but computers are deterministic.
+This is much more feasible than it sounds: although Monte Carlo simulations are random in theory, computers are deterministic.
 When we use R to generate what we have been referring to as "random numbers," the functions produce what are actually _pseudo-random_ numbers.
 Pseudo-random numbers are generated from chains of mathematical equations designed to produce sequences of numbers that appear random, but actually follow a deterministic sequence.
 Each subsequent random number is a calculated by starting from the previously generated value (i.e., the current state of the random number generator), applying a complicated function, and storing the result (i.e., updating the state).
@@ -321,7 +323,7 @@ The state of the pseudo-random number generator is shared across different funct
 Each time we ask for a random number from the generator, its state is updated.
 Functions like `rnorm()` and `rchisq()` all call the low-level generator and then transform the result to be of the correct distribution.
 
-Because the generator is actually deterministic, we can control its output by specify a starting value or initial state, 
+Because the generator is actually deterministic, we can control its output by specify a starting value or initial state.
 In R, the state of the random number generator can be controlled by setting what its known as the seed.
 The `set.seed()` function allows us to specify a seed value, so that we can exactly reproduce a calculation.
 For example,
@@ -365,7 +367,7 @@ run_CRT_sim <- function(reps,
 A `seed` argument allows the user to set a seed value before running the full simulation.
 By default, the `seed` argument is `NULL` and so the current seed is not modified, but if you set the seed, you will get the same run each time.
 
-The `bundle_sim()` function, demonstrated in Section \@ref(bundle-sim-demo), gives back a function with a `seed` seed argument like above.
+The `bundle_sim()` function, demonstrated in Section \@ref(bundle-sim-demo), produces a function with a `seed` seed argument that works just as in the example above.
 Specifying an integer-valued seed will make the results exactly reproducible:
 ```{r}
 sim_A <- sim_r_Poisson( 10, N = 30, rho = 0.4, mu1 = 8, mu2 = 14,
@@ -388,16 +390,14 @@ If we had not set the seed, we would not know if we were just getting (un)lucky,
 
 ## Conclusions
 
-The act of running a simulation is not itself the goal of a simulation study. Rather, it is the mechanism by which we generate many realizations of a data analysis procedure under a specified data-generating process.
+The act of running a simulation is not itself the goal of a simulation study. Rather, it is only the procedural mechanism by which we generate many realizations of a data analysis procedure under a specified data-generating process.
 As we have seen in this chapter, doing so requires carefully stitching together the one-two step of data generation and analysis, repeating that combined process many times, and then organizing the resulting output in a form that can be easily and systematically evaluated.
 Different coding strategies can be used to accomplish this, but they all serve the same purpose: to make repeated evaluation of a procedure reliable, transparent, and easy to extend.
-
-Finally, because simulation studies rely on stochastic data generation, careful attention must be paid to reproducibility.
+Finally, because simulation studies rely on stochastic data generation, it is critical that we pay careful attention to reproducibility.
 By controlling the pseudo-random number generator through explicit use of seeds, we can ensure that simulation results can be exactly reproduced, checked, and debugged.
 This reproducibility is essential for both scientific transparency and practical development of simulation code.
 
-With the tools of this chapter in place, we are now positioned to move from running simulations to evaluating what they tell us about estimator behavior, which is the focus of the next chapter.
-
+With the tools of this chapter in place, we are now positioned to move from running simulations to evaluating what they tell us about estimator behavior---the focus of Chapter \@ref(performance-measures).
 
 ## Exercises
 
