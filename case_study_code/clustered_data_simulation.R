@@ -52,11 +52,13 @@ quiet_analyze_data <- function(dat,
 }
 
 
-run_CRT_sim <- function(reps, 
-                        n_bar = 10, J = 30, p = 0.5,
-                        ATE = 0, ICC = 0.4,
-                        size_coef = 0, alpha = 0,
-                        seed = NULL, aggregate = TRUE) {
+
+
+run_CRT_sim <- function( reps, 
+                         n_bar = 10, J = 30, p = 0.5,
+                         ATE = 0, ICC = 0.4,
+                         size_coef = 0, alpha = 0,
+                         seed = NULL ) {
   
   stopifnot( ICC >= 0 && ICC < 1 )
   
