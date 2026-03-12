@@ -143,7 +143,7 @@ f_endings <- which(cluster_RCT_fun == "}")
 analysis_MLM_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_MLM <-")):(f_endings[1])]
 analysis_OLS_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_OLS <-")):(f_endings[2])]
 analysis_agg_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analysis_agg <-")):(f_endings[3])]
-analysis_bundle_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "estimate_Tx_Fx <-")):(f_endings[4])]
+analysis_bundle_code <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "analyze_data <-")):(f_endings[4])]
 
 
 lmer_quietly <- cluster_RCT_fun[which(str_detect(cluster_RCT_fun, "purrr::quietly"))]
@@ -201,7 +201,7 @@ Here is a function that bundles all the estimation procedures together:
 ```{r, code = analysis_bundle_code}
 ```
 ```{r}
-estimate_Tx_Fx(dat)
+analyze_data(dat)
 ```
 This is a common coding pattern for simulations that involve multiple estimators. 
 Each procedure is expressed in its own function, then these are assembled together in a single function so that they can all easily be applied to the same dataset.
@@ -293,7 +293,7 @@ dat <- gen_cluster_RCT(
 )
 table(dat$sid) # verify equal-sized clusters
 
-estimate_Tx_Fx(dat)
+analyze_data(dat)
 ```
 All three methods yield identical results. 
 Now let's try equal school sizes but unequal allocation to treatment:
@@ -303,7 +303,7 @@ dat <- gen_cluster_RCT(
   gamma_0 = 0, gamma_1 = 0.2, gamma_2 = 0.2,
   sigma2_u = 0.4, sigma2_e = 0.6
 )
-estimate_Tx_Fx(dat)
+analyze_data(dat)
 ```
 As expected, all three point estimators match, but the SE from the multilevel model is a little bit discrepant from the others.
 
@@ -520,34 +520,80 @@ mod <- analysis_MLM_safe(dat)
 mod
 ```
 
-Storing this information will let us evaluate what proportion of the time there was a warning or message, run additional analyses on the subset of replications where there was no such warning, or even modify the estimator to take the diagnostics into account.
+Recall that `analysis_MLM()` was one part of our method that ran all three estimators (MLM, OLS, and Agg) on our data.
+If we do not want to protect the other methods (perhaps because they do not seem to fail) we can write our overall "quiet" version of our `analyze_data()` function as so:
+
+```{r}
+quiet_analyze_data <- function(dat,
+                               CR_se_type = "CR2",
+                               agg_se_type = "HC2") {
+  
+  # MLM
+  a = Sys.time()
+  MLM <- analysis_MLM_safe(dat)
+  MLM$seconds <- as.numeric(Sys.time() - a, units = "secs")
+  
+  # OLS
+  a = Sys.time()
+  LR <- analysis_OLS(dat, se_type = CR_se_type)
+  LR$seconds <- as.numeric(Sys.time() - a, units = "secs")
+  LR$message <- 0
+  LR$warning <- 0
+  LR$error <- 0
+  
+  # Aggregated
+  a = Sys.time()
+  Agg <- analysis_agg(dat, se_type = agg_se_type)
+  Agg$seconds <- as.numeric(Sys.time() - a, units = "secs")
+  Agg$message <- 0
+  Agg$warning <- 0
+  Agg$error <- 0
+  
+  bind_rows(MLM = MLM, LR = LR, Agg = Agg, .id = "method")
+}
+```
+
+For the other methods we manually set the flags for messages and warnings to 0, and then stack to get our final results.
+We also calculate run time for each method, which can be useful for determining where our simulation might be especially slow.
+See \@ref(profiling-code) for more on timing.
+
+Here is what our method now returns:
+```{r}
+quiet_analyze_data(dat) %>%
+  print( digits = 3 )
+```
+
+Storing error and warning information will let us evaluate what proportion of the time there was a concern, run additional analyses on the subset of replications where there was no such warning, or even modify the estimator to take the diagnostics into account.
 We have solved the technical problem---our code will run and give results---but not the conceptual one: what does it mean when our estimator gives an NA or a convergence warning with a nominal answer?
 How do we decide how good our estimator is when it does this?
 
 
-### Adapting estimators for errors and warnings {#adapting-for-errors}
+### Estimator processes that anticipate errors and warnings {#adapting-for-errors}
 
 So far, we have seen techniques for handling technical hiccups that occur when data analysis procedures do not always produce results.
 But how do we account for the absence of results in a simulation? 
 In Chapter \@ref(performance-measures), we will delve into the conceptual issues with summarizing the performance of methods that do not always provide an answer.
-However, one of the best solutions to such problems still concerns the formulation of estimation functions, and so we introduce it here.
-That solution is to _re-define the estimator_ to include contingencies for handling a lack of results.
+However, one of the best solutions to such problems still concerns the formulation of estimation processes, and so we introduce it here.
+That solution is to _re-define the estimation process_ to include contingencies for handling a lack of results.
 
 Consider a data analyst who was planning to apply a fancy statistical model to their data, but then finds that the model does not converge. 
 What would that analyst do in practice (besides cussing and taking a snack break)?
 Rather than giving up entirely, they would probably think of an alternative analysis and attempt to apply it, perhaps by simplifying the model in some way. 
 To the extent that we can anticipate such possibilities, we can build these error-contingent alternative analyses into our estimation function.
-Because of this, it would be more precise to talk about an _estimation procedure_ or a _data-analysis procedure_ rather than just an _estimator_. 
-An analysis may be many different steps in a branching structure of analysis.
+In short, we can implement an _estimation procedure_ or a _data-analysis procedure_ rather than just an _estimator_. 
+In the real world, an overall analysis may be many different steps in a branching structure; we can capture that in our code, and then evaluate how well that overall _approach_ works in our simulations.
 
-To illustrate, let's look at an error (a not-particularly-subtle one) that could crop up in the cluster-randomized trial example when clusters are very small:
-```{r}
+To illustrate, consider an error (a not-particularly-subtle one) that could crop up in the cluster-randomized trial example when clusters are very small:
+```{r, error=TRUE}
 set.seed(65842)
 tiny_dat <- gen_cluster_RCT( J = 10, n_bar = 2, alpha = 0.5)
-analysis_MLM_safe(tiny_dat)
+analysis_MLM(tiny_dat)
+```
+The method failed!
+The error occured because all 10 simulated schools happened to include a single student each, making it impossible to estimate a random-intercepts multilevel model:
+```{r}
 table(tiny_dat$sid)
 ```
-The error occurs because all 10 simulated schools happened to include a single student each, making it impossible to estimate a random-intercepts multilevel model.
 A natural fall-back analysis here would be to estimate an ordinary least squares regression analysis.
 
 Suppose that our imaginary analyst is not especially into nuance, and so will fall back onto ordinary least squares whenever the multilevel model produces an error. 
@@ -560,12 +606,12 @@ The function now returns a treatment effect estimate even if `lmer()` errors out
 analysis_MLM_contingent(tiny_dat)
 ```
 Of course, we can easily anticipate the conditions under which this particular error will occur: all we need to do is check whether all the clusters are single observations.
-Because it is easily anticipated, a better strategy for handling this error is to check _before_ fitting the multilevel model and proceeding accordingly in the event that the clusters are all singletons.
+Because it is easily anticipated, a better strategy for handling this error would be to check _before_ fitting the multilevel model and proceeding accordingly in the event that the clusters are all singletons.
 Exercise \@ref(contingent-estimator-processing) asks you to implement this approach and further refine this contingent analysis strategy.
 
-Adapting estimation functions to address errors can be an effective---and often very interesting---strategy for studying the performance of estimation methods.
-Rather than studying the performance of a data-analysis method that is only sometimes well-defined, we shift to studying a stylized cognitive model for the analyst's decision-making process, which handles contingencies that might crop up whether analyzing simulated data or real empirical data.
-Of course, studying such a model is only interesting to the extent that the decision-making process it implements is a plausible representation of what an analyst might actually do in practice.
+Adapting estimation functions to address errors can be an effective---and often very interesting---strategy for studying the performance of estimation procedures.
+Rather than studying the performance of a data-analysis method that is only sometimes well-defined, we shift to studying a stylized cognitive model for the analyst's decision-making process, one which handles contingencies that might crop up whether analyzing simulated data or real empirical data.
+Of course, studying such a model is only interesting to the extent that the implemented decision-making process is a plausible representation of what an analyst might actually do in practice.
 
 The adaptive estimation approach does lead to more complex estimation functions, which entail implementing multiple estimation methods and a set of decision rules for applying them.
 Often, the set of contingencies that need to be handled will not be immediately obvious, so you may find that you need to build and refine the decision rules as you learn more about how they work.
@@ -583,7 +629,7 @@ To use it, we feed our function into `safely()` to create a new version:
 my_safe_function <- safely( my_complex_function, otherwise = NA )
 my_safe_function( 7 )
 ```
-Just as with `possibly()`, we can include `otherwise = NA` to set a return value if there is an error.
+Just as with `possibly()`, we include `otherwise = NA` to set a return value if there is an error.
 
 We can use the safe function repeatedly and it will always return a result:
 ```{r}
@@ -625,7 +671,7 @@ M1
 The resulting object has the estimation results buried inside it.
 Even though the result is a bit of a mess, this structure provides all the pieces that we need, including any errors, warnings, and other output.
 
-We can then have, for example, code such as this in our estimation function:
+We can then carefully unpack what we get back in our estimation function, as so:
 
 ```{r, eval=FALSE}
 if ( is.null( M1$result$result ) ) {
@@ -633,8 +679,9 @@ if ( is.null( M1$result$result ) ) {
   error = M1$result$error
   
 } else {
-  # We did not.  Do the same as above
+  # We did not.
   error = NULL
+  # Now plug in the same code as above
 }
 # etc.
 ```
@@ -712,7 +759,7 @@ For each of these tests, you will need to figure out the appropriate syntax by r
 Exercise \@ref(cluster-RCT-baseline) from Chapter \@ref(data-generating-processes) asked you to extend the data-generating function for the cluster-randomized trial to include generating a student-level covariate, $X$, that is predictive of the outcome. 
 Use your modified function to generate a dataset. 
 
-1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor. Your function should return three estimates, a MLM version (`analysis_MLM_cov()`), aggregated version (`analysis_agg_cov()`), and OLS version (`analysis_OLS_cov()`. Wrap all three in a final function `estimate_Tx_Fx_cov()` that applies all three methods to the same dataset and returns a tidy dataframe of results. Test that your functions work as expected.
+1. Modify the estimation functions from Section \@ref(multiple-estimation-procedures) to use models that include the covariate as a predictor. Your function should return three estimates, a MLM version (`analysis_MLM_cov()`), aggregated version (`analysis_agg_cov()`), and OLS version (`analysis_OLS_cov()`. Wrap all three in a final function `analyze_data_cov()` that applies all three methods to the same dataset and returns a tidy dataframe of results. Test that your functions work as expected.
 
 2. Further extend the functions to include an input argument for the set of predictors to be included in the model, as in the following skeleton for the multi-level model estimator:
     ```{r, eval = FALSE}
@@ -738,7 +785,7 @@ Can you fix these problems?
 1. Revise `analysis_MLM_contingent()` so that it checks whether all clusters are single observations _before_ fitting the multilevel model.
 If all clusters are singletons, skip the model-fitting step, return an `NA` values for the point estimator, standard error, and p-value, and return an informative message in the `error` variable. Test that the function works as expected.
 
-2. Revise `estimate_Tx_Fx()` to use your new version of `analysis_MLM_contingent()`. The revised function will now sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code in `estimate_Tx_Fx()` that replaces any `NA` values for the MLM results with corresponding results of `analysis_OLS()`. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Writing code in this way, vs. having the `analysis_MLM_contingent()` run OLS internally, is an efficiency move where we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.
+2. Revise `analyze_data()` to use your new version of `analysis_MLM_contingent()`. The revised function will now sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code in `analyze_data()` that replaces any `NA` values for the MLM results with corresponding results of `analysis_OLS()`. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Writing code in this way, vs. having the `analysis_MLM_contingent()` run OLS internally, is an efficiency move where we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.
 
 
 ### Estimating 3-parameter item response theory models {#IRT-3PL-estimation}
