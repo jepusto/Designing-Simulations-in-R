@@ -548,28 +548,30 @@ More broadly, standardizing by a stable parameter (the variation among those in 
 
 ## Sometimes a DGP is all you need {#three-parameter-IRT}
 
-We have introduced the data-generating process as only the first step in developing a simulation study. Indeed, there are many more considerations to come, which we will describe in subsequent chapters.
+We have introduced the data-generating process as only the first step in developing a simulation study.
+Indeed, there are many more considerations to come, which we will describe in subsequent chapters.
 However, this first step is still very useful in its own right, even apart from the other components of a simulation. 
 Sometimes, a data-generating function is all you need to learn about a statistical model.
 
-Writing data-generating functions is a very effective way to _study_ a statistical model, such as a model that you might be learning about in a course or through self-study.
+A data-generating function provides a very effective way to _study_ a statistical model, such as a model that you might be learning about in a course or through self-study.
 Writing code based on a model is a much more _active_ process than listening to a lecture or reading a book or paper. 
 Coding requires you to make the mathematical notation tangible and can help you to notice details of the model that might be easily missed through listening or reading alone.
 
 Suppose we are taking a first course psychometrics and have just been introduced to item response theory (IRT) models for binary response items. 
-Our instructor has just laid out a bunch of notation: 
+Our instructor has just laid out a bunch of notation:
 
 * We have data from a sample of $N$ individuals, each of whom responds to a set of $M$ test items.
 * We let $X_{im} = 1$ if respondent $i$ answers item $m$ correctly, with $X_{im} = 0$ otherwise, for $i = 1,...,N$ and $m = 1,...,M$. 
 * We imagine that each respondent has a latent ability $\theta_i$ on whatever domain the test measures.
 
-Now our instructor starts dropping models on us, and puts up a slide showing the equation for a three-parameter IRT model:
+Our instructor next puts up a slide showing the equation for what they say is a three-parameter IRT model:
 $$
 Pr(X_{im} = 1) = \gamma_m + (1 - \gamma_m) g\left( \alpha_m [\theta_i - \beta_m]\right),
 $$
 where $g(x)$ is the cumulative logistic curve: $g(x) = e^x / (1 + e^x)$.
-The instructor explains that $\alpha_m$ is discrimination parameter that can take any real value, $\beta_m$ is a difficulty parameter that has to be greater than zero, and $\gamma_m$ is a guessing parameter between 0 and 1.
-They also explain that the guessing parameter is often hard to estimate and so might get treated as fixed and known, based on the number of response options on the item. 
+The instructor explains that $\alpha_m$ is a positive-valued "discrimination parameter", $\beta_m$ is a difficulty parameter that can be any value, and $\gamma_m$ is a guessing probability parameter between 0 and 1.
+<!-- LWM: I changed this to say discrimination is non-negative and difficulty is anything?  That is correct, yes?  (it was swapped) -->
+They further explain that the guessing parameter is often hard to estimate and so might get treated as fixed and known, based on the number of response options on the item.
 For instance, if all the items have four options, then we might take $\gamma_m = \frac{1}{4}$ for $m = 1,...,M$.
 Finally, they explain that the ability parameters are assumed to follow a standard normal distribution, so $\theta_i \sim N(0, 1)$ in the population. 
 
@@ -581,7 +583,8 @@ Let's use $N = 7$ participants and $M = 4$ items for starters:
 N <- 7
 M <- 4
 ```
-The $\theta_i$ distribution seems like the next-simplest part of the model, so let's generate some ability parameters:
+DGPs usually follow a hierarchy, with different elements being defined in terms of other elements, and so on until some elements do not depend on anything.
+Following this structure, we first generate the ability parameters because they follow a standard normal distribution that does not depend on anything else:
 ```{r}
 thetas <- rnorm(N)
 ```
@@ -591,21 +594,24 @@ Where do we get these?
 For a particular fixed-length test, the set of item parameters would depend on the features of the actual test questions.
 But we are not (yet) dealing with actual testing data, so we will need to make up an auxiliary model for these parameters.
 Perhaps we could just simulate some values?
-Arbitrarily, let's draw the difficulty parameters from a normal distribution with mean $\mu_\alpha = 0$ and standard deviation $\tau_\alpha = 1$.
-The discrimination parameters have to be greater than zero, and values near $\alpha_m = 1$ make the model simplify (in other words, if $\alpha_1 = 1$ then we can drop the parameter from the model), so let's draw them from a gamma distribution with mean $\mu_\alpha = 1$ and standard deviation $\tau_\alpha = 0.2$. 
-This decision requires a bit of work: gamma distributions are usually parameterized in terms of shape and rate, not mean and standard deviation.
-A bit of poking on Wikipedia gives us the answer, however:
-shape is equal to $\mu_\alpha^2 \tau_\alpha^2 = 0.2^2$ and rate is equal to $\mu_\alpha \tau_\alpha^2 = 0.2^2$.
-Finally, we imagine that all the test questions have four possible responses, and therefore set $\gamma_m = \frac{1}{4}$ for all the items, just like the instructor suggested.
 Each item requires three numbers; the easiest way to generate them is to let them all be independent of each other, so we do that.
-With that, let's make up some item parameters:
+
+ * **Difficulty:** Arbitrarily, let's draw the difficulty parameters from a normal distribution with mean $\mu_\beta = 0$ and standard deviation $\tau_\beta = 1$.
+
+ * **Discrimination:** The discrimination parameters have to be greater than zero, and values near $\alpha_m = 1$ make the model simplify (in other words, if $\alpha_1 = 1$ then we can drop the parameter from the model), so let's draw them from a gamma distribution with mean $\mu_\alpha = 1$ and standard deviation $\tau_\alpha = 0.2$.
+In looking up `rgamma()` we see that it takes shape and rate, so we need to convert our mean and standard deviation before we can generate values.
+A bit of poking on Wikipedia gives us our transform: shape is equal to $\mu_\alpha^2 \tau_\alpha^2 = 0.2^2$ and rate is equal to $\mu_\alpha \tau_\alpha^2 = 0.2^2$.
+
+ * **Guessing:** Finally, we imagine that all the test questions have four possible responses, and therefore set $\gamma_m = \frac{1}{4}$ for all the items, just like the instructor suggested.
+
+Here is the code following from this line of reasoning:
 ```{r}
-betas <- rnorm(M, mean = 0, sd = 1.5)           # difficulty parameters
-alphas <- rgamma(M, shape = 0.2^2, rate = 0.2^2)  # discrimination parameters
-gammas <- rep(1 / 4, M)                          # guessing parameters
+betas <- rnorm(M, mean = 0, sd = 1.5)            # difficulty
+alphas <- rgamma(M, shape = 0.2^2, rate = 0.2^2) # discrimination
+gammas <- rep(1 / 4, M)                          # guessing
 ```
 
-A three-parameter IRT model describes the probability that a given respondent with ability $\theta_i$ answers each of the items on the test correctly.
+A three-parameter IRT model describes the probability that a given respondent with ability $\theta_i$ answers item $m$ correctly.
 To generate data based on the model, we need to produce scores on every item for every respondent, leading to a matrix of $N$ respondents by $M$ items. 
 To simplify this calculation, we write a function to compute the item probabilities for a single respondent:
 ```{r}
@@ -616,13 +622,15 @@ r_scores <- function(theta_i, alphas, betas, gammas, M) {
   return(scores)
 }
 
-r_scores(thetas[1], alphas = alphas, betas = betas, 
-         gammas = gammas, M = M)
+r_scores( thetas[1], 
+          alphas = alphas, betas = betas, 
+          gammas = gammas, M = M )
 ```
 The first line of the function calculates the probability of correctly answering all $M$ items, and stores the result in a vector `pi_i`.
+This code is simply the math turned into R syntax, nothing more, nothing less.
 In the next line, we simulate binary outcomes by flipping coins with the specified vector of probabilities.
 Finally, we assign names to each item so that we can keep track of which score is for which item.
-Now, using the `map()` function, we can run the function for every one of our respondents:
+Now, we use `map()` to run the function on each respondent:
 ```{r}
 map_dfr(
   thetas, .f = r_scores, 
@@ -668,7 +676,10 @@ r_3PL_IRT <- function(
 
 r_3PL_IRT(N = 7, M = 4)
 ```
-Now let's look at a much larger sample of participants, with a longer test that includes $M = 12$ items:
+
+We have a DGP function!
+We next use it to understand our model.
+To get a sense of variation across items and participants, we generate a dataset with many, many participants taking a longer test with $M = 12$ items:
 ```{r}
 test_scores <- r_3PL_IRT(N = 10000, M = 12)
 ```
@@ -741,28 +752,30 @@ The shifted-and-scaled $t$-distribution has parameters $\mu$ (mean), $\sigma$ (s
 If $T$ follows a student's $t$-distribution with $\nu$ degrees of freedom, then $S = \mu + \sigma T$ follows a shifted-and-scaled $t$-distribution.
 
 The following function will generate random draws from this distribution.
-We additionally scale by $(\nu-2)/\nu$ to achieve the target standard deviation (a $t$-distribution has a variance of $\nu/(\nu-2)$).
+Because the $t$-distribution has variance of $\nu/(\nu-2)$), we add the scale factor of $(\nu-2)/\nu$ to achieve the target standard deviation specified in the `sd` input parameter.
 
 ```{r}
 r_tss <- function(n, mean, sd, df) {
+  stopifnot( df > 2 ) # 2 or less has no defined variance
   mean + sd * sqrt( (df-2)/df ) * rt(n = n, df = df)
 }
 
 r_tss(n = 8, mean = 3, sd = 2, df = 5)
 ```
 
-1. Modify the Welch simulation's `simulate_data()` function to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
-Simulate a dataset with low degrees of freedom and plot it to see if you see a few outliers.
+1. Modify the Welch simulation's `generate_ANOVA_data()` function from Chapter \@ref(Welch-DGP) to generate data from shifted-and-scaled $t$-distributions rather than from normal distributions. Include the degrees of freedom as an input argument.
+Note that, in your modified function, you will have to translate the original parameters (`mu`, `sigma_sq`) to appropriate parameters of `r_tss()`.
+With new function in hand, simulate a dataset with low degrees of freedom and plot it to see if the data includes outliers.
 
 2. Now generate more data and calculate the means and standard deviations to see if they are correctly calibrated (i.e., generate a big dataset to ensure you get reliable mean and standard deviation estimates).  Check `df` equal to 500, 5, 3, and 2.
 
-3. Once you are satisfied you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \@ref(exAnovaExercises) using a $t$-distribution with 5 degrees of freedom.
+3. Once you are satisfied that you have a correct DGP function, re-run the Type-I error rate calculations from the prior exercises in Section \@ref(exAnovaExercises) using a $t$-distribution with 5 degrees of freedom.
 Do the results change substantially?
 
 ### Plot the bivariate Poisson
 
 In Section \@ref(DGP-functions), we provided an example of a DGP function for the bivariate Poisson model.
-We demonstrated a plot of data simulated from this function in \@ref(DGP-plotting).
+We demonstrated a plot of data simulated from this function in Section \@ref(DGP-plotting).
 Create a similar plot but for a much larger sample size of $N = 1000$.
 
 With such a large dataset, it will likely be hard to distinguish individual observations because of over-plotting. 
@@ -770,8 +783,8 @@ Create a better visual representation of the same simulated dataset, such as a h
 
 ### Check the bivariate Poisson function {#BVP-check}
 
-Although we presented a DGP function for the bivariate Poisson model, we have not demonstrated how to check that the function is correct---we're leaving that to you! 
-Write some code to verify that the function `r_bivariate_Poisson()` is working properly. 
+Although we presented a DGP function for the bivariate Poisson model, we have not demonstrated how to check that the function is correct---we've left that to you.
+Write some code to verify that the function `r_bivariate_Poisson()` works properly. 
 Do this by generating a very large sample (say $N = 10^4$ or $10^5$) and verifying the following:
 
 * The sample means of $C_1$ and $C_2$ align with the specified population means.
@@ -794,10 +807,11 @@ Please help us fix this issue! Revise `r_bivariate_Poisson()` so that it checks 
 
 ### A bivariate negative binomial distribution {#BVNB1}
 
-One potential limitation of the bivariate Poisson distribution described above is that the variances of the counts are necessarily equal to the means (i.e., unit dispersion).
-This limitation is inherited from the univariate Poisson distributions that each variate follows.
-Just as with the corresponding univariate distributions, one way to relax this limitation is to consider distributions with marginals that are negative binomial rather than Poisson, thereby allowing for overdispersion.
-@Cho2023bivariate describes one type of bivariate negative binomial distribution and provides a method for constructing a bivariate negative binomial distribution by using latent, gamma-distributed components. 
+One potential limitation of the bivariate Poisson distribution described above is that the variances of the counts are necessarily equal to the means.
+This limitation is inherited from the univariate Poisson distributions that each variate follows (for a Poisson distribution the mean and the variance are always the same).
+
+One way to relax this limitation is to use distributions with marginals that are negative binomial rather than Poisson, thereby allowing for overdispersion.
+@Cho2023bivariate provides a method for constructing such a bivariate negative binomial distribution with latent, gamma-distributed components.
 Their algorithm involves first generating components from gamma distributions with specified shape and scale parameters:
 $$
 \begin{aligned}
@@ -827,18 +841,35 @@ $$
 \text{cor}(C_1, C_2) = \frac{\alpha_0}{\sqrt{(\alpha_0 + \alpha_1)(\alpha_0 + \alpha_2)}} \frac{\beta \sqrt{\delta}}{\sqrt{(\beta + 1)(\beta \delta + 1)}}.
 $$
 
-1. Write a DGP function that implements this distribution. 
+1. Write a DGP function that implements this distribution given the $\alpha_0$, $\alpha_1$, $\alpha_2$, $\beta$, and $\delta$ parameters.  It should have the following form:
 
-2. Write some code to check that the function produces data where each variate follows a negative binomial distribution and where the correlation agrees with the formula given above.
+```{r, eval=FALSE}
+r_bivariate_Poisson_raw <- function(N, alpha0, alpha1, alpha2, beta, delta)
+```
 
-3. Consider parameter values that produce $\mathbb{E}(C_1) = \mathbb{E}(C_2) = 10$ and $\mathbb{V}(C_1) = \mathbb{V}(C_2) = 15$. What are the minimum and maximum possible correlations between $C_1$ and $C_2$? 
+2. Write some code to check that the function produces data where each variate follows a negative binomial distribution and the means, variances, and correlation are as specified by the formula above.  Check a few different values.
+
+3. Now write a more user-friendly DGP function of the following form:
+    ```{r, eval=FALSE}
+    r_bivariate_Poisson_NB <- function(N, mu1, mu2, var1, var2, rho = 0)
+    ```
+    where `mu1`, `mu2`, `var1`, and `var2` are the means and variances of the two variates, and `rho` is the correlation between them.
+    You will have to do some math to convert the target parameters to the given $\alpha_0$, $\alpha_1$, $\alpha_2$, $\beta$, and $\delta$.
+    Your new function could simply call the first one or it could be a separate, stand-alone function.
+
+4. Write some test code to verify that the means, variances, and correlations of data generated from the function match the parameters specified.
+
+5. Consider target means of $\mathbb{E}(C_1) = \mathbb{E}(C_2) = 10$ and target variances of $\mathbb{V}(C_1) = \mathbb{V}(C_2) = 15$. What are the minimum and maximum possible correlations between $C_1$ and $C_2$? 
 
 ### Another bivariate negative binomial distribution  {#BVNB2}
 
-Another model for generating bivariate counts with negative binomial marginal distributions is by using Gaussian copulas. Here is a mathematical recipe for this distribution, which will produce counts with marginal means $\mu_1$ and $\mu_2$ and marginal variances $\mu_1 + \mu_1^2 / p_1$ and $\mu_2 + \mu_2^2 / p_2$. Start by generating variates from a bivariate standard normal distribution with correlation $\rho$:
+Another model for generating bivariate counts with negative binomial marginal distributions is by using Gaussian copulas.
+Here is a mathematical recipe for this distribution, which will produce counts with marginal means $\mu_1$ and $\mu_2$ and marginal variances $\mu_1 + \mu_1^2 / p_1$ and $\mu_2 + \mu_2^2 / p_2$.
+Start by generating variates from a bivariate standard normal distribution with correlation $\rho$:
 $$
 \left(\begin{array}{c}Z_1 \\ Z_2 \end{array}\right) \sim N\left(\left[\begin{array}{c}0 \\ 0\end{array}\right], \ \left[\begin{array}{cc}1  & \rho \\ \rho & 1\end{array}\right]\right)
 $$
+You can do this via the `rmvnorm()` function in the `mvtnorm` package.
 Now find $U_1 = \Phi(Z_1)$ and $U_2 = \Phi(Z_2)$, where $\Phi()$ is the standard normal cumulative distribution function (called `pnorm()` in R).
 Then generate the counts by evaluating $U_1$ and $U_2$ with the negative binomial quantile function, $F_{NB}^{-1}(x | \mu, p)$ with mean parameters $\mu$ and size parameter $p$ (this function is called `qnbinom()` in R):
 $$
@@ -846,11 +877,18 @@ C_1 = F_{NB}^{-1}(U_1 | \mu_1, p_1) \qquad C_2 = F_{NB}^{-1}(U_2 |  \mu_2, p_2).
 $$
 The resulting counts will be correlated, but the correlation will not be equal to $\rho$. 
 
-1. Write a DGP function that implements this distribution.
+1. Write a DGP function that implements this distribution. It should have the following form:
+    ```{r, eval=FALSE}
+    r_NB_copula <- function(N, mu1, mu2, var1, var2, rho = 0)
+    ```
+    You will need to convert the target means and variances to the appropriate parameters for your `rnbinom()` call. Use $p = \mu^2 / (\text{var} - \mu)$ to convert from mean and variance to the size parameter.
 
-2. Write some code to check that the function produces data where each variate follows a negative binomial distribution
+2. Write some code to check that the function produces data where each variate follows a negative binomial distribution.
 
-3. Use the function to create a graph showing the population correlation between the observed counts as a function of $\rho$. Use $\mu_1 = \mu_2 = 10$ and $p_1 = p_2 = 20$. How does the range of correlations compare to the range from Exercise \@ref(BVNB1)?
+3. Use your new function to create a graph showing the population correlation between the observed counts as a function of the input $\rho$.
+Following part 5 of Exercise \@ref(BVNB1), use $\mu_1 = \mu_2 = 10$ and $\text{var}_1 = \text{var}_2 = 15$.
+How does the range of achievable correlations compare to the range found in that problem?
+
 
 ### Plot the data from a cluster-randomized trial {#cluster-RCT-plot}
 
@@ -858,9 +896,15 @@ Run `gen_cluster_RCT()` with parameter values of your choice to produce data fro
 
 ### Checking the Cluster RCT DGP {#cluster-RCT-checks}
 
+In the following we run a few tests on the cluster RCT DGP code (`gen_cluster_RCT()`) to see if it works as advertised.
+
 1. What is the variance of the outcomes generated by the model for the cluster-randomized trial if there are no treatment effects?  (Try simulating data to check!) What other quick checks can you run on this DGP to make sure it is working correctly? 
 
-2. In `gen_cluster_RCT()` we have the following line of code to generate the number of individuals per site.
+2. It is prudent to prevent nonsensical values of parameters. For example, what happens if you put in `alpha = 1` or give an `alpha` larger than 1?  Does it generate data?  It can be useful to put in some error-catching code to prevent such values from being used. For example, you can have `stopifnot( n_min > 0 )` at the top of your function. Implement this error-catching code and check that it works. 
+
+3. The code also rounds `alpha * n_bar`--but what happens if `alpha * n_bar` is not an integer? What will happen if you specify values for `alpha` and `n_bar` that do not multiply to a whole number? Is this ok, or could it cause problems?  Explain why or why not.
+
+4. In the `gen_cluster_RCT()` function, the following line of code generates the number of individuals per site:
 
     ```{r bad_sample_line, eval=FALSE}
     nj <- sample( n_min:n_max, J, replace=TRUE )
@@ -871,7 +915,11 @@ Run `gen_cluster_RCT()` with parameter values of your choice to produce data fro
 
 ### More school-level variation {#cluster-RCT-heterogeneity}
 
-The DGP for the cluster-randomized trial allows for school-level treatment impact variation, but only to the extent that the variation is explained by school size.  How could you modify your simulation to allow for school-level treatment impact variation that is not related to school size?  Implement this change and generate some data to show how it works.
+The DGP for the cluster-randomized trial allows for school-level treatment impact variation, but only to the extent that the variation is explained by school size.
+Change the `gen_cluster_RCT()` function to allow for school-level treatment impact variation that is not related to school size.
+Generate some data to show how it works.
+(If you did the prior problem, work from your corrected function.)
+
 
 ### Cluster-randomized trial with baseline predictors {#cluster-RCT-baseline}
 
@@ -890,13 +938,14 @@ To implement this model as a DGP, you will have to decide how to generate $X_{ij
 ### 3-parameter IRT datasets {#IRT-DGP-parameters}
 
 A challenge that arises with the IRT model described in Section \@ref(three-parameter-IRT) is that the data are generated using _random parameters_ (the person ability parameters $\theta_1,...,\theta_N$ and item characteristics $\alpha_m, \beta_m, \gamma_m$ for $m = 1,...,M$) that we simulated from auxiliary models.
-When applying IRT models to actual test data, the analyst's goal will usually involve estimating at least some of these parameters: either using the model for _scoring_ by estimating latent ability parameters or for _calibration_ by estimating the item characteristics. 
+When applying IRT models to actual test data, an analyst will usually need to estimate at least some of these parameters.
+In particular, they might be fitting the model to _score_ the student responses by estimating their latent ability parameters or fitting a model to _calibrate_ the items by estimating the item characteristics. 
 But each time we generate a new dataset with `r_3PL_IRT()`, those latent parameters will change.
 
-In order to understand how well an estimation procedure will perform on data generated by our function, we will need to keep track of the parameter values, even though those values will not be known in real data analysis contexts.
-Suppose that our main interest is in understanding how well we can recover the item characteristics. 
+In order to understand how well an estimation procedure performs on data generated by our function, we will need to keep track of these randomly generated parameter values, even though those values will not be known in real data analysis contexts.
+Suppose, for example, that our main interest is in understanding how well we can recover the item characteristics. 
 
-1. Modify `r_3PL_IRT()` to return a list containing two datasets. The first entry in the list should be a dataset with the person-by-item responses, just as in the original function. The second entry in the list should be an $M \times 3$ dataset containing the item parameters.
+1. Modify `r_3PL_IRT()` to return a named list containing two datasets (use R's `list()` function). The first entry in the list should be a dataset with the person-by-item responses, just as in the original function. The second entry in the list should be an $M \times 3$ dataset containing the item parameters.
 
 2. An alternative strategy for implementing the three-parameter IRT DGP is to write two functions instead of one: a function to simulate a set of $M$ item parameters and a function to simulate the person-by-item responses. Complete the following function skeletons to implement this strategy. Demonstrate how to use the functions to simulate a dataset.
     ```{r, eval = FALSE}
@@ -926,12 +975,15 @@ For one of the DGPs you wrote in Exercise \@ref(IRT-DGP-parameters), write code 
 
 ### Explore the 3-parameter IRT model {#IRT-DGP-breaking}
 
-Use the modified DGP function(s) you wrote for Exercise \@ref(IRT-DGP-parameters) to explore the model. Simulate data and create visualizations to answer the following questions.
+Use the modified DGP function(s) you wrote for Exercise \@ref(IRT-DGP-parameters) to explore the model.
+Simulate data and create visualizations to answer the following questions.
+Be sure to specify what your other parameters are, as you test how a target parameter of interest varies.
 
-1. What happens to the distribution of total scores if the items covered a very broader range of difficulties (higher $\tau_\alpha$)? 
-2. What happens if the items are mis-calibrated to be too difficult ($\mu_\tau > 0$)?
-3. What if the items had varying numbers of response options, so the guessing parameters differ?
-4. Find at least one combination of parameter values that will produce very extreme or unrealistic distributions of total scores.
+1. What happens to the distribution of total scores if the items cover a broad range of difficulties (i.e., a very high $\tau_\alpha$)? 
+2. What happens if the items are mis-calibrated to be systematically too difficult ($\mu_\alpha > 0$)?
+3. Find at least one combination of parameter values that will produce very extreme or unrealistic distributions of total scores.
+
+<!-- LWM: I took out this one, since it would require a lot of additional coding.  MAke a new problem, or just drop? "3. What if the items had varying numbers of response options, so the guessing parameters differ?" -->
 
 ### Random effects meta-regression {#meta-regression-DGP}
 

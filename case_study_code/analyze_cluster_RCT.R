@@ -48,7 +48,7 @@ analysis_agg <- function( dat, se_type = "HC2" ) {
   )
 }
 
-estimate_Tx_Fx <- function(
+analyze_data <- function(
     data, 
     CR_se_type = "CR2", agg_se_type = "HC2"
 ) {
