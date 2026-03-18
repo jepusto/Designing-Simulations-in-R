@@ -37,6 +37,7 @@ dat <- gen_cluster_RCT( n=5, J=3, p=0.5,
 # (PART) Systematic Simulations {-}
 
 # Simulating across multiple scenarios {#simulating-multiple-scenarios}
+\index{simulation driver}
 
 In Chapter \@ref(simulation-structure), we described the general structure of basic simulations as following four steps: generate, analyze, repeat, and summarize. 
 The principles of tidy simulation suggest that each of these steps should be represented by its own function or set of code.
@@ -59,12 +60,12 @@ Even if we are only using simulation in an ad hoc, exploratory way, we will ofte
 We have already seen examples of this in Chapter \@ref(t-test-simulation), where we looked at the coverage rate of a confidence interval for the mean of an exponential distribution.
 In Section \@ref(simulating-across-different-scenarios), we applied a simulation driver function across a set of sample sizes ranging from 10 to 300, finding that the coverage rate improves towards the desired level as sample size increases.
 Simple forms of systematic exploration such as this are useful in many situations.
-For instance, when using Monte Carlo simulation for study planning, we might examine simulated power over a range of the target parameter to identify the smallest parameter for power is above a desired level.
+For instance, when using Monte Carlo\index{Monte Carlo simulation} simulation for study planning, we might examine simulated power over a range of the target parameter to identify the smallest parameter for power is above a desired level.
 If we are using simulation simply to study an unfamiliar model, we might vary a key parameter over a wide range to see how the performance of an estimator changes.
 These forms of exploration can be understood as single-factor simulations.
 
 To demonstrate a single-factor simulation, we revisit the case study on heteroskedastic analysis of variance, as studied by @brown1974SmallSampleBehavior and developed in Chapter \@ref(case-ANOVA).
-Suppose that we want to understand how the power of Welch's test varies as a function of the maximum distance between group means.
+Suppose that we want to understand how the power of Welch's test varies as a function of the maximum distance between group means.\index{example!heteroskedastic ANOVA (Welch)}
 The data-generating function `generate_ANOVA_data()` that we developed previously was set up to take a vector of means per group, so we re-parameterize the function to define the group means based on the maximum difference (`max_diff`), under the assumption that the means are equally spaced between zero and the maximum difference.
 We will also re-parameterize the function in terms of the total sample size and the fraction of observations allocated to each group.
 The revised function is 
@@ -185,7 +186,8 @@ power_levels
 
 Now that we have a function for carrying out the performance calculations, we could consider incorporating this step into the simulation driver function. 
 That way, we can call the simulation driver function with a set of parameter values and it will return a table of performance summaries.
-The `bundle_sim()` function from `simhelpers` will create such a function for us, by combining a performance calculation function with the data-generating and data-analysis functions:
+The `bundle_sim()` function from `simhelpers` will create such a function for us, by combining a performance calculation function with the data-generating and data-analysis functions:\index{example!heteroskedastic ANOVA (Welch)}\index{bundle_sim()}\index{package!simhelpers}
+
 ```{r}
 sim_ANOVA_full <- bundle_sim(
   f_generate = generate_ANOVA_new, 
@@ -252,9 +254,9 @@ These questions can be examined by expanding the simulation design to further sc
 
 ## Simulating across multiple factors
 
-Consider a simulation study examining the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution. 
+Consider a simulation study\index{simulation study} examining the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution. 
 We examined this data-generating model in Section \@ref(BVPois-example), implementing it in the function `r_bivariate_Poisson()`. The model has three parameters (the means of each variate, $\mu_1, \mu_2$ and the correlation $\rho$) and there is one design parameter (sample size, $N$). 
-Thus, we could in principle examine up to four factors. 
+Thus, we could in principle examine up to four factors.\index{example!bivariate Poisson}
 
 Using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
 It is useful to re-parameterize to reduce redundancy and simplify things.
@@ -421,7 +423,7 @@ sim_results <-
   unnest(cols = res)
 ```
 
-As an alternative approach, the `evaluate_by_row()` function from the `simhelpers` package accomplishes the same thing as the `pmap()` calculations inside the `mutate()` step of the above code. Its syntax is a bit more concise:
+As an alternative approach, the `evaluate_by_row()` function from the `simhelpers` package accomplishes the same thing as the `pmap()` calculations inside the `mutate()` step of the above code. Its syntax is a bit more concise:\index{evaluate_by_row()}
 
 ```{r, eval=FALSE}
 sim_results <- 
@@ -615,10 +617,10 @@ Allowing yourself the flexibility to re-calculate performance measures can be ve
 
 ## Summary
 
-Multifactor simulations are simply a series of individual scenario simulations, where the set of scenarios are structured by systematically manipulating some of the parameters of the data-generating process. 
+Multifactor simulations are simply a series of individual scenario simulations, where the set of scenarios are structured by systematically manipulating some of the parameters of the data-generating process\index{data-generating process}. 
 The overall workflow for implementing a multifactor simulation begins with identifying which parameters and which specific values of those parameters to explore.
 These parameters correspond to the factors of the simulation's design; the specific values correspond to the levels (or settings) of each factor.
-Following the principles of tidy simulation, we represent these decisions as a dataset consisting of all the combinations of the factors that we wish to explore.
+Following the principles of tidy simulation, we represent these decisions as a dataset consisting of all the combinations of the factors that we wish to explore.\index{tidy design}
 Think of this as a menu, or checklist, of simulation scenarios to run.
 The next step in the workflow is then to walk down the list, running a simulation of each scenario in turn.
 
@@ -661,7 +663,7 @@ The variance of a $t$ distribution is $df/(df-2)$, so when we divide our observa
 square root of this, we standardize them so they have unit variance.
 The estimand of interest here is `mu`, the center of the distribution.
 The estimation methods of interest are the conventional (arithemetic) mean, a 10% trimmed mean, and the median of a sample of $n$ observations. 
-For performance measures, focus on bias, true standard error, and root mean squared error.
+For performance measures, focus on bias, true standard error, and root mean squared error\index{performance measures!RMSE\index{performance measures!RMSE}}.
 
 1. Verify that `gen_scaled_t()` produces data with mean `mu` and standard deviation 1 for various `df0` values.
 
@@ -689,7 +691,7 @@ For performance measures, focus on bias, true standard error, and root mean squa
 
 ### Estimating latent correlations {#exercise:multifactor-latent-correlation}
 
-Exercise \@ref(BVNB2) introduced a bivariate negative binomial model and asked you to write a data-generating function that implements the model. Exercise \@ref(three-correlation-estimators) provided an estimation function (called `three_corrs`) that calculates three different types of correlation coefficients, and asked you to write a function for calculating the bias and RMSE of these measures.
+Exercise \@ref(BVNB2) introduced a bivariate negative binomial model and asked you to write a data-generating function that implements the model. Exercise \@ref(three-correlation-estimators) provided an estimation function (called `three_corrs`) that calculates three different types of correlation coefficients, and asked you to write a function for calculating the bias and RMSE of these measures.\index{example!bivariate Poisson}
 
 1. Combine your data-generating function, `three_corrs()`, and your performance calculation into a simulation driver.
 
@@ -700,8 +702,9 @@ Exercise \@ref(BVNB2) introduced a bivariate negative binomial model and asked y
 4. Create a graph or graphs that depict the bias and RMSE of each correlation as a function of $\rho$ and any other key parameters. 
 
 ### Meta-regression {#exercise:multifactor-meta-regression}
+\index{example!meta-regression}
 
-Exercise \@ref(meta-regression-DGP) described the random effects meta-regression model. 
+Exercise \@ref(meta-regression-DGP\index{data-generating process}) described the random effects meta-regression model. 
 List the focal, auxiliary, and structural parameters of this model, and propose a set of design factors to use in a multifactor simulation of the model.
 Create a list with one entry per factor, then create a dataset with one row for each simulation context that you propose to evaluate.
 

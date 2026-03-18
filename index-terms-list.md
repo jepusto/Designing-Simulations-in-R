@@ -1,24 +1,15 @@
-# Candidate Index Terms: *Designing Monte Carlo Simulations in R*
+# Pending Index Terms
 
-Terms are grouped by category and formatted as they would appear in `\index{}` commands.
-Subentries use `!` (e.g., `performance measures!bias`).
-Cross-references use `|see{}`.
+NOTE: Some terms to possibly add to the index, work in progress
 
 ---
 
 ## Core Simulation Concepts (15 terms)
 
-1. `Monte Carlo simulation`
-2. `simulation study`
-3. `data-generating process`
-4. `DGP|see{data-generating process}`
-5. `simulation driver`
-6. `tidy modular simulation`
 7. `simulation skeleton`
 8. `single scenario simulation`
 9. `multifactor simulation`
 10. `simulation replication`
-11. `reparameterization`
 12. `simulation as evidence`
 13. `calibrated simulation`
 14. `finite-sample performance`
@@ -62,7 +53,6 @@ Cross-references use `|see{}`.
 42. `data-generating process!bivariate Poisson`
 43. `data-generating process!item response theory`
 44. `data-generating process!meta-regression`
-45. `copula`
 
 ---
 
