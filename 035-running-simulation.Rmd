@@ -167,10 +167,10 @@ one_run <- function(
 It is wise to ensure our parameter transforms are all reasonable, so we do not get unexplained errors or strange results later on.
 It is best if your code fails as soon as possible!  Otherwise debugging can be quite hard.
 
-For details on `quiet_analyze_data()`, see Section \@ref(error-handling).
-Also see Section \@ref(multiple-estimation-procedures) for how `analyze_data()` bundles the three different estimation methods we are evaluating.
+For details on `quiet_analyze_data()`, see Section \@ref(capturing-errors-and-warnings).
+Also see Section \@ref(multiple-estimation-procedures) for how `quiet_analyze_data()` bundles the three different estimation methods we are evaluating.
 
-Careful use of the foundational elements such as our data generating code can make interpreting our final results much more straightforward.
+Careful use of the foundational elements such as our data generating function can make interpreting our final results much more straightforward.
 In the revised `one_run()` function, for example, transforming the `ICC` input parameter into the parameters used by `gen_cluster_RCT()` maintains the effect size interpretation of our simulation.
 We have not modified `gen_cluster_RCT()` at all: instead, we specify the parameters of the DGP function in terms of the parameters we want to directly control in the simulation, and then translate to the low-level parametersin the `one_run()` call.
 
@@ -224,7 +224,7 @@ run_CRT_sim( reps = 1000,
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
 
-Our simulation function takes easy to interpret parameters (`ATE`, `ICC`) rather than the raw variance components.
+Our simulation function is specified with easy-to-interpret parameters (`ATE`, `ICC`) rather than the raw variance components.
 It runs simulations in effect size units, and provides "knobs" to the simulation that are directly interpretable.
 
 
@@ -235,7 +235,7 @@ The `simhelpers` package provides a function `bundle_sim()` that abstracts this 
 Thus, `bundle_sim()` provides a convenient alternative to writing your own `one_run()` and `run_CRT_sim()` functions, thereby saving a bit of typing and providing some security against bugs creeping into your code.
 
 The `bundle_sim()` function takes a DGP function and an estimation function as inputs and gives us back a new function that will run a simulation using whatever parameters we give it.
-The `bundle_sim()` function is a "factory" in that it creates a new function for you on the fly.
+The `bundle_sim()` function is a "factory" in that it creates a new function on the fly.
 <!-- JEP: Do we use this term elsewhere in the book? In our discussion of safely() and possibly(), we introduced the term _functional_, which is with consistent with how Hadley talks about such functions. -->
 Here is a basic example, where we create a function for running our simulation to evaluate how well our Pearson correlation coefficient confidence interval works on a bivariate Poisson distribution:
 ```{r}
@@ -260,14 +260,13 @@ First is `reps`, which controls the number of times that the simulation process 
 There is also `seed`, which ensures reproducible code; we discuss seeds in Section \@ref(seeds-and-pseudo-RNGs).
 
 The `bundle_sim()` function requires specifying a DGP function and a _single_ estimation function, with the data as the first argument.
-If you have multiple estimators, you would need to bundle them into a single method, like we did with `quiet_analyze_data()`:
+If you have multiple estimators, you would need to wrap them into a single method, just as we did with `quiet_analyze_data()`:
 
 ```{r, messages=FALSE}
-sim_cluster_RCT <- bundle_sim( gen_cluster_RCT, quiet_analyze_data,
-                               id = "runID" )
+sim_cluster_RCT <- bundle_sim(gen_cluster_RCT, quiet_analyze_data, id = "runID")
 ```
 
-To use the newly created simulation function, we call it by specifying the number of replications desired (which we have stored in `R`) and any relevant input parameters.
+To use the newly created simulation function, we call it by specifying the number of replications desired and any relevant input parameters.
 ```{r, eval=FALSE}
 runs <- sim_cluster_RCT( reps = 2, 
                          J = 20, n_bar = 30, alpha = 0.5,
@@ -408,10 +407,10 @@ In the prior chapter's exercises (See \@ref(BFFs-forever)), you made a new `BF_F
 
 ### Compare sampling distributions of Pearson's correlation coefficients {#Pearson-sampling-distributions}
 
-From Chapter \@ref(bundle-sim-demo), above, we made a bundled simulation function `sim_r_Poisson()` from a DGP function [`r_bivariate_Poisson()`](case_study_code/r_bivariate_Poisson.R) and analysis function [`r_and_z()`](case_study_code/r_and_z.R).
+In Section \@ref(bundle-sim-demo), we made a bundled simulation function `sim_r_Poisson()` from a DGP function [`r_bivariate_Poisson()`](case_study_code/r_bivariate_Poisson.R) and analysis function [`r_and_z()`](case_study_code/r_and_z.R).
 
 ```{r, include=FALSE}
-sim_r_Poisson( 3, mu1 = 4, mu2 = 5, N = 40, rho=0.7 )
+sim_r_Poisson( 3, mu1 = 4, mu2 = 5, N = 40, rho = 0.7 )
 ```
 
 1. Use `sim_r_Poisson()` to generate 5000 replications of the Fisher-$z$-transformed correlation coefficient under a bivariate Poisson distribution with $\rho = 0.7$ for a sample of $N = 40$ observations. You pick the remaining parameters.
@@ -425,7 +424,7 @@ sim_r_Poisson( 3, mu1 = 4, mu2 = 5, N = 40, rho=0.7 )
 
 In Section \@ref(one-run-reparameterization), we illustrated how the `one_run()` simulation wrapper function could be tweaked in order to reparameterize the model in terms of a single intra-class correlation rather than two variance parameters. 
 But what if you want to avoid having to write your own simulation wrapper and instead use `bundle_sim()`? 
-Revise `gen_cluster_RCT()` to accomplish the reparameterization, then use `simhelpers` to bundle it with `analyze_data()`.
+Revise `gen_cluster_RCT()` to accomplish the reparameterization, then use `simhelpers::bundle_sim()` to bundle it with `analyze_data()`.
 
 
 ### Fancy clustered RCT simulations {#fancy-cluster-RCT-sims}
@@ -433,7 +432,7 @@ Revise `gen_cluster_RCT()` to accomplish the reparameterization, then use `simhe
 In Exercise \@ref(cluster-RCT-baseline), your task was to write a data-generating function for a cluster-randomized trial that includes a baseline covariate. 
 Then in Exercise \@ref(CRT-ANCOVA-estimators), your task was to create an estimation function that could be applied to data from such a trial. 
 
-1. Now, using your work from these exercises, create a bundled simulation function `one_run_cov()` that combines the data-generating function and the estimation function. Use both `analyze_data()` and `analyze_data_cov()` to get estimates for all three approaches both with and without covariate adjustment.
+1. Using your work from these exercises, create a bundled simulation function `one_run_cov()` that combines the data-generating function and the estimation function. Use both `analyze_data()` and `analyze_data_cov()` to get estimates for all three approaches both with and without covariate adjustment.
 
 2. Use the resulting function to simulate results from 1000 replications of a cluster-randomized trial, each analyzed six ways (all three approaches with and without covariate adjustment).
 
