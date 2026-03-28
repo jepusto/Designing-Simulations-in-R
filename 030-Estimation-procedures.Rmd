@@ -23,7 +23,7 @@ source("case_study_code/analyze_cluster_RCT.R")
 We do simulation studies to understand how to analyze data. 
 Thus, the central object of study is a _data analysis procedure_, or a set of steps or calculations carried out on a dataset.
 We want to know how well a procedure would work when applied in practice, and the data generating processes we described in Chapter \@ref(data-generating-processes) provides a stand-in for real data.
-To revisit our consumer product testing analogy from Chapter \@ref(introduction), the data analysis procedure is the product, and the data generating process is the set of trials to which we subject the product.
+To revisit our consumer product testing analogy from Chapter \@ref(introduction), the data analysis procedure is the product, and the data generating process\index{data-generating process} is the set of trials to which we subject the product.
 
 Depending on the research question, a data-analysis procedure might be very simple---as simple as just computing a sample correlation---or it might involve something more complex, such as fitting a multilevel model and generating a confidence interval for a specific coefficient.
 A data analysis procedure might even involve a combination of several components.
@@ -70,7 +70,7 @@ In particular, it tells us that applying Fisher's $z$-transformation of Pearson'
 It also tells us that the empirical standard error of the $z$-transformed correlation coefficient is simply $1 / \sqrt{N - 3}$, and thus independent of the correlation parameter.
 This makes $z$-transformation very useful for computing confidence intervals, which can then be back-transformed to the Pearson-$r$ scale.
 However, these results are specific to bivariate normal distributions.
-Would this transformation work well in the face of non-normal data, such as the bivariate Poisson distribution we coded in Chapter \@ref(data-generating-processes)?
+Would this transformation work well in the face of non-normal data, such as the bivariate Poisson distribution we coded in Chapter \@ref(data-generating-processes)?\index{example!bivariate Poisson}
 
 For studying this question with simulation, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its $z$-transformation, compute confidence intervals for $z$, and then back-transform the confidence interval end-points.
 Here is an implementation of this sequence of calculations:
@@ -109,8 +109,8 @@ Doing so makes it easier to add in additional methods as desired or to focus on 
 Writing separate functions also leads to a code base that is flexible and useful for other purposes (such as analyzing real data).
 Finally (repeating one of our favorite mantras), separating functions makes debugging easier because  it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.
 
-To see how this works in practice, we return to the case study from Section \@ref(case-cluster), where we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment.
-Our data-generating process allowed for varying school sizes and heterogeneous treatment effects that are correlated with school size.
+To see how this works in practice, we return to the case study from Section \@ref(case-cluster), \index{example!cluster randomized trial} where we developed a data-generating function for simulating a cluster-randomized trial\index{cluster-randomized trial} with student-level outcomes but school-level treatment assignment.
+Our data-generating process\index{data-generating process} allowed for varying school sizes and heterogeneous treatment effects that are correlated with school size.
 Several different procedures might be used to estimate an overall average effect from a clustered experiment. We will consider three different procedures:
 
 * Fitting a multi-level regression model (also known as a hierarchical linear model),
@@ -187,7 +187,7 @@ Note the `stopifnot` command: it will throw an error if the condition is not tru
 This `stopifnot` ensures we do not have both treatment and control students within a single school--if we did, we would have more aggregated values than school ids due to the grouping!
 Putting *assert statements* in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors.
 A `stopifnot` statement halts your code as soon as something goes wrong, rather than letting that initial error flow on to further work, potentially creating odd results that are hard to understand.
-Here we are protecting ourselves from strange results if, for example, we messed up our DGP code to have treatment not nested within school, or if we were using data that did not actually come from a cluster randomized experiment.
+Here we are protecting ourselves from strange results if, for example, we messed up our DGP\index{data-generating process} code to have treatment not nested within school, or if we were using data that did not actually come from a cluster randomized experiment.
 See Section \@ref(about-stopifnot) for more.
 
 All of our functions produce output in the same format:
@@ -219,7 +219,7 @@ For estimation functions that involve multi-step procedures or novel methods, ot
 
 ### Checking against existing implementations
 
-In Chapter \@ref(case-ANOVA), we wrote a function called `ANOVA_Welch_F()` for computing $p$-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:
+In Chapter \@ref(case-ANOVA), we wrote a function called `ANOVA_Welch_F()` for computing $p$-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:\index{example!heteroskedastic ANOVA (Welch)}
 ```{r, eval = FALSE, file = "case_study_code/ANOVA_Welch_F.R"}
 
 ```
@@ -242,6 +242,7 @@ all.equal(aov_results$p.value, Welch_results$Welch)
 
 We use `all.equal()` because it will check equality up to a tolerance in R, which can avoid some perplexing errors due to rounding.
 
+\index{example!bivariate Poisson}
 For the bivariate correlation example introduced in Section \@ref(estimation-functions), we can check the output of `r_and_z()` against R's built-in `cor.test()` function:
 ```{r}
 Pois_dat <- r_bivariate_Poisson(15, rho = 0.6, mu1 = 14, mu2 = 8)
@@ -385,6 +386,7 @@ But, just like many other research endeavors, simulations are often a highly ite
 
 
 ## Handling errors, warnings, and other hiccups {#error-handling}
+\index{errors and warnings}
 
 Especially when working with more advanced estimation methods, it is possible that your estimation function will fail, throw an error, or return something uninterpretable for certain input datasets.
 For instance, maximum likelihood estimation often involves using iterative, numerical optimization algorithms that sometimes fail to converge.
@@ -482,7 +484,9 @@ M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
 M1
 ```
 
-In our estimation function, we replace the original `lmer()` call with our quiet-and-safe version, `quiet_safe_lmer()`. We then pick apart the pieces of its output to return a tidy dataset of results. (Separately, we also add in a generally preferred optimizer, bobyqa, to try and avoid the warnings and errors in the first place.) The resulting function is:
+In our estimation function, we replace the original `lmer()` call with our quiet-and-safe version, `quiet_safe_lmer()`.
+We then pick apart the pieces of its output to return a tidy dataset of results.
+(Separately, we also add in a generally preferred optimizer, bobyqa, to try and avoid the warnings and errors in the first place.) The resulting function is:
 
 ```{r}
 analysis_MLM_safe <- function( dat ) {
@@ -698,7 +702,7 @@ Once written, applying the function will produce a tidy table of results that we
 
 ### More Heteroskedastic ANOVA {#BFFs-forever}
 
-In the classic simulation by @brown1974SmallSampleBehavior, they not only looked at the performance of the homoskedastic ANOVA-F test and Welch's heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.
+In the classic simulation by @brown1974SmallSampleBehavior, they not only looked at the performance of the homoskedastic ANOVA-F test and Welch's heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.\index{example!heteroskedastic ANOVA (Welch)}
 
 1. This exercise continues the running example introduces in Chapter \@ref(ANOVA-hypothesis-testing-function). Write a function that implements the Brown-Forsythe F\* test (the BFF\* test!) as described on p. 130 of @brown1974SmallSampleBehavior, using the following code skeleton:
     ```{r}
@@ -744,6 +748,7 @@ Welch_ANOVA_F <- function( data , pre_alpha = .05) {
 
 
 ### Check the cluster-RCT functions {#cross-check-CRT-estimators}
+\index{example!cluster randomized trial}
 
 Section \@ref(multiple-estimation-procedures) presented functions implementing several different strategies for estimating an average treatment effect from a cluster-randomized trial. 
 Write some code to validate these functions by comparing their output to the results of other tools for doing the same calculation.
@@ -791,6 +796,7 @@ If all clusters are singletons, skip the model-fitting step, return an `NA` valu
 2. Revise `analyze_data()` to use your new version of `analysis_MLM_contingent()`. The revised function will now sometimes return `NA` values for the `MLM` results. To implement the strategy of falling-back on OLS regression, add some code in `analyze_data()` that replaces any `NA` values for the MLM results with corresponding results of `analysis_OLS()`. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Compared to having  `analysis_MLM_contingent()` run OLS internally, writing code this way improves efficiency because we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.
 
 ### Estimating 3-parameter item response theory models {#IRT-3PL-estimation}
+\index{item response theory}
 
 Exercise \@ref(IRT-DGP-parameters) asked you to write a data-generating function for the 3-parameter IRT model described in described in Section \@ref(three-parameter-IRT). 
 Use your function to generate a large dataset.
@@ -806,6 +812,7 @@ Using functions from the [`{ltm}`](https://cran.r-project.org/package=ltm), [`{m
 
 
 ### Meta-regression with selective reporting {#Vevea-Hedges-estimation}
+\index{example!meta-regression}
 
 Exercise \@ref(Vevea-Hedges-DGP) asked you to write a data-generating function for the @vevea1995general selection model. 
 The `{metafor}` package includes a function for fitting this model (as well as a variety of other selection models). 
