@@ -14,7 +14,7 @@ theme_set( theme_classic() )
 ```
 
 
-If we are in the business of evaluating how various methods such as matching or propensity score weighting work in practice, we would probably turn to the potential outcomes framework for our simulations.
+If we are in the business of evaluating how various methods such as matching or propensity score weighting work in practice, we would probably turn to the potential outcomes\index{potential outcomes framework} framework for our simulations.
 The potential outcomes framework is a framework typically used in the causal inference literature to make very explicit statements regarding the mechanics of causality and the associated estimands one might target when estimating causal effects.
 While we recommend reading, for a more thourough overview, either [CITE Raudenbush or Field Experiments textbook], we briefly outline this framework here to set out our notation.
 
@@ -40,7 +40,7 @@ Consider a sample of $n$ units, $\mathcal{S}$, along with their set of potential
 We can talk about the true ATE of the sample, or, if we thought of the sample as being drawn from some larger population, we could talk about the true ATE of that larger population.
 
 This is a tension that often arises in potential outcomes based simulations: if we are focused on $ATE_{\mathcal{S}}$ then for each sample we generate, our estimand could be (maybe only slightly) different, depending on whether our sample has more or fewer units with high $\tau_i$.
-If, on the other hand, we are focused on where the units came from (which is our data generating model), our estimand is a property of the DGP, and would be the same for each sample generated.
+If, on the other hand, we are focused on where the units came from (which is our data generating model), our estimand is a property of the DGP\index{data-generating process}, and would be the same for each sample generated.
 
 The catch is when we calculate our performance metrics, we now have two possible targets to pick from.
 Furthermore, if we are targeting the superpopulation ATE, then our error in estimation may be due in part to the representativeness of the sample, _not_ the estimation or uncertainty due to the random assignment.
@@ -72,7 +72,7 @@ We are driving both the level and the treatment effect with $X_i$, assuming $\be
 One advantage of generating all the potential outcomes is we can then calculate the finite-sample estimands such as the true average treatment effect for the generated sample: we just take the average of $Y_i(1) - Y_i(0)$ for our sample.
 
 
-Here is some code to illustrate the first part of the data generating process (we leave treatment assignment to later):
+Here is some code to illustrate the first part of the data generating process\index{data-generating process} (we leave treatment assignment to later):
 
 ```{r PO_gen_data_function}
 gen_data <- function( n = 100,
@@ -277,7 +277,7 @@ one_finite_run <- function( R0 = 3, n = 100, ... ) {
 }
 ```
 
-This driver also stores the finite sample ATE for future reference:
+This driver also stores the finite sample ATE for future\index{future package} reference:
 ```{r}
 one_finite_run()
 ```
@@ -321,7 +321,7 @@ mean( sqrt( fruns$SE2 ) )
 
 We can use our collection of mini-finite-sample runs to estimate superpopulation quantities as well.
 Given that the simulation datasets are i.i.d. draws, we can simply take expectations across all our simulations.
-The only concern is our estimates of MCSE will be off due to the clustering in our simulation runs.
+The only concern is our estimates of MCSE\index{Monte Carlo standard error} will be off due to the clustering in our simulation runs.
 
 Here we calculate superpopulation performance measures (both with the squared SE and without; we prefer the squared version):
 
@@ -337,5 +337,52 @@ runs %>%
                 names_sep ="_" ) %>%
   mutate( inflate = 100 * hat / true )
 ```
+
+## Calibrated simulations within the potential outcomes framework
+
+In the area of causal inference, the potential outcomes framework provides a natural path for generating calibrated simulations.
+Also see Chapter \@ref(calibrated-simulations) for more discussion of calibration at a high level.
+
+Under the calibration framework, we would take an existing randomized experiment or observational study and then impute all the missing potential outcomes under some specific scheme.
+This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then fully known.
+For our simulation we then synthetically, and repeatedly, randomize and "observe" outcomes to be analyzed with the methods we are testing.
+We could also resample from our dataset to generate datasets of different size, or to have a superpopulation target as our estimand.
+
+The key feature here is the imputation step: how do we build our full set of covariates and outcomes?
+There are a variety of options that have different pros and cons.
+
+### Matching-based imputation
+One baseline method one can use is to generate a matched-pairs dataset by, for each unit, finding a close match given all the demographic and other covariate information of the sample.
+The opposite pair of each matched unit then gives the imputed potential outcome.  
+By doing this (with replacement) for all units we can generate a fully imputed dataset which we then use as our population, with all outcomes being "real," as they are taken from actual data.
+Such matching can mostly preserve complex relationships between covariates and outcomes in a manner that is not model dependent.
+In particular, if outcomes tend to be coarsely defined (e.g., on an integer scale) or have specific clumps (such as zero-inflation or rounding), this structure will be preserved.
+
+One concern with the matching approach is the noise in the matching could in general dilute the structure of the treatment effect as the control- and treatment-side potential outcomes may be very unrelated, creating a lot of so-called idiosyncratic treatment variation (unit-to-unit variation in the treatment effects that is not explained by the covariates).
+This is akin to measurement error diluting found relationships in linear models.
+
+We could reduce such variation by first imputing missing outcomes using some model (e.g., a random forest) fit to the original data, and then matching on all units including the imputed potential outcome as a hidden "covariate."
+This is not a data analysis strategy, but instead a method of generating synthetic data that both has a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.
+
+### Model-based imputation
+
+A second approach for imputing the missing potential outcomes is to specify a treatment effect model, predict treatment effects for all units and use the predicted effects to impute the treatment potential outcome for all control units.
+For example, if we fit $\hat{\tau}(X)$ to the original data, where $\hat{tau}(X)$ estimates the treatment effect for a unit with covariate value $X$, we can then impute $Y_i(1) = Y_i(0) + \hat{\tau}(X_i)$ for all control units and $Y_i(0) = Y_i(1) - \hat{f}(X_i)$ for all treated units.
+This imputation perfectly preserves the complex structure between the covariates and the $Y_i(0)$s for the original controls and covariates and $Y_i(1)$ for the original treated.
+
+One drawback is the imputed outcomes may not be values we actually see on the counterfactual side.
+For example, if the original outcomes are binary, but if $\hat{\tau}(X)$ estimates fractional effects, then the imputed outcomes will not be binary, and could even be negative or above 1.
+
+A second possible drawback is this form of imputation does not give any idiosyncratic treatment variation.
+To add in idiosyncratic variation we would need to generate a distribution of perturbations and add these to the imputed outcomes just as we would an error term in a regression model.  
+
+One advantage of the modeling approach is it allows for varying the amount of treatment effect.
+We can, for example, scale $\hat{\tau}(X)$ by some factor to increase or decrease the size of the treatment effects in our imputed dataset.
+
+
+
+### Using the imputed data
+Regardless of how we generate the missing potential outcomes, once we have a "fully observed" sample with the full set of treatment and control potential outcomes for all of our units, we can calculate any target estimands we like on our population, and then compare our estimators to these ground truths (even if they have no parametric analog) as desired.
+
 
 

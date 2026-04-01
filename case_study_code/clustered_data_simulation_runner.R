@@ -5,6 +5,8 @@
 # It is sourced in the Secret Run code block in the designing
 # multifactor simulation area.
 
+# You can also run it directly here.
+
 library( tidyverse )
 library( future )
 library( furrr )
@@ -25,6 +27,10 @@ params <- expand_grid(!!!crt_design_factors)
 params$seed = 1:nrow(params) * 17 + 100000
 params
 
+set.seed( 40440 )
+params = slice_sample( params, n=nrow(params) )
+params
+
 plan(multisession, workers = parallel::detectCores() - 2)
 params$res = future_pmap(params, .f = run_CRT_sim,
                          reps = 1000,
@@ -35,6 +41,9 @@ gc()
 res <- params %>% unnest( cols=c(res) )
 saveRDS( res, file = "results/simulation_CRT.rds" )
 
+
+
+# Quick check of the simulation ----
 
 if ( FALSE ) {
   # check sim format

@@ -55,6 +55,7 @@ In Chapter \@ref(presentation-of-results) we saw some examples of using regressi
 In this chapter we will provide some further in-depth examples along with the R code for doing this sort of thing.
 
 ### Example 1: Biserial, revisited
+\index{example!Biserial correlation}
 
 As our first in depth example, we walk through the analysis that produces the final ANOVA summary table for the biserial correlation example in Chapter \@ref(presentation-of-results).
 In the visualization there, we saw that several factors appeared to impact bias.
@@ -335,7 +336,12 @@ With more complex experiments, where the various factors are interacting with ea
 Another exploration approach we might use is regression trees.
 
 We wrote a utility method, a wrapper to the `rpart` package, to do this ([script here](code/create_analysis_tree.R)).
-Here, for example, we see what predicts larger bias amounts:
+Here, for example, we see what predicts larger bias amounts in our cluster RCT running example:\index{example!cluster randomized trial}
+
+```{r, include=FALSE}
+# To silence loading messages
+source( here::here( "code/create_analysis_tree.R" ) )
+```
 
 ```{r}
 source( here::here( "code/create_analysis_tree.R" ) )
@@ -383,22 +389,22 @@ Then, when $J$ is small, bias is even larger.
 Generally we would not use a tree like this for a final reporting of results, but they can be important tools for _understanding_ your results, which leads to how to make and select more conventional figures for an outward facing document.
 
 
-## Analyzing results with few iterations per scenario
+## Analyzing results with few iterations per scenario {#few-iterations}
 
 When each simulation iteration is expensive to run (e.g., if fitting your model takes several minutes), then running thousands of iterations for many scenarios may not be computationally feasible.
 But running simulations with only a small number of iterations will yield very noisy estimates of estimator performance for that scenario.
 
 Now, if the methods being evaluated are substantially different, then differences in performance might still be evident even with only a few iterations.
-More generally, however, the Monte Carlo Standard Errors (MCSEs) may be so large that you will have a hard time discriminating between systematic patterns and noise.
+More generally, however, the Monte Carlo\index{Monte Carlo simulation} Standard Errors (MCSEs) may be so large that you will have a hard time discriminating between systematic patterns and noise.
 
 One tool to handle few iterations is aggregation: if you average across scenarios, those averages will have more precise estimates of (average) performance than the estimates of performance within the scenarios.
 Do not, by contrast, trust the bundling approach--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
 
-Meta regression approaches such as we saw above can be particularly useful: a regression will effectively average performance across scenario, and give summaries of overall trends.
+Meta regression approaches such as we saw above can also be useful: a regression effectively averages performance across scenario, and give summaries of overall trends.
 You can even fit random effects regression, specifically accounting for the noise in the scenario-specific performance measures.
 For more on using random effects for your meta regression see @gilbert2024multilevel.
 
-### Example: ClusterRCT with only 100 replicates per scenario
+### Example: ClusterRCT with only 25 replicates per scenario
 
 
 ```{r, include=FALSE}
@@ -407,7 +413,7 @@ set.seed( 40440 )
 # Make small dataset
 res_small <- res %>%
   mutate( runID = as.numeric( runID ) ) %>%
-  filter( runID <= 100 )
+  filter( runID <= 25 )
 
 ssres <- res_small %>%
   group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
@@ -427,13 +433,12 @@ summary( ssres$R )
 ```
 
 In the prior chapter we analyzed the results of our cluster RCT simulation with 1000 iterations per scenario.
-But say we only had 25 per scenario.
-Using the prior chapter as a guide, we next recreate some of the plots to show how MCSE can distort the picture of what is going on.
+But say we only had 25 iterations per scenario.
+Using the prior chapter as a guide, we next recreate some of the plots to show how MCSE\index{Monte Carlo standard error} can distort the picture of what is going on.
 
-First, we look at our single plot of the raw results.
-Before we plot, however, we calculate MCSEs and add them to the plot as error bars.
+We start again with bias, and generate a single plot of the raw results for a subset of our scenarios, along with error bars from the MCSEs.
 
-```{r}
+```{r, echo=FALSE}
 sres_sub <- 
   ssres %>%
   filter( n_bar == 320, J == 20 ) %>%
@@ -456,10 +461,11 @@ ggplot( sres_sub, aes( as.factor(alpha), bias,
 
 Our uncertainty is much less when ICC is 0; this is because our estimators are far more precise due to not having cluster variation to contend with.
 Other than the ICC = 0 case, we see substantial amounts of uncertainty, making it very hard to tell the different estimators apart.
-In the top row, second plot from left, we see that the three estimators are co-dependent: they all react similarly to the same datasets, so if we end up with datasets that randomly lead to large estimates, all three will give large estimates.
-The shape we are seeing is not a systematic bias, but rather a shared random variation.
+In the top row, second plot from left, we see that the three estimators are co-dependent: they all react similarly to the same datasets.
+In other words, the point estimates are correlated: if a dataset happens to have high-outcome units in the treated group, all the estimators will give larger estimates of an average effect.
+The seeming trend we are seeing is not systematic bias, but rather shared random variation.
 
-Here is the same plot with the full 1000 replicates, with the 100 replicate results overlaid in light color for comparison:
+Here is the same plot with the full 1000 replicates, with the 25 replicate results overlaid in light color for comparison:
 
 ```{r, echo=FALSE}
 sres_sub_full <- 
@@ -489,9 +495,9 @@ ggplot( sres_sub_full, aes( as.factor(alpha), bias,
   coord_cartesian( ylim = c(-0.10,0.10) )
 ```
 
-The MCSEs have shrunk by around $1/\sqrt{10} = 0.32$, as we would expect (generally the MCSEs will be on the order of $1/\sqrt{R}$, where $R$ is the number of replicates, so to halve the MCSE you need to quadruple the number of replicates).
-Also note the ICC=0.2 top facet has shifted to a flat, slightly elevated line: we do not yet know if the elevation is real, just as we did not know if the dip in the prior plot was real.
-Our confidence intervals are still including 0: it is possible there is no bias at all when the size coefficient is 0 (in fact we are fairly sure it is indeed the case).
+With 1000 iterations, MCSEs are around $1/\sqrt{40} = 16\%$ the size, as we would expect (generally MCSEs are on the order of $1/\sqrt{R}$, where $R$ is the number of replicates, so to halve a MCSE you need to quadruple the number of replicates).
+Also note the ICC=0.2 top facet has shifted to a flat, slightly elevated line: we do not yet know if the elevation is real, just as we did not know if the dip in the prior plot was real, but we do know that whatever might be happening is of a much smaller scale than suggested by the prior plot.
+Our confidence intervals mostly all still include 0: it is possible there is no bias at all when the size coefficient is 0 (in fact we are fairly sure this is indeed the case).
 
 ```{r, include=FALSE}
 # Checking MCSEs are smaller as expected
@@ -499,12 +505,13 @@ summary( sres_sub_full$bias.mcse / sres_sub$bias.mcse )
 ```
 
 Moving back to our "small replicates" simulation, we can use aggregation to smooth out some of our uncertainty.
-For example, if we aggregate across 9 scenarios, our number of replicates goes from 100 to 900; our MCSEs should then be about a third the size.
-To calculate an aggregated MCSE, we aggregate our scenario-specific MCSEs as follows:
+For example, if we aggregate across 9 scenarios, our number of replicates goes from 25 to 225 and our MCSEs should be about a third the size.
+To calculate an aggregated MCSE, aggregate the scenario-specific MCSEs as follows:
 $$ MCSE_{agg} = \sqrt{ \frac{1}{K^2} \sum_{k=1}^{K} MCSE_k^2 } $$
 
 where $MCSE_k$ is the Monte Carlo Standard Error for scenario $k$, and $K$ is the number of scenarios being averaged.
 Assuming a collection of estimates are independent, the overall $SE^2$ of an average is the average $SE^2$ divided by $K$.
+
 In code we have:
 
 ```{r, echo=FALSE}
@@ -552,13 +559,18 @@ summary( ss$bias.mcse.x / ss$bias.mcse.y )
 
 
 Even with the additional replicates per point, we see noticeable noise in our plot: look at the top-right ICC of 0.8 facet, for example.
-Also note how our three methods continue to track each other up and down in top row, giving a sense of a shared error.
-This is because all methods are analyzing the same set of datasets; they have shared uncertainty.
-This uncertainty can be deceptive.
-It can also be a boon: if we are explicitly comparing the performance of one method vs another, the shared uncertainty can be subtracted out, similar to what happens in a blocked experiment [@gilbert2024multilevel].
+Also note how our three methods continue to track each other up and down in the top row, due to shared error.
+This shared error can be deceptive.
+It can also be a boon: if we are explicitly comparing the performance of one method vs another, we can subtract out the shared error, similar to what happens in a blocked experiment [@gilbert2024multilevel].
+We discuss this approach next.
 
-One way to take advantage of this is to fit a multilevel regression model to our raw simulation results with a random effect for dataset.
-We next fit such a model, taking advantage of the fact that bias is simply the average of the error across replicates.
+## Multilevel Meta Regressions {#multilevel-meta-regression}
+\index{meta-regression}
+
+One way to get a more precise head to head comparison of the estimators is to fit a multilevel regression model to our raw simulation results with a random effect for dataset.
+This can be especially useful as a tool for analyzing results with few iterations.
+
+We next continue the running example of the prior section and fit such a model, taking advantage of the fact that estimated bias is simply the average of the error across replicates.
 We first make a unique ID for each scenario and dataset, and then fit the model with a random effect for both.
 The first random effect allows for specific scenarios to have more or less bias beyond what our model predicts.
 The second random effect allows for a given dataset to have a larger or smaller error than expected, shared across the three estimators.
@@ -595,22 +607,38 @@ knitr::kable(ranef_vars, digits = 2)
 ```
 
 The random variation for `simID` captures unexplained variation due to the interactions of the simulation factors.
-It appears to be a trivial amount; almost all the variation is due to the dataset.
-This makes sense: each datasets is unbalanced due to random assignment, and that estimation error is part of the dataset random effect.
+Relative to the dataset variation, it seems to be a trivial amount.
+This makes sense: each datasets is unbalanced due to random assignment, and that estimation error, shared across all three estimators, is part of the dataset random effect.
 
-So far we have not included any simulation factors: we are pushing variation across simulation into the random effect terms.  We can instead include the simulation factors as fixed effects, to see how they impact bias.
+So far we have not included any simulation factors: we are pushing variation across simulation into the random effect terms.
+We can instead include the simulation factors as fixed effects, to see how they impact bias.
 
 ```{r}
 M2 <- lmer( 
-  error ~ method*(J + n_bar + ICC + alpha + size_coef) + (1|dataID) + (1|simID),
+  error ~ method*(J + n_bar + ICC + alpha * size_coef) + (1|dataID) + (1|simID),
   data = res_small 
 )
-texreg::screenreg(M2)
 ```
 
-The above models allow us to estimate how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
+We then extract the fixed effects and sort by p-value to see which factors are most important for bias.
+We adjust our p-values with a simple Benjamini-Hochberg false discovery rate correction to try and cut down the number of terms to those that are most likely to be real, and not just noise.
+```{r}
+library( broom.mixed )
+terms <- tidy( M2 ) %>%
+  dplyr::filter( effect == "fixed" ) %>%
+  dplyr::select( term, estimate, std.error, p.value )  %>%
+  mutate(p_fdr = p.adjust(p.value, method = "BH") )
 
-Finally, we can see how much variation has been explained by comparing the random effect variances:
+terms %>%
+  filter( p_fdr < 0.10 ) %>%
+  arrange( p_fdr ) %>%
+  knitr::kable( digits=c(3) )
+```
+
+We see what we have seen before: the LR method is notably biased when `size_coef` is non-zero and `alpha` is high.
+We have estimated how bias varies with method and simulation factor, while accounting for the uncertainty in the simulation.
+
+Finally, we can see how much variation has been explained by the simulation factors by comparing the random effect variances:
 ```{r}
 ranef_vars1 <-
   as.data.frame(VarCorr(M)) %>%
@@ -625,9 +653,11 @@ ranef_vars2 <-
 rr = left_join( ranef_vars1, ranef_vars2, by = "grp", 
                 suffix = c(".null", ".full") )
 rr <- rr %>%
-  mutate( sd.red = sd.full / sd.null )
+  mutate( var.red = sd.full^2 / sd.null^2 )
 knitr::kable(rr, digits = 2)
 ```
+
+Our model is explaining an estimated 16% of the variation across simulation scenarios.
 
 <!-- LWM: This is not working cleanly, and we are not seeing reduction in unexplained simulation variation at all ---- cut, update, do what? --->
 
@@ -636,84 +666,69 @@ knitr::kable(rr, digits = 2)
 
 
 ## What to do with warnings in simulations
+\index{errors and warnings}
 
 Sometimes our analytic strategy might give some sort of warning (or fail altogether).
-For example, from the cluster randomized experiment case study we have:
+In Section \@ref(error-handling) we saw how to trap such warnings or errors.
+In particular, in Section \@ref(capturing-errors-and-warnings) we illustrated error trapping on the multilevel model for the cluster RCT experiment by revising our `analysis_MLM()` method to a `analysis_MLM_safe()` method, which gave output from the MLM method that looked like this:
 
 ```{r, include=FALSE}
 source( "case_study_code/clustered_data_simulation.R" )
 ```
 
 ```{r}
-set.seed(101012)  # (I picked this to show a warning.)
+set.seed(101012)  # (I picked this to show an issue.)
 dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
-mod <- lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
+analysis_MLM_safe( dat )
 ```
 
+For this dataset, for example, we see that there was a convergence issue that gave rise to the indicated message.
 
+Once the full simulation is run, we can examine the patterns of these warnings and errors to see if they are a serious or minor problem.
+We first do this by calculating the rate of errors or warning messages as a performance measure across the simulation scenarios.
+Especially if we plan on possibly droping some trials, it is important to see how often things are acting peculiarly.
 
-We have to make a deliberate decision as to what to do about this:
- 
- - Keep these "weird" trials?
- - Drop them?
-
-Generally, when a method fails or gives a warning is something to investigate in its own right.
-Ideally, failure would not be too common, meaning we could drop those trials, or keep them, without really impacting our overall results.
-But one should at least know what one is ignoring.
-
-If you decide to drop them, you should drop the entire simulation iteration including the other estimators, even if they worked fine!
-If there is something particularly unusual about the dataset, then dropping for one estimator, and keeping for the others that maybe didn't give a warning, but did struggle to estimate the estimand, would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
-
-If your estimators generate warnings, you should calculate the rate of errors or warning messages as a performance measure.
-Especially if you drop some trials, it is important to see how often things are acting pecularly.
-
-As discussed earlier, the main tool for doing this is the `quietly()` function:
-```{r}
-quiet_lmer = quietly( lmer )
-qmod <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
-qmod
-```
-
-You then might have, in your analyzing code:
-```{r, eval=FALSE}
-analyze_data <- function( dat ) {
-    
-    M1 <- quiet_lmer( Yobs ~ 1 + Z + (1|sid), data=dat )
-    message1 = ifelse( length( M1$message ) > 0, 1, 0 )
-    warning1 = ifelse( length( M1$warning ) > 0, 1, 0 )
-
-    # Compile our results
-    tibble( ATE_hat = coef(M1)["Z"],
-            SE_hat = se.coef(M1)["Z"],
-            message = message1,
-            warning = warning1 )
-}
-```
-
-Now you have your primary estimates, and also flags for whether there was a convergence issue.
-In the analysis section you can then evaluate what proportion of the time there was a warning or message, and then do subset analyses to those simulation trials where there was no such warning.
-
-
-For example, in our cluster RCT running example, we know that ICC is an important driver of when these convergence issues might occur, so we can explore how often we get a convergence message by ICC level:
-
-<!-- JEP: The results seem to be missing the `message` variable, so these calculations are broken. -->
+For example, in our cluster RCT running example, we know that ICC is an important driver of when convergence issues might occur, so we can explore how often we get a convergence message by ICC level by calculating the number of messages, warnings, or errors per 1000 iterations:
 
 ```{r examine_convergence_rates}
 res %>% 
+  dplyr::filter( method == "MLM" ) %>%
   group_by( method, ICC ) %>%
-  summarise( message = mean( message ) ) %>%
-  pivot_wider( names_from = "method", values_from="message" )
+  summarise( message = 1000*mean( message ),
+             warning = 1000*mean( warning ),
+             error = 1000*mean( error ) ) %>%
+  pivot_wider( names_from = method,
+               values_from=c( "message", "warning", "error" ) )
 ```
 
 We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
-At this point we might decide to drop those runs with a message or keep them.
-In this case, we decide to keep.
-It should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
+Thankfully, we never saw actual errors and our warnings were very rare.
+
+At this point we have to decide whether to drop the problematic runs or keep them.
+Ideally, failure would not be too common, meaning we could drop or keep the problematic iterations without really impacting our overall results.
+
+In our case, for example, it should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
 Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
 We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
 
+Importantly, if the decision is to drop, then the entire simulation iteration, including the other estimators, should be dropped even if the other estimators worked fine!
+If there is something particularly unusual about the dataset that caused the concern, then dropping for one estimator and keeping for the others would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+Consider, for example, if the dropped datasets were fundamentally harder to evaluate.
 
 
+## Conclusions
 
+
+Designed experiments in simulation are only as useful as the summaries you make of their output.
+In this chapter, we showed a few advanced ways of moving from raw simulation outputs to interpretable summaries using regression, ANOVA, LASSO, trees, and multilevel meta-models.
+These tools let you parse the main effects of your simulation factors along with their interactions, and can help turn many scenario-level estimates into clear statements about where methods work and where they break.
+They can also help protect against how Monte Carlo simulation error can potentially distort findings.
+
+We also focused on two specific areas where analyzing a set of results can be tricky: when each iteration is expensive (so you do not have too many of them), and when sometimes your estimators fail or perform poorly in a way that raises warnings or flags.
+In the former case, aggregation and multilevel models can be especially useful when replicates are expensive.
+In the latter, evaluate when failures occur, and then either drop them consistently or explicitly model them.
+
+Overall, these tools give a way to go deeper into a set of simulation results.
+Often the findings here would not be presented in the main text, but they can be important supporting detail, especially when placed in a supplement.
 
 

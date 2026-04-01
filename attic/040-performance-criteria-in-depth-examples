@@ -1,0 +1,254 @@
+## Summary of Peformance Measures
+
+Depending on the model and estimation procedures being examined, a range of different criteria might be used to assess estimator performance.
+For point estimation, we have seen bias, variance and MSE as the three core measures of performance.
+Other criteria exist, such as the median bias and the median absolute deviation of $T$, where we use the median $\tilde{T}$ of our estimates rather than the mean $\bar{T}$.
+
+The usual bias, variance and MSE measures can be sensitive to outliers.
+If an estimator generally does well, except for an occasional large mistake, these classic measures can return very poor overall performance.
+Instead, we might turn to quantities such as the median bias (sort all the estimation errors across the simulation scenarios, and take the middle), or the Median Absolute Distance (MAD, where you take the median of the absolute values of the errors, which is an alternative to RMSE) as a measure of performance.
+
+As an example that really does require some handling of outliers, we next discuss Instrumental Variables.
+Instrumental variables (IV) estimation is used when a regressor (e.g., a treatment $D$) is correlated with some unobserved variable (e.g., $\theta$), making a vanilla OLS regression of $Y$ on $D$ biased.
+An instrument $Z$--a variable correlated with $D$ but uncorrelated with the error term--can isolate exogenous variation in $D$ so we can  recover a consistent estimate of its causal effect on $Y$.
+Classic IV estimation uses Two Stage Least Squares (2SLS), where we first regress $D$ on $Z$ and any controls (e.g., $X$), then use the predicted values of $D$ to estimate the effect on $Y$.
+The key idea is that our instrument $Z$ "moves" $D$, and thus we know that if $Y$ changes when $Z$ changes, that must have happened due to $Z$'s influence on $D$, allowing us to recover the impact $D$ has on $Y$.
+Unfortunately, if the effect of $Z$ on $D$ is small, we can end up with a weak instrument, which leads to large standard errors in our IV estimates.
+We might hope that if we have some auxillary covariate $X$, we can control for it in our IV regression, which can help stabilize the estimation.
+
+To test this out we might put together a simple simulation as follows.
+We simulate data where $Y$ is a function of $D$, $X$, and an unobserved confounder $\theta$.
+We generate $D$ as a function of $Z$ and $\theta$, and then $Y$ as a function of $D$, $X$, and $\theta$.
+We are not making individual components here, to keep things brief, and we are using a package from `AER` to do the IV estimation.
+
+```{r}
+library(tidyverse)
+library(AER)
+
+set.seed(123)
+
+sim_iv <- function(n = 1000, pi = 0.1, reps = 100) {
+  map_dfr(1:reps, ~{
+    dat = tibble( 
+      Z = rnorm(n),
+      theta = rnorm(n),
+      X = rnorm(n),
+      D = pi*Z + 0.5*theta + rnorm(n),
+      Y = 1*D + 2*X + 1*theta + rnorm(n) )
+  
+    # Don't control for X
+    iv_fit1 <- ivreg(Y ~ D | Z, data=dat)
+    sum1 <- summary(iv_fit1)
+    pe1 <- sum1$coefficients["D", "Estimate"]
+    se1 <- sum1$coefficients["D", "Std. Error"]
+  
+    # Control for X
+    iv_fit2 <- ivreg(Y ~ X + D | X + Z, data=dat)
+    sum2 <- summary(iv_fit2)
+    pe2 <- sum2$coefficients["D", "Estimate"]
+    se2 <- sum2$coefficients["D", "Std. Error"]
+    
+    # OLS as baseline
+    ols_fit <- lm(Y ~ X + D, data=dat)
+    ols_sum <- summary(ols_fit)
+    pe_ols <- ols_sum$coefficients["D", "Estimate"]
+    se_ols <- ols_sum$coefficients["D", "Std. Error"]
+    
+    tibble( method = c( "simple", "control", "ols"),
+            pe = c(pe1, pe2, pe_ols),
+            sehat = c(se1, se2, se_ols) )
+  })
+}
+```
+
+Our function runs a single scenario, and gives us back three estimates for each iteration: the controlled IV regression, the simple IV regression, and the OLS regression.
+We can plot our estimates to see what they look like:
+```{r}
+results <- sim_iv(pi = 0.50)
+ggplot( results, aes( pe )) +
+  facet_wrap( ~ method, nrow=1 ) +
+  geom_histogram( bins = 30, fill = "lightblue", color = "black" ) +
+  geom_vline( xintercept = 1 ) +
+  labs( title = "IV Estimates with Strong Instrument (pi = 0.5)" )
+```
+With a stong instrument, our IV estimators are close to the true value of 1, while the OLS estimator is biased due to the unobserved confounder $\theta$.
+It is also clear that controlling for our confounder does in fact reduce our standard error.
+
+Now let's run our simulation for a series of weaker instrument values:
+
+```{r}
+pis = c( 0.01, 0.025, 0.05, 0.075, 0.1, 0.2, 0.3 )
+results <- map_dfr(pis, \(pi) {
+  sim_iv(n = 1000, pi = pi, reps = 1000) %>%
+    mutate(pi = pi)
+} )
+```
+
+We compute some performance metrics, and look at the bias and standard error of our estimates.
+```{r}
+sres <- results %>%
+  group_by( pi, method ) %>%
+  summarise( 
+    bias = mean(pe) - 1,
+    SE = sd(pe), .groups = "drop" )
+
+sresL <- sres %>%
+  pivot_longer(
+    cols = c(bias, SE ),
+    names_to="metric",
+    values_to="value" )
+
+ggplot( sresL, aes(x = pi, y = value, color = method) ) +
+  facet_wrap( ~ metric, scales="free" ) +
+  geom_point() + geom_line() +
+  labs( y = "bias", title = "Bias of IV estimators" ) +
+  scale_x_log10()
+```
+
+Something is not right.
+We can look at our raw estimates to get a better idea of what is going on.
+
+```{r}
+ggplot( results,
+        aes(x = as.factor(pi), y = pe, 
+            col = method, fill = method) ) +
+  geom_boxplot(outlier.size=0.5) +
+  coord_flip() +
+  labs( title = "Individual IV estimates for pi=0.05" )
+```
+We have massive outliers, upwards of 50,000 in size.
+These outliers are completely distorting our results.
+
+Sometimes we have to tweak our performance metrics to account for this kind of instability.
+One approach is to look at median, rather than mean, performance:
+
+```{r}
+sresL <- results %>%
+  group_by( pi, method ) %>%
+  summarise( 
+    bias = median(pe) - 1,
+    MAD = median(abs(pe - median(pe))), .groups = "drop" ) %>%
+  pivot_longer(
+    cols = c(bias, MAD ),
+    names_to="metric",
+    values_to="value" )
+
+ggplot( sresL, aes(x = pi, y = value, color = method) ) +
+  facet_wrap( ~ metric, scales="free" ) +
+  geom_point() + geom_line() +
+  labs( y = "bias", title = "Bias of IV estimators" ) +
+  scale_x_log10()
+```
+We see much more clearly that as pi increases, the IV estimators get much more stable (lower MAD) and that the controlled IV estimator has a smaller MAD than the simple IV estimator.
+We also see that there is still some median bias for low IV values, but that the median bias quickly goes to 0 as pi increases.
+
+### Windsorization to control outliers
+
+Median performance is often workable, but it does not take into account the impact of outliers at all.
+Other robust measures are also possible, such as simply truncating all errors to a maximum size (this is called Windsorizing).
+This is a way of saying "I don't care if you are off by 1000, I am only going to count it as 10."
+If we do this to our raw estimates, we can get more stable estimates of performance.
+We can top-code at a large value that we would consider an outlier, so that estimators that have extreme estimates do get penalized, but just do not get penalized so much it distorts our picture.
+
+```{r}
+results <- results %>%
+  mutate( pe_wind = pmax( -20, pmin(pe, 20) ) )
+```
+
+Here are our boxplots of the raw estimates, with the top-coded values.
+```{r}
+ggplot( results,
+        aes(x = as.factor(pi), y = pe_wind, 
+             fill = method) ) +
+  geom_boxplot(outlier.size=0.5) +
+  coord_flip() +
+  labs( title = "Individual IV estimates for pi=0.05" )
+```
+We can see the inner distribution much better now.
+We can also assess how much Windorization there is:
+
+```{r}
+sres <- results %>%
+  group_by( pi, method ) %>%
+  summarise( 
+    wind = mean(pe_wind != pe), .groups = "drop"
+  ) %>%
+  pivot_wider( names_from = "method",
+               values_from="wind" )
+sres %>%
+  knitr::kable( digits = 2 )
+```
+We could even decide 8% is too much data to windorize, and we could use this to inform our choice of threshold.
+
+We then use our windorized values to calculate our final performance:
+```{r}
+sresL <- results %>%
+  group_by( pi, method ) %>%
+  summarise( 
+    bias = mean(pe_wind) - 1,
+    SE = sd(pe_wind), .groups = "drop" ) %>%
+  pivot_longer(
+    cols = c(bias, SE ),
+    names_to="metric",
+    values_to="value" )
+
+ggplot( sresL, aes(x = pi, y = value, color = method) ) +
+  facet_wrap( ~ metric, scales="free" ) +
+  geom_point() + geom_line() +
+  labs( y = "bias", title = "Bias of IV estimators" ) +
+  scale_x_log10()
+```
+
+Overall, when your estimators have strange tail behavior (e.g., extreme outliers) you may have to depart from the usual performance metrics or tweak your estimates to get a clearer picture of how your estimators are performing.
+But it is important to caveat your reporting to include the fact that you are using a modified performance metric, and why you chose to do so.
+When windorizing, you should always report how much data you windorized, and you do not want it to be too high a percent of your data.
+
+
+### Correlation measures vs absolute performance
+
+Say you have two methods that predict individual outcomes for each individual in a given evaluation set as a function of some set of covariates.
+One method might heavily use regularization, while the other might use a more complex model allowing for interactions.
+Regularization, where a method shrinks its estimates towards some overall center, would potentially bias the individual estimates, but that might not matter if the relative ordering of the estimates is preserved.
+
+For example, in a project evaluating how well machine learning methods predict individual outcomes, we might have a simulation run such as the following:
+
+```{r}
+tt <- tibble( ID = 1:1000,
+              theta = rnorm( 1000, mean = 0, sd = 1 ),
+              pred_LASSO = 0.2 * ( theta + rnorm(1000, sd = 0.3) ),
+              pred_BART = theta + rnorm( 1000, sd = 0.6 ) ) 
+tt$theta = tt$theta * 10
+tt$pred_LASSO = tt$pred_LASSO * 10
+tt$pred_BART = tt$pred_BART * 10
+
+ttL <- tt %>%
+  pivot_longer( cols = c(pred_LASSO, pred_BART),
+                names_to = "method",
+                names_prefix="pred_",
+                values_to = "pred" ) %>%
+  relocate( method )
+ttL
+```
+
+If we calculate average RMSE performances for this single simulation run we would have:
+```{r}
+ttL %>%
+  group_by( method ) %>%
+  summarise( RMSE = sqrt( mean( (theta - pred)^2 ) ) )
+```
+
+But if you calculated how correlated the predictions were, you would get
+```{r}
+ttL %>%
+  group_by( method ) %>%
+  summarise( cor = cor( theta, pred ),
+             spear = cor( theta, pred, method = "spearman" ) )
+```
+Now we see the LASSO is better at giving predictions that are ordered in the same order as the true values, while the BART method is not.
+
+Different measures of performance target different concepts, and it is important to track which ones are most appropriate to your given circumstance.
+
+The above example is a stylized version of a project investigating how well different machine learning tools predict individual treatment effects (e.g., if we were using covariates to predict how responsive someone would be to a given treatment).
+If we are interested in which methods identify those most responsive to treatment, average spearman's correlation might be a better measure of performance than average RMSE of the individual predictions.
+In our paper, we report RMSE, SE, Bias, and Spearman's correlation, so readers can better understand the details of why some methods are better or worse than others.
+
