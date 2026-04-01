@@ -1,11 +1,11 @@
 
 # Case Study: Heteroskedastic ANOVA and Welch {#case-ANOVA}
-
+\index{example!heteroskedastic ANOVA (Welch)}
 
 ```{r include = FALSE}
 library(tidyverse)
 ```
-In this chapter, we present another detailed example of a simulation study to demonstrate how to put the principles of tidy, modular simulation into practice. 
+In this chapter, we present another detailed example of a simulation study\index{simulation study} to demonstrate how to put the principles of tidy, modular simulation into practice. 
 To illustrate the process of programming a simulation, we reconstruct the simulations from @brown1974SmallSampleBehavior.
 We will also use this case study as a recurring example in some of the following chapters.
 
@@ -87,9 +87,9 @@ It is a measure of how sensitive a method is to violations of the null.
 
 Brown and Forsythe estimated error rates and power for nominal $\alpha$-levels of 1%, 5%, and 10%.
 Table 1 of their paper reports the simulation results for type-I error (labeled as "size").
-Our Table \@ref(tab:BF-table1) reports some of their results with respect to Type I error.
+Our Table \@ref(tab:BF-table1) reports some of their results with respect to Type I error\index{performance measures!Type I error}.
 For a well-calibrated hypothesis testing method, the reported numbers should be very close to the desired alpha levels, as listed at the top of the table.
-We can compare the four tests to each other across each row, where each row is a specific scenario defined by a specific data generating process.
+We can compare the four tests to each other across each row, where each row is a specific scenario defined by a specific data generating process\index{data-generating process}.
 Looking at ANOVA, for example, we see some scenarios with very elevated rates. For instance, in Scenario E, the ANOVA F-test has  21.9% rejection when it should only have 10%.
 In contrast, the ANOVA F works fine under scenario A, which is what one would expect because all the groups have the same variance. 
 Brown and Forsythe's choice of scenarios here illustrates a broader design principle: to provide a full picture of the performance of a method or set of methods, it is wise to always evaluate them under conditions where we expect things to work, as well as conditions where we expect them to not work well.
@@ -183,6 +183,7 @@ To replicate the Brown and Forsythe simulation, we will first write functions to
 We will then use these functions to evaluate the hypothesis testing procedures in a specific scenario with a particular set of parameters (e.g., sample sizes, number of groups, and so forth). We will then scale up to execute the simulations for a range of scenarios that vary the parameters of the data-generating model, just as reported in Brown and Forsythe's paper.
 
 ## The data-generating model {#case-anova-DGP}
+\index{data-generating process}
 
 In the heteroskedastic one-way ANOVA simulation, there are three sets of parameter values: population means, population variances, and sample sizes.
 Rather than attempting to write a general data-generating function immediately, it is often easier to write code for a specific case first and then use that code as a starting point for developing a function.
@@ -232,7 +233,7 @@ For instance, instead of using `rep()` to do it all at once, we could generate o
 Do not worry about trying to writing code the "best" way---especially when you are initially putting a simulation together.
 If you can find a way to accomplish your task at all, then that's often enough (and you should feel good about it!).
 
-### Now make a function
+### Now make a function {#Welch-DGP}
 
 Because we will need to generate datasets over and over, we will wrap our code in a function.
 The inputs to the function will be the parameters of the model that we specified at the very beginning: the set of population means `mu`, the population variances `sigma_sq`, and sample sizes `sample_size`. We make these quantities arguments of the data-generating function so that we can make datasets of different sizes and shapes:
@@ -241,7 +242,7 @@ The inputs to the function will be the parameters of the model that we specified
 ```
 
 The function is simply the code we built previously, all bundled up.
-We developed the function by first writing code to make the data-generating process to work once, the way we want, and only then turning the final code into a function for later reuse.
+We developed the function by first writing code to make the data-generating process\index{data-generating process} to work once, the way we want, and only then turning the final code into a function for later reuse.
 
 Once we have turned the code into a function, we can call it to get a new set of simulated data.
 For example, to generate a dataset with the same parameters as before, we can do:
@@ -344,7 +345,7 @@ one_run( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size )
 This function implements a single simulation trial by generating artificial data and then analyzing the data, ending with a tidy dataset that has results for the single run.
 
 We next call `one_run()` over and over; see Appendix \@ref(repeating-oneself) for some discussion of options.
-The following uses `repeat_and_stack()` from `simhelpers` to evaluate `one_run()` 4 times and then stack the results into a single dataset:
+The following uses `repeat_and_stack()` from `simhelpers` to evaluate `one_run()` 4 times and then stack the results into a single dataset:\index{package!simhelpers}\index{repeat\_and\_stack()}
 
 ```{r}
 library(simhelpers)
@@ -409,7 +410,7 @@ mean(p_vals$Welch < 0.05)
 The Welch test does much better, although it appears to be a little bit in excess of 0.05.
 
 Note that these two numbers are quite close (though not quite identical) to the corresponding entries in Table 1 of Brown and Forsythe (1974). The difference is due to the fact that both Table 1 and are results are actually _estimated_ rejection rates, because we have not actually simulated an infinite number of replications. The estimation error arising from using a finite number of replications is called _simulation error_ (or _Monte Carlo error_).
-In Chapter \@ref(performance-measures), we will look more at how to estimate and control the Monte Carlo simulation error in performance measures.
+In Chapter \@ref(performance-measures), we will look more at how to estimate and control the Monte Carlo\index{Monte Carlo simulation} simulation error in performance measures.
 
 So there you have it! Each part of the simulation is a distinct block of code, and together we have a modular simulation that can be easily extended to other scenarios or other tests.
 The exercises at the end of this chapter ask you to extend the framework further. 
@@ -470,9 +471,9 @@ ANOVA_Welch_F_long <- function(data) {
 ANOVA_Welch_F_long(sim_data)
 ```
 
-Modify `ANOVA_Welch_F()` to return output in this format, update your simulation code, and then use `group_by()` plus `summarise()` to calculate rejection rates of both tests. 
-`group_by()` is a method for dividing your data into distinct groups and conducting an operation on each. 
-The classic form of this would be something like the following:
+Modify `ANOVA_Welch_F()` to return output in the long format, update your simulation code, and then use `group_by()` plus `summarise()` to calculate rejection rates of both tests. 
+The `group_by()` method divides your data into distinct groups so you can easily conduct an operation on each. 
+Here is a typical way that `group_by()` might be used for calculating performance measures:
 
 ```{r, eval=FALSE}
 sres <- 
@@ -483,7 +484,9 @@ sres <-
 
 ### Other tests {#BF-other-tests}
 
-The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means. Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise \@ref(BF-wide-long)) to also include results from these hypothesis tests. Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table \@ref(tab:BF-Scenarios).
+The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means.
+Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise \@ref(BF-wide-long)) to also include results from these hypothesis tests.
+Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table \@ref(tab:BF-Scenarios).
 
 ### Methodological extensions
 
