@@ -280,49 +280,62 @@ c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
 
 ## Unit testing {#unit-testing}
 
-Testing your code is a good way to ensure that it does what you expect.
-We have seen some demonstration of testing code early on, such as when we made plots of our simulated data to see if it looked like we expected.
-This kind of code could be stored in the script with the functions being tested, so that you can run it again later to see if the code still works as expected, using the `FALSE` trick discussed in Section \@ref(storing-testing-code).
+Throughout this book, we have emphasized the utility of writing separate functions for the different components of a simulation study, and checking those functions to ensure that they work properly and as expected.
+In previous chapters, we have seen several examples of how to check functions, such as when we made plots of data produced by a data-generating function to see if the distributions looked like we intended.
+This sort of code could be stored in the script alongside the functions being tested[^FALSE-trick], or in a separate file. 
+In either case, it is useful to retain the code so that you can run it again later to verify that a function still works as expected.
 
-That sort of testing is important, but it can be hard to bring oneself to go and rerun it after making what seems like a trivial change to the core code.
-It can also be hard to track down the ripple effects of changing a low-level method that is used by many other methods.
+[^FALSE-trick]: To prevent execution of the code, the tests can be cordoned off using the `FALSE` trick discussed in Section \@ref(storing-testing-code).
 
-This is why people developed "unit testing," an approach to testing where you write code that you can just run whenever you want, code which runs a series of tests on your code and prints out which tests work as expected, and which do not.
-In R, the most common way of doing this is the `testthat` package.
+These sorts of informal checks are very useful, but in our experience it is easy to let them fall by the wayside or fall apart as you continue to develop the code for a simulation. 
+It can be hard to find motivation to go and re-run checks after making apparently trivial changes to your core code.
+Likewise, it can also be challenging to track down the ripple effects of changing a low-level function that is used by many other pieces of your code.
 
+Unit testing is a set of practices, commonly used in software development, that formalize the idea of writing code to verify that a function works.
+The spirit of unit testing is to write code to test your functions _thoroughly_ and to run those tests _frequently_ to verify that everything works as intended, even as you make changes to component functions.
+Unit testing frameworks allow you to write test code that can be run whenever you want, providing a report of which tests pass and which fail, potentially indicating a problem with your functions. 
+
+The `testthat` package is a popular unit testing framework for R, often used as part of developing an R package.[^testthat]
+Although originally designed for unit testing of functions included as part of R packages, it is nonetheless quite useful for more general coding projects, such as developing the code base for a simulation study.
 There are two general parts to `testthat`: the `expect_*()` methods and the `test_that()` function.
 
-Consider the following simple DGP\index{data-generating process} to generate an X and Y variable with a given relationship:
+[^testthat]: See Chapters 13 through 15 of @Wickham2023packages for an in-depth discussion of unit testing in the context of R package development
+
+Consider the following simple DGP\index{data-generating process} to generate an X and Y variable with a specified association:
 ```{r}
 my_DGP <- function( N, mu, beta ) {
-  stopifnot( N > 0, beta <= 1 )
+  stopifnot( N > 0, abs(beta) <= 1 )
   dat = tibble( X = rnorm( N, mean = 0, sd = 1 ),
                 Y = mu + beta * X + rnorm( N, sd = 1-beta^2 ) )
 }
 ```
 
-We can write test code as so:
+Here is an initial set of unit tests for the `my_DGP()` function:
 
 ```{r}
 library(testthat)
 set.seed(44343)
-test_that("my_DGP works as expected", {
+test_that("my_DGP produces output of correct form and dimension.", {
+  
   dta <- my_DGP(10, 0, 0.5)
+  
   # Check that the output is a tibble
-  expect_s3_class(dta, "tbl_df")
+  expect_s3_class( dta, "tbl_df" )
   
   # Check that the output has the right number of rows
-  expect_equal(nrow(dta), 10)
+  expect_equal( nrow(dta), 10 )
   
   # Check that the output has the right columns
-  expect_true(all(c("X", "Y") %in% colnames(dta)))
-  
-  # Check that the mean of Y is close to mu
-  dta2 = my_DGP(1000, 2, 0.5)
-  expect_equal(mean(dta2$Y), 2, tolerance = 0.1)
-  
+  expect_true( all(c("X", "Y") %in% colnames(dta)) )
+})
+
+test_that("my_DGP returns errors with incorrect inputs.", {
+    
   # Check we get an error when we should
-  expect_error(my_DGP(-10, 0, 0.5, 0.5) )
+  expect_error( my_DGP(-10, 0, 0.5) )
+  expect_error( my_DGP(10, 1, 1.5) )
+  expect_error( my_DGP(10, 0.4, 0.5, 0.3) )
+
 })
 ```
 
@@ -331,43 +344,50 @@ This code will run the tests, and if they all pass, it will print out a happy me
 If one or more of our tests fail, we will get a set of error messages that tells us what went wrong, and where things broke:
 
 ```{r, warning=TRUE, error=TRUE}
-test_that("my_DGP works as expected (test 2)", {
-  dta <- my_DGP(10000, 2, -2)
-  expect_equal( sd( dta$X ), 1, tolerance = 0.02 )
+test_that("my_DGP produces data with expected features.", {
   
-  dta <- my_DGP(10000, 2, 0.5)
-  expect_equal( var(dta$Y), 1, tolerance = 0.02 )
+  # Check that the mean of Y is close to mu
+  dta2 = my_DGP(1000, 2, 0.5)
+  expect_equal(mean(dta2$Y), 2, tolerance = 0.1)
   
-  M = lm( Y ~ X, data=dta )
+
+  # Check that the SDs of X and Y are close to 1
+  dta <- my_DGP(10000, 2, 0.2)
+  expect_equal( sd(dta$X), 1, tolerance = 0.02 )
+  expect_equal( sd(dta$Y), 1, tolerance = 0.02 )
+  
+  # Check that the regression slope is close to beta
+  M <- lm( Y ~ X, data=dta )
   expect_equal( coef(M)[[2]], 0.5, tolerance = 0.02 )
 } )
 ```
 
-With unit testing, you write a bunch of these tests, each targeting some specific aspect of your code.
-If you put all of these tests in a file, you can run them all at once:
+A thorough set of unit tests will target multiple aspects of a function's behavior---not just that it produces output of the correct form, but also that the output is consistent with the input specifications, that it produces errors when given incorrect inputs, and that it works under a range of scenarios or contingencies that might arise in your simulation study.
+In principle, if you write any code to figure out why something is not working as expected, you should turn that code into a unit test so that you can run it again later, ensuring that any bug you fixed will stay fixed moving forward.
+
+If you have written a set of tests and collected them in a file, you can run them all at once:
 
 ```{r}
 test_file(here::here( "code/demo_test_file.R" ) )
 ```
 
-The `test_file()` method will then give an overall printout of all the tests made, and list which passed, which gave warnings, and which were skipped.
-You can also run the test from inside RStudio: when in a unit test file, you should see "Run Tests" at the top-right of the script pane--if you click on it, RStudio will start an entirely new work session, and source your file to test it.
-This is the best way to use these testing files.
+The `test_file()` method will produce a printout reporting which of the tests passed, which gave warnings, and which were skipped.[^Run-tests]
+Tests are run "from scratch" in a fresh R session. Because `test_file()` runs the tests in a separate session, you will have to make sure that the testing script loads any needed libraries and creates any objects needed for the unit tests to execute.
+If your unit tests are testing your core (stored in the `R/` folder of your project, see Chapter \@ref(organizing-a-simulation-project) for further discussion), you need to source the relevant files at the top of your test file.
 
-Tests are run "from scratch" and this stand-alone work session approach means you have to load any needed libraries before running the testing code.
-If your testing code is testing your core code (stored in the `R/` folder of your project, see Chapter \@ref(organizing-a-simulation-project) for further discussion), you will have to source the relevant files at the top of your test file.
+[^Run-tests]: You can also run the tests from inside RStudio. When in a unit test file, you should see "Run Tests" at the top-right of the script pane. If you click on it, RStudio will start an entirely new work session, and source your file to test it.
 
-For a full testing work flow, put all the testing files in a single directory, and run them all at once with `test_dir()`.
-The usual place to store testing files is in a `tests/testthat/` directory inside your project.
-You can then have a `tests/testthat.R` file that runs `test_dir()` on the `tests/testthat/` directory.
-The `testthat` package was designed for unit testing new R packages, but we are repurposing it for general projects here.
+If you have written tests for several different functions, you might store the results in several files. 
+You can run all of your test files in sequence using `test_dir()`.
+For instance, if you store all of your testing files in `tests/`, then run
+```{r, eval = FALSE}
+test_dir("tests")
+```
 
-Once you have your unit testing all set up, you can work on your project, and then easily run all the unit tests to see if you broke anything.
-Even more important, if you are working with a collaborator, you can both run unit tests to ensure you have not broken something that someone else was counting on!
-Furthermore, you can use the test code as a reference for how the code should be used, and what the expected output is.
+Once you have created a set of unit tests, you can continue to work on your project and tweak your functions. If you make changes to any function, you can re-run _all_ the unit tests to see if you broke anything.
+Perhaps even more important, if you are working with a collaborator, you can both run unit tests to ensure you have not broken something that someone else was counting on!
+Furthermore, you can use the test code as a quick reference for how your functions should be used and what their expected output should look like.
 For any reasonably complex project, having test code can be of enormous benefit.
-
-In principle, if you are writing code to figure out why something is not working as expected, you should put that code in your testing folder so that you can run it again later, ensuring that any bug you fixed will stay fixed moving forward.
 
 
 
