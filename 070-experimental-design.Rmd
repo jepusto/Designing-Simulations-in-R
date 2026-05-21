@@ -35,104 +35,59 @@ It is only by looking across a range of settings that we can hope to understand 
 Let's now look at the remaining piece of the simulation puzzle: the study's experimental design. 
 
 Simulation studies often take the form of __full factorial__ designed experiments.
-In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. One way to represent such a design is as a list of the factors and levels to be explored. 
-
-<!-- The following is redundant with material from Chapter 060! -->
-
-For example, consider a simulation study examining the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution. 
-We examined this data-generating model in Section \@ref(BVPois-example), implementing it in the function `r_bivariate_Poisson()`. The model has three parameters (the means of each variate, $\mu_1, \mu_2$ and the correlation $\rho$) and there is one design parameter (sample size, $N$). 
-Thus, we could in principle examine up to four factors. 
-
-Using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
-It is useful to re-parameterize to reduce redundancy and simply things.
-We will therefore define the simulation conditions by always treating $\mu_1$ as the larger variate and by specifying the ratio of the smaller to the larger mean as $\lambda = \mu_2 / \mu_1$.
-We might then examine the following factors:
-
-* the sample size, with values of $N = 10, 20$, or $30$
-* the mean of the larger variate, with values of $\mu_1 = 4, 8$, or $12$
-* the ratio of means, with values of $\lambda = 0.5$ or $1.0$.
-* the true correlation, with values ranging from $\rho = 0.0$ to $0.7$ in steps of $0.1$
-
-The above parameters describe a $3 \times 3 \times 2 \times 8$ factorial design, where each element is the number of levels for that factor. This is a four-factor experiment, because we have four different things we are varying.
-
-To implement this design in code, we first save the simulation parameters as a list with one entry per factor, where each entry consists of the levels that we would like to explore.
-We will run a simulation for every possible combination of these values.
-Here is code that generates all of the scenarios given the above design, storing these combinations in a data frame, `params`, that represents the full experimental design:
-
-```{r make_Pearson_sim_dataframe_leftover}
-design_factors <- list(
-  N = c(10, 20, 30),
-  mu1 = c(4, 8, 12),
-  lambda = c(0.5, 1.0),
-  rho = seq(0.0, 0.7, 0.1)
-)
-
-lengths(design_factors)
-
-params <- expand_grid( !!!design_factors )
-params
-```
-
-We use `expand_grid()` from the `tidyr` package to create all possible combinations of the four factors.[^expand-grid-wtf]
-We have a total of $`r paste(lengths(design_factors), collapse = " \\times ")` = `r nrow(params)`$ rows, each row corresponding to a simulation scenario to explore.
-With multifactor experiments, it is easy to end up running a lot of scenarios!
-
-[^expand-grid-wtf]: `expand_grid()` is set up to take one argument per factor of the design. A clearer example of its natural syntax is:
-    ```{r}
-    params <- expand_grid(
-      N = c(10, 20, 30),
-      mu1 = c(4, 8, 12),
-      lambda = c(0.5, 1.0),
-      rho = seq(0.0, 0.7, 0.1)
-    )
-    ```
-    However, we generally find it useful to create a list of design factors before creating the full grid of parameter values, so we prefer to make `design_factors` first. To use `expand_grid()` on a list, we need to use `!!!`, the splice operator from the `rlang` package, which treats `design_factors` as a set of arguments to be passed to `expand_grid`. The syntax may look a bit wacky, but it is succinct and useful. 
-
+In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor. 
 The multi-factor aspect of a simulation is incredible important.
 It can take us from an overly narrow exploration to one that has broader significance.
 As @little2013praise puts it:
 
 > Good simulation studies are not given the respect they deserve. Often the design is perfunctory and simplistic, neglecting to attempt a factorial experimental design to cover the relevant sample space, and results are over-generalized. Well designed simulation studies with realistic sample sizes are an antidote to a ﬁxation on asymptotics and a useful tool for assessing calibration.
 
+In Section \@ref(simulating-across-multiple-factors), we demonstrated how to represent a full factorial design as a list of the factors and levels to be explored, and then how to create a dataset containing parameter values for every combinations of levels of all the factors. 
+In that example, we designed a simulation study to examine the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution. 
+We arrived at a $3 \times 3 \times 2 \times 8$ factorial design, varying the sample size across three levels, the mean of one variable across three levels, the ratio of means across two levels, and the true correlation between variables across eight levels.
 
-
-## Choosing parameter combinations
-
-How do we go about choosing parameter values to examine?
+But how do we go about choosing parameter values to examine?
 Choosing which parameters to use is a central part of good simulation design because the primary limitation of simulation studies is always their _generalizability_.
 On the one hand, it is difficult to extrapolate findings from a simulation study\index{simulation study} beyond the set of simulation conditions that were examined. On the other hand, it is often difficult or impossible to examine the full space of all possible parameter values, except for very simple problems.
 Even in the relatively straightforward Pearson correlation simulation, we have four factors and the last three could each take on an infinite number of possible levels.
-How can we come up with a defensible set of levels to examine?
+How do we come up with a defensible set of levels to examine?
+
+## Choosing factors and parameter combinations
+
+As far as we know, there is no generic algorithm for choosing which parameters to vary in a simulation design, nor for choosing what levels to use for each parameter.
+The particular answers to these questions will always depend on the problem you are studying, the focus of your research questions, and the availability of any relevant theoretical results. 
+Because choices of simulation conditions need to be made in the context of the problem or model that you are studying, it is difficult to identify valid but acontextual rules.
+Instead, we can only offer broad principles and practical advice, informed by our experience conducting and reading simulation studies.
 
 Broadly, we generally try to vary parameters that we believe matter, or that we think other people will believe matter.
 The first is so we can learn for ourselves.
 The second is to build our case.
-The choice of simulation conditions needs to be made in the context of the problem or model that you are studying, so it is difficult to identify valid but acontextual principles.
-We nonetheless offer a few points of advice, informed by our experience conducting and reading simulation studies:
+We see three distinct considerations that are useful to weigh when choosing factors and levels:
 
-1. For research simulations, it often is important to be able to relate your findings to previous research. This suggests that you should select parameter levels to make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (in truth, there are a lot of quite bad ones out there!), and so prior work should not generally be your sole guide or justification.
+1. __Relation to existing research__. Especially for research simulations, it is important to be able to relate your findings to previous research. This suggests that you should select parameter levels that make this possible, such as by looking at sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (in truth, there are a lot of quite bad ones out there!), and so prior work should not generally be your sole guide or justification.
 
-2. Generally, it is better to err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation.
+2. __Comprehensiveness__. Generally, t is usually better to err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation.
 
-3. It is also important to explore breakdown points (e.g., what sample size is too small for a method to work?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.
+3. __Pushing boundaries__. One of the most useful potential contributions of research simulations is to explore the breakdown points of a method (e.g., what sample size is too small for an estimator to be trusted?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.
 
 Once you have identified your parameters, you then have to decide on the levels of the parameter you will include in the simulation.
-There are three strategies you might take:
+There are at least three strategies you might take:
 
 1. Vary a parameter over as much of its range as you can.
 2. Choose parameter levels to represent a realistic practical range. These ranges would ideally be empirically justified based on systematic reviews of prior applications. Lacking such empirical evidence, you may need to rely on informal impressions of what is realistic in practice.
-3. Choose parameters to emulate an important known application or context.
+3. Choose parameters to emulate an important application or context.
 
 Of these choices, option (1) is the most general but also the most computationally intensive.
-In the ideal, option (2) focuses attention on what is of practical relevance to a practitioner.
+In the ideal, option (2) focuses attention on what is most relevant to a practitioner.
 Option (3) is usually coupled with a subsequent applied data analysis, and in this case the simulation is often used to enrich that analysis.
 In particular, if the simulation shows the methods work for data with the given form of the target application, people may be more willing to believe the application's findings.
 
 Regardless of how you select your primary parameters, you should also vary nuisance parameters (at least a little) to test the sensitivity of your results to these other aspects.
-While simulations will (generally) never be fully generalizable, you can certainly make them so they avoid the obvious things a critic might identify as a basis for dismissing your findings.
+Of course, no simulation will ever be fully generalizable.
+Still, it is worth considering how to design a simulation to avoid obvious limitations that a critic might identify as a basis for dismissing your findings.
 
 Using a more comprehensive design will generally increase the amount of computing required for a simulation. However, this can be tempered by reducing the number of replications per scenario.
-For example, suppose you were initially planning on doing 1000 simulations per scenario, but then you realize there is an additional factor that you need to incorporate.
+For example, suppose you were initially planning on doing 1000 simulations per scenario, but then you realize  that you need to incorporate an additional factor.
 After thinking about it, you suspect that this factor will not actually matter but you worry that other researchers might find it important.
 To address this potential concern, you could include the factor in your simulation design, say with four levels, but then reduce the number of replications to 250 simulations per scenario.
 The total work remains the same.
@@ -326,19 +281,6 @@ glimpse( sres )
 
 ## Summary
 
-Multifactor simulations are simply a systematically generated series of individual scenario simulations.
-The overall workflow begins by identifying the factors and levels to explore (which we store as a dataset of all the combinations of the factors desired).
-Think of this as a menu, or checklist, of simulations to run.
-The next step is to then to walk down the list, running each simulation in turn.
-
-Each individual simulation will generate its own set of results.
-These can be the raw results (individual simulation iterations) or summary results (performance measures).
-We stack all of these results, connecting them to the simulation factors they came from, to get a single massive dataset.
-The key question is then how to explore this full set of results.
-The next chapters dive into how to take on this final task.
-
-TO RESOLVE ABOVE AND BELOW
-
 In this chapter, we have moved from isolated simulation scenarios to fully specified multifactor simulation designs.
 By systematically varying multiple features of a data-generating process while holding others fixed, we can explore how the performance of an estimator depends on the context in which it is used.
 By thinking of simulations as designed experiments, we gain a principled framework for choosing parameters and curating a set of scenarios to explore.
@@ -348,9 +290,6 @@ However, the volume and complexity of systematic simulation results also create 
 With many factors, levels, and performance measures, it is no longer possible to understand results simply by inspecting a table of results.
 In the next few chapters, we therefore turn to the problem of analyzing and presenting simulation results, with an emphasis on graphical approaches that clarify how performance varies across conditions.
 Through further analysis, we will seek to identify systematic trends in estimator performance, understand the generality of identified patterns, and identify trade-offs between different methods.
-
-
-
 
 
 ## Exercises
