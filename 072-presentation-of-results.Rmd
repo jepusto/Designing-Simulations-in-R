@@ -10,6 +10,7 @@ editor_options:
 library( tidyverse )
 conflicted::conflicts_prefer(dplyr::select)
 conflicted::conflicts_prefer(dplyr::filter)
+library(patchwork)
 
 res <- readRDS( file = "results/simulation_CRT.rds" )
 res
@@ -35,7 +36,7 @@ Once we have our performance measures for each method examined for each of scena
 The goal of a simulation study is to provide evidence to address a research question or questions, but
 performance measures (like numbers more generally) do not analyze themselves.
 Rather, they require interpretation, analysis, and communication in order to identify findings---that is, broad, potentially generalizable patterns of results---that are responsive the research question(s).
-Good analysis aims to provide a clear understanding of how one or more of the simulation factors influence key performance measures of interest, the circumstances where a data analysis method works well or breaks down, and---in simulations that examine multiple methods---the conditions where a method performs better or worse than alternatives.
+Good analysis aims to provide a clear understanding of how one or more of the simulation factors influence key performance measures of interest, the circumstances where a data analysis method works well or breaks down, and---in simulations that examine multiple methods---the conditions where one method performs better or worse than the alternatives.
 
 In multi-factor simulations, the major challenge in analyzing simulation results is dealing with the multiplicity and dimensional nature of the results.
 For instance, in our cluster RCT simulation, we examined `r prettyNum( nrow(sres) / 3, big.mark=",")` different simulation scenarios, which vary along several factors.
@@ -43,7 +44,7 @@ For each scenario, we calculated a whole suite of performance measures (bias, SE
 We organized all these results as a table with `r prettyNum( nrow(sres), big.mark=",")` rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
 Navigating all of this can feel somewhat overwhelming.
 How do we understand trends in this complex, multi-factor data structure? 
-Broadly, the answer is to think of the performance measures as outcomes of a designed experiment, so that we can bring to bear any and all of the data analysis techniques relevant to analyzing experimental design involving real data.
+Broadly, the answer is to think of the performance measures as outcomes of a designed experiment, so that we can bring to bear any and all of the data analysis techniques relevant to analyzing experimental designs involving real data.
 
 In this chapter, we survey three main categories of analytic tools that can be used for exploring and presenting simulation results:
 
@@ -54,33 +55,34 @@ In this chapter, we survey three main categories of analytic tools that can be u
 For each category of tools, we describe the logic behind how it can be applied, provide high-level examples drawn from the literature and our own work, and discuss the strengths and limitations of the approach. 
 
 In this and subsequent chapters, we assume that you will be sharing the findings from your simulations with an audience beyond yourself. Depending on your context, that might be a broad audience of researchers and data analysts, with whom you will communicate through a scholarly article in a peer-reviewed methodology journal; it might be colleagues who are evaluating your proposal for an empirical study, where the simulations serve to justify the data analysis protocol; it might be a small group of collaborators, who will use the simulations to make decisions about how to design a study; or it might be fellow students of statistics, interested to read a blog post that discusses how a particular model or method works.
-These contexts differ in the format and level of formality used, but with any of them, you will probably need to create a written explanation of your findings, which summarizes what you found and presents evidence to support your assertions and interpretations.
+These contexts differ in the format and level of formality used to communicate findings. 
+Still, in any of these contexts, you will probably need to create a written explanation of your findings, which summarizes what you found and presents evidence to support your assertions and interpretations.
 We close the chapter with a discussion about creating such write-ups and distilling your analysis into a set of exhibits for presentation.
 
 ## Tabulation 
 
-Traditionally, simulation study results have often been presented in big tables.
+Traditionally, simulation study results have often been presented in tables.
 A table might be fine if...
 
  - it involves only a few numbers, and a few targeted comparisons.
  - it is important to report _exact_ values for some quantities.
 
-Unfortunately, simulations usually produce lots of numbers and require making many comparisons.
-You are going to want to show, for example, the relative performance of alternative estimators, or the performance of your estimators under different conditions for the data-generating model.
-This means a lot of rows, and a lot of dimensions.
-Tables can do two dimensions; when you try to cram more than that into a table, no one is particularly well served.
-Furthermore, in simulation, exact values for your bias/RMSE/type-I error, or whatever, are not usually of interest. And in fact, we rarely have them due to Monte Carlo\index{Monte Carlo simulation} simulation error.
-The tables provide a false sense of security, unless you include uncertainty, which clutters your table even further.
-
+In contrast, simulations usually produce lots of numbers and require making many comparisons.
+For example, you might need to show the relative performance of several alternative estimators or the performance of your estimators under different conditions for the data-generating model.
+This usually means a lot of rows and a lot of dimensions.
+Tables can do two dimensions; when you try to cram more than that into a table, neither you nor your audience will be particularly well served.
+Furthermore, in simulation, exact values of performance measures are not usually of interest---in fact, we rarely have them due to Monte Carlo\index{Monte Carlo simulation} simulation error.
+Because of this, tables risk providing a false sense of uncertainty---unless you also report MCSEs, which would create further clutter.
 In general, we believe tables rarely make the take-aways of a simulation readily apparent.
 As a rule of thumb, if you are ever tempted into putting your table in landscape mode to get it to fit on the page, think again.
-It is often more useful and insightful to present results in graphs [@gelman2002let].
+It is usually more useful and insightful to present results in graphs [@gelman2002let].
 
 To illustrate, consider the following table of simulation results showing the false rejection rate, against an $\alpha$ of $0.10$, for an estimator of an average treatment impact.
 We have two factors of interest, the treatment and control group sizes.
 
 ```{r, echo=FALSE}
 exp.res <- readRDS( file="results/Neyman_RCT_results.rds" )
+
 # summary( exp.res$power )
 exp.res.rej <- 
   exp.res %>% 
@@ -97,16 +99,16 @@ exp.res.rej = mutate( exp.res.rej, reject = round( reject * 100 ) )
 exp.res.rej %>%
   dplyr::select( nT, nC, reject ) %>%
   arrange( nT, nC ) %>%
-  knitr::kable()
+  knitr::kable(caption = "Rejection rates for a two-sample t-test assuming unequal variances")
 ```
 
-This is the classic type of table you might see in a paper: the table structured as groups of results indexed by one factor, with a second factor that varies within each group.
-We can see that the rejection rates are often well above 10%, and that if there are few treatment units, the rates are all way too high.
-Because of the ordering of rows, it is difficult to see how the number of control units impacts the rate, and understanding the joint relationship between number of treatment and number of control requires extra thinking.
+This is the classic type of table you might see in a paper: the table is structured as groups of results indexed by one factor, with a second factor that varies within each group.
+The table makes clear that the rejection rates are often well above 10% and that the rates are all far too high when there are few treatment units.
+Because of the ordering of rows, it is somewhat more difficult to see how the number of control units impacts the rate, and understanding the joint relationship between number of treatment and number of control requires extra thinking.
 
 By contrast, a plot of these exact same numbers can make trends much more clear:
 
-```{r, echo=FALSE, fig.width=6, fig.height=3, out.width="100%"}
+```{r rejection-interaction-plot, echo=FALSE, fig.width=6, fig.height=3, out.width="100%", fig.cap = "Rejection rates for a two-sample t-test assuming unequal variances."}
 
 nlevels = n_distinct( exp.res.rej$nT )
 ggplot( exp.res.rej ) +
@@ -121,12 +123,12 @@ ggplot( exp.res.rej ) +
           
 ```
 
-This is an "interaction plot" showing the "interaction" of the factors nT and nC.
+Figure \@ref(fig:rejection-interaction-plot) is an "interaction plot" showing the "interaction" of the factors nT and nC.
 This plot makes apparent that we only achieve something close to a valid test if both nC and nT are above 50.
 Even if nC is 500, the rejection rate is elevated if nT is only 10. When nT is 2, then increasing nC actually _increases_ the rejection rate, meaning that larger samples make things worse.
 None of these trends were obvious from looking at the raw table results.
 
-### Example: estimators of treatment variation
+### Example: estimators of treatment variation {#ITE-table-example}
 
 Tables do serve some purposes.
 In general, tables are more plausibly useful for displaying high-level summaries of findings, such as average performance across a range of simulated scenarios, rather than for reporting raw results.
@@ -135,10 +137,7 @@ To test which estimators perform better or worse than the others, we designed a 
 For each scenario, we calculated the performance of each estimator relative to the median of all estimators considered.
 We can then ask, do some methods perform better than their peers on average across all scenarios considered?
 
-The following table gives an answer to this question: we evaluate each method, averaged across all scenarios, along four metrics: relative bias, relative se, relative rmse, and $R^2$.
-To easily see who is good and who is bad, we order the methods from highest average relative RMSE to lowest:
-
-```{r, echo=FALSE}
+```{r ITE-performance, echo=FALSE}
 df_rel = read_rds( here::here( "data/MLIV_sim_results.rds" ) )
 
 df_rel_sum <- df_rel %>%
@@ -187,22 +186,29 @@ overall_performance_table$sd_R2[ overall_performance_table$model == "ATE"] = NA
 overall_performance_table <- overall_performance_table %>%
   relocate( model, bias, se, rmse, sd_bias, sd_se, sd_rmse, R2, sd_R2 )
 
-knitr::kable( overall_performance_table, digits = 2 )
+knitr::kable( 
+  overall_performance_table, 
+  digits = 2,
+  caption = "Relative performance measures of methods for estimating individual treatment effects"
+)
 
 n_sims = n_distinct(df_rel$set_id) * n_distinct(df_rel$queen)
 ```
 
+
+Table \@ref(tab:ITE-performance) gives an answer to this question: we evaluate each method along four metrics: relative bias, relative se, relative rmse, and $R^2$.
+To easily see which is good and which is bad, we averaged the performance measures across all scenarios and order the methods from highest average relative RMSE to lowest.
 Each cell of the table summarizes across `r n_sims` scenarios.
 The first several columns show relative performance.
 To calculate these values, for each method $m$, performance metric $Q$, and scenario $s$, we calculated $P_{ms} = Q_{ms} / median( Q_{ms} )$, and then averaged the $P_{ms}$ across the scenarios to get $\bar{P}_m$.
 Each method also has an $R^2_{ms}$ value for each scenario; we simply take the average of these across all scenarios for the penultimate column.
-
 The standard deviation columns show the variation in performance across the full set of scenarios, providing some indication of how much the relative performance of a method changes from scenario to scenario.
-Seeing this variation more explicitly might be better done with a visualization, as we explore shortly.
+Representing this variation more explicitly might be better done with a visualization, as we explore shortly.
 
-Overall, the table does give a nice summary of the results, but we still do not feel it makes the results particularly visceral.
-Visualization can make trends jump out much more clearly.
-That said, the table _is_ showing four performance measures, one of which (the $R^2$) is on a different scale than the others; this is hard to do in a single visualiztion.
+Overall, the table provides a nice, high-level summary of the results. 
+It reports no less than four performance measures, one of which (the $R^2$) is on a different scale than the others; this is hard to do in a single visualiztion.
+Despite these strengths, we still do not feel that the tables makes the results particularly visceral.
+A visualization might make trends jump out much more clearly.
 
 
 ## Visualization
@@ -234,7 +240,7 @@ We use multiple plots of a similar form to represent patterns across several fac
 The left facet shows scenarios with no correlation between cluster size and treatment effect, and the right facet shows the case where there is correlation.
 We jitter the points so that the lines are not fully over-plotted; had we not added the jittering, linear regression and multi-level modeling would be identical in the left-hand plot.
 
-Figures such as this one clearly show how the estimators are similar or diverge.
+Figures such as \@ref(RMSE-CRT) clearly show how the estimators are similar or diverge.
 For instance, we see that in the conditions where size correlates with impact, all estimators deteriorate as size variation increases.
 We also see that the aggregation estimator deteriorates slightly even when there is no correlation.
 
@@ -242,52 +248,57 @@ In a discussion about the importance of simulation, @little2013praise provides s
 @antonakis2021ignoring uses similar plots to report results from a simulation examining what happens when random effect assumptions are ignored in multilevel modeling.
 
 
-### Example 2: Biserial correlation estimation
+### Example 2: Biserial correlation estimation {#biserial-correlation-visualization}
 
 An extreme groups design is a clever way to evaluate the association between two variables when one of the variables is difficult or expensive to measure. It involves measuring one variable, $X$, on a sample of participants but measuring the other variable, $Y$, only for the subset of participants who have $X$ scores in the highest or lowest part of the distribution.
 The highest and lowest groups are defined based on some cut-off percentiles, which might be based on either the sample distribution or the population distribution of $X$.
 The correlation between $X$ and $Y$ can be recovered by computing the biserial correlation coefficient between $Y$ and an indicator for whether the participant is in the highest or lowest part of the distribution.
 
-@pustejovsky2014converting used simulation examined the bias of biserial correlation estimates under the extreme groups design.
-This simulation was a full factorial design with four manipulated factors, including the true correlation for a range of values, cut-off type, cut-off percentile, and sample size).
-Figure \@ref(fig:biserial-correlation) reproduces a visualization of the bias of the biserial correlation estimator for a subset of the conditions examined in @pustejovsky2014converting. The correlation parameter, with 96 levels, runs along the horizontal axis and shows a smoothly varying bias curve.
+@pustejovsky2014converting used simulation to examine the bias of biserial correlation estimates under the extreme groups design.
+This simulation was a full factorial design with four manipulated factors, including the true correlation for a range of values, cut-off type, cut-off percentile, and sample size.
+Figure \@ref(fig:biserial-correlation) reproduces a visualization of the bias of the biserial correlation estimator examined in @pustejovsky2014converting. 
+The correlation parameter, with 96 levels, runs along the horizontal axis and shows a smoothly varying bias curve.
 We use line type to represent the sample size, which makes it apparent that the bias shrinks as sample size increases.
 Finally, facetted plots are used to represent the remaining factors of cut-off type and cut-off percentile.
 All of the factors---and thousands of distinct simulation scenarios---are visible in a single plot.
 
-```{r biserial-correlation, echo=FALSE, warning=FALSE, message=FALSE, fig.width = 8, fig.height = 4, out.width="100%", fig.cap = "Bias of the biserial correlation estimate in an extreme groups design, for varying sample sizes, cut-off thresholds, and cut-off types. Source: Pustejovsky (2014)."}
+```{r biserial-correlation, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "Bias of the biserial correlation estimate in an extreme groups design, for varying sample sizes, cut-off thresholds, and cut-off types. Source: Pustejovsky (2014)."}
 load("data/d2r results.rData")
 
 r_F <- 
   allResults %>%
   mutate(
-    n = ordered(n),
+    reps = 1e7 / n,
+    n_f = ordered(n),
     p.inv = p1,
     p1 = ordered(p1, labels = paste0("p1 = 1/",unique(p1))),
     fixed = factor(fixed, levels=c("TRUE","FALSE"), labels = c("Pop. cut-off","Sample cut-off")),
     bias = mean - rho,
     bias.sm = mean.sm - rho,
+    bias_mcse = sqrt(var / reps),
     rmse = sqrt(bias^2 + var)
   ) %>%
-  filter(stat=="r.i" & design=="Extreme Group", p.inv <= 4) %>%
+  filter(stat=="r.i" & design=="Extreme Group") %>%
   droplevels()
 
 ggplot(r_F) +
-  aes(rho, bias, linetype = n) + 
-  geom_smooth(method="loess", se=FALSE, color = "black") + 
+  aes(rho, bias, linetype = n_f, color = n_f) + 
+  geom_smooth(method="loess", se=FALSE,) + 
   facet_grid(fixed ~ p1) + 
   theme_bw() +
   labs(
     x = expression(rho), 
     y = expression(Bias(r[eg])),
+    color = "n",
     linetype = "n"
-  )
+  ) + 
+  theme(legend.position = "top")
 ```
 
-To make this figure, we smoothed the lines with respect to the correlation parameter $(\rho)$ using `geom_smooth()`.
+To make Figure \@ref(fig:biserial-correlation), we smoothed the lines with respect to the correlation parameter $(\rho)$ using `geom_smooth()`.
 Smoothing is a nice tool for taking some of the Monte Carlo error out of a figure to more directly represent overall trends.
 
-This style of plotting, with a bunch of small plots, is called "many small multiples" and is beloved by Edward Tufte, who has written extensively on best practices for information design (see, for example, @tufte1983visual).
+This style of visualization, consisting of a grid of small plots, is called "many small multiples" and is beloved by Edward Tufte, who has written extensively on best practices for information design [see, for example, @tufte1983visual].
 Tufte likes many small multiples, in part, because the technique can be used to display many different variables in a single plot: here, our facets are organized by two (`p1` and the cut-off approach), and the plot within each facet represents three (the outcome of bias, $\rho$ on the x-axis, and $n$ with line type).
 In this four-factor design, the small multiple plot lets us fully represent a performance measure across all combinations of the factors.
 
@@ -381,7 +392,7 @@ As in the previous example, this figure uses small multiples to show variation i
 The $x$-axis shows each of the five hypothesis testing procedures under comparison.
 The boxplots depict the _distribution_ of the performance measure across the remaining factors in the design; Each box shows the range, inter-quartile range, and median of the Type-I error rates for a given test procedure across the various covariates tested and different degrees of model misspecification.
 For reference, we add a solid line at the target .05 rejection rate and a dashed line at the upper bound of a 90% confidence interval for an estimate with a true rejection rate of .05.
-The reach of the boxes shows how some methods are more or less vulnerable to different types of misspecification.
+The spread of the boxes shows how some methods are more or less vulnerable to different types of misspecification.
 Some estimators (e.g., $T^2_A$) are clearly hyper-conservative, with very low rejection rates.
 Other methods (e.g., EDF), have a range of very high rejection rates when $m = 10$ but converge to the target level as the sample size incrases.
 For these tests, the degree of rejection rate depends on the degree of model mis-specification and the particular covariates tested (i.e., the remaining factors captured in the boxes).
@@ -389,20 +400,12 @@ For these tests, the degree of rejection rate depends on the degree of model mis
 
 ### Example 4: Heat maps of coverage
 
-For data with many levels of two different factors, one option is to use a heat map.
-For example, the visualization below shows the coverage of parametric bootstrap confidence intervals for momentary time sampling data.
-In this simulation study the authors were comparing maximum likelihood estimators to posterior mode (penalized likelihood) estimators of prevalence.
-We have a 2-dimensional parameter space of prevalence (19 levels) by incidence (10 levels).
-We also have 12 levels of sample size.
+For data with many levels of two different factors, one useful visualization technique is a heat map.
+For instance, @Brown1977estimation studied methods of estimating the features of a binary (on/off) process occurring over time when that process is observed using momentary time sampling (MTS).
+MTS involves recording whether a process is on or off at specific instances in time, where the instances are evenly spaced over time.
+Under certain assumptions, the underlying process is described by two parameters: prevalence, or the overall proportion of time that the process in on, and incidence, or the rate at which the process cycles between states. @Brown1977estimation proposed maximum likelihood estimators (MLEs) for the prevalence and incidence parameters based on a sequence of MTS data.
 
-The plot shows the combinations of prevalence and incidence as a grid for each sample size level.
-We break coverage into ranges of interest, with green being "good" (near 95%) and yellow being "close" (92.5% or above).
-Blue and purple show conservative (above 95%) coverage.
-For this kind of plotting to work, we need our MCSE to be small enough that our coverage is estimated precisely enough to show structure.
-We have two plots, one for each of the methods being compared.
-
-
-```{r swan_example_setup, echo=FALSE, fig.height=5.5, fig.width = 10}
+```{r swan-example-setup, echo=FALSE}
 
 load("data/MTS bootstrap performance.Rdata")
 
@@ -410,9 +413,8 @@ MTS_results <- BSresults
 
 breaks_coverage <- c(0, 0.925, 0.94, 0.96, 0.975, 1)
 labels_coverage <- c("0-92.5%", "92.5-94%", "94-96%", "96-97.5%", "97.5-100%")
-coverage_colors <- c("0-92.5%" = "pink", "92.5-94%" = "yellow" , "94-96%" = "green", "96-97.5%" = "blue", "97.5-100%" = "purple")
 
-coverage_smoother <- function(results){
+coverage_smoother <- function(results) {
   pcoverage_model <- loess(pcoverage ~ phi + zeta, data = results, span = 0.25)
   zcoverage_model <- loess(zcoverage ~ phi + zeta, data = results, span = 0.25)
   pcoverage_smooth <- predict(pcoverage_model, newdata = results)
@@ -421,69 +423,164 @@ coverage_smoother <- function(results){
   return(cbind(results, pcoverage_smooth, zcoverage_smooth))
 }
 
-MTS_coverage <- MTS_results %>%
-  nest_by( K_intervals, k_priors, theta )
-MTS_coverage$res = map( MTS_coverage$data, coverage_smoother ) 
-MTS_coverage = unnest( MTS_coverage, cols = res )
+MTS_coverage <- 
+  MTS_results %>%
+  group_nest( K_intervals, k_priors, theta, .key = "results" ) %>%
+  mutate(res = map(results, coverage_smoother)) %>%
+  unnest(res) %>%
+  mutate(
+    K_intervals_fac = factor(K_intervals, levels = seq(10,150,10)),
+    K_intervals_fac = fct_relabel(K_intervals_fac, \(x) paste("N =", x)),
+    estimator = if_else(theta == Inf, "MLE", "PMLE"),
+    across(c(pcoverage_smooth, zcoverage_smooth), ~ pmin(.x, 1)),
+    across(
+      c(pcoverage, pcoverage_smooth, zcoverage, zcoverage_smooth),
+      ~ cut(.x, breaks = breaks_coverage, labels = labels_coverage, include.lowest = TRUE),
+      .names = "{.col}_cut"
+    )
+  )
 
+```
 
-MTS_coverage2 <- MTS_coverage
-MTS_coverage2$phi <- 1 - MTS_coverage2$phi
-MTS_coverage <- rbind(MTS_coverage, MTS_coverage2)
-MTS_coverage$pcoverage_smooth <- ifelse(MTS_coverage$pcoverage_smooth > 1, 1, MTS_coverage$pcoverage_smooth)
+Using simulation simulation, Pustejovsky studied the performance of the maximum likelihood estimator and suggested an alternative of using penalized maximum likelihood and bootstrap confidence intervals.
+The simulation design involved varying three factors: prevalence, incidence, and the length of the MTS sequence.
+Because the prevalence parameter can take any value between 0 and 1 and the incidence parameter can take any positive value, we examined a large number of levels of each of these factors, with 10 levels for prevalence and 10 levels for incidence, plus 12 levels for sample size.
+We limited the levels of prevalence to run from 0.05 to 0.50 because the estimators work symmetrically for prevalence values above and below 0.50.
 
-MTS_coverage$pcoverage_cut <- cut(MTS_coverage$pcoverage, breaks = breaks_coverage,
-                              labels = labels_coverage, include.lowest = TRUE)
-MTS_coverage$pcoverage_cut_smooth <- cut(MTS_coverage$pcoverage_smooth, breaks = breaks_coverage,
-                                     labels = labels_coverage, include.lowest = TRUE)
+Figure \@ref(fig:MTS-coverage) shows the coverage of parametric bootstrap confidence intervals for the prevalence parameter.
+The plot shows the combinations of prevalence and incidence as a grid for each sample size level.
+We break coverage into ranges of interest, with green being "good" (near 95%), yellow being "close" (92.5% or above), blue and purple being conservative (above 95%) coverage, and pink being poor (below 92.5%).
+For this kind of plotting to work effectively, we need the MCSE to be small enough that the coverage is estimated precisely enough to show structure.
+The figure consists of two panels, with the MLE results in the top panel and the penalized MLE in the bottom panel.
 
-MTS_coverage$zcoverage_smooth <- ifelse(MTS_coverage$zcoverage_smooth > 1, 1, MTS_coverage$zcoverage_smooth)
+```{r MTS-coverage, echo=FALSE, fig.height=11, fig.width = 10, fig.cap = "Coverage of bootstrap confidence intervals for maximum likelihood estimator and penalized maximum likelihood estimator of prevalence based on momentary time sampling data."}
 
-MTS_coverage$zcoverage_cut <- cut(MTS_coverage$zcoverage, breaks = breaks_coverage,
-                              labels = labels_coverage, include.lowest = TRUE)
-MTS_coverage$zcoverage_cut_smooth <- cut(MTS_coverage$zcoverage_smooth, breaks = breaks_coverage,
-                                     labels = labels_coverage, include.lowest = TRUE)
+coverage_colors <- c("0-92.5%" = "red", "92.5-94%" = "yellow" , "94-96%" = "green", "96-97.5%" = "blue", "97.5-100%" = "purple")
 
 # MLE estimator
-ggplot(data = filter(MTS_coverage, theta == Inf, K_intervals >= 40),
-       aes( phi, zeta, fill = pcoverage_cut_smooth ) ) +
-  geom_tile() +
-  facet_wrap(~K_intervals, ncol = 4, scales = "free_y") +
-  scale_y_continuous(breaks=seq(.1, .50, .1)) + 
-  scale_x_continuous(breaks=seq(.1, 1, .1)) +
-  scale_fill_manual(values = coverage_colors) + 
-  labs(title = "MLE estimator",
-       x = "Prevalence", y = "Incidence", fill = "Coverage") + theme_bw()+ 
-  theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
-```
+p_MLE <- 
+  MTS_coverage %>%
+  filter(estimator == "MLE", K_intervals >= 40) %>%
+  ggplot() + 
+    aes( phi, zeta, fill = pcoverage_smooth_cut ) +
+    geom_tile() +
+    facet_wrap(
+      ~ K_intervals, 
+      ncol = 4, 
+      labeller = label_bquote(N == .(K_intervals))
+    ) +
+    scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+    scale_x_continuous(breaks=seq(.1, 1, .1)) +
+    scale_fill_manual(values = coverage_colors) + 
+    labs(
+      title = "MLE estimator",
+      x = "Prevalence", y = "Incidence", 
+      fill = "Coverage"
+    ) + 
+    theme_bw() + 
+    theme(
+      axis.text.x = element_text(angle=45, hjust = 1), 
+      legend.position = "none"
+    )
 
-```{r, echo=FALSE, fig.height=5.5, fig.width = 10}
 # Penalized MLE estimator
-ggplot(data = subset(MTS_coverage, theta == 10 & K_intervals >= 40),
-       aes( phi, zeta, fill = pcoverage_cut_smooth ) ) +
-  geom_tile() +
-  facet_wrap(~K_intervals, ncol = 4, scales = "free_y") +
-  scale_y_continuous(breaks=seq(.1, .50, .1)) + 
-  scale_x_continuous(breaks=seq(.1, 1, .1)) +
-  scale_fill_manual(values = coverage_colors) + 
-  labs(title = "Penalized MLE estimator",
-       x = "Prevalence", y = "Incidence", fill = "Coverage") + theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust = 1), legend.position = "bottom")
+p_PMLE <-
+  MTS_coverage %>%
+  filter(estimator == "PMLE", K_intervals >= 40) %>%
+  ggplot() + 
+    aes( phi, zeta, fill = pcoverage_smooth_cut ) +
+    geom_tile() +
+    facet_wrap(
+      ~ K_intervals, 
+      ncol = 4, 
+      labeller = label_bquote(N == .(K_intervals))
+    ) +
+    scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+    scale_x_continuous(breaks=seq(.1, 1, .1)) +
+    scale_fill_manual(values = coverage_colors) + 
+    labs(
+      title = "Penalized MLE estimator",
+      x = "Prevalence", y = "Incidence", 
+      fill = "Coverage"
+    ) + 
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle=45, hjust = 1), 
+      legend.position = "bottom"
+    )
+
+p_MLE / p_PMLE
 ```
 
-For each plot, we can see clear trends, where coverage degrades for low incidence rates.
-We are _wrapping_ our small multiples by sample size--if you have many levels of a factor you can wrap to show all the levels, which is good, but wrapping does not take advantage of the two-dimensional aspect of having rows and columns of plots (such as we saw with Example 1 and Example 2).
+For each panel of Figure \@ref(fig:MTS-coverage), we see clear trends, where coverage degrades for low incidence rates.
+The field of green in the bottom plot indicates that the penalized MLE works well across a large part of the parameter space. 
+The upper plot has less green, indicating that the original MLE has worse coverage
+Comparing across the upper and lower panels, the improvement of the penalized MLE over the original MLE is evident
 
-For comparing our two estimators, the prevelance of green in the bottom plot shows generally good behavior for the penalized MLE.  The upper plot has less green, showing worse coverage; the improvement of the penalized MLE over the simple MLE is clear.
-To see this plot in real life, see @pustejovsky2015four.
+We _wrap_ the small multiples by sample size, so that the plots run from smallest sample size on the upper left to largest sample size on the lower right. Wrappings can be useful if you have many levels of a single factor, although it does not take advantage of the two-dimensional layout of the grid (such as we saw with Example 1 and Example 2). 
+The layout of Figure \@ref(fig:MTS-coverage) also makes it inconvenient to compare the performance of the two estimators for a given sample size because doing so requires comparing plots in the upper and lower panels.
+Putting the MLE and the penalized MLE closer together would make such comparisons easier.
+Figure \@ref(fig:MTS-coverage-compare) is one way to do so, arranging the MLE and penalized MLE results in side-by-side columns.
+<!-- JEP: I don't love the figure below. We can cut it if you think it doesn't add anything, or write an exercise to ask readers to futz with better layouts.  -->
+
+```{r MTS-coverage-compare, echo=FALSE, fig.height=10, fig.width = 9, fig.cap = "Coverage of bootstrap confidence intervals for maximum likelihood estimator and penalized maximum likelihood estimator of prevalence based on momentary time sampling data. A side-by-side layout makes for easier comparisons between the estimators."}
+
+coverage_small <- 
+  MTS_coverage %>%
+  filter(K_intervals >= 40, K_intervals < 100) %>%
+  ggplot() + 
+    aes( phi, zeta, fill = pcoverage_smooth_cut ) +
+    geom_tile() +
+    facet_grid(
+      K_intervals ~ estimator, 
+      labeller = label_bquote(rows = N == .(K_intervals))
+    ) +
+    scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+    scale_x_continuous(breaks=seq(.1, 1, .1)) +
+    scale_fill_manual(values = coverage_colors) + 
+    labs(
+      x = "Prevalence", y = "Incidence", 
+      fill = ""
+    ) + 
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle=45, hjust = 1),
+      legend.position = "bottom"
+    )
+
+coverage_large <- 
+  MTS_coverage %>%
+  filter(K_intervals >= 100) %>%
+  ggplot() + 
+    aes( phi, zeta, fill = pcoverage_smooth_cut ) +
+    geom_tile() +
+    facet_grid(
+      K_intervals ~ estimator, 
+      labeller = label_bquote(rows = N == .(K_intervals))
+    ) +
+    scale_y_continuous(breaks=seq(.1, .50, .1)) + 
+    scale_x_continuous(breaks=seq(.1, 1, .1)) +
+    scale_fill_manual(values = coverage_colors) + 
+    labs(
+      x = "Prevalence", y = ""
+    ) + 
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle=45, hjust = 1),
+      legend.position = "none"
+    )
+
+coverage_small + coverage_large
+
+```
+
 
 ### Example 5: Relative performance of treatment effect estimators
 
-Revisiting the example of different estimators for estimating treatment variation from the table example above, we can try to plot our results.
+In Section \@ref(ITE-table-example), we used a table to summarize the performance of a range of different methods of assessing individual-level variation in treatment effects.
+The table provided a compact high-level summary, but it could be improved by turning it into a visualization. 
 
-As a starting point, we can use the same data we used for the table, and just plot the values as bars (after rescaling `R2` by 100 to put it on a similar scale to the other measures):
-
-```{r MLIV_bar_chart, echo=FALSE, warning=FALSE}
+```{r MLIV-bar-chart, echo=FALSE, warning=FALSE, fig.height=7, fig.width = 7, fig.cap = "Average relative performance of individual treatment effect estimators."}
 
 # order the model by RMSE
 overall_performance_table <- overall_performance_table %>%
@@ -497,7 +594,8 @@ opt <- overall_performance_table %>%
 opt$value[ opt$value > 100 ] = 100
 opt$metric = factor( opt$metric, levels = c("rmse", "se", "bias", "R2") )
 
-ggplot( opt, aes(x = model, y = value, fill = metric)) +
+ggplot(opt) +
+  aes(x = model, y = value, fill = metric) +
   facet_wrap( ~metric, nrow=1 ) +
   geom_bar(stat = "identity", position = "dodge") +
   coord_flip() +
@@ -507,94 +605,273 @@ ggplot( opt, aes(x = model, y = value, fill = metric)) +
   theme(legend.position = "none")
 ```
 
-Now we can more visually see how the trends of performance between the different methods correspond.
-This plot does not, however, show how variation across scenarios might play out.
-We can extend this plot by plotting boxplots of the actual performances across all scenarios.
+As a starting point, Figure \@ref(fig:MLIV-bar-chart) shows the same data as reported in the table, with the values of each performance measure depicted as bars (after rescaling `R2` by 100 to put it on a similar scale to the other measures).
+The Figure makes it easier to visually assess the extent to which the estimators follow consistent patterns in across the performance measures.
+However, this plot does not have any representation of the degree of variation across scenarios because the bars only represent the _average_ performance across scenarios.
+We can elaborate this plot by using boxplots that summarize the distribution of performance measures across all scenarios examined.
 
-In the plot below, we show the range of relative performances for each estimator vs the median, across the simulations.
-We again order the methods from highest average RMSE to lowest, and plot the average performance across all the simulations as little circles (these would correspond to the bars, above).
+```{r MLIV-box-chart, echo=FALSE, fig.height=7, fig.width = 7, fig.cap = "Relative performance of individual treatment effect estimators across all simulation scenarios."}
 
-```{r, echo=FALSE}
-
-df_BSR_long <- df_rel %>%
-  filter( model != "OLS S INT",
-          measure %in% c( "rmse", "se", "bias" ) )
-
-df_BSR_long <- df_BSR_long %>%
-  mutate(measure = factor(measure, levels = c("rmse", "se", "bias")))
-
-df_BSR_long$model = factor( df_BSR_long$model, 
-                            levels = levels( overall_performance_table$model ) )
+df_BSR_long <- 
+  df_rel %>%
+  filter( 
+    model != "OLS S INT",
+    measure %in% c( "rmse", "se", "bias" ) 
+  ) %>%
+  mutate(
+    measure = factor(measure, levels = c("rmse", "se", "bias")),
+    model = factor(model, levels = levels(overall_performance_table$model))
+  )
 
 
-df_BSR_long_agg <- df_BSR_long %>%
+df_BSR_long_agg <- 
+  df_BSR_long %>%
   group_by(model, measure) %>%
   summarise(
     rel_perf = mean(rel_perf, na.rm = TRUE),
     .groups = "drop"
   )
 
-ggplot( df_BSR_long, aes( model, rel_perf ) ) +
+n_sims <- n_distinct(df_BSR_long$set_id) * n_distinct(df_BSR_long$queen)
+
+ggplot(df_BSR_long) + 
+  aes( model, rel_perf, fill = measure ) +
   facet_wrap( ~ measure, nrow=1, scales="free_x" ) +
-  geom_boxplot( width = 0.15, fill = "black", outlier.size = 0.15, outlier.color = "grey" ) +
-  geom_point( data=df_BSR_long_agg, aes( model, rel_perf ),
-              size = 2, shape=21, fill="white" ) +
+  geom_hline( yintercept = 1, lty=2 ) +
+  geom_boxplot( width = 0.15, outlier.size = 0.15, outlier.color = "grey" ) +
+  geom_point( 
+    data=df_BSR_long_agg, 
+    aes( model, rel_perf ),
+    size = 2, shape=21, fill="white" 
+  ) +
+  scale_y_log10( 
+    labels = c( "x1/4", "x1/2", "x3/4", "x1", "x1.5", "x2" ),
+    breaks = c( 0.25, 0.5, 0.75, 1, 1.5, 2.0 ) 
+  ) +
   coord_flip( ylim=c(0.5, 2 ) ) +
   theme_minimal() +
   labs( x = "", y = "" ) +
-  geom_hline( yintercept = 1, lty=2 ) +
-  theme(plot.background = element_rect(fill = "white", color = NA)) + # Added white background
-  labs( title = "Relative performance across all simulation scenarios",
-        caption = "Cropped at 50% and 200%.") +
-  scale_y_log10( labels = c( "x1/4", "x1/2", "x3/4", "x1", "x1.5", "x2" ),
-                 #scales::percent_format(),
-                 breaks = c( 0.25, 0.5, 0.75, 1, 1.5, 2.0 ) )
+  theme(
+    plot.background = element_rect(fill = "white", color = NA), # Added white background
+    legend.position = "none"
+  ) + 
+  labs( 
+    caption = "Cropped at 50% and 200%."
+  )
 
-n_sims = n_distinct(df_BSR_long$set_id) * n_distinct(df_BSR_long$queen)
 ```
 
-The simulation summarizes performance across `r n_sims` scenarios, now showing how much the relative performance can change from scenario to scenario.
+The simulation evaluated performance across `r n_sims` distinct scenarios, and Figure \@ref(fig:MLIV-box-chart) shows the range of relative performances for each estimator across all of them.
+Using boxplots instead of bars highlights how much the relative performance can change from scenario to scenario.
+Just as in Table \@ref(tab:ITE-performance) and Figure \@ref(fig:MLIV-bar-chart), we order the methods from highest average RMSE to lowest.
+We use little circles to represent the average performance across all the simulations as little circles (these would correspond to the bars in Figure \@ref(fig:MLIV-bar-chart)).
 We truncate extreme values to make the plot more readable and bring focus to central tendencies.
-We are able to see three performance measures at the same time.
-The x-axis is on a log scale, again selected to navigate long tails and highlight relative performances.
+The x-axis is on a log scale, selected to navigate long tails and highlight relative performances.
 The log scaling also makes the scale of improved performance (less than x1) similar to worse performance (above x1).
 
-We dropped R2 for these plot, since the R2 measure was in percentage points, and, due to estimation uncertainty, included negative values; this was not compatible with the log scaling.
-We have lost something in order to gain something; what plot is best will often be a matter of aesthetic opinion.
+Figure \@ref(fig:MLIV-box-chart) depicts three different performance measures in a single plot.
+We dropped $R^2$ for this plot because the $R^2$ measure was in percentage points, and, due to estimation uncertainty, included negative values; this was not compatible with the log scaling.[^plot-composition]
+We have lost something in order to gain something.
+Ultimately, which plot is best is a matter of aesthetic judgement.
 Pick your plot based on whether it is clearly communicating the message you are trying to get across.
-(We could also dive into complex plot management, making an R2 plot and adding it to the right of the above plot; we could do this with plot control packages such as `patchwork` or `cowplot`, but we do not do that here.)
 
+[^plot-composition]: To represent all four performance measures, we could create a separate plot of $R^2$ and add it to the right-hand side of Figure \@ref(fig:MLIV-box-chart). The `patchwork` package [@patchwork] provides tools for creating composite plots such as this.
 
 
 ## Modeling
 
 Simulations are designed experiments, often with a full factorial structure.
 The results are datasets in their own right, just as if we had collected data in the wild.
-We can therefore leverage classic means for analyzing such full factorial experiments.
-For example, we can regress a performance measure against our factor levels to get the "main effects" of how the different levels impact performance, holding the other levels constant.
-This type of regression is called a "meta regression" [@kleijnen1981regression; @friedman1988metamodel; @gilbert2024multilevel], as we are regressing on already processed results.
-It also has ties to meta analysis [see, e.g., @borenstein2021introduction], where we look for trends across sets of experiments.
+We can therefore leverage classical techniques for analyzing full factorial experiments.
+For example, regressing a performance measure against our factor levels provides a quantitative description of how the different levels influence performance, holding the other factors constant.
+This type of regression has been described as a "meta-regression" [@kleijnen1981regression; @friedman1988metamodel; @gilbert2024multilevel] because it involves a regression model where the response variable is itself a summary estimate of some performance measure.[^meta-regression-uncertainty]
+The technique also has ties to meta-analysis [see, e.g., @borenstein2021introduction], which involves summarizing and examining trends across sets of empirical findings from different studies.
 
-In the language of a full factor experiment, we might be interested in the "main effects" and the "interaction effects."
-A main effect is whether, averaging across the other factors in our experiment, a factor of interest systematically impacts performance.
-When we look at a main effect, the other factors help ensure our main effect is generalizable: if we see a trend when we average over the other varying aspects, then we can state that our finding is relevant across the host of simulation contexts explored, rather than being an idiosyncratic aspect of a specific and narrow context
+[^meta-regression-uncertainty]: Meta-regression can also be used to account for Monte Carlo uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low. @gilbert2024multilevel examine this point in greater detail.
 
-If we are comparing multiple methods, we would include the method itself as a factor in our regression.
-Then the estimated main effects for each method will tell us if a method is, on average, higher or lower than the baseline method, averaging across all the simulation scenarios.
-The main effect of the simulation factors will tell us if that factor impacts the performance measure on average across the methods considered.
-We might expect, for example, that for all methods the true standard error goes down as sample size increases.
+One useful summary of a meta-regression model is an analysis of variance (ANOVA) table that decomposes the variation in the performance measure into different sources.
+In the language of a full factorial experiment, the ANOVA table typically includes both "main effects" and "interaction effects."
+Main effects characterize the extent to which a particular factor systematically influences performance, when averaging across all other factors in the design.
+By aggregating over other factors, main effects will capture the broadest possible patterns; if we see a trend when we average over all the other varying factors, then we can infer that the finding is relevant across the many different simulation contexts explored, rather than being an idiosyncratic feature of a specific and narrow context.
+Interaction effects characterize the degree to which patterns or trends observed in one factor are themselves variable, changing depending on the level of another factor.
+Interactions provide an indication of how the influence of a particular factor might matter more or less, depending on other aspects of the context.
 
-Meta-regressions would also typically include interactions between method and factor, to see if some factors impact different methods differently.
-They can also include interactions between simulation factors, which allows us to explore how the impact of a factor can matter more or less, depending on other aspects of the context.
+In simulations that involve comparing multiple methods, we might approach meta-regression models in one of two ways. 
+One possibility would be to include the method itself as a factor in the meta-regression.
+With this approach, the estimated main effect for each method will describe the extent to which a method is higher or lower than the baseline method, on average across all the simulation scenarios.
+The main effects of the simulation factors will tell us the extent to which each factor influences the performance measure on average across all the methods considered.
+For instance, we might expect that the true standard error goes down as sample size increases, following a consistent pattern across all methods.
+With this approach, we would need to examine interactions between method and the other factors, to see how the methods vary in the extent to which they are influenced by the simulation scenario.
 
-Using meta regresion can also account for simulation uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low.
-See @gilbert2024multilevel for more on this.
+Another approach would be to use separate meta-regression models for each of the multiple methods. 
+This approach makes it somewhat easier to understand the influence of the simulation design factors on the performance of each method.
+Using separate meta-regressions, we might find that a certain factor has a very strong influence on the bias and RMSE of one particular method, whereas it has little or no influence on the performance of a different method.
+The challenge with this approach is that it becomes more difficult to identify patterns that hold across all methods or to draw comparisons across different methods.
+
+### Example 1: Comparing methods for cross-classified data
+
+@lee2023comparing were interested in evaluating how different modeling approaches perform when analyzing cross-classified data structures in which students were nested both in schools and in neighborhoods.
+To do this, we conducted a multi-factor simulation to compare three methods: a cross-classified random effects model (CCREM), a simple, ordinary least squares model with two-way cluster-robust variance estimation (CRVE), and a two-way fixed effects model, also with CRVE.
+The simulation was complex, involving several factors including the magnitude of effect $(r)$, the number of schools $(H)$, the number of students per school $(J)$, a school-level intra-unit correlation coefficient (IUCC), and whether the data-generating process involved violations of certain assumptions of the CCREM.
+
+To understand which factors had the most influence on the bias of the three methods, we used an ANOVA model.
+We were interested in understanding the factors that influenced bias both when all assumptions of the CCREM held and when each of several assumptions was violated.
+We therefore computed four separate ANOVA summaries---one for each scenario where all assumptions were met, where homoskedasticity was violated, where exogeneity was violated, and where there were unmodeled random slopes.
+This approach let us understand which of the remaining factors were important influences on the parameter bias of the methods examined.
+
+The supplementary materials of @lee2023comparing (Table S5.2, available at https://osf.io/hy73g) and reproduced as Table \@ref(tab:ccrem-ANOVA)) reported the results of these four ANOVA models, with columns corresponding to each of the four assumption scenarios and rows corresponding to factors manipulated within that context.
+The magnitude of the effects is expressed as partial $\eta^2$ effect sizes; 
+Small, medium, and large effects are marked to make them jump out to the eye.
+
+```{r ccrem-ANOVA, echo = FALSE}
+LP_ANOVA <- tribble(
+  ~ Source, ~ `Assumptions Met`, ~ `Homoskedasticity Violated`, ~ `Exogeneity Violated`, ~ `Random Slopes`,
+  "Method"                 , 0.000, 0.006, 0.995, 0.000,
+  "Effect Size (r)"        , 0.131, 0.008, 0.020, 0.142,
+  "Number of Schools (H)"  , 0.014, 0.113, 0.188, 0.001,
+  "Students per School (J)", 0.016, 0.016, 0.747, 0.110,
+  "IUCC"                   , 0.007, 0.007, 0.033, 0.073,
+  "method × r"             , 0.006, 0.006, 0.007, 0.012,
+  "method × H"             , 0.004, 0.002, 0.157, 0.000,
+  "method × J"             , 0.002, 0.000, 0.878, 0.010,
+  "method × IUCC"          , 0.012, 0.003, 0.037, 0.000,
+  "r × H"                  , 0.103, 0.010, 0.059, 0.377,
+  "r × J"                  , 0.006, 0.024, 0.008, 0.051,
+  "r × IUCC"               , 0.065, 0.025, 0.084, 0.136,
+  "H × J"                  , 0.002, 0.014, 0.062, 0.105,
+  "H × IUCC"               , 0.024, 0.008, 0.034, 0.137,
+  "J × IUCC"               , 0.004, 0.088, 0.013, 0.029,
+)
+
+LP_ANOVA %>%
+  mutate(
+    across(
+      -Source, 
+      ~ paste(
+        formatC(.x, format = "f", digits = 3), 
+        cut(.x, c(0, .01, .06, .14, Inf), labels = c(" ","S", "M", "L"), include.lowest = TRUE)
+      )
+    )
+  ) %>%
+  knitr::kable(
+    caption = "Partial $\\eta^2$ values from ANOVA of parameter bias in a simulation of cross-classified data"
+  ) %>%
+  kableExtra::add_footnote(label = "(S)mall = .01, (M)edium = .06, (L)arge = .14", notation = "none")
+```
+
+In the second column of Table \@ref(tab:ccrem-ANOVA), we see that when model assumptions are met or only homoscedasticity is violated, the choice of method (CCREM,  OLS-CRVE, FE-CRVE) has almost no impact on parameter bias ($\eta^2 = 0.000$ to 0.006).
+However, under an exogeneity violation, method choice has a large effect ($\eta^2 = 0.995$), indicating that some methods (e.g., OLS-CRVE) have much more bias than others.
+Other factors such as the effect size of the parameter and the number of schools can also show moderate-to-large impacts on bias in several conditions.
+Table \@ref(tab:ccrem-ANOVA) also shows how an interaction between simulation factors can matter.
+For example, interactions between method and number of schools, or students per school, can really impact bias under the Exogeniety Violated condition; this means the different methods respond differently as sample size changes.
+Overall, the ANOVA exercise was a useful preliminary step in our analysis because it provided a succinct summary of how some aspects of the simulation's design matter more and some matter less.
+We used the results to inform the design of visualizations for illustrating key findings from the simulation.
+
+### Example 2: Biserial correlations, revisited
+
+In the biserial correlation example described in Section \@ref(biserial-correlation-visualization), we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
+These factors also seem to have complex interactions: note how when p1 = 0.5, we get larger dips than when p1 = 1/8.
+Figure \@ref(fig:biserial-correlation) gives a sense of the complex combination of factors that influence bias and also suggests some possibilities for further analysis.
+In particular, the figure suggests that the bias grows smaller as the sample size increases. 
+Developing a model might let us draw more specific conclusions about how bias relates to sample size. 
+
+```{r biserial-N, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "Bias of the biserial correlation estimate in an extreme groups design as a function of inverse sample size, cut-off thresholds, and cut-off types, for selected values of $\\rho$."}
+
+r_F %>%
+  filter(rho %in% c(0.0, 0.2, 0.4, 0.6, 0.8)) %>%
+  mutate(
+    rho_f = factor(rho)
+  ) %>%
+  ggplot() + 
+  aes(1 / n, bias, linetype = rho_f, color = rho_f) + 
+  scale_x_continuous(transform = "reverse", breaks = c(0.05, 0.025)) + 
+  geom_point() + geom_line() + 
+  facet_grid(fixed ~ p1) + 
+  theme_bw() +
+  labs(
+    x = "1 / n", 
+    y = expression(Bias(r[eg])),
+    color = expression(rho),
+    linetype = expression(rho)
+  ) + 
+  theme(legend.position = "top")
+```
+<!-- JEP: We could cut the figure above and just gloss it by saying that we posit the model "Based on some exploratory analysis...". Or we could make creating the above figure an exercise? Could also make an exercise to test whether the posited model fits well. -->
+
+To get an initial sense of how bias relates to sample size, we created Figure \@ref(fig:biserial-N), which follows a similar layout to Figure \@ref(fig:biserial-correlation) but shows the inverse sample size on the horizontal axis of each plot, with different values of the correlation parameter corresponding to different colors and line types.
+For clarity, the plot shows only a small subset of the correlation levels in the full design.
+Figure \@ref(fig:biserial-N) strongly suggests that the bias is inverse proportional to the sample size. If we let $B_{pqrs}$ be the estimated bias for cut-off level $p$, cut-off type $q$, true correlation level $r$, and sample size level $s$ and let $N_s$ be the actual value of sample size level $s$, we posit that
+$$
+B_{pqrs} = \beta_{pqr} \times \frac{1}{N_s} + e_{pqrs},
+$$
+where $e_{pqrs}$ is an error capturing the Monte Carlo uncertainty in the bias estimate. 
+If this model is correct, it would allow us to simplify further analysis of the simulation results because it reduces the dimension of the design. 
+Rather than dealing with the `r nlevels(r_F$n_f)` distinct levels of the sample size factor, we can reduce it to a single-parameter relationship and focus the remaining analysis on how $\beta_{pqr}$ varies across the remaining three factors in the design.
+Furthermore, thinking in terms of a formal model also allows us to test whether the posited relationship provides an adequate fit to the data.
+
+```{r biserial-beta, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+
+r_F_bias_factor <- 
+  r_F %>%
+  summarize(
+    beta = sum(bias / (bias_mcse^2 * n)) / sum(1 / (bias_mcse^2 * n^2)),
+    .by = c(fixed, p1, rho, p.inv)
+  )
+
+r_F %>%
+  mutate(
+    n_bias = n * bias
+  ) %>%
+  ggplot() + 
+  aes(rho, n_bias, color = n_f) + 
+  geom_point() + 
+  geom_line(
+    data = r_F_bias_factor, 
+    aes(y = beta, linetype = NULL, color = NULL), 
+    color = "red",
+    linewidth = 1.5
+  ) + 
+  facet_grid(fixed ~ p1) + 
+  theme_bw() +
+  labs(
+    x = expression(rho), 
+    y = expression(n %*% Bias(r[eg])),
+    color = "n"
+  ) + 
+  theme(legend.position = "top")
+```
+
+Under the assumptions of the model, we can estimate $\beta_{pqr}$ simply by calculating $N_s \times B_{pqrs}$ and averaging across values of $N_s$. 
+Figure \@ref(fig:biserial-beta) plots $N_s \times B_{pqrs}$, following the same layout as our original Figure \@ref(fig:biserial-correlation).
+Individual points correspond to $N_s \times B_{pqrs}$ for each unique scenario in the simulation; the yellow points are for $N_s = 1000$, for which the Monte Carlo error is much larger than the other sample sizes. 
+The red lines correspond to the estimated bias coefficients $\beta_{pqr}$, calculated by taking weighted averages across sample sizes.
+It is apparent that the red lines capture the form of the bias quite well, which suggests that we can use our model coefficients for further analysis.
+For example, we could use ANOVA to understand the influence of the remaining factors on $\beta_{pqr}$.
+We could also create a more succinct summary of the bias relationships by plotting $\beta_{pqr}$ for varying cut-off values, cut-off types, and correlation parameters, as in Figure \@ref(fig:biserial-beta-summary).
+
+```{r biserial-beta-summary, echo=FALSE, message=FALSE, fig.width = 7, fig.height = 3, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+
+ggplot(r_F_bias_factor) + 
+  aes(rho, beta, color = p1, linetype = p1) + 
+  geom_point() + geom_smooth(method = "loess", se = FALSE) + 
+  facet_wrap( ~ fixed ) + 
+  theme_bw() +
+  labs(
+    x = expression(rho), 
+    y = expression(n %*% Bias(r[eg])),
+    color = "",
+    linetype = ""
+  ) + 
+  theme(legend.position = "right")
+```
 
 
-### Example 1: Biserial, revisited
+### Example 2: Biserial, revisited ANOVA
 \index{example!Biserial correlation}
 
-In the biserial correlation example above, we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
+<!-- JEP: If you're okay with the new bias modeling example, I propose we cut the ANOVA stuff. -->
+
+In the biserial correlation example described in Section \@ref(biserial-correlation-visualization), we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
 These factors also seem to have complex interactions: note how when p1 = 0.5, we get larger dips than when p1 = 1/8.
 The figure gives a sense of this complex, rich story, but we might also want to summarize our results to get a sense of overall trends, so we can provide a simpler story of what is going on.
 We also might want to get a sense of the relative importance of various factors and their interactions.
@@ -652,71 +929,24 @@ The contribution of any of the three- or four-way interactions are fairly minima
 Modeling summarizes overall trends, and ANOVA allows us to identify what factors are relatively more important for explaining variation in our performance measure.
 We could fit a regression model or ANOVA model for each performance measure in turn, to understand what drives our results.
 
-### Example 2: Comparing methods for cross-classified data
-
-@lee2023comparing were interested in evaluating how different modeling approaches perform when analyzing cross-classified data structures.
-To do this they conducted a multi-factor simulation to compare three methods: a method called CCREM, two-way OLS with cluster-robust variance estimation (CRVE), and two-way fixed effects with CRVE.
-The simulation was complex, involving several factors, so they fit an ANOVA model to understand which factors had the most influence on performance.
-In particular, they ran _four_ multifactor simulations, each under a different broader context (those being assumptions met, homoscedasticity violated, exogeneity violated, and presence of random slopes).
-They then used ANOVA to explore how the simulation factors impacted bias within each of these contexts.
-
-One of their tables in the supplementary materials (Table S5.2, see [here](https://osf.io/hy73g), page 20, and reproduced below) shows the results of these four ANOVA models, with each column being a simulation context, and the rows corresponding to factors manipulated within that context.
-Small, medium, and large effects are marked to make them jump out to the eye.
-
-**ANOVA Results on Parameter Bias**
-
-| Source                | Assumptions  | Homoscedasticity  | Exogeneity  | Rand Slope |
-|-----------------------|--------------|-------------------|-------------|---------|
-| Method                 | 0.000            | 0.006                      | 0.995 L              | 0.000          |
-| Effect Size (r)        | 0.131 M          | 0.008                      | 0.020 S              | 0.142 L        |
-| Number of Schools (H)  | 0.014 S          | 0.113 M                    | 0.188 L              | 0.001          |
-| Students per School (J)| 0.016 S          | 0.016 S                    | 0.747 L              | 0.110 M        |
-| IUCC                   | 0.007            | 0.007                      | 0.033 S              | 0.073 M        |
-| method × r             | 0.006            | 0.006                      | 0.007                | 0.012 S        |
-| method × H             | 0.004            | 0.002                      | 0.157 L              | 0.000          |
-| method × J             | 0.002            | 0.000                      | 0.878 L              | 0.010 S        |
-| method × IUCC          | 0.012 S          | 0.003                      | 0.037 S              | 0.000          |
-| r × H                  | 0.103 M          | 0.010 S                    | 0.059 S              | 0.377 L        |
-| r × J                  | 0.006            | 0.024 S                    | 0.008                | 0.051 S        |
-| r × IUCC               | 0.065 M          | 0.025 S                    | 0.084 M              | 0.136 M        |
-| H × J                  | 0.002            | 0.014 S                    | 0.062 M              | 0.105 M        |
-| H × IUCC               | 0.024 S          | 0.008                      | 0.034 S              | 0.137 M        |
-| J × IUCC               | 0.004            | 0.088 M                    | 0.013 S              | 0.029 S        |
-
-*Note: (S)mall = .01, (M)edium = .06, (L)arge = .14*
-
-
-We see that when model assumptions are met or only homoscedasticity is violated, choice of method (CCREM, two-way OLS-CRVE, FE-CRVE) has almost no impact on parameter bias ($\eta^2 = 0.000$ to 0.006).
-However, under an exogeneity violation, method choice has a large effect ($\eta^2 = 0.995$), indicating that some methods (e.g., OLS-CRVE) have much more bias than others.
-Other factors such as the effect size of the parameter and the number of schools can also show moderate-to-large impacts on bias in several conditions.
-
-The table also shows how an interaction between simulation factors can matter.
-For example, interactions between method and number of schools, or students per school, can really impact bias under the Exogeniety Violated condition; this means the different methods respond differently as sample size changes.
-
-Overall, the table shows how some aspects of the DGP matter more, and some less.
-
-
 ## Reporting
 
-There is a difference in the results you will generate so you can understand what is going on in your simulation, and the results that you will include in an outward facing report.
-Do not pummel your reader with a deluge of tables, figures, and observations.
-Instead, present selected results that clearly illustrate the main findings from the study, along with anything unusual or anomalous.
-Your presentation will typically be best served with a few well-chosen figures.
-Then, in the text of your write-up, you might include a few specific numerical comparisons.
-Do not include too many of these, and be sure to say why the numerical comparisons you include are important.
-
-To form your final exhibits, you will likely have to generate a wide range of results that show different aspects of your simulation.
-These are for you, and will help you deeply understand what is going on.
-You then try to simplify the story, in a way that is honest and transparent, by curating this full set of figures to your final ones.
+Just as with empirical data analysis, the analysis that you present in an outward-facing report will usually be only a summary of all of the analysis that you conduct to arrive at your findings.
+Typically, you will need to make many figures and tables, and potentially explore several different modeling techniques in order to identify the important patterns in a set of simulation results.
+You need to work through such analysis in order to develop a strong understanding of what is going on in a set of simulation results.
+You will then need to clarify the story by distilling your full analysis into a selection of figures, tables, and summaries that explain your findings while maintaining honesty and transparency.
 Some of the remainder will then become supplementary materials that contain further detail to both enrich your main narrative and demonstrate that you are not hiding anything.
 
-<!--If you want to be a moral person worthy of the awards of Heaven-->
-Results are by definition a simplified summary of a complex thing.
-The alert reader will know this, and will thus be suspicious about what you might have left out.
-To give a great legitimacy bump to your work, you should also provide reproducible code so others could, if so desired, rerun the simulation and conduct your analysis themselves, or perhaps rerun your simulation under different conditions.
-Even if no one touches your code, the code's existence and availability builds confidence.
-People will naturally think, "if that researcher is so willing to let me see what they actually did, then they must be fairly confident it does not contain too many horrendous mistakes."
+When presenting results, it is important to not pummel readers with a deluge of tables, figures, and observations.
+Instead, strive to present summaries of results that clearly illustrate the main findings from the study---that is, the patterns and trends that most directly respond to the research questions---and also draw attention to any results that are unusual or anomalous. 
+Often, an audience will be best served with a few well-chosen figures.
+In the text of a write-up, you might also include a few specific numerical comparisons.
+Do not include too many of these, and be sure that it is clear why the numerical comparisons you include are important.
 
-
+Findings from a simulation study are by definition a simplified summary of a complex phenomenon.
+Alert readers will know this and will be cautiously attuned (suspicious, even) to details not represented in the final set of exhibits.
+To support transparency, you should also provide code for reproducing the entire simulation, along with data files containing the full detail of your simulation results. 
+Sharing code allows any interested reader to rerun the simulation and conduct your analysis themselves or to rerun your simulation under different conditions.
+Sharing a data file of simulation results allows readers to verify or further probe the patterns that you identify in your write-up, to visualize or analyze results in novel ways, or to examine subsets of conditions that might be of particular interest.
 
 
