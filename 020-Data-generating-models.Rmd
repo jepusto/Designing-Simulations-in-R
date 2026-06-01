@@ -317,7 +317,7 @@ Even simple checks such as these can be quite helpful in catching such bugs.
 
 Writing code for a complicated DGP can feel like a daunting task, but if you first focus on a recipe for how the data is generated, it is often not too bad to then convert that recipe into code.
 We now illustrate this process with a detailed case study involving a more complex data-generating process\index{data-generating process} 
-Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of sites) has explored how variation in the strength of effects across sites can affect how different data-analysis procedures behave [e.g., @miratrix2021applied; @Bloom2016using].
+Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of schools) has explored how variation in the strength of effects across schools can affect how different data-analysis procedures behave [e.g., @miratrix2021applied; @Bloom2016using].
 In this example, we are going to extend this work to explore best practices for estimating treatment effects in cluster randomized trials.
 In particular, we will investigate what happens when the treatment impact for each school is related to the size of the school.
 
@@ -366,13 +366,13 @@ In developing a DGP, we often start by considering the model for the outcomes (a
 It is helpful to write down the equations for the outcome model and then note what further quantities need to be generated (such as structural features and covariates).
 Then we can consider how to generate these quantities with auxiliary models.
 
-Section \@ref(CRT-example) introduced a basic HLM for a cluster-randomized trial.
+Section \@ref(CRT-example) introduced a basic multilevel model for a cluster-randomized trial.
 This model had two parts, starting with a model for our student outcome:
 $$ Y_{ij} = \beta_{0j} + \epsilon_{ij} \mbox{ with } \epsilon_{ij} \sim N( 0, \sigma^2_\epsilon ) $$
-where $Y_{ij}$ is the outcome for student $i$ in site $j$, $\beta_{0j}$ is the average outcome in site $j$, and $\epsilon_{ij}$ is the residual error for student $i$ in site $j$.
-The model was completed by specifying how the site-specific outcomes vary as a function of treatment assignment:
+where $Y_{ij}$ is the outcome for student $i$ in school $j$, $\beta_{0j}$ is the average outcome in school $j$, and $\epsilon_{ij}$ is the residual error for student $i$ in school $j$.
+The model was completed by specifying how the school-level outcomes vary as a function of treatment assignment:
 $$ \beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + u_j, \quad u_j \sim N( 0, \sigma^2_u ).$$
-This model has a constant treatment effect: if a school is assigned to treatment, then all outcomes in the cluster are raised by the amount $\gamma_{1}$.
+This model has a constant treatment effect: if a school is assigned to treatment, then the outcomes of all students in the school are raised by  $\gamma_{1}$.
 But we also want to allow the size of impact to vary by school size.
 This suggests we will need to elaborate the model to include a treatment-by-size interaction term.
 
@@ -386,7 +386,7 @@ To do this, we can define a covariate that describes the deviation in the school
 Thus, let 
 $$ S_j = \frac{n_j - \bar{n}}{ \bar{n} }, $$
 where $\bar{n}$ is the overall average school size.
-Using this covariate, we then revise our equation for our site $j$ to:
+Using this covariate, we then revise our equation for our school $j$ to:
 $$ \beta_{0j} = \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} \left( Z_j \times S_j\right) + u_j. $$
 If $\gamma_{2}$ is positive, then bigger schools will have larger treatment impacts.
 Because $S_j$ is centered at 0, the overall average impact across schools will be simply $\gamma_{1}$.
@@ -402,7 +402,7 @@ Y_{ij} &= \beta_{0j} + \epsilon_{ij} \quad &\epsilon_{ij} &\sim N( 0, \sigma^2_\
 $$
 Substituting the second equation into the first leads to a single equation for generating the student-level outcomes (or what is called the reduced form of the HLM):
 $$ Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} Z_j S_j  + u_j + \epsilon_{ij}$$
-The parameters of this focal model are the mean outcome among control schools ($\gamma_{0}$), the average treatment impact ($\gamma_{1}$), the site-size by treatment interaction term ($\gamma_{2}$), the amount of school-level variation ($\sigma^2_u$), and the amount of within-school variation ($\sigma^2_\epsilon$).
+The parameters of this focal model are the mean outcome among control schools ($\gamma_{0}$), the average treatment impact ($\gamma_{1}$), the school-size by treatment interaction term ($\gamma_{2}$), the amount of school-level variation ($\sigma^2_u$), and the amount of within-school variation ($\sigma^2_\epsilon$).
 
 There are several ways that we could elaborate this model further.
 For one, we might want to include a main effect for $S_j$, so that average outcomes in the absence of treatment are also dependent on school size.
@@ -414,7 +414,7 @@ To _generate_ data, we also need a way to generate the structural features and c
 First, we need to know the number of clusters ($J$) and the sizes of the clusters ($n_j$, for $j = 1, ..., J$).
 For illustrative purposes, we will generate size sizes from a uniform distribution with average school size $\bar{n}$ and a fixed parameter $\alpha$ that controls the degree of variation in school size. Mathematically,
 $$ n_j \sim \text{Unif}\left[ (1-\alpha)\bar{n}, (1+\alpha)\bar{n} \right].$$
-Equivalently, we could generate site sizes by taking
+Equivalently, we could generate school sizes by taking
 $$n_j = \bar{n}(1 + \alpha U_j), \quad U_j \sim unif(-1, 1).$$
 For instance, if $\bar{n} = 100$ and $\alpha = 0.25$ then schools would range in size from 75 to 125.
 This specification is nice because it is simple, with just two parameters, both of which are easy to interpret: $\bar{n}$ is the average school size and $\alpha$ is the degree of variation in school size.
@@ -435,13 +435,13 @@ To the extent feasible, we want the parameters of the DGP to change only one fea
 
 When sketching out the equations for the DGP, we worked from the lowest level of the model (the students) to the higher level (schools) and then to the auxiliary models for covariates and structural features.
 For writing code to based on the DGP, we will proceed in the opposite direction, from auxiliary to focal and from the highest level to the lowest.
-First, we will generate the sites and their features:
+First, we will generate the schools and their features:
 
 - Generate school sizes
 - Generate school-level covariates
 - Generate school-level random effects
 
-Then we will generate the students inside the sites:
+Then we will generate the students inside the schools:
 
 - Generate student residuals
 - Add everything up to generate student outcomes
@@ -477,7 +477,7 @@ There is also a serious error in the above code (serious in that the code will r
 <!-- JEP: Does this exercise support our pedagogical goals? If this is supposed to be intro chapter, then debugging a subtle problem seems like it could be counterproductive. -->
 <!-- LWM: I think we hand-hold the debugging clearly in the exercises, so I am not worried, and the larger point is important? -->
 
-Next, we use the site characteristics to generate the individual-level variables:
+Next, we use the school characteristics to generate the individual-level variables:
 
 ```{r, code = cluster_RCT_fun[26:39], eval=FALSE}
 ```
@@ -496,7 +496,7 @@ dat <- gen_cluster_RCT(
 head( dat )
 ```
 
-With this function, we can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the site size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of site size variation (`alpha`).
+With this function, we can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the school size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of school size variation (`alpha`).
 The next step is to test the code, making sure it is doing what we think it is.
 In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on diagnosing and repairing this error.
 
@@ -910,7 +910,7 @@ In the following we run a few tests on the cluster RCT DGP code (`gen_cluster_RC
 
 3. The code also rounds `alpha * n_bar`--but what happens if `alpha * n_bar` is not an integer? What will happen if you specify values for `alpha` and `n_bar` that do not multiply to a whole number? Is this ok, or could it cause problems?  Explain why or why not.
 
-4. In the `gen_cluster_RCT()` function, the following line of code generates the number of individuals per site:
+4. In the `gen_cluster_RCT()` function, the following line of code generates the number of individuals per school:
 
     ```{r bad_sample_line, eval=FALSE}
     nj <- sample( n_min:n_max, J, replace=TRUE )
@@ -934,7 +934,7 @@ Do this by modifying the model for student-level outcomes as
 $$ 
 Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij}. 
 $$
-Keep the same $\beta_1$ for all sites.
+Keep the same $\beta_1$ for all schools.
 To implement this model as a DGP, you will have to decide how to generate $X_{ij}$.
 
 1. Use words and equations to explain your auxiliary model for $X_{ij}$. 
