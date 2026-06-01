@@ -62,7 +62,7 @@ Thus, if you use `print()` or `cat()` statements to help figure out what is goin
 
 The great benefit of writing your own custom function for something is that it _automates_ a sequence of steps, so that you do not have to write and run code for each step every time you want to execute the sequence.
 The drawback of doing so is that running the function _hides_ the intermediate steps in the calculations, making it harder to tell if or where an error occurs. 
-For instance, consider the data-generating function for the bivariate Poisson distribution, which we initially developed in Section \@ref(DGP-functions). We run the function and get the following nonsense output:
+For instance, consider the data-generating function for the bivariate Poisson distribution, initially developed in Section \@ref(DGP-functions). We run the function and get the following nonsense output:
 ```{r, echo = FALSE}
 source("case_study_code/r_bivariate_Poisson.R")
 source("case_study_code/r_and_z.R")
@@ -86,11 +86,10 @@ This puts you into an interactive debugging console (indicated by `Browse[1]>` i
 This is just like a normal R workspace, but you will only see the objects that are passed to the function and the variables created inside the function. 
 In RStudio, the source pane will usually jump to the part of your script that defines the function, so you can see the code that will be run in each step.
 
-Once in this debugging console, you can type `n` to go to the next line of code.[^In RStudio, the debugging interface also includes clickable buttons for this and other commands.]
-This allows you to walk through the code step by step, observing what happens as you move along.
+Once in this debugging console, you can type `n` to go to the next line of code.^[In RStudio, the debugging interface also includes clickable buttons for this and other commands.]
+Using `n` makes it possible to walk through the code step by step, observing what happens with each line of code.
 You can also type regular R commands in the debugging console to do calculations with the objects in the environment.
 Type `c` to exit from debugging mode and continue regular execution of the code or `Q` to exit debugging and stop execution. 
-Type `q` to quit out.
 
 The `debug()` command changes how `r_bivariate_Poisson()` is evaluated every time it is run. 
 If your code calls this function multiple times, then it will pause and open the debugging console _every time_ the function is called---even if the function is called by a different function.
@@ -124,7 +123,7 @@ However, instead of pausing whenever a function is called, `browser()` pauses at
 This is helpful for longer functions, so that you do not need to step through every line of code to get to the point where problems start to occur.
 It also makes it possible to pause and debug _contingently_, only if certain conditions are met.
 For instance, we might add a `browser()` call to `r_bivariate_Poisson()` that will be executed only if there are missing values in the generated data:
-```{r, echo = FALSE}
+```{r, echo = TRUE}
 r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
   
   # covariance term, equal to E(Z_3)
@@ -147,14 +146,24 @@ r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
   
   return(dat)
 }
-
-r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = 0.3)
-r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
-
 ```
-The function now runs without interruption if the data are complete, but will pause if there are missing values.
-If we hit a scenario with missing values, we can inspect all of the objects visible to the function and the intermediate variables created by the function.
-In this case, we can see that `Z3` contains missing values and that `EZ3` is negative, from which we can infer that the problem is the negative value for `rho`.  
+
+Now when we call the function, we only enter the debugging console if there are missing values in the generated data.
+Here we would just get some data:
+```{r, eval=FALSE}
+a <- r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = 0.3)
+```
+Here it would enter the debugger:
+```{r, eval=FALSE}
+b <- r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+```
+```
+Called from: r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+Browse[1]> 
+```
+
+Once we hit a scenario with missing values, we can inspect all of the objects visible to the function and the intermediate variables created by the function.
+In this case, we could see that `Z3` contains missing values and that `EZ3` was negative, from which we can infer that the problem is the negative value for `rho`.
 
 Using `browser()` is a useful way to make sure you understand what values are passed to a function. 
 Many bugs arise due to the wrong thing getting passed to some code that would otherwise work.
@@ -211,11 +220,12 @@ r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
   # remainder of function...
 }
 ```
-Now if we call the function with a negative correlation, we will get a relatively informative error:
+Now if we call the function with a negative correlation, we immediately get a relatively informative error:
 ```{r, error = TRUE}
 r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
 ```
 
+Assertions can also protect us from silent errors that might arise from the wrong thing getting passed to a function.
 Consider the following function for generating data with different means and variances:
 
 ```{r assert_demo}
@@ -282,7 +292,7 @@ c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
 
 Throughout this book, we have emphasized the utility of writing separate functions for the different components of a simulation study, and checking those functions to ensure that they work properly and as expected.
 In previous chapters, we have seen several examples of how to check functions, such as when we made plots of data produced by a data-generating function to see if the distributions looked like we intended.
-This sort of code could be stored in the script alongside the functions being tested[^FALSE-trick], or in a separate file. 
+This sort of code could be stored in the script alongside the functions being tested,[^FALSE-trick] or in a separate file. 
 In either case, it is useful to retain the code so that you can run it again later to verify that a function still works as expected.
 
 [^FALSE-trick]: To prevent execution of the code, the tests can be cordoned off using the `FALSE` trick discussed in Section \@ref(storing-testing-code).
@@ -293,9 +303,9 @@ Likewise, it can also be challenging to track down the ripple effects of changin
 
 Unit testing is a set of practices, commonly used in software development, that formalize the idea of writing code to verify that a function works.
 The spirit of unit testing is to write code to test your functions _thoroughly_ and to run those tests _frequently_ to verify that everything works as intended, even as you make changes to component functions.
-Unit testing frameworks allow you to write test code that can be run whenever you want, providing a report of which tests pass and which fail, potentially indicating a problem with your functions. 
+Unit testing frameworks allow you to write test code that, whenever you want, can be used to generate a report of which tests pass and which fail so you can zero in on what problems you might have with your functions.
 
-The `testthat` package is a popular unit testing framework for R, often used as part of developing an R package.[^testthat]
+The `testthat` package is a popular unit testing framework for R.
 Although originally designed for unit testing of functions included as part of R packages, it is nonetheless quite useful for more general coding projects, such as developing the code base for a simulation study.
 There are two general parts to `testthat`: the `expect_*()` methods and the `test_that()` function.
 
@@ -310,7 +320,8 @@ my_DGP <- function( N, mu, beta ) {
 }
 ```
 
-Here is an initial set of unit tests for the `my_DGP()` function:
+Here we run an initial set of unit tests for the `my_DGP()` function.
+We get a nice happy message for each test:
 
 ```{r}
 library(testthat)
@@ -338,8 +349,6 @@ test_that("my_DGP returns errors with incorrect inputs.", {
 
 })
 ```
-
-This code will run the tests, and if they all pass, it will print out a happy message.
 
 If one or more of our tests fail, we will get a set of error messages that tells us what went wrong, and where things broke:
 
