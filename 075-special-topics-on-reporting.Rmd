@@ -44,25 +44,25 @@ summary( sres$R )
 
 # Special Topics on Reporting Simulation Results
 
-In this chapter we cover some special topics on reporting simulation results.
-We first walk through some examples of how to do regression modeling.
+In this chapter we cover a few special topics on reporting simulation results.
+We first walk through some examples of how to do regression modeling, including using regression trees to identify what factor combinations are most important for explaining a set of results.
 We then dive more deeply into what to do when you have only a few iterations per scenario, and then we discuss what to do when you are evaluating methods that sometimes fail to converge or give an answer.
 
 
 ## Using regression to analyze simulation results
 
-In Chapter \@ref(presentation-of-results) we saw some examples of using regression and ANOVA on a set of simulation results to summarize overall patterns across scenarios.
+Chapter \@ref(presentation-of-results) provided some examples of using regression and ANOVA on a set of simulation results to summarize overall patterns across scenarios.
 In this chapter we will provide some further in-depth examples along with the R code for doing this sort of thing.
 
 ### Example 1: Biserial, revisited
 \index{example!Biserial correlation}
 
 As our first in depth example, we walk through the analysis that produces the final ANOVA summary table for the biserial correlation example in Chapter \@ref(presentation-of-results).
-In the visualization there, we saw that several factors appeared to impact bias.
-On the eta table presented later in that same chapter, we saw a table that decomposed the variance across several factors so we could see which simulation factors mattered most for bias.
+In the visualization there, we saw that several factors impacted bias.
+The eta table presented later in that same chapter then decomposed the variance in performance across several factors so we could see which simulation factors mattered most for bias.
 
 To build that table, we first fit a regression model, regressing bias on all the simulation factors.
-We first convert each factor to a factor variable, so that R does not assume a continuous relationship.
+We first convert each factor to a factor variable, so that R does not assume a continuous relationship for numeric values.
 
 ```{r, include=FALSE}
 load("data/d2r results.rData")
@@ -92,7 +92,9 @@ r_F <-
 ```{r modeling_demonstration, warning=FALSE}
 options(scipen = 5)
 mod = lm( bias ~ fixed + rho + I(rho^2) + p1 + n, data = r_F)
-summary(mod, digits=2)
+mod %>% 
+  tidy() %>%
+  knitr::kable( digits = 4 )
 ```
 
 The above printout gives main effects for each factor, averaged across the others.
@@ -103,7 +105,7 @@ We could instead use splines or some local linear regression if we were worried 
 The main effects are summaries of trends across contexts.
 For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
 
-As shown in Chapter \@ref(presentation-of-results), we can also use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+As shown in Chapter \@ref(presentation-of-results), we use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
 To do this, we use `aov()` to fit an analysis of variance model:
 
 ```{r anova_example, warning=FALSE}
@@ -113,7 +115,7 @@ knitr::kable( summary(anova_table)[[1]],
 ```
 
 The advantage here is the multiple levels of our categorical factors get bundled together in our table of results, making a tidier display.
-Note we are including interactions between our simulation factors.
+Note we are now including interactions between our simulation factors.
 The prior linear regression model was just estimating main effects of the factors, and not estimating these more complex relationships. 
 
 The eta table in Chapter \@ref(presentation-of-results) is a summary of this anova table, which we generate as follows:
@@ -136,11 +138,12 @@ The resulting variance decomposition table shows the amount of variation explain
 
 
 ### Example 2: Cluster RCT example, revisited
+\index{case!cluster RCT}
 
 When we have several methods to compare, we can use meta-regression to understand how these methods change as other simulation factors change.
 We next illustrate this with our running Cluster RCT example.
 
-We first turn our simulation levels (except for ICC, which has several levels) into factors, so R does not assume that sample size, for example, should be treated as a continuous variable:
+We again turn our simulation levels (except for ICC, which has several levels) into factors, so R does not assume that sample size, for example, should be treated as continuous:
 
 ```{r}
 sres_f <-
@@ -160,7 +163,7 @@ tidy( M ) %>%
 ```
 
 With even a modestly complex simulation, we can quickly generate a lot of regression coefficients, making our meta-regression somewhat hard to interpret.
-The above model does not even have interactions between the simulation factors, even though the plots we have seen strongly suggest interactions among them.
+The above model does not even have interactions between the simulation factors, even though the plots we have seen strongly suggest interactions exist.
 That said, picking out the significant coefficients is a quick way to obtain clues as to what is driving performance.
 For instance, several features interact with the LR method for bias.
 The other two methods seem less impacted.
@@ -221,7 +224,6 @@ sres_f$zeroICC = ifelse( sres_f$ICC == 0, 1, 0 )
 sres_f$ICCsc = sres_f$ICC * 5 # rescale ICC to be on a 5 point scale
 
 models <- map( meth, function(m) {
-  
   sres_f_LR <- sres_f %>%
     filter( method == m )
   
@@ -274,8 +276,8 @@ ggplot( m_resL,
   coord_flip()
 ```
 
-Here we see how LR stands out, but also how MLM stands out under different simulation factor combinations (see, e.g., the interaction of zeroICC, alpha being 0.8, and size_coef being 0.2).
-This aggregate plot provides some understanding of how the methods are similar, and dissimilar.
+Here we see how both LR and MLM stand out, but for different simulation factor combinations (see, e.g., the interaction of zeroICC, alpha being 0.8, and size_coef being 0.2).
+Our coefficient plot provides some understanding of how the methods are similar, and dissimilar.
 
 For another example we turn to the standard error.
 Here we regress $log(SE)$ onto the coefficients.
@@ -294,6 +296,7 @@ models <- map( meth, function(m) {
   tidy( M ) %>%
     mutate( estimate = exp(estimate) - 1 )
 } )
+
 models <- models %>% set_names(meth) %>% 
   bind_rows( .id = "model" )
 
@@ -326,16 +329,17 @@ ggplot( m_resL,
   coord_flip()
 ```
 
-Our plot clearly shows that the three methods are basically the same in terms of uncertainty estimation, with a few differences when alpha is 0.8.
+Our plot clearly shows that the three methods are basically the same in terms of uncertainty estimation, with a some differences when alpha is 0.8.
 We also see some interesting trends, such as the impact of n_bar declines when ICC is higher (see the positive interaction terms at right of plot).
 
 
 ## Using regression trees to find important factors
 
 With more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher which factors are important and what patterns are stable.
-Another exploration approach we might use is regression trees.
+Another exploration approach we can use are regression trees.
 
 We wrote a utility method, a wrapper to the `rpart` package, to do this ([script here](code/create_analysis_tree.R)).
+Fitting a tree that regresses our performance onto the factors will show us which factors are most related to performance.
 Here, for example, we see what predicts larger bias amounts in our cluster RCT running example:\index{example!cluster randomized trial}
 
 ```{r, include=FALSE}
@@ -351,42 +355,38 @@ create_analysis_tree( sres_f,
                       outcome = "bias",
                       predictor_vars = c("method", "n_bar", "J",
                                          "size_coef", "ICC", "alpha"),
-                      tree_title = "Cluster RCT Bias Analysis Tree" )
-```
-
-The default pruning is based on a cross-fitting evaluation, but our sample size is not too terribly high (just the number of simulation scenarios fit) so this is quite unstable.
-Rerunning the code with a different seed will generally give a different tree.
-We find that it is often worth forcibly simplifying the tree.
-Trees are built greedily, so forcibly trimming often leaves you only with the big things.
-For example:
-
-```{r}
-create_analysis_tree( sres_f,
-                      outcome = "bias",
-                      predictor_vars = c("method", "n_bar", "J",
-                                         "size_coef", "ICC", "alpha"),
                       tree_title = "Smaller Cluster RCT Bias Analysis Tree", 
-                      min_leaves = 5, max_leaves = 10 )
+                      max_leaves = 5 )
 ```
 
 This tree gives a very straightforward story: if `size_coef` is not 0 and we are using LR, then alpha drives bias.
 
-We can also zero in on specific methods to understand how they engage with the simulation factors, like so:
+Note that the default pruning for a tree is based on a cross-fitting evaluation, but as our sample size is not too terribly high (just the number of simulation scenarios fit), cross-fitting is quite unstable.
+Rerunning the code with a different seed will generally give a different tree.
+To control stability, we find that it is often worth forcibly controlling the size of the tree.
+As trees are built greedily, forcibly trimming often leaves you only with the big things.
+As we are using these trees as exploratory tools describing our simulation results, we do not need to worry about whether it is truly the best fit; we are creating visualizations, not doing formal testing.
+
+We can also zero in on specific methods to understand how they engage with the simulation factors, by fitting a tree to just that method's results, as so:
+
+```{r, include=FALSE}
+set.seed( 11440404 )
+```
 
 ```{r}
 create_analysis_tree( filter( sres_f, method=="LR" ),
                       outcome = "bias",
-                      min_leaves = 4,
+                      min_leaves = 5,
                       predictor_vars = c("n_bar", "J",
                                          "size_coef", "ICC", "alpha"),
                       tree_title = "Drivers of Bias for LR method" )
 ```
 
-We force more leaves to get at some more nuance.
+Here we force more leaves to get at some more nuance.
 We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient _and_ a large alpha value.
-Then, when $J$ is small, bias is even larger.
+We also see that $J$ may have some additional effect.
 
-Generally we would not use a tree like this for a final reporting of results, but they can be important tools for _understanding_ your results, which leads to how to make and select more conventional figures for an outward facing document.
+Generally we would not use trees like this for a final reporting of results, but they can be important tools for _understanding_ your results, which leads to how to make and select more conventional figures for an outward facing document.
 
 
 ## Analyzing results with few iterations per scenario {#few-iterations}
@@ -398,7 +398,7 @@ Now, if the methods being evaluated are substantially different, then difference
 More generally, however, the Monte Carlo\index{Monte Carlo simulation} Standard Errors (MCSEs) may be so large that you will have a hard time discriminating between systematic patterns and noise.
 
 One tool to handle few iterations is aggregation: if you average across scenarios, those averages will have more precise estimates of (average) performance than the estimates of performance within the scenarios.
-Do not, by contrast, trust the bundling approach--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
+Do not, by contrast, trust the bundling/boxplot approach--the MCSEs will make your boxes wider, and give the impression that there is more variation across scenarios than there really is.
 
 Meta regression approaches such as we saw above can also be useful: a regression effectively averages performance across scenario, and give summaries of overall trends.
 You can even fit random effects regression, specifically accounting for the noise in the scenario-specific performance measures.
@@ -432,9 +432,9 @@ ssres
 summary( ssres$R )
 ```
 
-In the prior chapter we analyzed the results of our cluster RCT simulation with 1000 iterations per scenario.
+Previously, we have analyzed the results of our cluster RCT simulation with 1000 iterations per scenario.
 But say we only had 25 iterations per scenario.
-Using the prior chapter as a guide, we next recreate some of the plots to show how MCSE\index{Monte Carlo standard error} can distort the picture of what is going on.
+Using the prior chapter as a guide, we next recreate some of the plots to show how MCSE\index{Monte Carlo standard error} can distort the picture of what is going on, and how averaging can mitigate this somewhat.
 
 We start again with bias, and generate a single plot of the raw results for a subset of our scenarios, along with error bars from the MCSEs.
 
@@ -451,7 +451,7 @@ ggplot( sres_sub, aes( as.factor(alpha), bias,
   geom_point( position = dodge ) + 
   geom_errorbar( aes( ymin = bias - 2*bias.mcse, 
                       ymax = bias + 2*bias.mcse ), 
-                 width = 0,
+                 width = 0, alpha=0.5,
                  position = dodge ) +
   geom_line( position = dodge ) +
   geom_hline( yintercept = 0 ) +
@@ -459,9 +459,9 @@ ggplot( sres_sub, aes( as.factor(alpha), bias,
   coord_cartesian( ylim = c(-0.10,0.10) )
 ```
 
-Our uncertainty is much less when ICC is 0; this is because our estimators are far more precise due to not having cluster variation to contend with.
 Other than the ICC = 0 case, we see substantial amounts of uncertainty, making it very hard to tell the different estimators apart.
-In the top row, second plot from left, we see that the three estimators are co-dependent: they all react similarly to the same datasets.
+(Our uncertainty is much less when ICC is 0 because our estimators are far more precise due to not having cluster variation to contend with.)
+In the top row, second plot from left, we also see that the three estimators are co-dependent: they all react similarly to the same datasets.
 In other words, the point estimates are correlated: if a dataset happens to have high-outcome units in the treated group, all the estimators will give larger estimates of an average effect.
 The seeming trend we are seeing is not systematic bias, but rather shared random variation.
 
@@ -570,7 +570,7 @@ We discuss this approach next.
 One way to get a more precise head to head comparison of the estimators is to fit a multilevel regression model to our raw simulation results with a random effect for dataset.
 This can be especially useful as a tool for analyzing results with few iterations.
 
-We next continue the running example of the prior section and fit such a model, taking advantage of the fact that estimated bias is simply the average of the error across replicates.
+We continue the running example of the prior section and fit such a model, taking advantage of the fact that estimated bias is simply the average of the error across replicates.
 We first make a unique ID for each scenario and dataset, and then fit the model with a random effect for both.
 The first random effect allows for specific scenarios to have more or less bias beyond what our model predicts.
 The second random effect allows for a given dataset to have a larger or smaller error than expected, shared across the three estimators.
@@ -616,12 +616,15 @@ We can instead include the simulation factors as fixed effects, to see how they 
 ```{r}
 M2 <- lmer( 
   error ~ method*(J + n_bar + ICC + alpha * size_coef) + (1|dataID) + (1|simID),
+  #error ~ method*(J * n_bar * alpha * size_coef + ICC) + (1|dataID) + (1|simID),
   data = res_small 
 )
 ```
 
-We then extract the fixed effects and sort by p-value to see which factors are most important for bias.
-We adjust our p-values with a simple Benjamini-Hochberg false discovery rate correction to try and cut down the number of terms to those that are most likely to be real, and not just noise.
+<!-- LWM: The commented out model above ends up explaining _less_ variation than the simpler model.  There are clear fitting issues here that are causing a lot of trouble.  I think the meta regression tools might be needed here?  I am confused as to what is happening. To discuss at some point. -->
+
+We then extract the fixed effects and sort by $p$-value to see which factors are most important for bias.
+We adjust our $p$-values with a simple Benjamini-Hochberg false discovery rate correction to try and cut down the number of terms to those that are most likely to be real, and not just noise.
 ```{r}
 library( broom.mixed )
 terms <- tidy( M2 ) %>%
@@ -645,21 +648,26 @@ ranef_vars1 <-
   dplyr::select(grp = grp, sd = vcov) %>%
   mutate( sd = sqrt(sd),
           ICC = sd^2 / sum(sd^2 ) )
+
 ranef_vars2 <-
   as.data.frame(VarCorr(M2)) %>%
   dplyr::select(grp = grp, sd = vcov) %>%
   mutate( sd = sqrt(sd),
           ICC = sd^2 / sum(sd^2 ) )
+
 rr = left_join( ranef_vars1, ranef_vars2, by = "grp", 
                 suffix = c(".null", ".full") )
+
 rr <- rr %>%
   mutate( var.red = sd.full^2 / sd.null^2 )
 knitr::kable(rr, digits = 2)
 ```
 
+The `var.red` column is how much variation is explained by our model of similation factors.
 Our model is explaining an estimated 16% of the variation across simulation scenarios.
+This implies that there is a lot of variation due to interactions between the simulation factors that are not in our model.
 
-<!-- LWM: This is not working cleanly, and we are not seeing reduction in unexplained simulation variation at all ---- cut, update, do what? --->
+<!-- LWM: This is not working cleanly, and we are not seeing a major reduction in unexplained simulation variation at all ---- cut, update, do what? --->
 
 
 
@@ -670,7 +678,7 @@ Our model is explaining an estimated 16% of the variation across simulation scen
 
 Sometimes our analytic strategy might give some sort of warning (or fail altogether).
 In Section \@ref(error-handling) we saw how to trap such warnings or errors.
-In particular, in Section \@ref(capturing-errors-and-warnings) we illustrated error trapping on the multilevel model for the cluster RCT experiment by revising our `analysis_MLM()` method to a `analysis_MLM_safe()` method, which gave output from the MLM method that looked like this:
+In particular, in Section \@ref(capturing-errors-and-warnings) we illustrated error trapping on the multilevel model for the cluster RCT experiment by revising our `analysis_MLM()` method to an `analysis_MLM_safe()` method, which gave output from the MLM method that looked like this:
 
 ```{r, include=FALSE}
 source( "case_study_code/clustered_data_simulation.R" )
@@ -682,26 +690,26 @@ dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
 analysis_MLM_safe( dat )
 ```
 
-For this dataset, for example, we see that there was a convergence issue that gave rise to the indicated message.
+For this dataset, a convergence issue that gave rise to the indicated message and warning.
 
 Once the full simulation is run, we can examine the patterns of these warnings and errors to see if they are a serious or minor problem.
-We first do this by calculating the rate of errors or warning messages as a performance measure across the simulation scenarios.
-Especially if we plan on possibly droping some trials, it is important to see how often things are acting peculiarly.
+We first do this by calculating the rate of errors or warning messages as a performance measure in its own right.
+Especially if we plan on possibly dropping some trials, it is important to see how often our estimators are acting peculiarly.
 
-For example, in our cluster RCT running example, we know that ICC is an important driver of when convergence issues might occur, so we can explore how often we get a convergence message by ICC level by calculating the number of messages, warnings, or errors per 1000 iterations:
+For example, in our cluster RCT running example, we know that ICC is an important driver of when convergence issues might occur, so we can explore how often we get a convergence message by ICC level by calculating percent change of a message, warning, or error:
 
 ```{r examine_convergence_rates}
 res %>% 
   dplyr::filter( method == "MLM" ) %>%
   group_by( method, ICC ) %>%
-  summarise( message = 1000*mean( message ),
-             warning = 1000*mean( warning ),
-             error = 1000*mean( error ) ) %>%
+  summarise( message = 100*mean( message ),
+             warning = 100*mean( warning ),
+             error = 100*mean( error ) ) %>%
   pivot_wider( names_from = method,
                values_from=c( "message", "warning", "error" ) )
 ```
 
-We see that when the ICC is 0 we get a lot of convergence issues, but as soon as we pull away from 0 it drops off considerably.
+We see that when the ICC is 0 we get a lot of convergence issues (nearly half of our runs have a message), but as soon as we pull away from 0 it drops off considerably.
 Thankfully, we never saw actual errors and our warnings were very rare.
 
 At this point we have to decide whether to drop the problematic runs or keep them.
@@ -729,6 +737,6 @@ In the former case, aggregation and multilevel models can be especially useful w
 In the latter, evaluate when failures occur, and then either drop them consistently or explicitly model them.
 
 Overall, these tools give a way to go deeper into a set of simulation results.
-Often the findings here would not be presented in the main text, but they can be important supporting detail, especially when placed in a supplement.
+Often the findings generated by these tools would not be presented in the main text, but they can be important supporting detail, especially when placed in a supplement.
 
 

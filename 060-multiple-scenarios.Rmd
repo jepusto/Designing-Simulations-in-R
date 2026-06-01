@@ -39,53 +39,80 @@ dat <- gen_cluster_RCT( n=5, J=3, p=0.5,
 # Simulating across multiple scenarios {#simulating-multiple-scenarios}
 \index{simulation driver}
 
-In Chapter \@ref(simulation-structure), we described the general structure of basic simulations as following four steps: generate, analyze, repeat, and summarize. 
-The principles of tidy simulation suggest that each of these steps should be represented by its own function or set of code.
-For any particular simulation we have a data-generating function and a data-analysis function, which can be bundled together into a simulation driver that repeatedly executes the generate-and-analyze process; we also have a summarization function (or set of code) that computes performance measures across the replications of the simulation process.
-In the previous section of the book, we focused on creating code that will run a simulation for a single scenario, going from a set of parameter values to a set of performance measures. 
+In Chapter \@ref(simulation-structure), we described the general structure of basic simulations as following four steps: generate, analyze, repeat, and summarize, with each step represented by its own function or set of code.
+We also saw how to bundle these steps into a simulation driver that runs our entire simulation.
+With these tools, it is easy to run a simulation for a single combination of parameter values.
+In practice, however, we want to examine a range of different values, to see how things change as we vary the levels of our focal parameter values, auxiliary parameters, or sample size (or other design parameters).
+We might want to do this to gain reassurance that our findings are general, and we might want to understand what aspects of the context affect the performance of the estimator or estimators we are studying.
+A single simulation gives us no hint as to either of these questions.
+It is only by looking across a range of settings that we can hope to understand trade-offs, general rules, and limits.
 
-In practice, simulation studies often involve examining a range of different values, such as multiple levels of a focal parameter value and potentially also multiple levels for auxiliary parameters, sample size, and other design parameters.
-In this chapter, we demonstrate an approach for executing simulations across multiple scenarios and organizing the results for further analysis. 
+This brings us to the remaining piece of the simulation puzzle: the study's experimental design.
+In this section of the book, we walk through three further steps for a systematic simulation: _design_ a set of scenarios to examine, _execute_ across multiple scenarios, and _synthesize_ the performance results across the scenarios explored.
+The principles of tidy simulation apply to these steps as well.
+
+In this chapter, we examine the "execute" step. We demonstrate how to create a dataset representing the experimental design of the simulation as a set of scenarios to run, how to execute a simulation driver across those identified scenarios, and how to organize the results for synthesis. 
 Our focus here is on the programming techniques and computational structure. 
-In the next chapter, we discuss some of the deeper theoretical challenges of designing multifactor simulations.
-Then in subsequent chapters, we examine tools for analyzing and making sense of results from more complex, multifactor simulation designs.
+In the following chapter, we go deeper into "design," and discuss some of the deeper theoretical challenges of designing multifactor simulations, and provide some worked case studies to bring these ideas to life.
+In subsequent chapters, we turn to the "synthesize" step and examine tools for making sense of the full set of results from a multifactor simulation.
 
-In Chapter \@ref(simulation-structure), we described three further steps involved in systematic simulations: _designing_ a set of scenarios to examine, _executing_ across multiple scenarios, and _synthesizing_ the performance results across scenarios. 
-The same principles of tidy simulation apply to these steps as well.
-In this chapter, we will demonstrate how to create a dataset representing the experimental design of the simulation, how to execute a simulation driver across multiple scenarios, and how to organize results for synthesis. 
+For all of these steps we focus on __full factorial__ designed experiments, a common design used in Monte Carlo simulation.
+In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor.
+Before we dig into that, we start with a simpler case of a single-factor simulation, where we vary only one factor across multiple levels. Even this simple, single-factor design is enough to illustrate the basic principles of systematic simulation and to present some core elements of the underlying code.
+
 
 ## Simulating across levels of a single factor
 
-Even if we are only using simulation in an ad hoc, exploratory way, we will often be interested in examining the performance of a model or estimation method in more than one scenario.
-We have already seen examples of this in Chapter \@ref(t-test-simulation), where we looked at the coverage rate of a confidence interval for the mean of an exponential distribution.
-In Section \@ref(simulating-across-different-scenarios), we applied a simulation driver function across a set of sample sizes ranging from 10 to 300, finding that the coverage rate improves towards the desired level as sample size increases.
-Simple forms of systematic exploration such as this are useful in many situations.
-For instance, when using Monte Carlo\index{Monte Carlo simulation} simulation for study planning, we might examine simulated power over a range of the target parameter to identify the smallest parameter for power is above a desired level.
-If we are using simulation simply to study an unfamiliar model, we might vary a key parameter over a wide range to see how the performance of an estimator changes.
-These forms of exploration can be understood as single-factor simulations.
+Even if we are only using simulation in an ad hoc, exploratory way, we will often be interested in examining how something changes as we change some feature of interest.
+For example, in Chapter \@ref(t-test-simulation), we looked at how the coverage rate of a confidence interval for the mean of an exponential distribution changed as a function of the sample size.
+To explore this we ran our simulation across a set of sample sizes ranging from 10 to 300, and we found that the coverage rate improved towards the desired level as sample size increases.
 
-To demonstrate a single-factor simulation, we revisit the case study on heteroskedastic analysis of variance, as studied by @brown1974SmallSampleBehavior and developed in Chapter \@ref(case-ANOVA).
-Suppose that we want to understand how the power of Welch's test varies as a function of the maximum distance between group means.\index{example!heteroskedastic ANOVA (Welch)}
-The data-generating function `generate_ANOVA_data()` that we developed previously was set up to take a vector of means per group, so we re-parameterize the function to define the group means based on the maximum difference (`max_diff`), under the assumption that the means are equally spaced between zero and the maximum difference.
-We will also re-parameterize the function in terms of the total sample size and the fraction of observations allocated to each group.
+Simple forms of systematic exploration such as this are useful in many situations.
+For instance, when using Monte Carlo simulation for study planning, we might examine simulated power over a range of the target parameter to identify the smallest parameter that provides power above a desired level.
+If we are using simulation simply to study an unfamiliar model, we might vary a key parameter over a wide range to see how the performance of an estimator changes.
+These forms of exploration are single-factor simulations\index{single factor simulation}.
+
+To demonstrate, we revisit the case study on heteroskedastic analysis of variance, as studied by @brown1974SmallSampleBehavior and developed in Chapter \@ref(case-ANOVA).\index{example!heteroskedastic ANOVA (Welch)}
+Our goal is to understand how the power of Welch's test varies as a function of the maximum distance between group means.
+
+We do this in four steps:
+
+ 1) Make a function to run a single scenario
+ 2) Make a table of all the scenarios we want to run
+ 3) Run our single-scenario function for each scenario on the table.
+ 4) Analyze the results (with a plot)
+ 
+### Making a function to run a single scenario
+
+Back in Chapter \@ref(case-ANOVA), before we knew much, we developed a function, `generate_ANOVA_data()`, to generate data for a heteroskedastic ANOVA scenario, and a function, `ANOVA_Welch_F()`, to analyze the resulting data.
+We then built our simulation and analysis by hand.
+Before we move on to multiple scenarios let us clean this work up, and write a simulation driver to run a simulation and give results as a single call.
+
+`generate_ANOVA_data()` takes an arbitrary vector of means per group.
+Our goal is, however, to have a single "knob" that we can turn to increase the spread of groups in the generated data.
+To do this, we will rewrite our function to take a single value, maximum difference (`max_diff`).
+Inside our new function we will generate group means that are equally spaced between zero and this value.
+We will also re-parameterize the function in terms of the total sample size (`N`) and the fraction of observations allocated to each group (`allocation`) to make calling it simpler.
+
 The revised function is 
 ```{r}
 generate_ANOVA_new <- function(
-  G, max_diff, sigma_sq = 1, N = 20, allocation = "equal"
-) {
+  G, max_diff, sigma_sq = 1, N = 20, allocation = "equal" ) {
   
   mu <- seq(0, max_diff, length.out = G)
   if (identical(allocation, "equal")) {
     allocation <- rep(1 / G, times = G) 
   } else {
     allocation <- rep(allocation, length.out = G)
+    allocation <- allocation / sum(allocation)
   }
   
   N_g <- round(N * allocation)  
+  sigma <- rep(sqrt(sigma_sq), length.out = G)
   
   group <- factor(rep(1:G, times = N_g))
   mu_long <- rep(mu, times = N_g)
-  sigma_long <- rep(rep(sqrt(sigma_sq), length.out = G), times = N_g)
+  sigma_long <- rep(sigma, times = N_g)
   
   x <- rnorm(N, mean = mu_long, sd = sigma_long)
   sim_data <- tibble(group = group, x = x)
@@ -93,25 +120,78 @@ generate_ANOVA_new <- function(
   return(sim_data)
 }
 ```
-Now we can create a simulation driver by combining this new data-generating function with the data-analysis function we created in Section \@ref(ANOVA-hypothesis-testing-function):
+
+We next create an initial simulation driver by combining `generate_ANOVA_new()` with the data-analysis function we created in Section \@ref(ANOVA-hypothesis-testing-function):
 ```{r}
-sim_ANOVA <- bundle_sim(f_generate = generate_ANOVA_new, f_analyze = ANOVA_Welch_F)
+sim_ANOVA <- bundle_sim(f_generate = generate_ANOVA_new, 
+                        f_analyze = ANOVA_Welch_F)
 ```
-To compute power, we generate a set of simulated $p$ values and then summarize the rejection rate of the Welch test at $\alpha$ levels of .01 and .05:
+Our simulation driver does not give us final performance, however, just the raw results:
 ```{r}
-sim_ANOVA(100, G = 4, max_diff = 0.5, sigma_sq = c(1, 2, 2, 3), N = 40) |>
-  calc_rejection(p_values = Welch, alpha = c(.01, .05))
+sims <- sim_ANOVA( 100, G = 4, max_diff = 1, 
+           sigma_sq = c(1, 2, 2, 3), N = 40 )
+sims
 ```
-Now we can apply this process for several different scenarios with different values of `mu1`.
+Using what we learned in Chapter \@ref(performance-measures), we can calculate power as so:
+```{r}
+calc_rejection(sims, p_values = Welch, alpha = c(.01, .05))
+```
+
+We want power for both the Welch test and the conventional ANOVA $F$ test, so we can compare them, so we write a small function to generate a table of power levels for both tests across the alpha levels we are interested in.
+So we can easily incorporate it into our pipeline, our function takes a set of simulation results as input and provide a dataset of performance measures as output:
+```{r}
+summarize_power <- function(data, alpha = c(.01,.05)) {
+  ANOVA <- calc_rejection(data, p_values = ANOVA, alpha = alpha,
+                          format = "long")
+  Welch <- calc_rejection(data, p_values = Welch, alpha = alpha, 
+                          format = "long")
+  bind_rows(
+    ANOVA = ANOVA, 
+    Welch = Welch,
+    .id = "test"
+  )
+} 
+```
+
+We get back a nice tibble of results when we use it:
+```{r}
+summarize_power( sims )
+```
+
+Our next step is to wrap all of the above into a single call.
+The `bundle_sim()` function from `simhelpers` will actually create such a function for us, combining a performance calculation function along with the data-generating and data-analysis functions.\index{bundle\_sim()}\index{package!simhelpers}
+In particular, the `bundle_sim()` function will take any summarizing function that takes in a set of simulation results and gives back a table of performance measures, which is just what `summarize_power()` does.
+Witness!
+
+```{r}
+sim_ANOVA <- bundle_sim(
+  f_generate = generate_ANOVA_new, 
+  f_analyze = ANOVA_Welch_F,
+  f_summarize = summarize_power
+)
+sim_ANOVA(  100, G = 4, max_diff = 1, 
+  sigma_sq = c(1, 2, 2, 3), N = 40, 
+  alpha = c(.01, .05) )
+```
+
+Now we can apply our simulation driver to several different scenarios with different values of `max_diff`.
+
+
+### Making a table of scenarios to run
 
 Following the principles of tidy simulation, it is useful to represent the design of a systematic simulation as a dataset with a row for each scenario to be considered. 
 For a single-factor simulation, the experimental design consists of a dataset with just a single variable: 
 ```{r}
-Welch_design <- tibble(max_diff = seq(0, 0.8, 0.1))
+Welch_design <- tibble(max_diff = seq(0, 2, 0.2))
 str(Welch_design)
 ```
-To compute simulation results for each of these scenarios, we can use the `map()` function from `purrr()`.
-This function takes a list of values as the input, then calls a function on each value.
+
+For a single factor simulation, making our schedule of simulations to run is easy. This step will get more involved with multi-factor simulations, below.
+
+### Running the simulation across scenarios
+
+To compute simulation results for each scenario on our list, we can use the `map()` function from the `purrr` package.
+`map()` takes a list of values as the input, then calls a function on each value.
 Our `sim_ANOVA()` function has several further arguments that need to be specified.
 Because these will be the same for every value of `max_diff`, we can include them as additional arguments in `map()`, and they will be used every time `sim_ANOVA()` is called.
 Here is one way to code this:
@@ -119,8 +199,9 @@ Here is one way to code this:
 Welch_results <- 
   Welch_design %>%
   mutate(
-    pvals = map(max_diff, sim_ANOVA, reps = 100, G = 4, 
-                sigma_sq = c(1, 2, 2, 3), N = 40)
+    pvals = map(max_diff, sim_ANOVA, reps = 100, 
+                G = 4, sigma_sq = c(1, 2, 2, 3),
+                N = 40)
   )
 ```
 Another way to accomplish the same thing is to specify an anonymous function (also called a lambda) in the `map()` call.
@@ -129,64 +210,62 @@ This syntax makes it clearer that the additional arguments are getting called in
 Welch_results <- 
   Welch_design %>%
   mutate(
-    pvals = map(max_diff, ~ sim_ANOVA(100, G = 4, max_diff = .x, 
-                                      sigma_sq = c(1, 2, 2, 3), 
+    pvals = map(max_diff, ~ sim_ANOVA(100, max_diff = .x, 
+                                      G = 4, sigma_sq = c(1, 2, 2, 3), 
                                       N = 40))
   )
 ```
-In the resulting dataset, the `pvals` variable is a list, with each entry consisting of a tibble of simulated p-values. 
-Using the `unnest()` function simplies the structure of the results, making it easier to do performance calculations:
+In the resulting dataset, the `pvals` variable is a list, with each entry consisting of a tibble of our results:
+
 ```{r}
-Welch_results_long <- Welch_results %>% unnest(pvals)
-```
-The resulting dataset has `r nrow(Welch_results_long)` rows, consisting of `r nrow(Welch_results_long) / nrow(Welch_design)` replications for each of `r nrow(Welch_design)` scenarios.
-To compute power levels, we use `calc_rejection()` after grouping the results by scenario:
-```{r}
-Welch_power <- 
-  Welch_results_long %>% 
-  group_by(max_diff) %>%
-  summarize(
-    calc_rejection(p_values = Welch, alpha = c(.01,.05))
-  )
-
-Welch_power
-```
-The power levels are quite low, with the $\alpha = .05$-level tests reaching a maximum power of `r round(max(Welch_power$rej_rate_05),2)` when `max_diff` is `r round(max(Welch_power$max_diff),2)`.
-The lower power levels max sense here because we are looking at a scenario with a very small sample size of just 10 observations per group.
-
-### A performance summary function
-
-These performance calculations focus only on the results for the Welch test, when we might be interested in comparing Welch's test to the conventional ANOVA $F$. 
-One way to carry out the performance calculations for both measures is to write a small function that encapsulates the performance calculations, then use it in place of `calc_rejection()`. 
-The function should take a set of simulation results as input and provide a dataset of performance measures as output.
-Here is one possible implementation, which uses `map()` to apply the performance calculations to each set of simulated p-values:
-```{r}
-summarize_power <- function(data, alpha = c(.01,.05)) {
-  ANOVA <- calc_rejection(data, p_values = ANOVA, alpha = alpha, format = "long")
-  Welch <- calc_rejection(data, p_values = Welch, alpha = alpha, format = "long")
-  bind_rows(
-    ANOVA = ANOVA, 
-    Welch = Welch,
-    .id = "test"
-  )
-} 
-
-power_levels <- 
-  Welch_results %>%
-  mutate(
-    power = map(pvals, summarize_power, alpha = c(.01, .05))
-  ) %>%
-  dplyr::select(-pvals) %>%
-  unnest(power)
-
-power_levels
+Welch_results
 ```
 
-### Adding performance calculations to the simulation driver
+The above code and output may look a bit peculiar: we are storing a set of dataframes (our result) in our original dataframe as a new "variable."
+This is actually ok in R: our results will be in what is called a __list-column__,\index{list columns} where each element in our list column is the set of simulation results for the given scenario.
+For instance, if we want to examine the results from the third scenario, we can pull it out as follows:
+
+```{r}
+Welch_results$pvals[[3]]
+```
+
+### Analyzing the results
+List columns are neat, but hard to work with.
+To turn the list-column into normal data, we can use `unnest()` to expand the `pvals` variable, replicating the values of the main variables once for each row in the nested dataset:
+
+```{r}
+Welch_results_long <- unnest(Welch_results, cols = pvals)
+Welch_results_long
+```
+
+The final dataset has `r nrow(Welch_results_long)` rows, consisting of `r nrow(Welch_results_long) / nrow(Welch_design)` different result rows for each of `r nrow(Welch_design)` scenarios.
+The results are also organized in a way that facilitates visualization of the power levels:
+
+```{r hetero-ANOVA-power, fig.width = 7, fig.height = 3.5, out.width = "100%"}
+
+ggplot(Welch_results_long) + 
+  aes(max_diff, rej_rate, color = test) + 
+  geom_point() + geom_line() + 
+  scale_y_continuous(limits = c(0, NA), expand = expansion(0,c(0,0.01))) + 
+  facet_wrap(~ alpha, labeller = label_bquote(alpha == .(alpha))) + 
+  labs(x = "Maximum mean difference", y = "Power") + 
+  theme_minimal() + 
+  theme(legend.position  ="inside", legend.position.inside = c(0.08,0.85))
+```
+
+Under the conditions examined here, both tests appear to have similar power.
+<!--At the .05 $\alpha$ level, the power of the Welch test is nearly identical to that of the ANOVA $F$ test. -->
+<!--When the groups are closer together, there may be a discrepancy between the two methods, but the apparent difference might be attributable to Monte Carlo error.-->
+Although the tests appear to work similarly here, these results are based on a very specific set of conditions, including equally sized groups and a specific configuration of within-group variances.
+A natural further question is whether this pattern holds under other configurations of sample allocations, total sample size, or within-group variances.
+These questions can be examined by expanding the simulation design to further scenarios.
+
+<!--
+
+MORE ON BUNDLE SIM: Fold in later?
 
 Now that we have a function for carrying out the performance calculations, we could consider incorporating this step into the simulation driver function. 
 That way, we can call the simulation driver function with a set of parameter values and it will return a table of performance summaries.
-The `bundle_sim()` function from `simhelpers` will create such a function for us, by combining a performance calculation function with the data-generating and data-analysis functions:\index{example!heteroskedastic ANOVA (Welch)}\index{bundle\_sim()}\index{package!simhelpers}
 
 ```{r}
 sim_ANOVA_full <- bundle_sim(
@@ -197,7 +276,8 @@ sim_ANOVA_full <- bundle_sim(
 
 args(sim_ANOVA_full)
 ```
-The resulting function includes an input argument that controls which alpha levels to use in the rejection rate calculations.
+The resulting function inherits any additional from the components.
+In our case, this means it inherited the input argument controlling which alpha levels to use in the rejection rate calculations.
 The bundled simulation driver also includes an additional option called `summarize`, which allows the user to control whether to apply the performance calculation function to the simulation output.
 The default value of `TRUE` means that calling the function will compute rejection rates:
 ```{r}
@@ -230,37 +310,32 @@ power_levels <-
   ) %>%
   unnest(res)
 ```
+-->
 
-The results are organized in a way that facilitates visualization of the power levels:
 
-```{r hetero-ANOVA-power, fig.width = 7, fig.height = 3.5, out.width = "100%"}
+## Simulating across multiple factors {#simulating-across-multiple-factors}
 
-ggplot(power_levels) + 
-  aes(max_diff, rej_rate, color = test) + 
-  geom_point() + geom_line() + 
-  scale_y_continuous(limits = c(0, NA), expand = expansion(0,c(0,0.01))) + 
-  facet_wrap(~ alpha, scales = "free", labeller = label_bquote(alpha == .(alpha))) + 
-  labs(x = "Maximum mean difference", y = "Power") + 
-  theme_minimal() + 
-  theme(legend.position  ="inside", legend.position.inside = c(0.08,0.85))
-```
+We just wrote a simulation to systematically explore a range of values for a single factor.
+We next consider systematically exploring multiple factors together.
 
-Under the conditions examined here, both tests appear to have similar power.
-At the .05 $\alpha$ level, the power of the Welch test is nearly identical to that of the ANOVA $F$ test. 
-At the .01 $\alpha$ level, there may be a discrepancy at when `max_diff` is 0.8, but the apparent difference might be attributable to Monte Carlo error.
-Although the tests appear to work similarly here, these results are based on a very specific set of conditions, including equally sized groups and a specific configuration of within-group variances.
-A natural further question is whether this pattern holds under other configurations of sample allocations, total sample size, or within-group variances.
-These questions can be examined by expanding the simulation design to further scenarios.
+For this example, recall our simulation study examining the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution.
+We first examined this data-generating model in Section \@ref(BVPois-example), implementing it in the function `r_bivariate_Poisson()`.
+The model has three parameters (the means of each variate, $\mu_1, \mu_2$ and the correlation $\rho$) and there is one design parameter (sample size, $N$). 
+Thus, we could in principle examine up to four factors: $\mu_1, \mu_2, \rho$, and $N$.\index{example!bivariate Poisson}
 
-## Simulating across multiple factors
+As a first pass, we might consider the following values:
+* the sample size, with values of $N = 10, 20$, or $30$
+* the mean of the first variate, with values of $\mu_1 = 4, 8$, or $12$
+* the mean of the second variate, with values of $\mu_2 = 4, 8$, or $12$
+* the true correlation, with values ranging from $\rho = 0.0$ to $0.7$ in steps of $0.1$
 
-Consider a simulation study\index{simulation study} examining the performance of confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution. 
-We examined this data-generating model in Section \@ref(BVPois-example), implementing it in the function `r_bivariate_Poisson()`. The model has three parameters (the means of each variate, $\mu_1, \mu_2$ and the correlation $\rho$) and there is one design parameter (sample size, $N$). 
-Thus, we could in principle examine up to four factors.\index{example!bivariate Poisson}
+All combinations of our set of factors gives a $3 \times 3 \times 3 \times 8$ factorial design, where each element is the number of levels for that factor.
+We call this design a four-factor experiment, because we have four different things we are varying.
 
-Using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
+That said, using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
 It is useful to re-parameterize to reduce redundancy and simplify things.
-We will therefore define the simulation conditions by always treating $\mu_1$ as the larger variate and by specifying the ratio of the smaller to the larger mean as $\lambda = \mu_2 / \mu_1$.
+We will therefore restrict our simulation conditions and always have $\mu_1$ as the larger variate.
+We can then reparameterize our factors, and specify the ratio of the smaller to the larger mean as $\lambda = \mu_2 / \mu_1$.
 We might then examine the following factors:
 
 * the sample size, with values of $N = 10, 20$, or $30$
@@ -268,7 +343,7 @@ We might then examine the following factors:
 * the ratio of means, with values of $\lambda = 0.5$ or $1.0$.
 * the true correlation, with values ranging from $\rho = 0.0$ to $0.7$ in steps of $0.1$
 
-The above parameters describe a $3 \times 3 \times 2 \times 8$ factorial design, where each element is the number of levels for that factor. This is a four-factor experiment, because we have four different things we are varying.
+We now have a $3 \times 3 \times 2 \times 8$ factorial design.
 
 To implement this design in code, we first save the simulation parameters as a list with one entry per factor, where each entry consists of the levels that we would like to explore.
 We will run a simulation for every possible combination of these values.
@@ -310,51 +385,53 @@ Conceptually, each row of our `params` dataset represents a single simulation sc
 We would thus call our simulation function, using all the values in that row as parameters to pass to the function.
 
 One way to call a function on each row of a dataset in this manner is by using `pmap()` from the `purrr` package.
-`pmap()` marches down a set of lists, running a function on each $p$-tuple of elements, taking the $i^{th}$ element from each list for iteration $i$, and passing them as parameters to the specified function.
+`pmap()`, an extension of the `map()` function from above, marches down a set of lists, running a function on each $p$-tuple of elements, taking the $i^{th}$ element from each list for iteration $i$, and passing them as parameters to the specified function.
 `pmap()` then returns the results of this sequence of function calls as a list of results.[^pmap-variants]
-Because R's `data.frame` objects are also sets of lists (where each variable is a vector, which is a simple form of list), `pmap()` also works seemlessly on `data.frame` or `tibble` objects.
+Because R's `data.frame` objects are also sets of lists (where each variable is a vector, which is a simple form of list), `pmap()` also works seamlessly on `data.frame` or `tibble` objects.
 
 [^pmap-variants]: Just like `map()` or `map2()`, `pmap()` has variants such as `_dbl` or `_dfr`.
 These variants automatically stack or convert the list of things returned into a tidier collection (for `_dbl` it will convert to a vector of numbers, for `_dfr` it will stack the results to make a large tibble, assuming each returned item is a little tibble).
 
 Here is a small illustration of `pmap()` in action:
 ```{r}
-
 some_function <- function( a, b, theta, scale ) {
     scale * (a + theta*(b-a))
 }
 
 args_data <- tibble( a = 1:3, b = 5:7, theta = c(0.2, 0.3, 0.7) )
-purrr::pmap( args_data, .f = some_function, scale = 10 )
+purrr::pmap_dbl( args_data, .f = some_function, scale = 10 )
 ```
 
 One important constraint of `pmap()` is that the variable names over which to iterate over must correspond _exactly_ to arguments of the function to be evaluated.
 In the above example, `args_data` must have column names that correspond to the arguments of `some_function`.
-For functions with additional arguments that are not manipulated, extra parameters can be passed after the function name (as in the `scale` argument in this example). 
-These will also be passed to each function call, but will be the same for all calls.
+For functions with additional arguments that are not manipulated, extra parameters can be passed after the function name, just as with `map()` (as in the `scale` argument in this example). 
+Extra arguments will be passed to each function call, and be the same for all calls.
 
-Let's now implement this technique for our simulation of confidence intervals for Pearson's correlation coefficient.
-In Section \@ref(estimation-functions), we developed a function called `r_and_z()` for computing confidence intervals for Pearson's correlation using Fisher's $z$ transformation;
-then in Section \@ref(assessing-confidence-intervals), we wrote a function called `evaluate_CIs()` for evaluating confidence interval coverage and average width. 
-We can bundle `r_bivariate_Poisson()`, `r_and_z()`, and `evaluate_CIs()` into a simulation driver function by taking
+We use the core idea of `pmap()`---call a function for each row of a dataset---to run our simulation for each row of our schedule of scenarios.
+Analogous to the single-factor approach, we first make a driver to run a single scenario, and then use `pmap()` to run this driver for each row of `params`.
+
+### Making a function to run a single scenario
+
+We again use `bundle_sim()` as we did for the single-factor simulation.
+In Section \@ref(estimation-functions), we developed a function called `r_and_z()` for computing confidence intervals for Pearson's correlation using Fisher's $z$ transformation, and in Section \@ref(assessing-confidence-intervals), we wrote a function called `evaluate_CIs()` for evaluating confidence interval coverage and average width. 
+Bundle `r_bivariate_Poisson()`, `r_and_z()`, and `evaluate_CIs()` into a simulation driver as follows:
 ```{r}
-library(simhelpers)
-
 Pearson_sim <- bundle_sim(
-  f_generate = r_bivariate_Poisson, f_analyze = r_and_z, f_summarize = evaluate_CIs
+  f_generate = r_bivariate_Poisson, f_analyze = r_and_z,
+  f_summarize = evaluate_CIs
 )
 args(Pearson_sim)
 ```
-This function will run a simulation for a given scenario:
+
+`Pearson_sim()` will run a simulation for any given scenario:
 ```{r}
 Pearson_sim(1000, N = 10, mu1 = 5, mu2 = 5, rho = 0.3)
 ```
 
-In order to call `Pearson_sim()`, we will need to ensure that the columns of the `params` dataset correspond to the arguments of the function.
-Because we re-parameterized the model in terms of $\lambda$, we will first need to compute the parameter value for $\mu_2$ and remove the `lambda` variable because it is not an argument of `Pearson_sim()`:
+In order to call `Pearson_sim()` with `pmap()`, we need to ensure that each column of `params` exactly corresponds to an argument in `Pearson_sim()`.
+In particular, because we re-parameterized the model in terms of $\lambda$, we will need to compute the parameter value for $\mu_2$ and remove the `lambda` variable as it is not an argument of `Pearson_sim()`:
 ```{r}
-params_mod <- 
-  params %>%
+params_mod <- params %>%
   mutate(mu2 = mu1 * lambda) %>%
   dplyr::select(-lambda)
 ```
@@ -383,32 +460,11 @@ if ( !file.exists( "results/Pearson_Poisson_results.rds" ) ) {
 ```{r run-Pearson-sims, eval = FALSE}
 sim_results <- params
 sim_results$res <- pmap(params_mod, Pearson_sim, reps = 1000 )
+unnest( sim_results, cols ="res" ) %>%
+  dplyr::select( -K_coverage, -coverage_mcse, -width_mcse )
 ```
 
-The above code calls our `run_alpha_sim()` method for each row in the list of scenarios we want to explore.
-Conveniently, we can store the results as a new variable in the same dataset.
-
-```{r}
-sim_results
-```
-
-The above code may look a bit peculiar: we are storing a set of dataframes (our result) in our original dataframe.
-This is actually ok in R: our results will be in what is called a __list-column__, where each element in our list column is the little summary of our simulation results for that scenario.
-For instance, if we want to examine the results from the third scenario, we can pull it out as follows:
-
-```{r}
-sim_results$res[[3]]
-```
-
-List columns are neat, but hard to work with.
-To turn the list-column into normal data, we can use `unnest()` to expand the `res` variable, replicating the values of the main variables once for each row in the nested dataset:
-
-```{r}
-sim_results <- unnest(sim_results, cols = res)
-sim_results
-```
-
-Putting all of this together into a tidy workflow leads to the following:
+We can combine the above into a single pipeline as so:
 
 ```{r, eval = FALSE}
 sim_results <- 
@@ -423,7 +479,7 @@ sim_results <-
   unnest(cols = res)
 ```
 
-As an alternative approach, the `evaluate_by_row()` function from the `simhelpers` package accomplishes the same thing as the `pmap()` calculations inside the `mutate()` step of the above code. Its syntax is a bit more concise:\index{evaluate\_by\_row()}
+As an alternative approach, the `evaluate_by_row()` function from the `simhelpers` package provides the same functionality but with a more direct syntax:\index{evaluate\_by\_row()}
 
 ```{r, eval=FALSE}
 sim_results <- 
@@ -443,6 +499,8 @@ write_rds( sim_results, file = "results/Pearson_Poisson_results.rds" )
 ```
 
 We now have a complete set of simulation results for all of the scenarios we specified.
+
+
 
 ## When to calculate performance metrics
 
@@ -473,15 +531,24 @@ This is especially important if the simulation is time-intensive, such as when t
 The primary disadvantage the outside approach is that it produces large amounts of data that need to be stored and further manipulated.
 Thus, the outside strategy maximizes flexibility, at the cost of increased dataset size.
 
-In our Pearson correlation simulation, we initially followed the inside strategy. To move to the outside strategy, we can set the `summarize` argument of `Pearson_sim()` to `FALSE` so that the simulation driver returns a row for every replication:
+In our Pearson correlation simulation, we initially followed the inside strategy, but the `bundle_sim()` method provides a way to easily move to the outside strategy.
+Consider the arguments for `Pearson_sim()`:
+```{r}
+args(Pearson_sim)
+```
+The added `summarize` argument allows the user to specify whether to calculate performance for each scenario as the simulation runs, or to return the raw results for each replication.
+To move outside, simply set `summarize` to `FALSE`:
 ```{r do_power_sim_full, cache=TRUE}
-Pearson_sim(reps = 4, N = 15, mu1 = 5, mu2 = 5, rho = 0.5, summarize = FALSE)
+Pearson_sim(reps = 4, N = 15, mu1 = 5, mu2 = 5, rho = 0.5, 
+            summarize = FALSE)
 ```
 
-We then save the entire set of estimates, rather than the performance summaries.
-This result file will have $R$ times as many rows as the older file. In practice, these results can quickly get  to be extremely large. 
+By not summarizing as we go, we can save the entire set of estimates, rather than just the performance summaries.
+This result file will have $R$ times as many rows as the older file.
+In practice, these result files can grow extremely large. 
 On the other hand, disk space is cheap.
-Here we run the same experiment as in Section \@ref(using-pmap-to-run-multifactor-simulations), but storing the individual replications instead of just the summarized results:
+
+The following runs the same experiment as in Section \@ref(using-pmap-to-run-multifactor-simulations), but stores the individual replications:
 
 ```{r secret_Pearson_full, include=FALSE}
 # (See below this block for book code)
@@ -503,7 +570,8 @@ if ( !file.exists( "results/Pearson_Poisson_results_full.rds" ) ) {
     ) %>%
     unnest(res)
   
-  write_rds( sim_results_full, file = "results/Pearson_Poisson_results_full.rds" )
+  write_rds( sim_results_full, 
+             file = "results/Pearson_Poisson_results_full.rds" )
 } else {
   sim_results_full <- read_rds("results/Pearson_Poisson_results_full.rds")
 }
@@ -515,11 +583,12 @@ sim_results_full <-
   mutate( mu2 = mu1 * lambda ) %>%
   evaluate_by_row( Pearson_sim, reps = 1000, summarize = FALSE )
 
-write_rds( sim_results_full, file = "results/Pearson_Poisson_results_full.rds" )
+write_rds( sim_results_full, 
+           file = "results/Pearson_Poisson_results_full.rds" )
 ```
 
-We end up with many more rows and a much larger file.
-One small tweak to this workflow will reduce the file size by keeping the results from each replication in a list-column rather than unnesting them. Here we set `nest_results = TRUE` in the call to `evaluate_by_row()`:
+The outside method will result in many more rows of data and a much larger file.
+One small tweak to this workflow is to reduce the file size by keeping the results from each replication in a list-column rather than unnesting them. Here we set `nest_results = TRUE` in the call to `evaluate_by_row()`:
 
 ```{r secret_Pearson_nested, include=FALSE}
 # (See below this block for book code)
@@ -540,7 +609,8 @@ if ( !file.exists( "results/Pearson_Poisson_results_nested.rds" ) ) {
       ) 
     )
   
-  write_rds( sim_results_nested, file = "results/Pearson_Poisson_results_nested.rds" )
+  write_rds( sim_results_nested, 
+             file = "results/Pearson_Poisson_results_nested.rds" )
 } else {
   sim_results_nested <- read_rds("results/Pearson_Poisson_results_nested.rds")
 }
@@ -550,31 +620,36 @@ if ( !file.exists( "results/Pearson_Poisson_results_nested.rds" ) ) {
 sim_results_nested <- 
   params %>%
   mutate( mu2 = mu1 * lambda ) %>%
-  evaluate_by_row( Pearson_sim, reps = 1000, summarize = FALSE, nest_results = TRUE)
+  evaluate_by_row( Pearson_sim, reps = 1000, 
+                   summarize = FALSE, 
+                   nest_results = TRUE )
 
 write_rds( sim_results_nested, file = "results/Pearson_Poisson_results_nested.rds" )
 ```
 
-Here is the number of rows for the outside vs inside approaches:
-```{r}
-c(inside = nrow( sim_results ), outside = nrow( sim_results_full ), nested = nrow( sim_results_nested ))
-```
-
-Here is a comparison of the file sizes on the disk: 
-```{r}
-c(
+Here is a comparison of the three approaches:
+```{r, echo=FALSE}
+res = tibble( 
+  approach = c("inside", "outside", "nested" ),
+  n_rows =
+c(inside = nrow( sim_results ), 
+  outside = nrow( sim_results_full ), 
+  nested = nrow( sim_results_nested )),
+Kb = c(
   inside = file.size("results/Pearson_Poisson_results.rds"),
   outside = file.size("results/Pearson_Poisson_results_full.rds"),
   nested = file.size("results/Pearson_Poisson_results_nested.rds")
-) / 2^10 # Kb
+) / 2^10 ) # Kb
+knitr::kable(res, digits = 0 )
 ```
-The first is several kilobytes, the second and third are several megabytes. If we follow the outside strategy, keeping the results nested reduces the file size by around `r round(100 * (1 - file.size("results/Pearson_Poisson_results_nested.rds") / file.size("results/Pearson_Poisson_results_full.rds")))`%.
+Storing just the results takes only a few kilobytes, but the raw results take  several megabytes, a big difference.
+If we follow the outside strategy, keeping the results nested reduces the file size by around `r round(100 * (1 - file.size("results/Pearson_Poisson_results_nested.rds") / file.size("results/Pearson_Poisson_results_full.rds")))`%.
 
-### Getting raw results ready for analysis
 
-If we generate raw results, we then need to do the performance calculations across replications within each simulation context so that we can explore the trends across simulation factors.
+### Getting the "outside" results ready for analysis
 
-One way to do this is to use `group_by()` and `summarize()` to carry out the performance calculations on the unnested simulation results:
+If we generate raw results using the "outside" approach, we will then need to do the performance calculations across replications within each simulation context.
+One way to do this is to use `group_by()` and `summarize()` to carry out the performance calculations all at once across the full unnested simulation results:
 ```{r}
 sim_results_full %>%
   group_by( N, mu1, mu2, rho ) %>%
@@ -610,7 +685,7 @@ We have built our final performance table _after_ running the entire simulation,
 
 [^use-nested]: Alternately, we could store the results in nested form (as in `sim_results_nested`), so that the `group_by()` and `nest()` steps are unnecessary.
 
-Now, if we want to add a performance metric, we can simply change `evaluate_CIs` and recalculate, without having to recompute the entire simulation.
+With the "outside" approach, it is easy to add a performance metric without having to recompute the entire simulation: simply change `evaluate_CIs` and recalculate.
 Summarizing during the simulation vs. after, as we just did, leads to the same set of results.^[In fact, if we use the same seed, we should obtain _exactly_ the same results.]
 Allowing yourself the flexibility to re-calculate performance measures can be very advantageous, and we tend to follow this outside strategy for any simulations involving more complex estimation procedures.
 
@@ -701,12 +776,6 @@ Exercise \@ref(BVNB2) introduced a bivariate negative binomial model and asked y
 
 4. Create a graph or graphs that depict the bias and RMSE of each correlation as a function of $\rho$ and any other key parameters. 
 
-### Meta-regression {#exercise:multifactor-meta-regression}
-\index{example!meta-regression}
-
-Exercise \@ref(meta-regression-DGP\index{data-generating process}) described the random effects meta-regression model. 
-List the focal, auxiliary, and structural parameters of this model, and propose a set of design factors to use in a multifactor simulation of the model.
-Create a list with one entry per factor, then create a dataset with one row for each simulation context that you propose to evaluate.
 
 ### Examine a multifactor simulation design {#exercise:examine-a-multifactor-simulation-design}
 
@@ -715,4 +784,4 @@ Write code to create a parameter grid for the scenarios examined in the study.
 Write a few sentences explaining the overall design of the simulation study.
 Summarize any justification that the authors provided for the choice of parameter values examined.
 
-[^journals]: Journals that regularly publish methodological simulation studies include [Psychological Methods](https://www.apa.org/pubs/journals/met), [Psychometrika](https://link-springer-com.ezproxy.library.wisc.edu/journal/11336), [Journal of Educational and Behavioral Statistics](https://journals-sagepub-com.ezproxy.library.wisc.edu/home/jeb), [Multivariate Behavioral Research](https://www-tandfonline-com.ezproxy.library.wisc.edu/journals/hmbr20), [Behavior Research Methods](https://link.springer.com/journal/13428), [Research Synthesis Methods](https://www.cambridge.org/core/journals/research-synthesis-methods), and [Statistics in Medicine](https://onlinelibrary-wiley-com.ezproxy.library.wisc.edu/journal/10970258).
+[^journals]: Some journals that regularly publish methodological simulation studies include [Psychological Methods](https://www.apa.org/pubs/journals/met), [Psychometrika](https://link-springer-com.ezproxy.library.wisc.edu/journal/11336), [Journal of Educational and Behavioral Statistics](https://journals-sagepub-com.ezproxy.library.wisc.edu/home/jeb), [Multivariate Behavioral Research](https://www-tandfonline-com.ezproxy.library.wisc.edu/journals/hmbr20), [Behavior Research Methods](https://link.springer.com/journal/13428), [Research Synthesis Methods](https://www.cambridge.org/core/journals/research-synthesis-methods), and [Statistics in Medicine](https://onlinelibrary-wiley-com.ezproxy.library.wisc.edu/journal/10970258).

@@ -177,26 +177,6 @@ We have not modified `gen_cluster_RCT()` at all: instead, we specify the paramet
 
 We can then wrap both the reparameterization and replication into a function that runs an entire simulation:
 
-```{r secret_run_cluster_rand_sim, include=FALSE}
-R <- 1000
-ATE <- 0.30
-source( here::here( "case_study_code/clustered_data_simulation.R" ) )
-if ( !file.exists("results/cluster_RCT_simulation.rds") ) {
-  tictoc::tic()  # Start the clock!
-  set.seed( 40404 )
-  run_CRT_sim( reps = 1000, 
-               n_bar = 30, J = 20, 
-               ATE = 0.3, ICC = 0.2, 
-               size_coef = 0.5, alpha = 0.5 )
-  
-  tictoc::toc()
-  
-  saveRDS( runs, file = "results/cluster_RCT_simulation.rds" ) 
-} else {
-  runs <- readRDS( file = "results/cluster_RCT_simulation.rds" ) 
-}
-```
-
 ```{r}
 run_CRT_sim <- function( reps, 
                          n_bar = 10, J = 30, p = 0.5,
@@ -218,12 +198,39 @@ run_CRT_sim <- function( reps,
 
 Using it is then quite simple:
 ```{r, eval = FALSE}
-run_CRT_sim( reps = 1000, 
+runs <- run_CRT_sim( reps = 1000, 
              n_bar = 30, J = 20, 
              ATE = 0.3, ICC = 0.2, 
-             size_coef = 0.5, alpha = 0.5 )
+             size_coef = 0.5, alpha = 0.75 )
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
+
+
+```{r secret_run_cluster_rand_sim, include=FALSE}
+R <- 1000
+ATE <- 0.30
+source( here::here( "case_study_code/clustered_data_simulation.R" ) )
+if ( !file.exists("results/cluster_RCT_simulation.rds") ) {
+  tictoc::tic()  # Start the clock!
+  set.seed( 40404 )
+  runs <- run_CRT_sim( reps = 1000, 
+               n_bar = 30, J = 20, 
+               ATE = 0.3, ICC = 0.2, 
+               size_coef = 0.5, alpha = 0.75 )
+  
+  tictoc::toc()
+  
+  runs %>% group_by( method ) %>%
+    summarize( mean_est = mean( ATE_hat ), 
+               sd_est = sd( ATE_hat ), 
+               mean_se = mean( ATE_hat ) )
+  
+  saveRDS( runs, file = "results/cluster_RCT_simulation.rds" ) 
+} else {
+  runs <- readRDS( file = "results/cluster_RCT_simulation.rds" ) 
+}
+```
+
 
 Our simulation function is specified with easy-to-interpret parameters (`ATE`, `ICC`) rather than the raw variance components.
 It runs simulations in effect size units, and provides "knobs" to the simulation that are directly interpretable.

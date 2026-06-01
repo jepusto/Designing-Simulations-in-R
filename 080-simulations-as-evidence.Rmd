@@ -1,5 +1,4 @@
 
-
 # Simulations as evidence
 
 ```{r, include=FALSE}
@@ -109,9 +108,9 @@ We might then then simulate study sizes using a Poisson with mean parameters of 
 
 ### Resample real data directly to get authentic distributions
 
-You can also use real data directly to avoid a parametric model entirely.
+You can use real data directly in your simulation.
 For example, say you need a population distribution for a slew of covariates.
-Rather than using something artificial (such as a multivariate normal), you can pull population data on a bunch of covariates from some administrative data and then use those data as a population distribution.
+Rather than using something artificial (such as a multivariate normal), you can pull population data on a collection of covariates from some administrative data and then use those data as a population distribution.
 You then sample (probably with replacement) rows from your reference population to generate your simulation sample.
 
 The appeal here is that your covariates will then have distributions that are much more authentic than some multivariate normal--they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.
@@ -121,9 +120,18 @@ They wanted to explore how well these standard errors worked in practice, with a
 Leverage is purely a function of the covariate distribution, so they needed to have an authentic covariate distribution in order to properly explore this issue.
 Generating realistic leverage is hard to do with a parametric model, so instead they used examples from real life to make the simulation more relevant.
 
+Resampling the real data, and then adding an outcome model on top of that, is a form of **semi-synthetic**\index{semi-synthetic simulation} simulation, to acknowledge the hybrid approach, or **plasmode simulation**\index{plasmode simulation}, which has ties to electronic health records research.
+These approaches are often used in causal inference work, where investigators attempt to determine which of the many observational study tools might work best, and when.
+This context is particularly hard because even with real data in hand, there is no observed ground truth as to what the actual treatment effects are; everything must be estimated.
 
+A key advantage of a semi-synthetic or plasmode approaches is that they can naturally adapt to contexts, such as electronic health records research, where covariate spaces can be extraordinarily high-dimensional, with complex dependence structures that purely parametric
+simulation cannot plausibly reproduce [@franklin2014plasmode].
+By simply bootstrapping the covariates from the raw data, all the dependencies are preserved.
+A design question, if working in a causal inference framework, is then whether any treatment indicator should be included along with the covariates or generated independently; see, e.g., @shaw2025cautionary, who argue that sampling the treatment can cause estimators to appear spuriously biased in some cases.
 
-### Build a fully calibrated simulation {#calibrated-simulations}
+<!-- LWM: Is this section and the next really the same thing?  It feels like the structure of this chapter is not quite right. -->
+
+### Build a calibrated simulation {#calibrated-simulations}
 
 Extending some of the prior ideas even further, one practice in increasing vogue is to generate _calibrated simulations_.
 See @Kern2014calibrated for an example of this in the context of generalizing experiments.
@@ -139,9 +147,10 @@ We can thus still build more general evidence, but the evidence will always be a
 We usually would build a calibrated simulation out of existing data.
 As discussed in the prior section, we might start with sampling from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.
 
-But this is not far enough.
-We also need to generate a realistic relationship between our covariates and outcome to truly assess how well the estimators work in practice.
-It is very easy to accidentally put a very simple model in place for this final component, thus making a calibrated simulation quite naive in, perhaps, the very way that counts.
+
+Just putting a model on top of a real dataset does not necessarily achieve true calibration.
+The relationship between our covariates and outcome would need to, even if it is model dependent, be realistic in order to truly assess how well the estimators work in practice.
+It is very easy to accidentally put a very simple model in place for this final component, thus making a calibrated simulation that is quite naive in, perhaps, the very way that counts.
 
 One approach to get a more realistic model between covariates and outcomes is to fit a flexible model to the original data, and then use the model to predict outcomes from the covariates.
 One would then generate residuals to add to the predictions, ideally in a way that preserves the heteroscedasticity and overall outcome distribution of the original data.
@@ -151,6 +160,34 @@ We do not say this is the only approach, but rather one of a large range of poss
 Clearly, these calibration games can be fairly complex.
 Calibrated simulations frequently do not lend themselves to a clear factor-based structure that have levers that change targeted aspects of the data generating process (although sometimes you can craft your approach to make such levers possible).
 In exchange for this loss of clean structure, we end up with a simulation that might be more faithfully capturing aspects of a specific context, making our simulations more relevant to answering the narrower question of "how will things work here?" even if they are less relevant for answering the question of "how will things work generally?"
+
+
+
+
+<!--
+This could be true--generated by Claude, but not to be trusted:
+The term was introduced by @cattell1967integration to describe a dataset whose
+values were known to conform to a specified mathematical model, and was
+subsequently revived and formalized in the statistical literature
+[@vaughan2009plasmodes; @franklin2014plasmode]. 
+
+-->
+
+
+Semi-synthetic approaches occupy the middle ground between purely synthetic
+simulation (where every variable is fabricated from pre-specified distributions
+and the data bear no necessary resemblance to any real population) and fully
+empirical analysis (where ground truth treatment effects may be unobservable, making evaluation of an estimator difficult).
+
+One canonical motivation for a semi-synthetic approach is the fundamental problem of causal inference: because we never observe counterfactual outcomes (e.g., the outcome we would have seen for a treated unit if it had not been treated) we cannot soly rely on the raw data if we are estimated in the "real" treatment effects.
+A famous example of a semi-synthetic approach is the IHDP benchmark, in which @hill2011bayesian removed a subset of treated units from the Infant Health and Development Program randomized trial to introduce selection bias, and then replaced the observed
+outcomes with simulated potential outcomes generated from a nonparametric
+Bayesian model; this benchmark subsequently anchored a large fraction of the
+machine-learning literature on heterogeneous treatment-effect estimation.
+See, for example the Atlantic Causal Inference Conference data challenge, discussed in @dorie2019automated.
+@gentzel2021how further systematized this approach, walking through different ways of generating data for simulation evaluation of causal inference methods.
+
+
 
 
 ## Case study: Using copulas to generate calibrated data
