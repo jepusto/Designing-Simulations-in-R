@@ -135,6 +135,104 @@ We group the results by the order of the interaction, so that we can see the mai
 We then sort within each group to put the high importance factors first.
 The resulting variance decomposition table shows the amount of variation explained by each combination of factors.
 
+### Biserial correlations, revisited
+
+In the biserial correlation example described in Section \@ref(biserial-correlation-visualization), we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
+These factors also seem to have complex interactions: note how when p1 = 0.5, we get larger dips than when p1 = 1/8.
+Figure \@ref(fig:biserial-correlation) gives a sense of the complex combination of factors that influence bias and also suggests some possibilities for further analysis.
+In particular, the figure suggests that the bias grows smaller as the sample size increases. 
+Developing a model might let us draw more specific conclusions about how bias relates to sample size. 
+
+```{r biserial-N, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "Bias of the biserial correlation estimate in an extreme groups design as a function of inverse sample size, cut-off thresholds, and cut-off types, for selected values of $\\rho$."}
+
+r_F %>%
+  filter(rho %in% c(0.0, 0.2, 0.4, 0.6, 0.8)) %>%
+  mutate(
+    rho_f = factor(rho)
+  ) %>%
+  ggplot() + 
+  aes(1 / n, bias, linetype = rho_f, color = rho_f) + 
+  scale_x_continuous(transform = "reverse", breaks = c(0.05, 0.025)) + 
+  geom_point() + geom_line() + 
+  facet_grid(fixed ~ p1) + 
+  theme_bw() +
+  labs(
+    x = "1 / n", 
+    y = expression(Bias(r[eg])),
+    color = expression(rho),
+    linetype = expression(rho)
+  ) + 
+  theme(legend.position = "top")
+```
+<!-- JEP: We could cut the figure above and just gloss it by saying that we posit the model "Based on some exploratory analysis...". Or we could make creating the above figure an exercise? Could also make an exercise to test whether the posited model fits well. -->
+
+To get an initial sense of how bias relates to sample size, we created Figure \@ref(fig:biserial-N), which follows a similar layout to Figure \@ref(fig:biserial-correlation) but shows the inverse sample size on the horizontal axis of each plot, with different values of the correlation parameter corresponding to different colors and line types.
+For clarity, the plot shows only a small subset of the correlation levels in the full design.
+Figure \@ref(fig:biserial-N) strongly suggests that the bias is inverse proportional to the sample size. If we let $B_{pqrs}$ be the estimated bias for cut-off level $p$, cut-off type $q$, true correlation level $r$, and sample size level $s$ and let $N_s$ be the actual value of sample size level $s$, we posit that
+$$
+B_{pqrs} = \beta_{pqr} \times \frac{1}{N_s} + e_{pqrs},
+$$
+where $e_{pqrs}$ is an error capturing the Monte Carlo uncertainty in the bias estimate. 
+If this model is correct, it would allow us to simplify further analysis of the simulation results because it reduces the dimension of the design. 
+Rather than dealing with the `r nlevels(r_F$n_f)` distinct levels of the sample size factor, we can reduce it to a single-parameter relationship and focus the remaining analysis on how $\beta_{pqr}$ varies across the remaining three factors in the design.
+Furthermore, thinking in terms of a formal model also allows us to test whether the posited relationship provides an adequate fit to the data.
+
+```{r biserial-beta, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+
+r_F_bias_factor <- 
+  r_F %>%
+  summarize(
+    beta = sum(bias / (bias_mcse^2 * n)) / sum(1 / (bias_mcse^2 * n^2)),
+    .by = c(fixed, p1, rho, p.inv)
+  )
+
+r_F %>%
+  mutate(
+    n_bias = n * bias
+  ) %>%
+  ggplot() + 
+  aes(rho, n_bias, color = n_f) + 
+  geom_point() + 
+  geom_line(
+    data = r_F_bias_factor, 
+    aes(y = beta, linetype = NULL, color = NULL), 
+    color = "red",
+    linewidth = 1.5
+  ) + 
+  facet_grid(fixed ~ p1) + 
+  theme_bw() +
+  labs(
+    x = expression(rho), 
+    y = expression(n %*% Bias(r[eg])),
+    color = "n"
+  ) + 
+  theme(legend.position = "top")
+```
+
+Under the assumptions of the model, we can estimate $\beta_{pqr}$ simply by calculating $N_s \times B_{pqrs}$ and averaging across values of $N_s$. 
+Figure \@ref(fig:biserial-beta) plots $N_s \times B_{pqrs}$, following the same layout as our original Figure \@ref(fig:biserial-correlation).
+Individual points correspond to $N_s \times B_{pqrs}$ for each unique scenario in the simulation; the yellow points are for $N_s = 1000$, for which the Monte Carlo error is much larger than the other sample sizes. 
+The red lines correspond to the estimated bias coefficients $\beta_{pqr}$, calculated by taking weighted averages across sample sizes.
+It is apparent that the red lines capture the form of the bias quite well, which suggests that we can use our model coefficients for further analysis.
+For example, we could use ANOVA to understand the influence of the remaining factors on $\beta_{pqr}$.
+We could also create a more succinct summary of the bias relationships by plotting $\beta_{pqr}$ for varying cut-off values, cut-off types, and correlation parameters, as in Figure \@ref(fig:biserial-beta-summary).
+
+```{r biserial-beta-summary, echo=FALSE, message=FALSE, fig.width = 7, fig.height = 3, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+
+ggplot(r_F_bias_factor) + 
+  aes(rho, beta, color = p1, linetype = p1) + 
+  geom_point() + geom_smooth(method = "loess", se = FALSE) + 
+  facet_wrap( ~ fixed ) + 
+  theme_bw() +
+  labs(
+    x = expression(rho), 
+    y = expression(n %*% Bias(r[eg])),
+    color = "",
+    linetype = ""
+  ) + 
+  theme(legend.position = "right")
+```
+
 
 
 ### Example 2: Cluster RCT example, revisited
