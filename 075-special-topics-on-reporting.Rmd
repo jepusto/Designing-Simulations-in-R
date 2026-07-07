@@ -67,26 +67,22 @@ We first convert each factor to a factor variable, so that R does not assume a c
 ```{r, include=FALSE}
 load("data/d2r results.rData")
 
-allResults <- 
-  allResults %>%
-  mutate(
-    n = ordered(n),
-    p1 = factor(p1, levels = c(2:5,8)) |>
-      fct_relabel(\(x) paste0("p1 = 1/", x)),
-    fixed = factor(fixed, levels = c(TRUE,FALSE), 
-                   c("Fixed percentiles","Sample percentiles"))
-  )
-
 r_F <- 
   allResults %>%
-  filter(stat=="r.i" & design=="Extreme Group") %>%
-  droplevels() %>%
   mutate(
-    fixed = fct_recode(fixed, 
-                       "Pop. cut-off" = "Fixed percentiles", 
-                       "Sample cut-off" = "Sample percentiles"),
-    bias = mean - rho
-  )
+    reps = 1e7 / n,
+    n_f = ordered(n),
+    p.inv = p1,
+    p1 = ordered(p1, labels = paste0("p1 = 1/",unique(p1))),
+    fixed = factor(fixed, levels=c("TRUE","FALSE"), labels = c("Pop. cut-off","Sample cut-off")),
+    bias = mean - rho,
+    bias.sm = mean.sm - rho,
+    bias_mcse = sqrt(var / reps),
+    rmse = sqrt(bias^2 + var)
+  ) %>%
+  filter(stat=="r.i" & design=="Extreme Group") %>%
+  droplevels()
+
 ```
 
 ```{r modeling_demonstration, warning=FALSE}
@@ -183,7 +179,7 @@ r_F_bias_factor <-
   r_F %>%
   summarize(
     beta = sum(bias / (bias_mcse^2 * n)) / sum(1 / (bias_mcse^2 * n^2)),
-    .by = c(fixed, p1, rho, p.inv)
+    .by = c(fixed, p1, rho)
   )
 
 r_F %>%
@@ -215,9 +211,9 @@ Individual points correspond to $N_s \times B_{pqrs}$ for each unique scenario i
 The red lines correspond to the estimated bias coefficients $\beta_{pqr}$, calculated by taking weighted averages across sample sizes.
 It is apparent that the red lines capture the form of the bias quite well, which suggests that we can use our model coefficients for further analysis.
 For example, we could use ANOVA to understand the influence of the remaining factors on $\beta_{pqr}$.
-We could also create a more succinct summary of the bias relationships by plotting $\beta_{pqr}$ for varying cut-off values, cut-off types, and correlation parameters, as in Figure \@ref(fig:biserial-beta-summary).
+We could also create a more succinct summary of the bias relationships by plotting $\beta_{pqr}$ for varying cut-off values, cut-off types, and correlation parameters, as in Figure \@ref(fig:biserial-beta-summary-2).
 
-```{r biserial-beta-summary, echo=FALSE, message=FALSE, fig.width = 7, fig.height = 3, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+```{r biserial-beta-summary-2, echo=FALSE, message=FALSE, fig.width = 7, fig.height = 3, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
 
 ggplot(r_F_bias_factor) + 
   aes(rho, beta, color = p1, linetype = p1) + 
