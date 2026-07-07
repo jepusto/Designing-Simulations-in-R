@@ -32,16 +32,16 @@ sres
 
 ```
 
-Once we have performance measures for each method examined for each of scenario of our study's design, the computationally challenging parts of a simulation study\index{simulation study} are complete, but several intellectually challenging tasks remain.
-The goal of a simulation study is to provide evidence to address a research question or questions, but
-performance measures (like numbers more generally) do not analyze themselves.
+Once we have performance measures for each method examined for each scenario of our study's design, the computationally challenging parts of a simulation study are complete, but several intellectually challenging tasks remain.
+The goal of a simulation study is to provide evidence to address a research question or questions, but performance measures (like numbers more generally) do not analyze themselves.
 Rather, they require interpretation, analysis, and communication in order to identify findings---that is, broad, potentially generalizable patterns of results---that are responsive the research questions.
 Good analysis aims to provide a clear understanding of how one or more of the simulation factors influence key performance measures of interest, the circumstances where a data analysis method works well or breaks down, and---in simulations that examine multiple methods---the conditions where one method performs better or worse than the alternatives.
 
 In multi-factor simulations, the major challenge in analyzing simulation results is dealing with the multiplicity and dimensional nature of the results.
 For instance, in our cluster RCT simulation, we examined `r prettyNum( nrow(sres) / 3, big.mark=",")` different simulation scenarios, which vary along several factors.
-For each scenario, we calculated a whole suite of performance measures (bias, SE, RMSE\index{performance measures!RMSE}, coverage, ...), and we have these performance measures for each of three estimation methods under consideration.
-We organized all these results as a table with `r prettyNum( nrow(sres), big.mark=",")` rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
+For each scenario, we calculated a whole suite of performance measures (bias, SE, RMSE, coverage, ...), and we have these performance measures for each of the three estimation methods under consideration.
+We organized all these results as a data table with `r prettyNum( nrow(sres), big.mark=",")` rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
+
 Navigating all of this can feel somewhat overwhelming.
 How do we understand trends in this complex, multi-factor data structure? 
 Broadly, the answer is to think of the performance measures as outcomes of a designed experiment, so that we can bring to bear any and all of the data analysis techniques relevant to analyzing experimental designs involving real data.
@@ -52,16 +52,18 @@ In this chapter, we survey three main categories of analytic tools that can be u
 2. Visualization
 3. Modeling
 
-For each category of tools, we describe the logic behind how it can be applied, provide high-level examples drawn from the literature and our own work, and discuss the strengths and limitations of the approach. 
+For each category of tools, we describe the logic behind how it can be applied, provide high-level examples drawn from the literature and our own work, and discuss its strengths and limitations. 
 
-In this and subsequent chapters, we assume that you will be sharing the findings from your simulations with an audience beyond yourself. Depending on your circumstances, that might be a broad audience of researchers and data analysts, with whom you will communicate through a scholarly article in a peer-reviewed methodology journal; it might be colleagues who are evaluating your proposal for an empirical study, where the simulations serve to justify the data analysis protocol; it might be a small group of collaborators, who will use the simulations to make decisions about how to design a study; or it might be fellow students of statistics, interested to read a blog post that discusses how a particular model or method works.
+In this and subsequent chapters, we assume that you will be sharing the findings from your simulations with an audience beyond yourself.
+Depending on your circumstances, that might be a broad audience of researchers and data analysts, with whom you will communicate through a scholarly article in a peer-reviewed methodology journal; it might be colleagues who are evaluating your proposal for an empirical study, where the simulations serve to justify the data analysis protocol; it might be a small group of collaborators, who will use the simulations to make decisions about how to design a study; or it might be fellow students of statistics, interested to read a blog post that discusses how a particular model or method works.
 These contexts differ in the format and level of formality used to communicate findings. 
 Still, in any of these contexts, you will probably need to create a written explanation of your findings, which summarizes what you found and presents evidence to support your assertions and interpretations.
-We close the chapter with a discussion about creating such write-ups and distilling your analysis into a set of exhibits for presentation.
+We close this chapter with a discussion about creating such write-ups and distilling your analysis into a set of exhibits for presentation.
+
 
 ## Tabulation 
 
-Traditionally, simulation study results have often been presented in tables.
+Simulation study results are often presented in tables.
 A table might be fine if it involves only a few numbers and a few targeted comparisons or if it is important to report _exact_ values for some quantities.
 However, simulations usually produce lots of numbers and require making many comparisons.
 For example, you might need to show the relative performance of several alternative estimators or the performance of your estimators under different conditions for the data-generating model.
@@ -98,7 +100,7 @@ exp.res.rej %>%
   knitr::kable(caption = "Rejection rates for a two-sample t-test assuming unequal variances")
 ```
 
-This is the classic type of table you might see in a paper: the table is structured as groups of results indexed by one factor, with a second factor that varies within each group.
+This is the classic table you might see in a paper: the table is structured as groups of results indexed by one factor, with a second factor that varies within each group.
 The table makes clear that the rejection rates are often well above 10% and that the rates are all far too high when there are few treatment units.
 Because of the ordering of rows, it is somewhat more difficult to see how the number of control units impacts the rate, and understanding the joint relationship between number of treatment and number of control requires extra thinking.
 
@@ -120,7 +122,8 @@ ggplot( exp.res.rej ) +
 By contrast, a plot of these exact same numbers can make trends much clearer.
 Figure \@ref(fig:rejection-interaction-plot) is an "interaction plot" showing the "interaction" of the factors nT and nC.
 This plot makes apparent that we only achieve something close to a valid test if both nC and nT are above 50.
-Even if nC is 500, the rejection rate is elevated if nT is only 10. When nT is 2, then increasing nC actually _increases_ the rejection rate, meaning that larger samples make things worse.
+Even if nC is 500, the rejection rate is elevated if nT is only 10.
+When nT is 2, then increasing nC actually _increases_ the rejection rate, meaning that larger samples make things worse.
 None of these trends were obvious from looking at the raw table results.
 
 ### Estimators of treatment variation {#ITE-table-example}
@@ -204,6 +207,86 @@ Overall, the table provides a nice, high-level summary of the results.
 It reports no less than four performance measures, one of which (the $R^2$) is on a different scale than the others; this is hard to do in a single visualiztion.
 Despite these strengths, we still do not feel that the tables makes the results particularly visceral.
 A visualization can make trends jump out much more clearly.
+
+### Missing data and causal inference
+
+For another example, @zhou2015coarsened examined the performance of a variety of methods for estimating causal effects in the presence of missing data.
+They present their simulation results in a series of tables.
+Their Table 2, for example, had four quadrants, each a distinct scenario.
+For example, the results for the scenario with misspecified outcome models and propensity score models looked like this:
+
+```{r, include=FALSE}
+library(tidyverse)
+
+df <- read_csv(here::here("data/zhou_table2.csv")) %>%
+  pivot_longer(cols = -c(scenario, method), names_to = "measure", values_to = "value")
+
+df <- df %>%
+  mutate(main_method = str_extract(method, "^[^-]+"),
+         variant = str_extract(method, "(?<=-).+"))
+df$variant[is.na(df$variant)] <- "."
+
+method_order <- df %>% distinct(main_method) %>% pull(main_method)
+df <- df %>% mutate(main_method = factor(main_method, levels = method_order, ordered = TRUE))
+
+
+df_sub <- df %>% 
+  dplyr::filter( scenario == "neither" ) %>%
+  pivot_wider( names_from=measure, values_from=value ) %>%
+  dplyr::select( -main_method, -scenario, -variant )
+```
+
+```{r, echo=FALSE}
+df_sub %>%
+  knitr::kable()
+```
+Reading the table involves scanning across many methods, some of which are variants of the same core type.
+And this is only a quarter of the data---there are three other scenarios with results like these on the same table!
+
+The table does provide all the information, but instead we can use a visualization.
+For our visualization we group methods by main type, and truncate outliers to put more focus on central tendencies.
+Below we plot the full Table 2 in this way, as one example.
+Our table corresponds to the second row in the plot; the other rows are the tables not shown (but see the paper itself).
+The outliers are circled to make their truncation clear.
+
+```{r, out.width="100%", fig.width = 7, echo=FALSE}
+df3 <- df %>%
+  group_by(measure, scenario) %>%
+  mutate(cap_lo = -15,
+         cap_hi = 20,
+         outlier = value < cap_lo | value > cap_hi,
+         plot_value = pmin(pmax(value, cap_lo), cap_hi)) %>%
+  ungroup()
+
+df3$variant[ df$variant == "." & df$main_method %in% c( "TML", "WR", "AIPW") ] = "vanilla"
+
+ggplot(df3, aes(x = main_method, y = plot_value, col = variant, pch = variant)) +
+  geom_point(size = 2) +
+  geom_point(data = filter(df3, outlier), aes(x = main_method, y = plot_value),
+             shape = 1, size = 4, col = "red", show.legend = FALSE) +
+  geom_text(data = filter(df3, outlier),
+            aes(x = main_method, y = plot_value, label = round(value, 1)),
+            vjust = -1, size = 3, col = "red") +
+  facet_grid(scenario ~ measure) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  scale_y_continuous(expand = expansion(mult = 0.15)) +
+  scale_x_discrete(expand = expansion(add = 1))+
+  coord_flip(clip = "off") +
+  theme(plot.margin = margin(20, 40, 20, 20)) +
+  scale_color_manual(
+    values = c(`.` = "black", `vanilla` = "black", `S` = "blue", `S1` = "red", `S1m` = "green"),
+    breaks = c("vanilla", "S", "S1", "S1m")
+  ) +
+scale_shape_manual(
+  values = c(`.` = 16, `vanilla` = 6, `S` = 2, `S1` = 3, `S1m` = 4),
+  breaks = c("vanilla", "S", "S1", "S1m")
+  
+) + labs( x = "", y = "", caption = "Outliers circled and truncated" )
+```
+Our plot makes the overall story more clear: the variants within method are generally the same, except for the TML estimator under the "neither" scenario.
+Many of the estimators have very similar performances to each other across the scenarios considered, but IPW approaches can be biased and more unstable.
+
 
 
 ## Visualization
