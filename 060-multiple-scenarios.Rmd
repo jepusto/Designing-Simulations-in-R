@@ -43,7 +43,7 @@ In Chapter \@ref(simulation-structure), we described the general structure of ba
 We also saw how to bundle these steps into a simulation driver that runs our entire simulation.
 With these tools, it is easy to run a simulation for a single combination of parameter values.
 In practice, however, we want to examine a range of different values, to see how things change as we vary the levels of our focal parameter values, auxiliary parameters, or sample size (or other design parameters).
-We might want to do this to gain reassurance that our findings are general, and we might want to understand what aspects of the context affect the performance of the estimator or estimators we are studying.
+We might want to do this to gain assurance that our findings are general, and we might want to understand what aspects of the context affect the performance of the estimator or estimators we are studying.
 A single simulation gives us no hint as to either of these questions.
 It is only by looking across a range of settings that we can hope to understand trade-offs, general rules, and limits.
 
@@ -58,14 +58,14 @@ In subsequent chapters, we turn to the "synthesize" step and examine tools for m
 
 For all of these steps we focus on __full factorial__ designed experiments, a common design used in Monte Carlo simulation.
 In full factorials, each factor (a particular knob a researcher might turn to change the simulation conditions) is varied across multiple levels, and the design includes _every_ possible combination of the levels of every factor.
-Before we dig into that, we start with a simpler case of a single-factor simulation, where we vary only one factor across multiple levels. Even this simple, single-factor design is enough to illustrate the basic principles of systematic simulation and to present some core elements of the underlying code.
+Before we dig into that, we start with a simpler case of a single-factor simulation, where we vary only one factor across multiple levels. Even this simple, single-factor design is enough to illustrate the basic principles of systematic simulation and to demonstrate core elements of the code architecture.
 
 
 ## Simulating across levels of a single factor
 
 Even if we are only using simulation in an ad hoc, exploratory way, we will often be interested in examining how something changes as we change some feature of interest.
 For example, in Chapter \@ref(t-test-simulation), we looked at how the coverage rate of a confidence interval for the mean of an exponential distribution changed as a function of the sample size.
-To explore this we ran our simulation across a set of sample sizes ranging from 10 to 300, and we found that the coverage rate improved towards the desired level as sample size increases.
+To explore this, we ran a simulation across a set of sample sizes ranging from 10 to 300, and we found that the coverage rate improved towards the desired level as sample size increased.
 
 Simple forms of systematic exploration such as this are useful in many situations.
 For instance, when using Monte Carlo simulation for study planning, we might examine simulated power over a range of the target parameter to identify the smallest parameter that provides power above a desired level.
@@ -86,7 +86,7 @@ We do this in four steps:
 
 Back in Chapter \@ref(case-ANOVA), before we knew much, we developed a function, `generate_ANOVA_data()`, to generate data for a heteroskedastic ANOVA scenario, and a function, `ANOVA_Welch_F()`, to analyze the resulting data.
 We then built our simulation and analysis by hand.
-Before we move on to multiple scenarios let us clean this work up, and write a simulation driver to run a simulation and give results as a single call.
+Before we move on to multiple scenarios, let us clean this work up by writing a simulation driver that runs a simulation and give results as a single call.
 
 `generate_ANOVA_data()` takes an arbitrary vector of means per group.
 Our goal is, however, to have a single "knob" that we can turn to increase the spread of groups in the generated data.
@@ -97,7 +97,8 @@ We will also re-parameterize the function in terms of the total sample size (`N`
 The revised function is 
 ```{r}
 generate_ANOVA_new <- function(
-  G, max_diff, sigma_sq = 1, N = 20, allocation = "equal" ) {
+  G, max_diff, sigma_sq = 1, N = 20, allocation = "equal" 
+) {
   
   mu <- seq(0, max_diff, length.out = G)
   if (identical(allocation, "equal")) {
@@ -138,7 +139,7 @@ calc_rejection(sims, p_values = Welch, alpha = c(.01, .05))
 ```
 
 We want power for both the Welch test and the conventional ANOVA $F$ test, so we can compare them, so we write a small function to generate a table of power levels for both tests across the alpha levels we are interested in.
-So we can easily incorporate it into our pipeline, our function takes a set of simulation results as input and provide a dataset of performance measures as output:
+In order to easily incorporate it into our pipeline, our function takes a set of simulation results as input and provide a dataset of performance measures as output:
 ```{r}
 summarize_power <- function(data, alpha = c(.01,.05)) {
   ANOVA <- calc_rejection(data, p_values = ANOVA, alpha = alpha,
@@ -186,7 +187,7 @@ Welch_design <- tibble(max_diff = seq(0, 2, 0.2))
 str(Welch_design)
 ```
 
-For a single factor simulation, making our schedule of simulations to run is easy. This step will get more involved with multi-factor simulations, below.
+For a single factor simulation, making our schedule of simulations to run is easy. This step will get more involved with multi-factor simulations, as described in Section \@ref(simulating-across-multiple-factors).
 
 ### Running the simulation across scenarios
 
@@ -324,6 +325,7 @@ The model has three parameters (the means of each variate, $\mu_1, \mu_2$ and th
 Thus, we could in principle examine up to four factors: $\mu_1, \mu_2, \rho$, and $N$.\index{example!bivariate Poisson}
 
 As a first pass, we might consider the following values:
+
 * the sample size, with values of $N = 10, 20$, or $30$
 * the mean of the first variate, with values of $\mu_1 = 4, 8$, or $12$
 * the mean of the second variate, with values of $\mu_2 = 4, 8$, or $12$
@@ -332,7 +334,7 @@ As a first pass, we might consider the following values:
 All combinations of our set of factors gives a $3 \times 3 \times 3 \times 8$ factorial design, where each element is the number of levels for that factor.
 We call this design a four-factor experiment, because we have four different things we are varying.
 
-That said, using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
+Using these parameters directly as factors in the simulation design will lead to considerable redundancy because of the symmetry of the model: generating data with $\mu_1 = 10$ and $\mu_2 = 5$ would lead to identical correlations as using $\mu_1 = 5$ and $\mu_2 = 10$.
 It is useful to re-parameterize to reduce redundancy and simplify things.
 We will therefore restrict our simulation conditions and always have $\mu_1$ as the larger variate.
 We can then reparameterize our factors, and specify the ratio of the smaller to the larger mean as $\lambda = \mu_2 / \mu_1$.
@@ -360,7 +362,7 @@ design_factors <- list(
 lengths(design_factors)
 
 params <- expand_grid( !!!design_factors )
-params
+glimpse(params)
 ```
 
 We use `expand_grid()` from the `tidyr` package to create all possible combinations of the four factors.[^expand-grid-wtf]
@@ -407,18 +409,17 @@ In the above example, `args_data` must have column names that correspond to the 
 For functions with additional arguments that are not manipulated, extra parameters can be passed after the function name, just as with `map()` (as in the `scale` argument in this example). 
 Extra arguments will be passed to each function call, and be the same for all calls.
 
-We use the core idea of `pmap()`---call a function for each row of a dataset---to run our simulation for each row of our schedule of scenarios.
-Analogous to the single-factor approach, we first make a driver to run a single scenario, and then use `pmap()` to run this driver for each row of `params`.
-
 ### Making a function to run a single scenario
 
+We use the core idea of `pmap()`---call a function for each row of a dataset---to run our simulation for each row of our schedule of scenarios.
+Analogous to the single-factor approach, we first make a driver to run a single scenario, and then use `pmap()` to run this driver for each row of `params`.
 We again use `bundle_sim()` as we did for the single-factor simulation.
+
 In Section \@ref(estimation-functions), we developed a function called `r_and_z()` for computing confidence intervals for Pearson's correlation using Fisher's $z$ transformation, and in Section \@ref(assessing-confidence-intervals), we wrote a function called `evaluate_CIs()` for evaluating confidence interval coverage and average width. 
-Bundle `r_bivariate_Poisson()`, `r_and_z()`, and `evaluate_CIs()` into a simulation driver as follows:
+We bundle `r_bivariate_Poisson()`, `r_and_z()`, and `evaluate_CIs()` into a simulation driver as follows:
 ```{r}
 Pearson_sim <- bundle_sim(
-  f_generate = r_bivariate_Poisson, f_analyze = r_and_z,
-  f_summarize = evaluate_CIs
+  f_generate = r_bivariate_Poisson, f_analyze = r_and_z, f_summarize = evaluate_CIs
 )
 args(Pearson_sim)
 ```
@@ -516,9 +517,9 @@ This is the approach we illustrated above. It is straightforward and streamlined
 After calling `pmap()` (or `evaluate_by_row()`) and stacking the results, we end up with a dataset containing all the simulation conditions, one simulation context per row (or maybe we have sets of several rows for each simulation context, with one row for each method), with the columns consisting of the simulation factors and calculated performance measures.
 This table of performance measures is exactly what we need to conduct further analysis and draw conclusions about how the estimators work.
 
-The primary advantages of the inside strategy are that it is easy to modularize the simulation code and it produces a compact dataset of results, minimizing the number and size of files that need to be stored.
+The primary advantages of the inside strategy are that it is easy to modularize the simulation code and that it produces a compact dataset of results, minimizing the number and size of files that need to be stored.
 On the con side, calculating summary performance measures inside of the simulation driver limits our ability to add new performance measures on the fly or to examine the distribution of individual estimates.
-For example, say we wanted to check if the distribution of Fisher-z estimates in a particular scenario was right-skewed, perhaps because we are worried that the estimator sometimes breaks down.
+For example, suppose we wanted to check if the distribution of Fisher-z estimates in a particular scenario was right-skewed, perhaps because we are worried that the estimator sometimes breaks down.
 We might want to make a histogram of the point estimates, or calculate the skew of the estimates as a performance measure.
 Because the individual estimates are not saved, we would have no way of investigating these questions without rerunning the simulation for that condition.
 In short, the inside strategy minimizes disk space but constrains our ability to explore or revise performance calculations.
@@ -545,10 +546,9 @@ Pearson_sim(reps = 4, N = 15, mu1 = 5, mu2 = 5, rho = 0.5,
 
 By not summarizing as we go, we can save the entire set of estimates, rather than just the performance summaries.
 This result file will have $R$ times as many rows as the older file.
-In practice, these result files can grow extremely large. 
-On the other hand, disk space is cheap.
+In practice, these result files can grow extremely large, but disk space is cheap.
 
-The following runs the same experiment as in Section \@ref(using-pmap-to-run-multifactor-simulations), but stores the individual replications:
+The following code runs the same experiment as in Section \@ref(using-pmap-to-run-multifactor-simulations), but stores the individual replications:
 
 ```{r secret_Pearson_full, include=FALSE}
 # (See below this block for book code)
