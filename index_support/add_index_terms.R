@@ -4,7 +4,7 @@
 # Semi-automated indexing helper for bookdown projects.
 #
 # For each term in the INDEX_TERMS list below, this script finds occurrences
-# in .Rmd files and appends \index{...} immediately after the term — but ONLY
+# in .qmd files and appends \index{...} immediately after the term — but ONLY
 # in prose text, never inside:
 #   - YAML front matter (---...---)
 #   - fenced code blocks (```...```)
@@ -30,7 +30,7 @@ FIRST_PER_FILE <- TRUE   # TRUE = index only the first match per file (common
 # FALSE = index every match (for important recurring terms)
 CASE_SENSITIVE <- TRUE   # TRUE = exact case match, FALSE = case-insensitive
 
-# Directory containing the .Rmd files
+# Directory containing the .qmd files
 RMD_DIR <- "."
 
 # ── Index term definitions ─────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ INDEX_TERMS <- list(
     files     = NULL
   ),
   # NOTE: DGP, MCSE, and other abbreviation |see{} cross-references are
-  # defined in 220-index.Rmd, not here. Do not add |see{} entries to this
+  # defined in latex/after_body.tex, not here. Do not add |see{} entries to this
   # list — they belong in that file to avoid duplicates in the printed index.
   list(
     term      = "Monte Carlo",
@@ -78,7 +78,7 @@ INDEX_TERMS <- list(
   list(
     term      = "bias",
     index_key = "performance measures!bias",
-    files     = c("040-Performance-criteria.Rmd")
+    files     = c("040-Performance-criteria.qmd")
   ),
   list(
     term      = "root mean squared error",
@@ -93,7 +93,7 @@ INDEX_TERMS <- list(
   list(
     term      = "coverage",
     index_key = "performance measures!coverage",
-    files     = c("040-Performance-criteria.Rmd", "074-building-good-vizualizations.Rmd")
+    files     = c("040-Performance-criteria.qmd", "074-building-good-vizualizations.qmd")
   ),
   list(
     term      = "Type I error",
@@ -141,7 +141,7 @@ INDEX_TERMS <- list(
   list(
     term      = "seed",
     index_key = "random seed",
-    files     = c("035-running-simulation.Rmd")
+    files     = c("035-running-simulation.qmd")
   ),
   list(
     term      = "reparameterization",
@@ -175,7 +175,7 @@ INDEX_TERMS <- list(
   # list(
   #   term      = "your term",
   #   index_key = "your index entry",
-  #   files     = NULL  # or c("specific-file.Rmd")
+  #   files     = NULL  # or c("specific-file.qmd")
   # )
 )
 
@@ -303,8 +303,8 @@ process_term <- function(entry, rmd_dir, dry_run, first_per_file, case_sensitive
   found_anywhere <- FALSE   # tracks across files when first_in_book is TRUE
 
   # Select target files
-  EXCLUDE <- c("Designing-Simulations-in-R.Rmd", "220-index.Rmd")
-  all_rmds <- list.files(rmd_dir, pattern = "\\.Rmd$", full.names = TRUE)
+  EXCLUDE <- c()
+  all_rmds <- list.files(rmd_dir, pattern = "\\.qmd$", full.names = TRUE)
   all_rmds <- all_rmds[!basename(all_rmds) %in% EXCLUDE]
   if (!is.null(files)) {
     all_rmds <- all_rmds[basename(all_rmds) %in% files]
@@ -394,7 +394,7 @@ if ( FALSE) {
     cat("════════════════════════════════════════════════════════\n\n")
   } else {
     cat("════════════════════════════════════════════════════════\n")
-    cat("  APPLYING CHANGES to .Rmd files\n")
+    cat("  APPLYING CHANGES to .qmd files\n")
     cat("════════════════════════════════════════════════════════\n\n")
   }
   
@@ -415,7 +415,7 @@ if ( FALSE) {
 #
 # strip_to_first(index_cmd)
 #
-# Removes all occurrences of a literal \index{...} command from the .Rmd files
+# Removes all occurrences of a literal \index{...} command from the .qmd files
 # except the very first one found (in filename order). Useful for fixing
 # |see{} entries that were accidentally inserted multiple times.
 #
@@ -424,8 +424,8 @@ if ( FALSE) {
 #   strip_to_first("\\index{MCSE|see{Monte Carlo standard error}}")
 
 strip_to_first <- function(index_cmd, rmd_dir = ".") {
-  EXCLUDE <- c("Designing-Simulations-in-R.Rmd", "220-index.Rmd")
-  files <- sort(list.files(rmd_dir, pattern = "\\.Rmd$", full.names = TRUE))
+  EXCLUDE <- c()
+  files <- sort(list.files(rmd_dir, pattern = "\\.qmd$", full.names = TRUE))
   files <- files[!basename(files) %in% EXCLUDE]
   kept  <- FALSE
   for (f in files) {

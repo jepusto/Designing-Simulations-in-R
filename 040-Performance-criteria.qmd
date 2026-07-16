@@ -1,0 +1,1576 @@
+```{r include = FALSE}
+library(tidyverse)
+library(simhelpers)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::filter)
+options(list(dplyr.summarise.inform = FALSE))
+source("case_study_code/gen_cluster_RCT.R")
+
+ClusterRCT_runs <- readRDS("results/cluster_RCT_simulation.rds") %>%
+  mutate(
+    method_L = case_match(method, 
+                        "Agg" ~ "Aggregation",
+                        "LR" ~ "Linear regression", 
+                        "MLM" ~ "Multilevel model")
+  )
+
+```
+
+# Performance Measures {#sec-performance-measures}
+
+Once we run a simulation, we end up with a pile of results to sort through. 
+For example, Figure @fig-CRT-ATE-hist depicts the distribution of average treatment effect estimates from the cluster-randomized experiment simulation we generated in Section @sec-one-run-reparameterization. 
+There are three different estimators, each with 1000 replications.
+Each histogram is an approximation of the _sampling distribution_ of the estimator, meaning its distribution across repetitions of the data-generating process\index{data-generating process}.
+Visually, we see the three estimators look about the same---they sometimes estimate too low, and sometimes estimate too high.
+We also see linear regression is shifted up a bit, and aggregation and MLM might have a few more outlying values.
+These observations are initial impressions of how well each estimator performs---that is, how close the estimators tend to get to the truth.
+In this chapter, we look at how to more precisely quantify and compare specific aspects of estimator performance.
+
+```{r, include=FALSE}
+ClusterRCT_runs %>%
+  group_by( method_L ) %>%
+  summarize( ATE_hat = mean(ATE_hat),
+             R = n() )
+```
+
+```{r fig-CRT-ATE-hist}
+#| fig.width: 8
+#| fig.height: 3
+#| out.width: "100%"
+#| echo: false
+#| message: false
+#| fig.cap: "Sampling distribution of average treatment effect estimates from a cluster-randomized trial with a true average treatment effect of 0.3 (dashed line)."
+
+cluster_RCT_mean <- 
+  ClusterRCT_runs %>%
+  summarize(ATE_hat = mean(ATE_hat), .by = method_L)
+
+ggplot(ClusterRCT_runs) + 
+  aes(ATE_hat, fill = method_L) +
+  geom_vline(xintercept = 0.3, linetype = "dashed") + 
+  geom_vline(data = cluster_RCT_mean, aes(xintercept = ATE_hat), color="black") + 
+  geom_point(data = cluster_RCT_mean, aes(x = ATE_hat, y = -1), color = "black") + 
+  geom_histogram(alpha = 0.5) + 
+  facet_wrap(~ method_L, nrow = 1) + 
+  theme_minimal() + 
+  labs(x = "Average treatment effect estimate", y = "") + 
+  scale_y_continuous(labels = NULL) + 
+  scale_x_continuous( breaks=c( -.3, 0, 0.3, 0.6, 0.9 ) ) +
+  theme(legend.position = "none")
+```
+
+A _performance measure_ summarizes an estimator's sampling distribution to describe how an estimator would behave on average if we were to repeat the data-generating process an infinite number of times.
+For example, the bias\index{performance measures!bias} of an estimator measures the central tendency of the sampling distribution, capturing whether we are systematically off, on average, from the true parameter value.
+
+In Figure @fig-CRT-ATE-hist, the black dashed lines mark the true average treatment effect of 0.3 and the solid lines with the dot mark the means of the estimators.
+The horizontal distance between the solid and dashed lines is the bias. 
+This distance is nearly zero for the aggregation estimator and the multilevel model estimator, but larger for the linear regression estimator.
+Our performance measure of bias would be near zero for aggregation and multilevel modeling, but around 0.08 for linear regression.
+
+Many performance measures exist.
+For point estimates, conventional performance measures include bias, variance, and root mean squared error\index{performance measures!RMSE\index{performance measures!RMSE}}.
+<!-- Our definition of "success" could depend on which measure we find more important: is lower bias good?  Is it better than lower variance? -->
+<!-- JEP: Fair point, but better to bring up elsewhere? -->
+If the point estimates come with corresponding standard errors, then we may also want to evaluate how accurately the standard errors represent the true uncertainty of the point estimators; one conventional performance measures for capturing this is the relative bias of the variance estimator.
+For procedures that produce confidence intervals or other types of interval estimates, conventional performance measures include the coverage\index{performance measures!coverage} rate and average interval width.
+Finally, for inferential procedures that involve hypothesis tests (or more generally, classification tasks), conventional performance measures include Type I error\index{performance measures!Type I error} rates and power. 
+We describe each of these measures in Sections @sec-assessing-point-estimators through @sec-assessing-inferential-procedures.
+
+<!-- We will not cover all possible performance measures for every type of estimator or data analysis procedure.  -->
+<!-- Other, more esoteric measures might be defined.  -->
+<!-- Perhaps it is some measure of classification accuracy such as the F1 rate. -->
+<!-- Or perhaps it is something very specific, such as the chance of an error larger than some threshold. -->
+<!-- JEP: This might be better for the concluding thoughts? -->
+
+
+For any particular measure, the actual performance of an estimator depends on the sampling distribution, which in turn depends on the data generating process\index{data-generating process} under which it is evaluated.
+We will therefore need to use some statistical notation to define properties of this sampling distribution.
+In the following, we define many of the most common measures in terms of standard statistical quantities such as the mean, variance, and other moments of the sampling distribution.
+Notation-wise, for a random variable $T$ (e.g., for some estimator $T$), we will use the expectation operator $\E(T)$ to denote the mean, $\M(T)$ to denote the median, $\Var(T)$ to denote the variance, and $\Prob()$ to denote probabilities of specific outcomes, all with respect to the sampling distribution of $T$.
+We also use $\Q_p(T)$ to denote the $p^{th}$ quantile of a distribution, which is the value $x$ such that $\Prob(T \leq x) = p$.
+With this notation, the median of a continuous distribution is equivalent to the 0.5 quantile: $\M(T) = \Q_{0.5}(T)$.
+Using this notation we can write, for example, that the bias of $T$ is $\E(T) - \theta$, where $\theta$ is the target parameter.
+
+For some simple combinations of data-generating processes and data analysis procedures, it may be possible to derive exact mathematical formulas for some performance measures (such as exact mathematical expressions for the bias and variance of the linear regression estimator).
+But for many problems, the math is difficult or intractable---which is partly why we do simulations in the first place.
+However, simulations do not produce the _exact_ sampling distribution or give us _exact_ values of performance measures.
+Instead, simulations generate _samples_ (usually large samples) from the the sampling distribution, and we can use these to _estimate_ the performance measures of interest.
+In Figure @fig-CRT-ATE-hist, for example, we estimated the bias of each estimator by taking the mean of 1000 observations from its sampling distribution.
+If we were to repeat the whole simulation (with a different seed), then our estimates of bias would shift.
+
+It is important to track this _Monte Carlo uncertainty_, i.e., uncertainty arising from using only a finite number of replications of the Monte Carlo\index{Monte Carlo simulation} simulation.
+One way to quantify this simulation uncertainty is with the _Monte Carlo Standard Error (MCSE\index{Monte Carlo standard error})_, which is the standard error of a performance estimate given a specific number of replications. 
+Just as when we analyze real data, we can apply statistical techniques to estimate the MCSE and to generate confidence intervals for the performance measures themselves. 
+
+The magnitude of the MCSE is driven by how many replications we use: if we only use a few, we will have noisy estimates of performance and large MCSEs; if we use millions of replications, the MCSE will usually be tiny.
+It is important to keep in mind that the MCSE is not measuring anything about how our estimator performs. 
+It only describes how precisely we have _estimated_ its performance; MCSE is an artifact of how we conducted the simulation.
+The MCSE are also under our control: Given a desired MCSE, we can determine how many replications we would need to ensure our performance estimates have a MCSE of that size.
+Section @sec-MCSE provides details about how to compute MCSEs for conventional performance measures, along with some discussion of general techniques for computing MCSE for less conventional measures.
+
+## Measures for Point Estimators {#sec-assessing-point-estimators}
+
+The most common performance measures used to assess a point estimator are **bias**, **variance**, and **root mean squared error**.
+
+**Bias** compares the mean of the sampling distribution to the target parameter.
+Positive bias implies that the estimator tends to systematically over-state the quantity of interest, while negative bias implies that it systematically under-shoots the quantity of interest.
+If bias is zero (or nearly zero), we say that the estimator is unbiased (or approximately unbiased). 
+
+**Variance** (or its square root, the **true standard error**) describes the spread of the sampling distribution, or the extent to which it varies around its central tendency. 
+All else equal, we would like estimators to have low variance (which means being more precise).
+
+**Root mean squared error (RMSE)** is a conventional measure of the overall accuracy of an estimator, or its average degree of error with respect to the target parameter.
+For absolute assessments of performance, an estimator with low bias, low variance, and thus low RMSE is desired.
+In making comparisons of several different estimators, one with lower RMSE is usually preferable to one with higher RMSE. 
+If two estimators have comparable RMSE, then the estimator with lower bias would usually be preferable. 
+
+
+To define these quantities more precisely, consider a generic estimator $T$ that is targeting a parameter $\theta$.
+We call the target parameter the _estimand_.
+Formally, the bias, variance, and RMSE of $T$ are then defined as
+$$
+\begin{aligned}
+\Bias(T) &= \E(T) - \theta, \\ 
+\Var(T) &= \E\left[\left(T - \E (T)\right)^2 \right], \\
+\RMSE(T) &= \sqrt{\E\left[\left(T - \theta\right)^2 \right]}.
+\end{aligned}
+$$ {#eq-bias-variance-RMSE}
+In words, bias is the average estimate minus the truth: is it systematically too high or too low, on average?
+The variance is the average squared deviation of the estimator from its own mean: how much does it vary around its average estimate? Is it precise?
+RMSE is the square root of the average squared deviation of the estimator from the truth: how far off are we, on average, from the truth? Does it predict well?
+
+These three measures are inter-connected. 
+In particular, RMSE is the combination of (squared) bias and variance, as in 
+$$
+\left[\RMSE(T)\right]^2 = \left[\Bias(T)\right]^2 + \Var(T). 
+$$ {#eq-RMSE-decomposition}
+
+When conducting a simulation, we do not compute these performance measures directly but rather must estimate them.
+In most cases, in running a simulation we generate a (typically large) series of $R$ datasets, with $\theta$ being the true target parameter in each of them.
+To estimate performance, we analyze each dataset, obtaining a sample of estimates $T_1,...,T_R$ drawn from the sampling distribution and then plug in sample quantities in place of the expectations and variances.
+Specifically, we estimate bias by taking
+$$
+\widehat{\Bias}(T) = \bar{T} - \theta, 
+$$ {#eq-bias-estimator}
+where $\bar{T}$ is the arithmetic mean of the replicates, $\bar{T} = \frac{1}{R}\sum_{r=1}^R T_r$.
+We estimate variance by taking the sample variance of the replicates, as
+$$
+S_T^2 = \frac{1}{R - 1}\sum_{r=1}^R \left(T_r - \bar{T}\right)^2. 
+$$ {#eq-var-estimator}
+$S_T$ (the square root of $S^2_T$) is an estimate of the _true_ standard error, $SE$, of $T$, which is the standard deviation of the estimator across an infinite set of replications of the data-generating process.
+
+It is important to note that in a simulation we will be able to see both the _true_ standard error, measured across the simulation iterations, and the _estimated_ standard errors, one for each simulation iteration.
+Generally, when people say "Standard Error" they actually mean _estimated_ Standard Error, ($\widehat{SE}$), as we generally calculate in a real data analysis (where we have only a single realization of the data-generating process).
+It is easy to forget that this standard error is itself an estimate of a parameter---the true SE---and thus has its own uncertainty.
+We usually prefer to work with the true SE $S_T$ rather than the sampling variance $S_T^2$ because the former quantity has the same units as the target parameter.
+
+Finally, the RMSE estimate can be calculated as
+$$
+\widehat{\RMSE}(T) = \sqrt{\frac{1}{R} \sum_{r = 1}^R \left( T_r - \theta\right)^2 }.  
+$$ {#eq-rmse-estimator}
+Often, people talk about the MSE (Mean Squared Error), which is just the square of RMSE.
+Just as the true SE is usually easier to interpret than the sampling variance, units of RMSE are easier to interpret than the units of MSE.
+
+
+All of these performance measures depend on the scale of the parameter.
+For example, if an estimator is targeting a treatment impact in dollars, then the bias, SE, and RMSE of the estimator are all in dollars.
+(The variance and MSE would be in dollars squared; taking square roots puts these measures back on the more intepretable scale of dollars.)
+
+In many simulations, the scale of the outcome is an arbitrary feature of the data-generating process, so the absolute magnitude of the performance measure is not meaningful. 
+To ease interpretation of performance measures, it is useful to consider their magnitude relative to some reference amount.
+We generally recommend using the baseline level of variation in the outcome.
+For example, we might report a bias of $0.2\sigma$, where $\sigma$ is the standard deviation of the outcome in the population.
+
+One way to ensure performance metrics are on a standardized scale is to generate data so the outcome has unit variance (i.e., we generate outcomes in _standardized units_).
+This automatically puts the bias, true standard error, and root mean squared error on the scale of standard deviation units, which can facilitate interpretation about what constitutes a meaningfully large bias or a meaningful difference in RMSE.
+
+Finally, a non-linear transformation of a parameter will generally change a performance measure.
+For instance, suppose that $\theta$ measures the proportion of time that something occurs.
+This parameter could also be given on the log-odds (logit) scale.
+However, because the log-odds transformation is non-linear, 
+$$
+\text{Bias}\left[\text{logit}(T)\right] \neq \text{logit}\left(\text{Bias}[T]\right), \qquad \text{RMSE}\left[\text{logit}(T)\right] \neq \text{logit}\left(\text{RMSE}[T]\right),
+$$
+and so on.
+<!-- LWM: Not sure about following text, or whether we want the above blurb. What trying to say here? -->
+<!--
+This is a consequence of how these performance measures are defined. 
+One might see this property as a limitation on the utility of using bias and RMSE to measure the performance of an estimator, because these measures can be quite sensitive to the metric of the parameter.-->
+
+### Comparing the Performance of the Cluster RCT Estimation Procedures {#sec-clusterRCTperformance}
+\index{example!cluster randomized trial}
+
+We now demonstrate the calculation of performance measures for the point estimators of average treatment effects in the cluster-RCT example.
+We calculate performance measures to address the following questions:
+
+- Is the estimator systematically off? (bias)
+- Is it precise? (standard error)
+- Does it predict well? (RMSE)
+ 
+Let us see how the three estimators compare on these measures.
+
+#### Are the estimators biased? {-}
+
+Bias is defined with respect to a target estimand.
+Here we assess whether our estimates are systematically different from the $\gamma_1$ parameter, which we defined in standardized units by setting the standard deviation of the student-level distribution of the outcome equal to one (see Section@sec-DGP-standardization).
+In our simulation, we generated data with a school-level ATE parameter of $\gamma_1 = 0.30$ SDs.
+
+```{r cluster-bias}
+ATE <- 0.30
+
+ClusterRCT_runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    mean_ATE_hat = mean( ATE_hat ),
+    bias = mean( ATE_hat ) - ATE
+  )
+```
+
+There is no indication of major bias for aggregation or multi-level modeling.
+Linear regression, with a bias of about 0.12 SDs, appears much more biased than the other estimators.
+This is because the linear regression is targeting the person-level average treatment effect.
+Our data-generating process makes larger sites have larger effects, so the person-level average effect is going to be higher because those larger sites count more in the overall average.
+In contrast, our estimand is the school-level average treatment effect, or the simple average of each school's true impact, which we have set to 0.30.
+The aggregation and multi-level modeling methods target this school-level average effect.
+If we had instead decided that the target estimand should be the person-level average effect, then we would find that linear regression is unbiased whereas aggregation and multi-level modeling are biased. 
+It is crucial to think carefully about the appropriate target parameter and to assess performance with respect to a well-justified and clearly articulated target.
+
+#### Which method has the smallest standard error? {-}
+
+The standard error measures the degree of variability in a point estimator.
+It reflects how stable an estimator is across replications of the data-generating process.
+We estimate the standard error for each estimator by taking the standard deviation of its set of estimates.
+For purposes of interpretation, it is useful to compare the standard errors to a benchmark estimator.
+Here, we treat the linear regression estimator as the benchmark and compute the magnitude of the SEs of each method _relative_ to the SE of the linear regression estimator:
+
+```{r}
+true_SE <- 
+  ClusterRCT_runs %>% 
+  group_by( method ) %>%
+  summarise( SE = sd( ATE_hat ) ) %>%
+  mutate( per_SE = SE / SE[method=="LR"] )
+
+true_SE
+```
+
+For this particular DGP, aggregation and multi-level modeling have SEs about 4 to 5% smaller than linear regression, meaning these estimates tend to be a bit less variable across the different datasets.
+We could therefore say aggregation and multi-level modeling are preferable to linear regression, for this context, because they are more precise.
+In a real data analysis, these standard errors are what we would be trying to approximate with a standard error estimator. 
+
+#### Which method has the smallest Root Mean Squared Error? {-}
+
+So far linear regression is not doing well: it has more bias and a larger standard error than the other two estimators.
+We can assess overall accuracy by combining these two quantities with the RMSE:
+
+```{r}
+ClusterRCT_runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    bias = mean( ATE_hat - ATE ),
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE)^2 ) )
+  ) %>%
+  mutate( 
+    per_RMSE = RMSE / RMSE[method=="LR"]
+  )
+
+```
+We also included SE and bias for ease of reference.
+
+RMSE takes both bias and variance into account.
+For aggregation and multi-level modeling, the RMSE is the same as the standard error, which makes sense because these estimators are not biased.
+For linear regression, the combination of bias plus increased variability yields a higher RMSE, with the standard error dominating the bias term (note how RMSE and SE are more similar than RMSE and bias).
+<!--The difference between the estimators are pronounced because RMSE is the square root of the _squared_ bias and _squared_ standard error.-->
+<!-- LWM: I don't think the prior line is needed? -->
+Overall, aggregation and multi-level modeling have RMSEs around 10% smaller than linear regression, meaning they tend to produce estimates that are closer to the truth than linear regression.
+
+### Robust Performance Measures {#sec-less-conventional-measures}
+
+We have introduced bias, variance and RMSE as three core measures of performance for point estimators.
+However, all of these measures are sensitive to outliers in the sampling distribution.
+Consider an estimator that generally does well, except for an occasional large mistake.
+Because conventional measures are based on arithmetic averages and squares of errors, they could indicate that such an estimator performs very poorly overall, when in fact it performs very well most of the time and terribly only rarely.
+
+If we are more curious about typical performance, then we might prefer to use other performance measures, such as the __median bias__ and the __median absolute deviation__ of $T$.
+These are called "robust" measures because they are not strongly affect by a few extreme values.
+
+One way to make a robust measure is to simply chop off some percent of the most extreme values, and then look at the central tendency or spread of the remaining values.
+For example, one robust measure of central tendency uses the $p \times 100\%$-trimmed mean, which ignores the estimates in the lowest and highest $p$-quantiles of the sampling distribution.
+Formally, the trimmed-mean bias\index{performance measures!trimmed mean bias} is
+$$
+\text{Trimmed-Bias}(T; p) = \E\left[ T \left| \Q_{p}(T) < T < \Q_{1 - p}(T) \right.\right] - \theta. 
+$$ {#eq-trimmed-bias}
+
+To estimate the trimmed bias, we take the mean of the middle $1 - 2p$ fraction of the distribution:
+$$
+\widehat{\text{Trimmed-Bias}}(T; p) = \tilde{T}_{\{p\}} - \theta.
+$$ {#eq-sample-trimmed-bias}
+where (assuming $pR$ is a whole number):
+$$
+\tilde{T}_{\{p\}} = \frac{1}{(1 - 2p)R} \sum_{r=pR + 1}^{(1-p)R} T_{(r)}
+$$
+For a symmetric sampling distribution, the trimmed-mean bias will be the same as the conventional (mean) bias, but its estimator $\tilde{T}_{\{p\}}$ will be less affected by outlying values (i.e., values of $T$ very far from the center of the distribution) compared to $\bar{T}$.
+However, if a sampling distribution is not symmetric, trimmed-mean bias will be a distinct performance measure, different from mean bias, that puts less emphasis on large errors compared to the conventional bias measure.
+
+
+Median bias\index{performance measures!median bias}, is a special case of trimmed mean bias, with $p = 0.5$.
+For median bias, we "chop off" essentially all the values, focusing on the middle one alone.
+Positive median bias implies that more than 50% of the sampling distribution exceeds the quantity of interest, while negative median bias implies that more than 50% of the sampling distribution fall below the quantity of interest.
+Formally, 
+$$
+\text{Median-Bias}(T) = \M(T) - \theta 
+.
+$$ {#eq-median-bias}
+where $\M(T)$ is the median of $T$.
+
+We estimate median bias with the sample median, as
+$$
+\widehat{\text{Median-Bias}}(T) = M_T - \theta ,
+$$ {#eq-sample-median-bias}
+where, if we define $T_{(r)}$ as the $r^{th}$ order statistic for $r = 1,...,R$, we have $M_T = T_{((R+1)/2)}$ if $R$ is odd or $M_T = \frac{1}{2}\left(T_{(R/2)} + T_{(R/2+1)}\right)$ if $R$ is even.
+
+
+
+A further robust measure of central tendency is based on winsorizing the sampling distribution by truncating all errors larger than a certain maximum size.
+A winsorized distribution amounts to arguing that you do not care about errors beyond a certain magnitude, so anything beyond some set threshold will be treated the same as if it were exactly on the threshold.
+One useful threshold for truncation is to extend some multiplier of the inter-quartile range from the first and third quartiles of the sampling distribution (similar to determining outliers for a boxplot).
+For example, we might use:
+$$
+\begin{aligned}
+L_w &= \Q_{0.25}(T) - w \times (\Q_{0.75}(T) - \Q_{0.25}(T)) \\ 
+U_w &= \Q_{0.75}(T) + w \times (\Q_{0.75}(T) - \Q_{0.25}(T)),
+\end{aligned}
+$$
+where $\Q_{0.25}(T)$ and $\Q_{0.75}(T)$ are the first and third quartiles of the distribution of $T$, respectively, and $w$ is the number of inter-quartile ranges below which an observation will be treated as an outlier.[^fences]
+Once we have calculated the thresholds, we compute a truncated estimate as $X = \min\{\max\{T, L_w\}, U_w\}$.
+The winsorized bias\index{performance measures!winsorized bias}, variance\index{performance measures!winsorized variance}, and RMSE\index{performance measures!winsorized RMSE} are then defined using winsorized values in place of the raw values of $T$, as
+$$
+\begin{aligned}
+\text{Bias}(X) &= \E\left(X\right) - \theta, \\
+\Var\left(X\right) &= \E\left[\left(X - \E (X)\right)^2 \right], \\
+\RMSE\left(X\right) &= \sqrt{\E\left[\left(X - \theta\right)^2 \right]}.
+\end{aligned}
+$$ {#eq-winsorized-variance-RMSE}
+To compute estimates of the winsorized performance criteria, we substitute sample quantiles $T_{(R/4)}$ and $T_{(3R/4)}$ in place of $\Q_{0.25}(T)$ and $\Q_{0.25}(T)$, respectively, to get estimated thresholds, $\hat{L}_w$ and $\hat{U}_w$, find $\hat{X}_r = \min\{\max\{T_r, \hat{L}_w\}, \hat{U}_w\}$, and compute the sample performance measures using Equations @eq-bias-estimator, @eq-var-estimator, and @eq-rmse-estimator, but with $\hat{X}_r$ in place of $T_r$.
+
+[^fences]: For a normally distributed sampling distribution, the interquartile range is `r round(diff(qnorm(c(0.25, 0.75))),2)` SD; with $w = 2$, the lower and upper thresholds would then fall at $\pm `r round(qnorm(0.75) + 2 * diff(qnorm(c(0.25, 0.75))),2)`$ SD, or the $`r round(100 * pnorm(qnorm(0.25) - 2 * diff(qnorm(c(0.25, 0.75)))),2)`^{th}$ and $`r round(100 * pnorm(qnorm(0.75) + 2 * diff(qnorm(c(0.25, 0.75)))),2)`^{th}$ percentiles.
+Still assuming a normal sampling distribution, taking $w = 2.5$ will mean that the thresholds fall at the $`r round(100 * pnorm(qnorm(0.25) - 2.5 * diff(qnorm(c(0.25, 0.75)))),3)`^{th}$ and $`r round(100 * pnorm(qnorm(0.75) + 2.5 * diff(qnorm(c(0.25, 0.75)))),3)`^{th}$ percentiles.
+
+Alternative measures of the overall accuracy of an estimator can also be defined using quantiles.
+For instance, an alternative to RMSE is to use the median absolute error (MAE), defined as
+$$
+\text{MAE} = \M\left(\left|T - \theta\right|\right).
+$$ {#eq-MAE}
+Letting $E_r = |T_r - \theta|$, the MAE can be estimated by taking the sample median of $E_1,...,E_R$.
+Many other robust measures of the spread of the sampling distribution are also available, including the Rosseeuw-Croux scale estimator $Q_n$ [@Rousseeuw1993alternatives] and the biweight midvariance [@Wilcox2022introduction].
+@Maronna2006robust provide a useful introduction to these measures and robust statistics more broadly.
+The `robustbase` package [@robustbase] provides R functions for calculating many of these robust statistics.
+
+## Measures for Variance Estimators {#sec-measures-for-variance-estimators}
+
+Statistics is concerned not only with how to estimate things (e.g., point estimates), but also with understanding how well we have estimated them (e.g., standard errors).
+Monte Carlo simulation studies can help us evaluate both these concerns.
+The prior section focused on assessing how well our estimators work.
+In this section we focus on assessing how well our uncertainty assessments work, looking in particular on estimation of the standard error.
+
+A first order question is whether our estimated standard errors are __calibrated__, meaning whether they are the right size, on average.
+For this question we will examine the bias of the squared estimated standard error.
+A second order question is whether our estimated standard errors are __stable__, meaning that they do not vary too much from one dataset to another.
+For this question we evaluate estimated standard errors in terms of effective degrees of freedom or the standard error (or RMSE) of the standard error.
+
+
+### Calibration
+\index{performance measures!calibration}
+
+Calibration is a relative measure, where we look at the ratio of the expected (average) value of an uncertainty estimator to the true degree of uncertainty.
+The relative measure removes scale, which is important because the absolute magnitude of uncertainty will depend on many features of the data-generating process, such as sample size.
+In particular, across different simulation scenarios (even those with the same target parameter $\theta$), the true standard error of an estimator $T$ may change considerably.
+In other words, the ground truth changes in magnitude from one scenario to another.
+With a relative measure, we can make statements such as "Our standard errors are 10% too large, on average," which are easy to interpret.
+The relative measures lets us sidestep some of the complexity of dealing with wide variation in the magnitude of the ground truth.
+
+<!--In contrast to performance measures for $T$, we define these measures in relative terms because the raw magnitude of $V$ is not a stable or interpretable parameter.
+Rather, the sampling distribution of $V$ will generally depend on many of the parameters of the data-generating process, including the sample size and any other design parameters.
+Defining bias in relative terms makes for a more interpretable metric: a value of 1 corresponds to exact unbiasedness of the variance estimator.
+Relative bias measures _proportionate_ under- or over-estimation.
+For example, a relative bias of 1.12 would mean the standard error was, on average, 12% too large.
+We discuss relative performance measures further in Section @sec-sec-relative-performance.
+-->
+
+Typically, we assess performance for _variance_ estimators ($\widehat{SE^2}$) rather than standard error estimators.
+There are a few reasons it is more common to work with variance rather than standard error.
+First, in practice, so-called unbiased standard errors are not actually unbiased, whereas variance estimators might be.[^Jokes-on-us]
+For linear regression, for example, the classic standard error estimator is an unbiased _variance_ estimator, but the standard error estimator is not exactly unbiased because
+$$
+\E[ \sqrt{ V } ] \neq \sqrt{ \E[ V ] }.
+$$
+Variance is also the measure that gives us the bias-variance decomposition of Equation @eq-RMSE-decomposition.
+Thus, if we are trying to determine whether an overall MSE is due to instability or systematic bias, operating in this squared space may be preferable.
+
+[^Jokes-on-us]: See the delightfully titled section 11.5, "The Joke Is on Us: The Standard Deviation Estimator is Biased after All," in @westfall2013understanding for further discussion.
+
+To make the calibration measure concrete, consider a generic standard error estimator $\widehat{SE}$ to go along with our generic estimator $T$ of target parameter $\theta$, and let $V = \widehat{SE^2}$ be the corresponding variance estimator. 
+
+In our simulation we obtain a large sample of standard errors, $\widehat{SE}_1,...,\widehat{SE}_R$ and corresponding variance estimators $V_r = \widehat{SE}_r^2$ for $r = 1,...,R$.
+Formally, the __relative bias__ or __calibration__ of $V$ is then defined as 
+$$
+\begin{aligned}
+\text{Relative Bias}(V) &= \frac{\E(V)}{\Var(T)} \\
+\end{aligned}
+$$ {#eq-relative-bias-SE-RMSE}
+We say our variance estimator $V$ is _calibrated_ if the relative bias is close to one.
+When calibrated, $V$ reflects how much uncertainty there actually is, on average.
+If relative bias is less than one, $V$ is _anti-conservative_, meaning it tends to under-estimate the true uncertainty of $T$, which would usually be considered quite bad.
+If relative bias is more than one, $V$ is _conservative_, meaning it tends to over-estimate the true uncertainty of $T$.
+This would be considered less than ideal, though perhaps not as severe an issue as being anti-conservative.
+
+Calibration also has implications for the performance of other uncertainty assessments such as hypothesis tests and confidence intervals.
+A relative bias of less than 1 implies that $V$ tends to under-state the amount of uncertainty, which will lead to confidence intervals that are overly narrow and do not cover the true parameter value at the desired rate.
+It also will lead to rejecting the null more often than desired, which elevates Type I error.
+Relative bias greater than 1 implies that $V$ tends to over-state the amount of uncertainty in the point estimator, making confidence intervals too large and null hypotheses harder than necessary to reject.
+
+To estimate relative bias of $V$, we simply substitute sample quantities in place of the $\E(V)$ and $\Var(T)$.
+Unlike with performance measures for $T$, where we know the target quantity $\theta$, here we do not know $\Var(T)$ exactly.
+Instead, we must estimate it using $S_T^2$, the sample variance of $T$ across replications.
+Denoting the arithmetic mean of the variance estimates across simulation trials as
+$$
+\bar{V} = \frac{1}{R} \sum_{r=1}^R V_r
+$$
+we estimate the relative bias (calibration) of $V$ using
+$$
+\begin{aligned}
+\widehat{\text{Relative Bias}}(V) &= \frac{\bar{V}}{S_T^2} . \\
+\end{aligned}
+$$ {#eq-relative-bias-variance-estimators}
+If we then take the square root of our estimate, we can obtain the estimated relative bias of the standard error.
+
+
+
+### Stability {#sec-performance-stability}
+
+Beyond calibration, we also care about the stability of our variance estimator.
+Are the estimates of uncertainty $V$ close to the true uncertainty $Var(T)$, from dataset to dataset?
+
+We offer two ways of assessing this.
+The first is to look at the relative SE or RMSE of the variance estimator $V$.
+The second is to assess the effective degrees of freedom of $V$, which takes into account how one would account for the uncertainty of a standard error estimator when generating confidence intervals or conducting hypothesis tests.[^df-correction] 
+
+[^df-correction]: A degrees of freedom correction used in a confidence interval or hypothesis test functions in exactly this way. For instance, when $V$ is unstable, as represented by a low degree of freedom, we hedge against it being randomly too small by making our confidence intervals systematically larger.
+
+The relative Variance and MSE of $V$ as an estimate of $Var(T)$ are defined as
+$$
+\begin{aligned}
+\text{Relative Var}(V) &= \frac{\Var(V)}{\Var(T)} ,\\
+\text{Relative MSE}(V) &= \frac{\E\left[\left(V - \Var(T)\right)^2 \right]}{\Var(T)}.
+\end{aligned}
+$$
+As usual, we would generally work with the the square root of these values (to get relative SE and relative RMSE).
+Relative standard errors describe the variability of $V$ in comparison to the true degree of uncertainty in $T$---the lower the better. 
+A relative standard error of 0.5 would mean that the variance estimator has average error of 50% of the true uncertainty, implying that $V$ could often be off by a factor of 2---this would be very bad.
+Ideally, a variance estimator will have small relative bias (i.e., it is calibrated), small relative standard error (i.e., it is stable), and thus a small relative RMSE.
+
+We can estimate the relative variance and MSE simply by plugging in estimates of the various quantities:
+$$
+\begin{aligned}
+\widehat{\text{Relative Var}}(V) &= \frac{S^2_V}{S_T^2} \\
+\widehat{\text{Relative MSE}}(V) &= \frac{\frac{1}{R}\sum_{r=1}^R\left(V_r - S_T^2\right)^2}{S_T^2},
+\end{aligned}
+$$ {#eq-relative-bias-MSE-estimators}
+where the sample variance of $V$ is
+$$
+S_V^2 = \frac{1}{R - 1}\sum_{r=1}^R \left(V_r - \bar{V}\right)^2 .
+$$
+
+
+Another more abstract measure of the stability of a variance estimator is its effective degrees of freedom.
+For some simple statistical models such as classical analysis of variance and linear regression with homoskedastic errors, the variance estimator is a sum of squares of normally distributed errors.
+In such cases, the sampling distribution of the variance estimator is a multiple of a $\chi^2$ distribution, with degrees of freedom corresponding to the number of independent observations used to compute the sum of squares.
+This is what leads to $t$ statistics and so forth.
+
+In the context of analysis of variance problems, @Satterthwaite1946approximate described a method of extending this idea by approximating the variability of more complex statistics (those that can be represented as a linear combination of a sum of squares), by using a chi-squared distribution with a certain degrees of freedom.
+When applied to an arbitrary variance estimator $V$, these degrees of freedom can be interpreted as the number of independent, normally distributed errors going into a sum of squares that would lead to a variance estimator that is as equally precise as $V$.
+More succinctly, these effective degrees of freedom correspond to the amount of independent observations used to estimate $V$.
+
+Following @Satterthwaite1946approximate, we define the effective degrees of freedom of $V$ as
+$$
+df = \frac{2 \left[\E(V)\right]^2}{\Var(V)}.
+$$ {#eq-Satterthwaite-df}
+We can estimate the degrees of freedom by taking
+$$
+\widehat{df} = \frac{2 \bar{V}^2}{S_V^2}.
+$$ {#eq-Satterthwaite-df-estimator}
+For simple statistical methods in which $V$ is based on a sum-of-squares of normally distributed errors, the effective degrees of freedom will be constant and correspond exactly to the number of independent observations in the sum of squares. 
+Even with more complex methods, the degrees of freedom are interpretable: higher degrees of freedom imply that $V$ is based on more observations, and thus will be a more precise estimate of the actual degree of uncertainty in $T$.
+
+### Assessing SEs for the Cluster RCT Simulation {#sec-assess-cluster-RCT-SEs}
+\index{example!cluster randomized trial}
+Returning to the cluster RCT example, we will assess whether our estimated SEs are calibrated by comparing the average _estimated_ (squared) standard error to the true sampling variance.
+Our standard errors are _inflated_ if they are systematically larger than they should be, across the simulation runs.
+We will also look at how stable our variance estimates are by comparing their standard deviation to the true sampling variance and by computing the Satterthwaite degrees of freedom.
+
+```{r calculate-cluster-RCT-performance}
+SE_performance <- 
+  ClusterRCT_runs %>%  
+  mutate( V = SE_hat^2 ) %>%
+  group_by( method ) %>%
+  summarise( 
+    SE_sq = var( ATE_hat ),
+    V_bar = mean( V ),
+    calib = V_bar / SE_sq,
+    S_V = sd( V ),
+    rel_SE_V = S_V / SE_sq,
+    df = 2 * mean( V )^2 / var( V )
+  )
+
+SE_performance %>%
+  knitr::kable( digits = c(0,3,3,2,3,2,1),
+                caption = "Performance of the variance estimators for cluster RCT simulation" )
+```
+
+The variance estimators all appear to be a bit conservative on average, with relative bias (calibration) of around `r round(mean(SE_performance$calib), 2)`, or about `r round(100 * mean(SE_performance$calib)) - 100`% higher than the true sampling variance.
+The column labelled `rel_SE_V` reports how variable the variance estimators are relative to the true sampling variances of the estimators.
+The column labelled `df` reports the Satterthwaite degrees of freedom of each variance estimator.
+Both of these measures indicate that the linear regression variance estimator is less stable than the other methods, with around `r round(diff(SE_performance$df[2:1]))` fewer degrees of freedom.
+The linear regression method uses a cluster-robust variance estimator, which is known to be unstable with few clusters [@cameronPractitionerGuideClusterRobust2015].
+Overall, it is a bad day for linear regression.
+
+## Measures for Confidence Intervals
+
+Some estimation procedures provide confidence intervals (or confidence sets) which are ranges of values that should include the true parameter value with a specified confidence level.
+For a 95% confidence level, the interval should include the true parameter in 95% replications of the data-generating process. 
+However, with the exception of some simple methods and models, methods for constructing confidence intervals usually involve approximations and simplifying assumptions, so their actual coverage rate might deviate from the intended confidence level.
+
+We typically measure confidence interval performance along two dimensions: __coverage rate__ and __expected width__.
+Suppose that the confidence interval is for the target parameter $\theta$ and has intended coverage level $\beta$ for $0 < \beta < 1$.
+Denote the lower and upper end-points of the $\beta$-level confidence interval as $A$ and $B$.
+$A$ and $B$ are random quantities---they will differ each time we compute the interval on a different dataset.
+The coverage rate of a $\beta$-level interval estimator is the probability that it covers the true parameter, formally defined as
+
+$$
+\text{Coverage}(A,B) = \Prob(A \leq \theta \leq B).
+$$ {#eq-coverage}
+For a well-performing interval estimator, $\text{Coverage}$ will be at least $\beta$ and ideally will not exceed $\beta$ by too much.
+Some analysts prefer to look at lower and upper coverage separately, where lower coverage is $\Prob(A \leq \theta)$ and upper coverage is $\Prob(\theta \leq B)$,
+and where it is desirable for each of these rates to be near $\beta / 2$.
+
+The expected width of a $\beta$-level interval estimator is the average difference between the upper and lower endpoints, formally defined as
+$$
+\text{Width}(A,B) = \E[ B - A].
+$$ {#eq-expected-width}
+Smaller expected width means that the interval tends to be narrower, on average, and thus more informative about the value of the target parameter.
+Expected width is related to the average estimated standard error, but also includes any increase of width due to any degree-of-freedom correction.
+
+In practice, we approximate the coverage and width of a confidence interval by summarizing across replications of the data-generating process.
+Let $A_r$ and $B_r$ denote the lower and upper end-points of the confidence interval from simulation replication $r$, and let $W_r = B_r - A_r$.
+The coverage rate and expected length measures can be estimated as
+$$
+\begin{aligned}
+\widehat{\text{Coverage}}(A,B) &= \frac{1}{R}\sum_{r=1}^R I(A_r \leq \theta \leq B_r) \\
+\widehat{\text{Width}}(A,B) &= \frac{1}{R} \sum_{r=1}^R W_r = \frac{1}{R} \sum_{r=1}^R \left(B_r - A_r\right).
+\end{aligned}
+$$ {#eq-coverage-width}
+Following a strict statistical interpretation, a confidence interval performs acceptably if it has actual coverage rate greater than or equal to $\beta$.
+If multiple methods satisfy this criterion, then the method with the lowest expected width would be preferable. 
+
+In many instances, confidence intervals are constructed using point estimators and
+uncertainty estimators.
+For example, a conventional Wald-type confidence interval is centered on a point estimator, with end-points taken to be a multiple of an estimated standard error below and above the point estimator:
+$$
+A = T - c \times \widehat{SE}, \quad B = T + c \times \widehat{SE}
+$$
+for some critical value $c$ (e.g., for a normal critical value with a $\beta = 0.95$ confidence level, $c = `r round(qnorm(0.975), 3)`$).
+Because of these connections, confidence interval coverage will often be closely related to the performance of the point estimator and variance estimator.
+Biased point estimators will tend to have confidence intervals with coverage below the desired level because they are not centered in the right place.
+Likewise, variance estimators that have relative bias below 1 will tend to produce confidence intervals that are too short, leading to coverage below the desired level.
+Thus, confidence interval coverage captures multiple aspects of the performance of an estimation procedure. 
+
+### Confidence Intervals in the Cluster RCT Simulation {#sec-cluster-RCT-CI-coverage}
+\index{example!cluster randomized trial}
+
+Returning to the CRT simulation, we will examine the coverage and expected width of normal Wald-type confidence intervals for each of the estimators under consideration.
+To do this, we first have to calculate the confidence intervals because we did not do so in the estimation function.
+We compute a normal critical value for a $\beta = 0.95$ confidence level using `qnorm(0.975)`, then compute the lower and upper end-points using the point estimators and estimated standard errors:
+```{r}
+runs_CIs <- 
+  ClusterRCT_runs %>% 
+  mutate( 
+    A = ATE_hat - qnorm(0.975) * SE_hat,
+    B = ATE_hat + qnorm(0.975) * SE_hat
+  )
+```
+Now we can estimate the coverage rate and expected width of these confidence intervals:
+```{r}
+runs_CIs %>%
+  group_by( method ) %>%
+  summarise( 
+    coverage = mean( A <= ATE & ATE <= B ),
+    width = mean( B - A )
+  )
+```
+
+The coverage rate is close to the desired level of 0.95 for the multilevel model and aggregation estimators, but it is a bit too low for linear regression.
+The lower-than-nominal coverage level occurs because of the bias of the linear regression point estimator.
+The linear regression confidence intervals are a bit wider than the other methods due to the larger standard errors.
+
+The normal Wald-type confidence intervals we have examined here are based on fairly rough approximations.
+In practice, we might want to examine more carefully constructed intervals such as ones that use critical values based on $t$ distributions or ones constructed by profile likelihood. 
+Especially in scenarios with a small or moderate number of clusters, such methods might provide better intervals, with coverage closer to the desired confidence level.
+In our earlier assessment of the variance estimator (see @sec-assess-cluster-RCT-SEs), we also found Linear Regression had lower degrees of freedom, meaning it might have even wider intervals if they were calculated more carefully.
+See Exercise @sec-cluster-RCT-t-confidence-intervals.
+
+## Measures for Inferential Procedures (Hypothesis Tests) {#sec-assessing-inferential-procedures}
+
+Hypothesis testing entails first specifying a null hypothesis, such as that there is no difference in average outcomes between two experimental groups. One then collects data and evaluates whether the observed data is compatible with the null hypothesis. 
+Hypothesis test results are often described in terms of a $p$-value, which measures how extreme or surprising a feature of the observed data (a test statistic) is relative to what one would expect if the null hypothesis is true. 
+A small $p$-value (such as $p < .05$ or $p < .01$) indicates that the observed data would be unlikely to occur if the null is true, leading the researcher to reject the null hypothesis. 
+Alternately, testing procedures might be formulated by comparing a test statistic to a specified critical value; a test statistic exceeding the critical value would lead the researcher to reject the null.
+
+Hypothesis testing procedures aim to control the level of false positives, corresponding to the probability that the null hypothesis is rejected when it holds in truth.
+The level of a testing procedure is often denoted as $\alpha$, and it has become conventional in many fields to conduct tests with a level of $\alpha = .05$.[^significance]
+Just as in the case of confidence intervals, hypothesis testing procedures can sometimes be developed that will have false positive rates exactly equal to the intended level $\alpha$.
+However, in many other problems, hypothesis testing procedures involve approximations or simplifying assumptions, so that the actual rate of false positives might deviate from the intended $\alpha$-level.
+Knowing the risk of this is important.
+When we evaluate a hypothesis testing procedure, we are concerned with two primary measures of performance: *validity* and *power*.
+
+[^significance]: The convention of using $\alpha = .05$ does not have a strong theoretical rationale. Many scholars have criticized the rote application of this convention and argued for using other $\alpha$ levels. See @Benjamin2017redefine and @Lakens2018justify for spirited arguments about choosing $\alpha$ levels for hypothesis testing.
+
+### Validity
+
+Validity pertains to whether we erroneously reject a true null more often than we should.
+An $\alpha$-level testing procedure is valid if it has no more than an $\alpha$ chance of rejecting the null, when the null is true.
+If we were using the conventional $\alpha = .05$ level, then a valid testing procedure will reject the null in only about 50 of 1000 replications of a data-generating process where the null hypothesis actually holds.
+
+To assess validity, we will need to specify a data generating process where the null hypothesis holds (e.g., where there is no difference in average outcomes between experimental groups).
+We then generate a large series of data sets with a true null, conduct the testing procedure on each dataset and record the $p$-value or critical value, then score whether we reject the null hypothesis.
+In practice, we may be interested in evaluating a testing procedure by exploring data generation processes where the null is true but other aspects of the data (such as outliers, skewed outcome distributions, or small sample size) make estimation difficult, or where auxiliary assumptions of the testing procedure are violated.
+Examining such data-generating processes allows us to understand if our methods are robust to patterns that might be encountered in a real data analysis.
+The key to evaluating the validity of a procedure is that, for whatever data-generating process we examine, the null hypothesis must be true.
+
+### Power
+
+Power is concerned with the chance that we notice when an effect exists---that is, the probability of rejecting the null hypothesis when it does not actually hold.
+Compared to validity, power is a more nuanced concept because larger effects will clearly be easier to notice than smaller ones, and more blatant violations of a null hypothesis will be easier to identify than subtle ones.
+Furthermore, the rate at which we can detect violations of a null will depend on the $\alpha$ level of the testing procedure. A lower $\alpha$ level will make for a less sensitive test, requiring stronger evidence to rule out a null hypothesis. 
+Conversely, a higher $\alpha$ level will reject more readily, leading to higher power but at a cost of increased false positives. 
+
+In order to evaluate the power of a testing procedure by simulation, we will need to generate data where there is something to detect.
+In other words, we will need to ensure that the null hypothesis is violated and that some specific alternative hypothesis of interest holds.
+The process of evaluating the power of a testing procedure is otherwise identical to that for evaluating its validity: generate many datasets, carry out the testing procedure, and track the rate at which the null hypothesis is rejected. 
+The only difference is the _conditions_ under which the data are generated.
+
+We often find it useful to think of power as a _function_ rather than as a single quantity because its absolute magnitude will generally depend on the sample size of a dataset and the magnitude of the effect of interest. 
+Because of this, power evaluations will typically involve examining a _sequence_ of data-generating scenarios with varying sample size or varying effect size. 
+If we are actually planning a future\index{future package} analysis, we would then look to determine what sample size or effect size would give us 80% power (a traditional target power level used for planning in many cases).
+See Chapter @sec-power for more on power analysis\index{power analysis} for study planning.
+
+Separately, if our goal is to compare testing procedures, then absolute power at substantively large effects is often less informative than the relative power of different testing procedures at substantively small effects, near to but not exactly at the null.
+In this setting, attention naturally shifts to infinitesimal power---that is, how quickly power increases as we move from a null effect to very small alternatives.
+Examining infinitesimal power helps identify which tests are most sensitive to small departures from the null in a more standardized way.
+
+### Rejection Rates
+
+When evaluating either validity or power, the main performance measure is the __rejection rate__ of the hypothesis test.
+Let $P$ be the $p$-value from a procedure for testing the null hypothesis that a parameter $\theta = 0$.
+The rejection rate is then
+$$
+\rho_\alpha(\theta) = \Prob(P < \alpha)
+$$ {#eq-rejection-rate}
+
+When data are simulated from a process in which the null hypothesis is true (i.e., $\theta$ really does equal 0), then the rejection rate is equivalent to the Type-I error rate of the test.
+When the data are simulated from a process in which the null hypothesis is violated ($\theta \neq 0$), then the rejection rate is equivalent to the power of the test.
+
+To estimate the rejection rate, calculate the proportion of replications where the test rejects the null hypothesis. 
+Letting $P_1,...,P_R$ be the $p$-values simulated from $R$ replications of a data-generating process with true parameter $\theta$, estimate the rejection rate by calculating 
+$$
+r_\alpha(\theta) = \frac{1}{R} \sum_{r=1}^R I(P_r < \alpha).
+$$ {#eq-rejection-rate-estimate}
+It may be of interest to evaluate the performance of the test at several different $\alpha$ levels.
+For instance, @brown1974SmallSampleBehavior evaluated the Type-I error rates and power of their tests using $\alpha = .01$, $.05$, and $.10$. 
+Recording the $p$-value of the test makes it easy to estimate rejection rates for multiple $\alpha$ levels, since we simply apply Equation @eq-rejection-rate-estimate for each value of $\alpha$.
+When simulating from a data-generating process where the null hypothesis holds, one can also plot the empirical cumulative distribution function of the $p$-values; for an exactly valid test, the $p$-values should follow a standard uniform distribution with a cumulative distribution falling along the $45^\circ$ line.
+
+Methodologists hold a variety of perspectives on how close the actual Type-I error rate should be in order to qualify as suitable for use in practice. Following a strict statistical definition, a hypothesis testing procedure is said to be __level-$\alpha$__  if its actual Type-I error rate is _always_ less than or equal to $\alpha$, for any specific conditions of a data-generating process.
+Among a collection of level-$\alpha$ testing procedures, we would prefer the one with highest power.
+If looking only at null rejection rates, then the test with Type-I error closest to $\alpha$ would usually be preferred.
+
+<!--However, some scholars prefer to use a less stringent criterion, where the Type-I error rate of a testing procedure would be considered acceptable if it is within 50\% of the desired $\alpha$ level.
+For instance, a testing procedure with $\alpha = .05$ would be considered acceptable if its Type-I error is no more than 7.5%; with $\alpha = .01$, it would be considered acceptable if its Type-I error is no more than 1.5%.
+-->
+<!-- JEP: Is there a standard/canonical a reference for this perspective? -->
+<!-- LWM: No, and so I removed it---not sure it is useful for our purposes? -->
+
+
+### Inference in the Cluster RCT Simulation
+\index{example!cluster randomized trial}
+
+Returning to the cluster RCT simulation, we evaluate the validity and power of hypothesis tests for the average treatment effect based on each of the three estimation methods. 
+The data used in previous sections of the chapter was simulated under a process with a non-null treatment effect parameter (equal to 0.3 SDs), so the null hypothesis of zero average treatment effect does not hold. 
+Thus, the rejection rates for this scenario correspond to estimates of power.
+We compute the rejection rate for tests with an $\alpha$ level of $.05$:
+
+```{r demo_calc_power}
+ClusterRCT_runs %>% 
+  group_by( method ) %>%
+  summarise( power = mean( p_value <= 0.05 ) )
+```
+
+For this particular scenario, none of the tests have especially high power, and the linear regression estimator apparently has higher power than the aggregation method and the multi-level model.
+
+To make sense of this power pattern, we should consider the validity of the testing procedures. 
+We can do so by running a new simulation using the function we wrote in Section @sec-one-run-reparameterization, but with an average treatment effect of zero (i.e., we make the null hypothesis true).
+We also increase `size_coef` and `alpha` parameter to induce additional treatment effect heterogeneity, and increase the number of clusters to get more stable estimation:
+
+```{r secret-run-null-cluster-rct, include=FALSE}
+source("case_study_code/clustered_data_simulation.R")
+
+if ( !file.exists("results/cluster_RCT_simulation_validity.rds" )) {
+  
+  tictoc::tic()  # Start the clock!
+  
+  set.seed( 4404044 )
+  runs_val <- run_CRT_sim( reps = 1000, 
+             n_bar = 30, J = 30, 
+             ATE = 0, ICC = 0.2, 
+             size_coef = 0.75, alpha = 0.75 )
+  tictoc::toc()
+  
+  saveRDS( runs_val, file = "results/cluster_RCT_simulation_validity.rds" )
+  
+} else {
+  
+  runs_val <- readRDS( "results/cluster_RCT_simulation_validity.rds" )
+}
+```
+
+```{r run-cluster-rct, eval=FALSE}
+set.seed( 4404044 )
+runs_val <- run_CRT_sim( reps = 1000, 
+                         n_bar = 30, J = 30, 
+                         ATE = 0, ICC = 0.2, 
+                         size_coef = 0.75, alpha = 0.75 )
+```
+
+Assessing validity involves repeating the exact same rejection rate calculations as we did for power.
+We also estimate the bias of the point estimator, since bias can affect the validity of a testing procedure:
+```{r demo-calc-validity}
+runs_val %>% 
+  group_by( method ) %>%
+  summarise( 
+    bias = mean(ATE_hat),
+    power = mean( p_value <= 0.05 ) 
+  )
+```
+
+The aggregation and multi-level modeling approaches both seem to reject a bit below 0.05, at 0.04, while LR is here at 0.10.
+The test for the linear regression estimator has an elevated Type-I error, probably driven by the upward bias of the point estimator used in constructing the test (see the bias column).
+The elevated rejection rate due to bias might then be part of the reason that the linear regression had higher power than the other procedures in our power example, above.
+If so, it is not entirely fair to compare the power of the three testing procedures, because one of them has Type-I error in excess of the desired level.
+
+As discussed above, linear regression targets the person-level average treatment effect. 
+In the scenario we just simulated for evaluating validity, the person-level average effect is not zero even though our cluster-average effect is zero, because we have specified a non-zero impact heterogeneity parameter (`size_coef=0.75`) along with positive school size variation (`alpha = 0.75`), so that the school-specific treatment effects vary around 0.
+To see if this is why the linear regression test has an inflated Type-I error rate, we could re-run the simulation using settings where both the school-level and person-level average effects are truly zero by setting `size_coef = 0`.
+
+
+
+## Relative or Absolute Measures? {#sec-relative-performance}
+
+A __relative measure__ is when you compare a performance measure to the target quantity by taking a ratio.
+For example, __relative bias__ is the expected value of an estimator divided by the true parameter value.
+As we saw when evaluating variance, above, relative measures can be very useful, giving statements such as "this estimator's standard errors are 10% too big, on average."
+In the best case, they are easy to interpret because they are unitless.
+However, they also suffer from some notable drawbacks.
+
+Relative measures can be difficult to interpret under several circumstances.
+For one, ratios can be deceiving when the denominator, i.e. reference value, is near zero.
+This can be a problem when, for example, examining bias relative to a benchmark estimator if the benchmark has no or little bias.
+Relative measures can also be problematic when the denominator can take on both negative or positive values.
+Finally, relative measures can again be misleading if the reference value changes unexpectedly with changes in the simulation context.
+
+We now discuss these issues in more detail and offer guidance on how to decide whether to to use relative or absolute performance measures.
+
+### Performance relative to the target parameter
+
+In considering performance measures for point estimators, we have defined the measures in terms of differences (bias, median bias) and average deviations (variance and RMSE), all of which are on the scale of the target parameter.
+In contrast, for evaluating estimated standard errors we have defined measures in relative terms, calculated as _ratios_ of the average estimate to the target quantity, rather than as differences.
+In the latter case, relative measures are justified because the target quantity (the true degree of uncertainty) is always positive and is usually strongly affected by design parameters of the data-generating process.
+Is it ever reasonable to use relative measures for point estimators? If so, how should we decide whether to use relative or absolute measures?
+
+Many published simulation studies do use relative performance measures for evaluating point estimators.
+For instance, studies might use relative bias or relative RMSE, defined as
+$$
+\begin{aligned}
+\text{Relative }\Bias(T) &= \frac{\E(T)}{\theta}, \\ 
+\text{Relative }\RMSE(T) &= \frac{\sqrt{\E\left[\left(T - \theta\right)^2 \right]}}{\theta}.
+\end{aligned}
+$$ {#eq-relative-bias-RMSE}
+and estimated as 
+$$
+\begin{aligned}
+\widehat{\text{Relative }\Bias(T)} &= \frac{\bar{T}}{\theta}, \\ 
+\widehat{\text{Relative }\RMSE(T)} &= \frac{\widehat{RMSE}(T)}{\theta}.
+\end{aligned}
+$$ {#eq-relative-bias-RMSE-estimators}
+As justification for evaluating bias in relative terms, authors often appeal to @hoogland1998RobustnessStudiesCovariance, who suggested that relative bias of under 5% (i.e., relative bias falling between 0.95 and 1.05) could be considered acceptable for an estimation procedure.
+However, @hoogland1998RobustnessStudiesCovariance were writing about a very specific context---robustness studies of structural equation modeling techniques---that have parameters of a particular form.
+In our view, their proposed rule-of-thumb is often generalized far beyond the circumstances where it is defensible, including to problems where it is clearly arbitrary and inappropriate.
+
+One big problem with relative bias, in particular, arises when the target parameter is equal to or near zero.
+Suppose you have a bias of 0.1 that is consistent across values of the true parameter.  For a true parameter value of 0.2, the relative bias would be 0.5.
+But if the true value were 0.01, then the relative bias would be 10!
+As the true value gets smaller and smaller, the relative bias will explode.
+
+Another problem with relative bias occurs when the target parameter is on an arbitrary scale, so that the absolute magnitude is not meaningful.
+For example, in our Cluster RCT simulation, the relative bias of the ATE estimators would change if we moved the ATE from 0.2 to 0.5, or from 0.2 to 0 (where relative bias would now be entirely undefined).
+In contrast, the absolute bias would stay the same regardless of the ATE.
+
+A more principled approach to choosing between whether to use absolute and relative measures is to first consider whether the magnitude of the measure changes across different performances of the target parameter $\theta$.
+If the estimand of interest is a location parameter, then the bias, variance or RMSE of an estimator will likely not change as $\theta$ changes (see Figure @fig-absolute-relative, left).
+Focusing on relative measures in this scenario would lead to a much more complicated story because different values of $\theta$ will produce drastically different values, ranging from nearly unbiased to nearly infinite bias (for $\theta$ very close to zero).
+Better to use absolute bias, which is nearly constant and simpler to interpret and explain.
+On the other hand, if changing $\theta$ would lead to proportionate changes in the magnitude of bias, variance, or RMSE, then relative bias may be useful because it could lead to a simple story such as "the estimator is usually estimating around 12% too high," or similar.
+This is what is shown at right of Figure @fig-absolute-relative.
+We usually expect this type of pattern to occur for scale parameters, such as standard deviations or standard errors (as we considered in @sec-measures-for-variance-estimators). 
+
+```{r fig-absolute-relative}
+#| fig.width: 8
+#| fig.height: 3
+#| echo: false
+#| message: false
+#| fig.cap: "Hypothetical relationships between bias and a target parameter $\\theta$. In Scenario A, bias is unrelated to $\\theta$ and absolute bias is a more appropriate measure. In Scenario B, bias is proportional to $\\theta$ and relative bias is a more appropriate measure."
+
+
+theta <- seq(0, 0.8, 0.2)
+bias1 <- rnorm(length(theta), mean = 0.06, sd = 0.004)
+bias2 <- rnorm(length(theta), mean = theta * 0.12, sd = 0.004)
+type <- rep(c("Scenario A","Scenario B"), each = length(theta))
+dat <- data.frame(type, theta, bias = c(bias1, bias2))
+ggplot(dat, aes(theta, bias, color = type)) + 
+  geom_hline(yintercept = 0) +  
+  geom_point() + geom_line() + 
+  facet_wrap(~ type) + 
+  theme_minimal() + 
+  theme(legend.position = "none") + 
+  labs(
+    x = expression(theta),
+    y = "Bias"
+  )
+
+```
+
+How do we know which of these scenarios is a better match for a particular problem?
+For some estimators and data-generating processes, it may be possible to use statistical theory to examine the how bias or variance would be expected to change as a function of $\theta$.
+However, many problems are too complex to be tractable.
+A generally more feasible route is to evaluate performance for _multiple_ values of the target parameter and then generate a graph such as shown in Figure @fig-absolute-relative to understand how performance changes as a function of the target parameter.
+If the absolute bias is roughly the same for all values of $\theta$ (as in Scenario A), then use absolute bias.
+On the other hand, if the bias grows roughly in proportion to $\theta$ (as in Scenario B), then relative bias might be a better summary criterion.
+Generally, unless you believe bias must be zero if the parameter $\theta$ is zero, absolute bias is usually the safer choice.
+
+
+### Performance relative to a benchmark estimator
+
+Another way to define performance measures in relative terms is to take the ratio of the performance measure for one estimator over the performance measure for a benchmark estimator (or some other benchmark quantity).
+We have already demonstrated this approach in comparing standard errors and RMSEs for the cluster RCT example (Section @sec-clusterRCTperformance), where we used the linear regression estimator as the benchmark.
+This approach is natural in simulations that involve comparing the performance of multiple estimators and where one of the estimators could be considered the current standard or conventional method. 
+
+Comparing the performance of one estimator relative to another can be especially useful when examining measures whose magnitude varies drastically across design parameters.
+For example, we typically expect precision and accuracy to improve (variance and RMSE to decrease) as sample size increases.
+Comparing estimators in terms of _relative_ precision or _relative_ accuracy may then make it easier to identify consistent patterns in the simulation results. 
+A relative measure might allow us to summarize findings by saying that "the aggregation estimator has standard errors that are consistently 6-10% smaller than the standard errors of the linear regression estimator."
+This is much easier to interpret than saying that "aggregation has standard errors that are around 0.01 smaller than linear regression, on average."
+In the latter case, it is very difficult to determine whether a difference of 0.01 is large or small.
+Furthermore, focusing on an average difference conceals relevant variation across scenarios involving different sample sizes.
+
+Comparing performance relative to a benchmark method can be an effective tool, but it also has potential drawbacks.
+Because these relative performance measures are inherently comparative, higher or lower ratios could either be due to the behavior of the method of interest (the numerator) or due to the behavior of the benchmark method (the denominator).
+Consider if the benchmark completely falls apart under some circumstance, but the comparison only worsens a slight bit.
+The relative measure, focused on the comparison, would appear to be a marked improvement, which could be deceptive.
+
+Ratio comparisons are also less effective for performance measures, such as power, that are on a constrained scale.
+If a baseline method has power of 0.05, and we improve it to 0.10, we have doubled our power, but if it is 0.50 and we increase to 0.55, we have only increased by 10%.
+Whether this is misleading or not will depend on context.
+
+
+## Estimands Not Represented By a Parameter {#sec-implicit-estimands}
+
+In the Cluster RCT example,\index{example!cluster randomized trial} we focused on the estimand of the school-level ATE, represented by the model parameter $\gamma_1$.
+What if we were instead interested in the person-level average effect?
+This estimand does not correspond to any input parameter in our data generating process.
+Instead, it is defined _implicitly_ by a combination of other parameters.
+In order to compute performance characteristics such as bias and RMSE, we would need to first calculate the target estimand based on the inputs to the data-generating processes.
+There are at least three possible ways to accomplish this: mathematical theory, generating a massive dataset, or tracking the estimand during simulation.
+
+**Mathematical theory.** One approach is to use mathematical distribution theory to compute the implied parameter.
+Our target parameter will be some function of the parameters and random variables in the data-generating process, and it may be possible to evaluate that function algebraically or numerically (i.e., using numerical integration functions such as `integrate()`).
+This can be a very worthwhile exercise if it provides insights into the relationship between the target parameter and the inputs of the data-generating process.
+However, this approach requires knowledge of distribution theory, and it can get quite complicated and technical.[^cluster-RCT-estimand]
+
+[^cluster-RCT-estimand]: In the cluster-RCT example, the distribution theory is tractable. See Exercise @sec-cluster-RCT-SPATE.
+
+**Massive dataset.** Another approach is to generate a massive dataset---one so large that it can stand in for the entire data-generating model---and then simply calculate the target parameter of interest in this massive dataset. In the cluster-RCT example, we can apply this strategy by generating data from a very large number of clusters and then simply calculating the true person-average effect across all generated clusters.
+If the dataset is big enough, then the uncertainty in this estimate will be negligible compared to the uncertainty in our simulation.
+
+We implement this approach as follows, generating a dataset with 100,000 clusters:
+```{r, cache=TRUE}
+dat <- gen_cluster_RCT( 
+  n_bar = 30, J = 100000, 
+  gamma_1 = 0.3, gamma_2 = 0.5,
+  sigma2_u = 0.20, sigma2_e = 0.80,
+  alpha = 0.75  
+)
+
+ATE_person <- mean( dat$Yobs[dat$Z==1] ) - mean( dat$Yobs[dat$Z==0] )
+```
+Our extremely precise estimate of the person-average effect is `r round( ATE_person, 2)`, which is consistent with what we would expect given the bias we saw earlier for the linear model.
+
+If we recalculate performance measures for all of our estimators with respect to the `ATE_person` estimand, the bias and RMSE of our estimators will shift, although the standard errors will stay the same.
+
+```{r}
+performance_person_ATE <-
+  ClusterRCT_runs %>% 
+  group_by( method ) %>%
+  summarise( 
+    bias = mean( ATE_hat ) - ATE_person,
+    SE = sd( ATE_hat ),
+    RMSE = sqrt( mean( (ATE_hat - ATE_person)^2 ) )
+  ) %>%
+  mutate( per_RMSE = RMSE / RMSE[method=="LR"] )
+
+performance_person_ATE
+```
+
+```{r, echo = FALSE}
+RMSE_ratio <- 
+  performance_person_ATE %>% 
+  filter(method != "LR") %>%
+  summarize(per_RMSE = mean(per_RMSE)) %>%
+  pull(per_RMSE)
+```
+
+For the person-weighted estimand, the aggregation estimator and multilevel model are biased but the linear regression estimator is mostly unbiased.
+However, the aggregation estimator and multilevel model estimator still have smaller standard errors than the linear regression estimator.
+RMSE now captures the trade-off between increased bias and reduced variance.
+The bias price is too high in this case: aggregation and multilevel modeling have an RMSE 5 and 2 percent larger than linear regression.
+
+
+**Track during the simulation.** A third approach for calculating an implied estimand is to record a truly unbiased estimate of it with each simulation trial, and then average across all trials to get the true estimand.
+
+For example, in the cluster RCT simulation, we could record the true person average effect of each dataset for each simulation iteration, and then average the sample-specific parameters at the end. 
+The overall average of the dataset-specific `ATE_person` parameters corresponds to the population person-level ATE.
+This approach is equivalent to generating a single massive dataset---we just generate it piece by piece. 
+
+To implement this approach, we would need to modify the data-generating function `gen_cluster_RCT()` to track the additional information.
+For instance, we might calculate
+```{r, eval=FALSE}
+tx_effect <- gamma_1 + gamma_2 * ( nj - n_bar ) / n_bar
+beta_0j <- gamma_0 + Zj * tx_effect + u0j
+```
+and then include `tx_effect` along with `Yobs` and `Z` as a column in our dataset.
+This approach is quite similar to directly calculating _potential outcomes_, as discussed in Chapter @sec-potential-outcomes.
+
+After modifying the data-generating function, we will also need to modify the analysis function(s) to record the sample-specific treatment effect parameter.
+We might have, for example:
+```{r, eval=FALSE}
+analyze_data = function( dat ) {
+  MLM <- analysis_MLM( dat )
+  LR <- analysis_OLS( dat )
+  Agg <- analysis_agg( dat )
+  res <- bind_rows( 
+    MLM = MLM, LR = LR, Agg = Agg,
+    .id = "method" 
+  )
+  res$ATE_person <- mean( dat$tx_effect )
+  return( res )
+}
+```
+
+When we run our simulation with this code, we will end up with a column of true person-average treatment effects.
+The average of these value across replications would give an estimated true person average treatment effect for  the population.
+We would then use this as the target parameter for performance calculations, as we did above.
+
+
+An estimand not represented by any single input parameter is more difficult to work with than one that corresponds directly to an input parameter.
+That said, it might be a more important estimand than one represented directly with an input parameter.
+As the above shows, it is quite feasible to examine such estimands with a bit of forethought and careful programming.
+The key is to be clear about what you are trying to estimate because the performance of an estimator depends on the estimand against which it is compared.
+
+
+
+
+## Uncertainty in Performance Estimates (the Monte Carlo Standard Error) {#sec-MCSE}
+
+The performance measures we have described are all defined in terms of an infinite number of replications of the data-generating process.
+Of course, simulations will only involve a finite set of replications, based on which we _estimate_ the measures.
+These estimates involve some Monte Carlo error because they are based on a limited number of replications.
+If we re-ran the simulation (with a different seed), our estimates would change.
+We can quantify how much they might change by assessing Monte Carlo error.
+
+To account for Monte Carlo error, we can think of our simulation results as a sample from a population.
+Each replication is independent drawn from the population of the sampling distribution. 
+Once we frame the problem in these terms, we can apply standard statistical techniques to calculate standard errors.
+We call these standard errors Monte Carlo Simulation Errors, or MCSEs.
+For most performance measures, closed-form expressions for their MCSEs are available.
+If no closed-form expressions are available, we can still estimate MCSEs using techniques such as the jackknife or bootstrap.
+
+
+### Conventional measures for point estimators
+
+For the performances measures that we have described for evaluating point estimators, Monte Carlo standard errors can be calculated using conventional formulas.[^estimated-MCSEs] 
+Recall that we have a point estimator $T$ of a target parameter $\theta$, and we calculate the mean of the estimator $\bar{T}$ and its sample standard deviation $S_T$ across $R$ replications of the simulation process. 
+In addition, we will need to calculate the standardized skewness and kurtosis of $T$ as 
+
+$$
+\begin{aligned}
+\text{Skewness (standardized):} &  &g_T &= \frac{1}{R S_T^3}\sum_{r=1}^R \left(T_r - \bar{T}\right)^3 \\
+\text{Kurtosis (standardized):} &  &k_T &= \frac{1}{R S_T^4} \sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
+\end{aligned}
+$$ {#eq-skewness-kurtosis}
+
+[^estimated-MCSEs]: To be precise, the formulas that we give are _estimators_ for the Monte Carlo standard errors of the performance measure estimators. Our presentation does not emphasize this point because the performance measures will usually be estimated using a large number of replications from an independent and identically distributed process, so the distinction between true and estimated Monte Carlo standard errors will not be consequential. One could write $MCSE$ and $\widehat{MCSE}$ to distinguish between the two, but we avoid this notation for simplicity.
+
+The bias of $T$ is estimated as $\bar{T} - \theta$, so the MCSE for bias is equal to the MCSE of $\bar{T}$ because $\theta$ is fixed. 
+It can be estimated as 
+$$
+MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}}.
+$$ {#eq-MCSE-bias}
+The sampling variance of $T$ is estimated as $S_T^2$, with a MCSE of
+$$
+MCSE\left(\widehat{\Var}(T)\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}}.
+$$ {#eq-MCSE-var}
+The true standard error (the square root of the sampling variance) is estimated as $S_T$.
+Using a delta method approximation,[^delta-method] the MCSE of $S_T$ is approximately
+$$
+MCSE\left(S_T\right) \approx \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
+$$ {#eq-MCSE-SE}
+
+[^delta-method]: The delta method approximation says (with some conditions), that if we assume $X \sim N\left( \phi, \sigma_X^2 \right)$, then we can approximate the distribution of $g(X)$ for some continuous function $g(\cdot)$ as
+$$ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2 \times \sigma_X^2 \right),$$
+where $g'(\phi)$ is the derivative of $g(\cdot)$ evaluated at $\phi$.
+Following this approximation,
+$$ SE( g(X) ) \approx \left| g'(\theta) \right|  \times SE(X) .$$
+For estimation, we plug in $\hat{\theta}$ and our estimate of $SE(X)$ into the above.
+To find the MCSE for $S_T$, we can apply the delta method approximation to $X = S_T^2$ with $g(x) = \sqrt(x)$ and $g'(x) =\frac{1}{2\sqrt{x}}$. [This blog post](https://jepusto.com/posts/Multivariate-delta-method/index.html) provides a friendly introduction.
+
+We estimate RMSE using Equation @eq-rmse-estimator, which can also be written as
+$$
+\widehat{\RMSE}(T) = \sqrt{(\bar{T} - \theta)^2 + \frac{R - 1}{R} S_T^2}.
+$$
+The MCSE of the estimated mean squared error (the square of RMSE) is
+$$
+MCSE( \widehat{MSE} ) = \sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}.
+$$ {#eq-MCSE-MSE}
+Again following a delta method approximation, a MCSE for the RMSE is
+$$
+MCSE( \widehat{RMSE} ) = \frac{\sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}}{2 \times \widehat{RMSE}}.
+$$ {#eq-MCSE-RMSE}
+
+Section @sec-sec-relative-performance discussed circumstances where we might prefer to calculate performance measures in relative rather than absolute terms. 
+For measures that are calculated by dividing a raw measure by the known target parameter, the MCSE for the relative measure is simply the MCSE for the raw measure divided by the target parameter. 
+For instance, the MCSE of relative bias $\bar{T} / \theta$ is 
+$$
+MCSE\left( \frac{\bar{T}}{\theta} \right) = \frac{1}{\theta} MCSE(\bar{T}) = \frac{S_T}{\theta \sqrt{R}}.
+$$ {#eq-MCSE-relative-bias}
+MCSEs for relative variance and relative RMSE follow similarly.
+
+### MCSEs for robust measures for point estimators
+
+In Section @sec-less-conventional-measures we described several alternative performance measures for evaluating point estimators.
+MCSEs for these less conventional measures can be obtained using results from the theory of robust statistics [@Hettmansperger2010robust; @Maronna2006robust].
+
+@McKean1984comparison proposed a standard error estimator for the sample median from a continuous but not necessarily normal distribution, derived from a non-parametric confidence interval for the sample median. 
+We use their approach to compute a MCSE for $M_T$, the sample median of $T$.
+Let $c = \left\lceil(R + 1) / 2 - 1.96 \times \sqrt{R/4}\right\rfloor$, where the inner expression is rounded to the nearest integer.
+Then
+$$
+MCSE\left(M_T\right) = \frac{T_{(R + 1 - c)} - T_{(c)}}{2 \times 1.96}.
+$$ {#eq-MCSE-median}
+A Monte Carlo standard error\index{Monte Carlo standard error} for the median absolute deviation can be computed following the same approach, but substituting the order statistics of $E_r = | T_r - \theta|$ in place of those for $T_r$.
+
+For the trimmed mean bias with trimming proportion $p$,
+a MCSE is
+$$
+MCSE\left(\tilde{T}_{\{p\}}\right) = \sqrt{\frac{U_p}{R}},
+$$ {#eq-MCSE-trimmed-mean}
+where, taking from [@Maronna2006robust, Eq. 2.85],
+$$
+U_p = \frac{1}{(1 - 2p)R}\left( pR\left(T_{(pR)}  - \tilde{T}_{\{p\}}\right)^2 + pR\left(T_{((1-p)R + 1)}  - \tilde{T}_{\{p\}}\right)^2 + \sum_{r=pR + 1}^{(1 - p)R} \left(T_{(r)} - \tilde{T}_{\{p\}}\right)^2 \right) .
+$$
+The additional uncertainty due to the thresholds being estimated is ignorable 
+
+Performance measures based on winsorization include winsorized bias, winsorized standard error, and winsorized RMSE. 
+MCSEs for these measures can be computed using the same formuals as for the conventional measures of bias, standard error, and RMSE, but using sample moments of $\hat{X}_r$ in place of the sample moments of $T_r$.
+
+
+### MCSE for Confidence Intervals and Hypothesis Tests
+
+Performance measures for confidence intervals and hypothesis tests are simple compared to those we have described for point and variance estimators. 
+First, the MCSE for the estimated rejection rate is
+$$
+MCSE(r_\alpha) = \sqrt{\frac{r_\alpha ( 1 - r_\alpha)}{R}}.
+$$ {#eq-MCSE-rejection-rate}
+This MCSE uses the estimated rejection rate to approximate its Monte Carlo error. 
+When evaluating the validity of a test, we might expect the rejection rate to be fairly close to the nominal $\alpha$ level, in which case we could compute a MCSE using $\alpha$ in place of $r_\alpha$, taking $\sqrt{\alpha(1 - \alpha) / R}$.
+When evaluating power, we will not usually know the neighborhood of the rejection rate in advance of the simulation.
+However, a conservative upper bound on the MCSE can be derived by observing that MCSE is maximized when $r_\alpha = \frac{1}{2}$, giving
+$$
+MCSE(r_\alpha) \leq \frac{1}{2 \sqrt{R}}.
+$$
+
+When evaluating confidence interval performance, we focus on coverage rates and expected widths.
+MCSEs for the estimated coverage rate work similarly to those for rejection rates.
+If the coverage rate is expected to be in the neighborhood of the intended coverage level $\beta$, then we can approximate the MCSE as
+$$
+MCSE(\widehat{\text{Coverage}}(A,B)) = \sqrt{\frac{\beta(1 - \beta)}{R}}.
+$$ {#eq-MCSE-coverage}
+Alternately, Equation @eq-MCSE-coverage could be computed using the estimated coverage rate $\widehat{\text{Coverage}}(A,B)$ in place of $\beta$.
+
+Finally, the expected confidence interval width is estimated as $\bar{W}$, with MCSE
+$$
+MCSE(\bar{W}) = \sqrt{\frac{S_W^2}{R}},
+$$ {#eq-MCSE-width}
+where $S_W^2$ is the sample variance of $W_1,...,W_R$, the widths of the confidence interval from each replication.
+
+
+### Using the Jackknife to obtain MCSEs (for relative variance estimators) {#sec-MCSE-for-relative-variance}
+
+Estimating the MCSE of relative performance measures for variance estimators is complicated by the appearance of an estimated quantity in the denominator of the ratio.
+For instance, the relative bias of $V$ is estimated as the ratio $\bar{V} / S_T^2$, and both the numerator and denominator are estimated quantities that will include some Monte Carlo error.
+To properly account for the Monte Carlo uncertainty of the ratio, one possibility is to use formulas for the standard errors of ratio estimators.
+Alternately, we can use general uncertainty approximation techniques such as the jackknife [@boos2015Assessing] or bootstrap [@efron1994introduction].
+The jackknife involves calculating a statistic of interest repeatedly, each time excluding one observation. 
+The variance of this set of one-left-out statistics usually serves as a reasonable approximation to the actual sampling variance of the statistic calculated from the full sample.
+
+To apply the jackknife to assess MCSEs of relative bias or relative RMSE of a variance estimator, we will need to compute several statistics repeatedly.
+Let $\bar{V}_{(j)}$ and $S_{T(j)}^2$ be the average variance estimate and the variance estimate calculated from the set of replicates *that excludes replicate $j$*, for $j = 1,...,R$.
+The relative bias estimate, excluding replicate $j$, would then be $\bar{V}_{(j)} / S_{T(j)}^2$.
+Calculating all $R$ versions of this relative bias estimate and taking the variance of these $R$ versions yields a jackknife MCSE:
+$$
+MCSE\left( \frac{ \bar{V}}{S_T^2} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(\frac{\bar{V}_{(j)}}{S_{T(j)}^2} - \frac{\bar{V}}{S_T^2}\right)^2}.
+$$ {#eq-MCSE-relative-bias-V}
+Similarly, a MCSE for the relative standard error of $V$ is
+$$
+MCSE\left( \frac{ S_V}{S_T^2} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(\frac{S_{V(j)}}{S_{T(j)}^2} - \frac{S_V}{S_T^2}\right)^2},
+$$ {#eq-MCSE-relative-var-V}
+where $S_{V(j)}$ is the sample variance of $V_1,...,V_R$, omitting replicate $j$.
+
+For the relative RMSE of $V$, let
+$$
+RRMSE_{V} = \frac{1}{S_{T}^2}\sqrt{(\bar{V} - S_{T}^2)^2 + \frac{R - 1}{R} S_{V}^2}
+$$
+and
+$$
+RRMSE_{V(j)} = \frac{1}{S_{T(j)}^2}\sqrt{(\bar{V}_{(j)} - S_{T(j)}^2)^2 + \frac{R - 1}{R} S_{V(j)}^2} .
+$$
+Then the jackknife MCSE for the estimated relative RMSE of $V$ is 
+$$
+MCSE\left( RRMSE_{V} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(RRMSE_{V(j)} - RRMSE_{V}\right)^2}.
+$$ {#eq-MCSE-relative-rmse-V}
+
+Jackknife calculation would be cumbersome if we did it by brute force. However, a few algebra tricks provide a much quicker way. The tricks come from observing that
+$$
+\begin{aligned}
+\bar{V}_{(j)} &= \frac{1}{R - 1}\left(R \bar{V} - V_j\right) \\
+S_{V(j)}^2 &= \frac{1}{R - 2} \left[(R - 1) S_V^2 - \frac{R}{R - 1}\left(V_j - \bar{V}\right)^2\right] \\
+S_{T(j)}^2 &= \frac{1}{R - 2} \left[(R - 1) S_T^2 - \frac{R}{R - 1}\left(T_j - \bar{T}\right)^2\right]
+\end{aligned}
+$$
+These formulas can be used to avoid re-computing the mean and sample variance from every subsample.
+Instead, all we need to do is calculate the overall mean and overall variance, and then do a small adjustment with each jackknife iteration.
+
+Jackknife methods are useful for approximating MCSEs of other performance measures beyond just those for variance estimators. 
+For instance, the jackknife is a convenient alternative for computing the MCSE of the standard error or (raw) RMSE of a point estimator, which avoids the need to compute skewness or kurtosis. 
+However, @boos2015Assessing notes that the jackknife does not work for performance measures involving percentiles, including medians; for such statistics, bootstrapping techniques (discussed next) usually remains valid.
+
+### Bootstrapping MCSEs for relative performance measures {#sec-bootstrapping-MCSEs}
+
+An alternative to the jackknife for estimating MCSEs is the bootstrap [@efron1994introduction].
+The bootstrap involves repeatedly resampling the set of simulation replications with replacement, calculating the performance measure of interest for each resample, and then calculating the standard deviation of the performance measures across the resamples.
+
+To illustrate, we calculate a bootstrap MCSE for two quantities from our running cluster RCT example: the relative improvement in variance for Aggregation vs. Linear Regression, and the relative bias of Aggregation's variance estimator (i.e., how well calibrated it is).
+
+We first calculate these performance measures for quick reference and for making confidence intervals after we bootstrap:
+
+```{r}
+ests <- ClusterRCT_runs %>%
+  group_by( method ) %>%
+  summarise(
+    SE2 = var( ATE_hat ),
+    Vbar = mean( SE_hat^2 )
+  ) %>%
+  mutate( calib = Vbar / SE2,
+          imp_var = SE2 / SE2[method=="LR"]  )
+ests
+```
+As before, we see that Aggregation has variance around 9% smaller than linear regression and that its variance estimator is inflated by around 13%.
+Let's make bootstrap confidence intervals on these two quantities to account for Monte Carlo error in our simulation.
+
+We want to resample entire _simulation iterations_ to take within-dataset correlations of the model estimates into account.
+To do this, we first pivot our raw simulation results to wide format:
+```{r}
+runW <- ClusterRCT_runs %>%
+  dplyr::select( runID, method, SE_hat, ATE_hat ) %>%
+  rename( S=SE_hat, A=ATE_hat ) %>%
+  tidyr::pivot_wider( names_from = method, 
+                      values_from = c( S, A ) )
+print( runW, n = 4 )
+```
+
+We now can simply bootstrap the rows, as so:
+
+```{r, cache=TRUE}
+rps <- repeat_and_stack( 1000, {
+  run_star = sample_n( runW, size = nrow(runW), replace = TRUE )
+  tibble( 
+    cal_agg = mean( run_star$S_Agg^2 ) / var( run_star$A_Agg ),
+    rel_imp_var = var( run_star$A_Agg ) / var( run_star$A_LR )
+  )
+})
+```
+
+For simplicity, we are only looking at the aggregated estimator---we could extend our code to bootstrap for everything.
+Regardless, once we have 1000 bootstrap iterations, we can evaluate how much our performance measures change across iterations:
+
+```{r}
+rps %>%
+  pivot_longer( everything(), 
+                names_to = "measure", values_to = "value" ) %>%
+  group_by( measure ) %>%
+  summarise( 
+    avg = mean( value ),
+    MCSE = sd( value ) 
+  ) %>%
+  mutate( 
+    theta = c( ests$calib[[1]], ests$imp_var[[1]] ),
+    CI_l = theta - 2 * MCSE,
+    CI_u = theta + 2 * MCSE
+  ) %>%
+  relocate( measure, theta ) %>%
+  knitr::kable( digits = 3 )
+```
+
+Interpreting the confidence interval in the second row, Aggregation has a lower variance than linear regression, with the upper end of the confidence interval being 97%.
+Second, we have evidence that the Aggregation variance estimator is systematically too high, with the lower end of the confidence interval being above 1 (but only just).
+If we had run fewer bootstrap iterations, we may well not have been able to make these claims with certainty.
+
+The bootstrap is a very general tool.
+It can be applied to assess MCSE for nearly any performance measure you might encounter.
+
+
+## Performance Calculations with the `simhelpers` Package
+\index{package!simhelpers}\index{calc\_absolute()}\index{calc\_relative\_var()}\index{calc\_rejection()}\index{calc\_coverage()}
+
+The `simhelpers` package provides several functions for calculating most of the performance measures that we have reviewed, along with MCSEs for each.
+The functions are easy to use. 
+Consider this set of simulation runs on the Welch dataset:
+
+```{r simhelpers-MCSEs, include=FALSE}
+library( simhelpers )
+data( welch_res )
+
+welch <- 
+  welch_res %>%
+  dplyr::select(-seed, -iterations ) %>%
+  mutate(method = case_match(method, "Welch t-test" ~ "Welch", .default = method))
+```
+
+```{r}
+head(welch)
+```
+
+We first assess the rejection rate for the traditional $t$-test based on the subset of simulation results with sample sizes of $n_1 = n_2 = 50$ and a mean difference of 0, using $\alpha$ levels of .01 and .05:
+
+```{r}
+welch_sub <- filter(welch, method == "t-test",
+                    n1 == 50, n2 == 50, mean_diff == 0 )
+
+calc_rejection(welch_sub, p_values = p_val, alpha = c(.01, .05))
+```
+The column labeled `K_rejection` reports the number of replications used to calculate the performance measures.
+The MCSE columns are the Monte Carlo uncertainty for the measures.
+
+Here is the coverage rate calculated for the same condition:
+```{r}
+calc_coverage(
+  welch_sub, 
+  lower_bound = lower_bound, upper_bound = upper_bound, 
+  true_param = mean_diff
+)
+```
+
+The performance functions are designed to be used within a `tidyverse`-style workflow, including on grouped datasets.
+For instance, we can calculate the performance measures for all the methods for our given scenario:
+```{r}
+welch_sub <- filter(welch, n1 == 50, n2 == 50,
+                    mean_diff == 0 )
+welch_sub %>% 
+  group_by( method ) %>%
+  summarise( 
+    calc_rejection( p_values = p_val, alpha = .05 ) 
+  )
+```
+
+Later, when we analyze multifactor simulations, this grouping becomes even more powerful: we will group by the simulation factors and evaluate performance for all our scenarios at once.
+
+See below for more examples of using `simhelpers` to calculate different performance measures.
+
+<!--
+```{r Welch-rejection, echo = FALSE, message = FALSE, eval=FALSE}
+library(kableExtra)
+
+all_rejection_rates %>%
+  kbl(
+    digits = 3,
+    caption = "Rejection rates of conventional and Welch t-test for varying sample sizes and population mean differences."
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped","compact","hover")
+  ) 
+```
+-->
+
+
+
+
+### Quick Performance Calculations for our Cluster RCT Example
+
+In Section @sec-clusterRCTperformance, we computed performance measures for three point estimators of the school-level average treatment effect in a cluster RCT.
+We next carry out the same calculations using the `calc_absolute()` function from `simhelpers`, which also provides MCSEs. 
+Examining the MCSEs is useful to ensure that 1000 replications of the simulation is suffiicent to provide reasonably precise estimates of the performance measures. 
+We have:
+
+```{r cluster-MCSE-calculation}
+library( simhelpers )
+
+perf <- ClusterRCT_runs %>% 
+  group_by(method) %>%
+  summarise( 
+    calc_absolute( 
+      estimates = ATE_hat, true_param = ATE,
+      criteria = c("bias","stddev", "rmse")
+    ) 
+  )
+perf %>%
+  dplyr::select( -K_absolute ) %>%
+  knitr::kable( digits = 3 )
+```
+
+The MCSEs are small relative to the linear regression bias term and all of the SEs (`stddev`) and RMSEs.
+Results based on 1000 replications seems adequate to support our conclusions about the gross trends identified.
+We cannot rule out the possibility that the aggregation estimator and multilevel modeling estimator are slightly biased: they could have true bias of as much as 0.014 (two MCSEs).
+
+For our variance estimators, we can use the `calc_relative_var()` function to compute performance measures and MCSEs using the jackknife:
+
+```{r cluster-variance-MCSE-calculation}
+perf <- ClusterRCT_runs %>% 
+  group_by(method) %>%
+  summarise( 
+    calc_relative_var( 
+      estimates = ATE_hat, 
+      var_estimates = SE_hat^2,
+      criteria = c("relative bias", "relative rmse")
+    ) 
+  )
+perf %>%
+  dplyr::select( -K_relvar ) %>%
+  knitr::kable( digits = 2 ) 
+```
+We can use these calculations to create confidence intervals for the performance measures:
+```{r}
+perf %>%
+  dplyr:: select( method, rel_bias_var, rel_bias_var_mcse ) %>%
+  mutate( CI_l = rel_bias_var - 2 * rel_bias_var_mcse,
+          CI_u = rel_bias_var + 2 * rel_bias_var_mcse ) %>%
+  knitr::kable( digits = 2 )
+```
+We get essentially the same results as what we found in Section @sec-bootstrapping-MCSEs using bootstrapping. 
+
+
+## Concluding thoughts
+
+The performance of an estimator is not well captured by any single number.
+As we have seen, estimators have multiple properties, with bias and precision being only two of many.
+Table @tbl-performance-measure-summary lists the main measures we have introduced for point estimators; each captures a different aspect of performance, and their importance depends on how the estimator will be used.
+
+Beyond point estimates, most data analysis procedures also produce quantities such as standard errors, confidence intervals, and $p$-values.
+These outputs are closely related.
+For example, a confidence interval is typically constructed from a point estimate and its standard error, so its performance depends on both the bias of the estimator and the accuracy of the standard error.
+Likewise, the performance of a hypothesis testing procedure will often strongly depend on the properties of the point estimator and standard error used to compute the test.
+As a result, simulation studies typically evaluate performance using a collection of measures to capture these interrelated aspects and to compare procedures more fully.
+
+In many simulation studies, the goal is also to understand how performance varies across different data-generating processes (DGPs).
+In the next chapters, we expand from a single scenario to multiple scenarios.
+By looking at different performance measures change across scenario, we can begin to understand when and why different methods perform well or poorly.
+
+
+<!-- JEP: Expand to include all of the performance measures, not just those for point estimators? -->
+<!-- LWM: Or do we need this table at all?  It doesn't format nicely in the PDF. We could improve by dropping the MCSE citation column or tweaking latex perhaps. -->
+
+: Performance measures for evaluating point estimators {#tbl-performance-measure-summary}
+
+| Criterion               | Definition                                              | Estimator            | Monte Carlo Standard Error |
+|-------------------------|---------------------------------------------------------|----------------------|----------------------------|
+| Bias                    | $\E(T) - \theta$                                        | $\bar{T} - \theta$   | @eq-MCSE-bias        |
+| Median bias             | $\M(T) - \theta$                                        | $m_T - \theta$       | @eq-MCSE-median      |
+| Trimmed bias            |
+| Variance                | $\E\left[\left(T - \text{E}(T)\right)^2\right]$         | $S_T^2$              | @eq-MCSE-var         |
+| Standard error          | $\sqrt{\E\left[\left(T - \text{E}(T)\right)^2\right]}$  | $S_T$                | @eq-MCSE-SE          |
+| Mean squared error      | $\E\left[\left(T - \theta\right)^2\right]$              | $\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2$ | @eq-MCSE-MSE          |
+| Root mean squared error | $\sqrt{\E\left[\left(T - \theta\right)^2\right]}$       | $\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R} S_T^2}$ | @eq-MCSE-RMSE          |
+| Median absolute error   | $\M\left[\left|T - \theta\right|\right]$                | $\left[\left|T - \theta\right|\right]_{R/2}$   | @eq-MCSE-median      |
+| Relative bias           | $\E(T) / \theta$                                        | $\bar{T} / \theta$   | @eq-MCSE-relative-bias |
+| Relative median bias    | $\M(T) / \theta$                                        | $m_T / \theta$       | @eq-MCSE-relative-bias |
+| Relative RMSE           | $\sqrt{\E\left[\left(T - \theta\right)^2\right]} / \theta$ | $\frac{\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2}}{\theta}$ | @eq-MCSE-relative-bias |
+
+<!-- * Bias and median bias are measures of whether the estimator is systematically higher or lower than the target parameter.  -->
+<!-- * Variance is a measure of the __precision__ of the estimator---that is, how far it deviates _from its average_.  We might look at the square root of this, to assess the precision in the units of the original measure. This is the true SE of the estimator. -->
+<!-- * Mean-squared error is a measure of __overall accuracy__, i.e. is a measure how far we typically are from the truth.  We more frequently use the root mean squared error, or RMSE, which is just the square root of the MSE. -->
+<!-- * The median absolute deviation (MAD) is another measure of overall accuracy that is less sensitive to outlier estimates. The RMSE can be driven up by a single bad egg.  The MAD is less sensitive to this. -->
+
+
+
+## Exercises
+
+### Brown and Forsythe (1974) results {#sec-Brown-Forsythe-performance}
+
+1. Use the `generate_ANOVA_data` data-generating function for one-way heteroskedastic ANOVA (Section @sec-case-anova-DGP) and  the data-analysis function you wrote for Exercise @sec-BFFs-forever to create a simulation driver function for the Brown and Forsythe simulations.\index{example!heteroskedastic ANOVA (Welch)}
+
+2. Use your simulation driver to evaluate the Type-I error rate of the ANOVA $F$-test, Welch's test, and the BFF* test for a scenario with four groups, sample sizes $n_1 = 11$, $n_2 = 16$, $n_3 = 16$, $n_4 = 21$, equal group means $\mu_1 = \mu_2 = \mu_3 = \mu_4 = 0$, and group standard deviations $\sigma_1 = 3$, $\sigma_2 = 2$, $\sigma_3 = 2$, $\sigma_4 = 1$. Are all of the tests level-$\alpha$?
+
+3. Use your simulation driver to evaluate the power of each test for a scenario with group means of $\mu_1 = 0$, $\mu_2 = 0.2$, $\mu_3 = 0.4$, $\mu_4 = 0.6$, with sample sizes and group standard deviations as listed above. Which test has the highest power?
+
+### Size-adjusted power {#sec-size-adjusted-power}
+
+When different hypothesis testing procedures have different rejection rates under the null hypothesis, it becomes difficult to interpret differences in the non-null power of the tests.
+One approach for conducting a fair comparison of testing procedures in this situation is to compute the _size-adjusted_ power of the tests.
+Size-adjusted power involves computing the rejection rate of a test using a different threshold $\alpha'$, selected so that the Type-I error rate of the test is equal to the desired $\alpha$ level.
+Specifically, size adjusted power is
+$$
+\rho^{adjusted}_\alpha(\theta) = \Prob(P < \rho_\alpha(0)).
+$$
+To estimate size-adjusted power using simulation, we first need to estimate the Type-I error rate, $r_\alpha(0)$. We can then evaluate the rejection rate of the testing procedure under scenarios with other values of $\theta$ by computing
+$$
+r^{adjusted}_\alpha(\theta) = \frac{1}{R} \sum_{r=1}^R I(P_r < r_{\alpha}(0)).
+$$
+
+Compute the size-adjusted power of the ANOVA $F$-test, Welch's test, and the BFF* test for the scenario in part (3) of Exercise @sec-Brown-Forsythe-performance.
+
+### Three correlation estimators {#sec-three-correlation-estimators}
+
+Consider the bivariate negative binomial distribution model described in Exercise @sec-BVNB2.\index{example!bivariate Poisson}
+Suppose that we want to estimate the correlation parameter $\rho$ of the latent bivariate normal distribution. 
+Without studying the statistical theory for this problem, we might think to use simulation to evaluate whether any common correlation measures work well for estimating this parameter.
+Potential candidate estimators include the usual sample Pearson's correlation, Spearman's rank correlation, or Kendall's $\tau$ coefficient. 
+The latter two estimators might seem promising because they are based on the ranked data, so could be more appropriate that Pearson's correlation for frequency count variates. 
+
+The following estimation function computes all three correlations, along with corresponding $p$-values for the null hypothesis of no association and confidence intervals computed using Fisher's $z$ transformation. The confidence interval calculations are developed for Pearson's correlation under bivariate normality, so they might not be appropriate for this data-generating process or for Spearman's or Kendall's correlations. 
+Still, we can use simulation to see how well or how poorly they perform.
+
+```{r}
+three_corrs <- function(
+  data, 
+  method = c("pearson","kendall","spearman"), 
+  level = 0.95
+) {
+  
+  r_est <- lapply(method, \(m) cor.test(data$C1, data$C2,
+                                        method = m, exact = FALSE))
+  est <- sapply(r_est, \(x) as.numeric(x$estimate))
+  pval <- sapply(r_est, \(x) x$p.value)
+  z_est <- atanh(est)
+  se_z <- 1 / sqrt(nrow(data) - 3)
+  crit <- qnorm(1 - (1 - level) / 2)
+  ci_lo <- tanh(z_est - crit * se_z)
+  ci_hi <- tanh(z_est + crit * se_z)
+  
+  data.frame( 
+    stat = method,
+    r = est,
+    z = z_est,
+    se_z = se_z,
+    pval = pval,
+    ci_lo = ci_lo,
+    ci_hi = ci_hi
+  )
+  
+}
+
+```
+
+1. Combine your data-generating function and `three_corrs()` into a simulation driver.
+
+2. Use your simulation driver to generate 500 replications of the simulation for a scenario with $N = 20$, $\mu_1 = \mu_2 = 5$, $p_1 = p_2 = 0.5$, and $\rho = 0.7$.
+
+3. Compute the bias, standard error, and RMSE of each correlation estimator, along with corresponding MCSEs. Which correlation estimator is most accurate?
+
+4. Compute the coverage rate and expected width of the confidence intervals based on each correlation estimator. Do any of the estimators have reasonable coverage? If so, which has the best expected width?
+
+5. Use your simulation driver to estimate the Type-I error rate of the hypothesis tests for each correlation coefficient for a scenario with $N = 20$, $\mu_1 = \mu_2 = 5$, $p_1 = p_2 = 0.5$. Are any of the tests level-$\alpha$?
+
+### Confidence interval comparison {#sec-cluster-RCT-t-confidence-intervals}
+
+Consider the estimation functions for the cluster RCT example, as given in Section @sec-multiple-estimation-procedures.
+Modify the functions to return __both__ normal Wald-type 95% confidence intervals (as computed in Section @sec-cluster-RCT-CI-coverage) and cluster-robust confidence intervals based on $t$ distributions with Satterthwaite degrees of freedom.
+For the latter, use `conf_int()` from the `clubSandwich` package, as in the following example code:
+```{r, eval = FALSE}
+library(clubSandwich)
+
+M1 <- lme4::lmer( 
+  Yobs ~ 1 + Z + (1 | sid), 
+  data = dat 
+)
+conf_int(M1, vcov = "CR2")
+
+M2 <- estimatr::lm_robust( 
+  Yobs ~ 1 + Z, data = dat, 
+  clusters = sid,  se_type = se_type
+)
+conf_int(M2, cluster = dat$sid, vcov = "CR2")
+
+M3 <- estimatr::lm_robust( 
+  Ybar ~ 1 + Z, data = datagg, 
+  se_type = se_type 
+)
+conf_int(M3, cluster = dat$sid, vcov = "CR2")
+```
+
+Pick some simulation parameters and estimate the coverage and interval width of both types of confidence intervals.
+How do the normal Wald-type intervals compare to the cluster-robust intervals?
+
+### Jackknife calculation of MCSEs for RMSE {#sec-jackknife-MCSE}
+
+The following code generates 100 replications of a simulation of three average treatment effect estimators in a cluster RCT, using a simulation driver function we developed in Section @sec-one-run-reparameterization using components described in Sections @sec-case-cluster and @sec-multiple-estimation-procedures.
+
+```{r, eval = FALSE}
+set.seed( 20251029 )
+runs_val <- run_RCT_sim( 
+  reps = 100, 
+  J = 16, n_bar = 20, alpha = 0.5,
+  ATE = 0.3, ICC = 0.2 )
+```
+
+Compute the RMSE of each estimator, and use the jackknife technique described in Section @sec-MCSE-for-relative-variance to compute a MCSE for the RMSE.
+Check your results against the results from `calc_absolute()` in the `simhelpers` package.
+
+### Jackknife calculation of MCSEs for RMSE ratios {#sec-jackknife-MCSE-ratio}
+
+Continuing from Exercise @sec-jackknife-MCSE, compute the ratio of the RMSE of each estimator to the RMSE of the linear regression estimator. Use the jackknife technique to compute a MCSE for these RMSE ratios.
+
+### Distribution theory for person-level average treatment effects {#sec-cluster-RCT-SPATE}
+
+Section @sec-case-cluster described a data-generating process for a cluster-randomized experiment in which the school-specific treatment effects varied according to the size of the school. 
+The auxiliary model for the size of school $j$ was
+$$
+n_j \sim \text{Unif}\left[ (1-\alpha)\bar{n}, (1+\alpha)\bar{n} \right],
+$$
+where $\bar{n}$ was the average school size and $0 \leq \alpha < 1$ determines the degree of variation in school sizes.
+The data-generating process for the outcome data was
+$$
+Y_{ij} = \gamma_{0} + \gamma_{1} Z_j + \gamma_{2} Z_j S_j  + u_j + \epsilon_{ij},
+$$
+where $Y_{ij}$ is the outcome for student $i$ in school $j$, $Z_j$ is an indicator for whether school $j$ is assigned to treatment $(Z_j = 1)$ or control $(Z_j = 0)$, and $S_j = \frac{n_j - \bar{n}}{\bar{n}}$.
+The error terms $u_j$ and $e_{ij}$ are both assumed to be normally distributed with zero means.
+
+Under this model, the average treatment effect for school $j$ is $\tau_j = \gamma_1 + \gamma_2 S_j$. Because $\E(S_j) = 0$ by construction, the average of the school-specific treatment effects is $\gamma_1$. This is the school-level population average treatment effect estimate. But what is the student-level population average treatment effect estimate? Use the properties of the uniform distribution to find the student-level population average treatment effect $\E\left( \frac{n_j}{\bar{n}} \times \tau_j \right)$. Check your derivation by simulating a large sample of school sizes and school-specific treatment effects.
+
+

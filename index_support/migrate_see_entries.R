@@ -2,11 +2,11 @@
 # migrate_see_entries.R
 #
 # One-time migration: finds every \index{A|see{B}} (and |seealso{B}) in the
-# main .Rmd files, replaces it with \index{B} (the canonical entry), and
-# ensures \index{A|see{B}} is present in 220-index.Rmd.
+# main .qmd files, replaces it with \index{B} (the canonical entry), and
+# ensures \index{A|see{B}} is present in latex/after_body.tex.
 #
-# After running this, prose files contain only canonical \index{term} entries.
-# All cross-references live exclusively in 220-index.Rmd.
+# After running this, prose .qmd files contain only canonical \index{term} entries.
+# All cross-references live exclusively in latex/after_body.tex.
 #
 # Usage:
 #   Set DRY_RUN <- TRUE to preview, then DRY_RUN <- FALSE to apply.
@@ -16,12 +16,14 @@ library(stringr)
 
 DRY_RUN    <- FALSE
 RMD_DIR    <- "."
-INDEX_FILE <- "220-index.Rmd"
-EXCLUDE    <- c("Designing-Simulations-in-R.Rmd", INDEX_FILE)
+# NOTE: See-entries now live in latex/after_body.tex (plain LaTeX, not qmd).
+# Update INDEX_FILE to point to the correct file if you re-introduce a qmd index page.
+INDEX_FILE <- "latex/after_body.tex"
+EXCLUDE    <- c(INDEX_FILE)
 
 # ── Scan all prose files for \index{A|see{B}} ─────────────────────────────────
 
-files <- sort(list.files(RMD_DIR, pattern = "\\.Rmd$", full.names = TRUE))
+files <- sort(list.files(RMD_DIR, pattern = "\\.qmd$", full.names = TRUE))
 files <- files[!basename(files) %in% EXCLUDE]
 
 # Regex: captures A and B from \index{A|see{B}} or \index{A|seealso{B}}
@@ -69,7 +71,7 @@ for (f in files) {
   }
 }
 
-# ── Update 220-index.Rmd ───────────────────────────────────────────────────────
+# ── Update latex/after_body.tex ───────────────────────────────────────────────────────
 
 index_path  <- file.path(RMD_DIR, INDEX_FILE)
 index_lines <- readLines(index_path, warn = FALSE)
@@ -81,9 +83,9 @@ already_present <- sapply(names(found_pairs), function(entry) {
 new_entries <- names(found_pairs)[!already_present]
 
 if (length(new_entries) == 0) {
-  cat("\n220-index.Rmd: all see-entries already present, nothing to add.\n")
+  cat("\nlatex/after_body.tex: all see-entries already present, nothing to add.\n")
 } else {
-  cat(sprintf("\n220-index.Rmd: adding %d new see-entries:\n", length(new_entries)))
+  cat(sprintf("\nlatex/after_body.tex: adding %d new see-entries:\n", length(new_entries)))
   for (e in new_entries) cat(sprintf("  %s\n", e))
 
   if (!DRY_RUN) {

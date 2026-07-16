@@ -1,0 +1,407 @@
+
+```{r, include=FALSE}
+library( tidyverse )
+library( simhelpers )
+library( testthat )
+```
+
+
+# Debugging and Testing {#sec-debugging-and-testing}
+\index{debugging code}
+
+Writing code is usually not too difficult.
+Writing _correct_ code, on the other hand, is harder.
+Over the course of developing a simulation, you will surely write some code that does not do what you expect---or even that does not work at all.
+Figuring out why code produces errors or incorrect results can be enormously frustrating and time-consuming.
+If you've written code that follows a modular design, you will often have functions that call other functions you wrote, which might call even more functions you wrote.
+When you get an error, it may not be immediately clear what went wrong or even where to look for an error.
+In this chapter, we introduce some basic techniques for diagnosing and preventing such errors.
+
+
+## Debugging with `print()` {#sec-about-print}
+\index{print()}
+
+A simple debugging method (often reviled by professional programmers, but still useful for more ordinary folks) is to make your code more verbose, so that it provides information about what was happening just before an error occurred. 
+One approach to doing so is to add `print()` or `cat()` statements inside your functions.
+For example, consider the following code:
+
+```{r demo_print, eval=FALSE}
+    if ( any( is.na( rs$estimate ) ) ) {
+        cat( "There are NAs in the estimates!\n" )
+    }
+```
+
+Here, we test whether there are `NA` values in the results stored in `rs$estimate`; if so, we print out a message to flag this condition. 
+
+There are a few methods for printing to the console.
+The first is `print()`, which takes any object and prints it out. You can print a variable, a string of text, or even a `tibble`:
+```{r, eval=FALSE}
+my_var <- 5.3e7
+print( paste("My var is ", my_var, "\n" ) )
+print( my_tibble )
+```
+
+A second is `cat()`, which is designed to print strings:
+```{r, eval=FALSE}
+cat( "My var is ", my_var, "\n" )
+```
+
+A further alternative is to use functions from the `cli` package, which produce a nicer printout and allow for easier formatting:
+```{r, eval=FALSE}
+cli::cli_alert("My var is {my_var}")
+```
+
+A major problem with using printing to debug it that it is easy to go overboard, so that running your code produces a huge wall of text.
+Writing text to the console also takes computing time.
+With simulation code, it is easy to print so much that it will meaningfully slow your simulation down!
+Thus, if you use `print()` or `cat()` statements to help figure out what is going on with your code, it is best to be sparing and to remove most such statements from your code once you are satisfied that it works correctly. 
+
+
+## Debugging with `debug()`
+\index{debug()}
+
+The great benefit of writing your own custom function for something is that it _automates_ a sequence of steps, so that you do not have to write and run code for each step every time you want to execute the sequence.
+The drawback of doing so is that running the function _hides_ the intermediate steps in the calculations, making it harder to tell if or where an error occurs. 
+For instance, consider the data-generating function for the bivariate Poisson distribution, initially developed in Section @sec-DGP-functions. We run the function and get the following nonsense output:
+```{r, echo = FALSE}
+source("case_study_code/r_bivariate_Poisson.R")
+source("case_study_code/r_and_z.R")
+sim_r_Poisson <- bundle_sim( f_generate = r_bivariate_Poisson, 
+                             f_analyze = r_and_z, 
+                             id = "rep" )
+```
+```{r}
+r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+```
+You might recall that this function does not work for negative correlations, so the problem is caused by setting `rho = -0.3`. 
+Suppose, though, that we had forgotten this and need to figure out exactly what is going wrong. 
+
+R has several commands that allow for interactive debugging of functions.
+One useful technique is to use the `debug()` function, which tells R to interactively step through a particular function whenever it is called. Calling it on `r_bivariate_Poisson` and then re-running our line of code will let us step through the body of the function line by line:
+```{r, eval = FALSE}
+debug(r_bivariate_Poisson)
+r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+```
+This puts you into an interactive debugging console (indicated by `Browse[1]>` instead of the usual `>` console symbol) that allows you to inspect the current state of all of the objects and variables that R can access when running the function. 
+This is just like a normal R workspace, but you will only see the objects that are passed to the function and the variables created inside the function. 
+In RStudio, the source pane will usually jump to the part of your script that defines the function, so you can see the code that will be run in each step.
+
+Once in this debugging console, you can type `n` to go to the next line of code.^[In RStudio, the debugging interface also includes clickable buttons for this and other commands.]
+Using `n` makes it possible to walk through the code step by step, observing what happens with each line of code.
+You can also type regular R commands in the debugging console to do calculations with the objects in the environment.
+Type `c` to exit from debugging mode and continue regular execution of the code or `Q` to exit debugging and stop execution. 
+
+The `debug()` command changes how `r_bivariate_Poisson()` is evaluated every time it is run. 
+If your code calls this function multiple times, then it will pause and open the debugging console _every time_ the function is called---even if the function is called by a different function.
+For example, in Section @sec-bundle-sim-demo we created a simulation driver function called `sim_r_Poisson()`, which calls `r_bivariate_Poisson()` to generate data and then calls an estimation function to compute a Pearson correlation. 
+Try running the simulation driver as follows:
+```{r, eval = FALSE}
+sim_r_Poisson( 3, N = 4, rho = -0.3, mu1 = 6, mu2 = 4 )
+```
+The code should pause and open the debugging console for `r_bivariate_Poisson()` for each replication of the simulation process.
+To stop this behavior, run `undebug()` on `r_bivariate_Poisson`:
+```{r, eval = FALSE}
+undebug(r_bivariate_Poisson)
+sim_r_Poisson( 3, N = 4, rho = -0.3, mu1 = 6, mu2 = 4 )
+```
+
+If you would like to pause and debug a function only the first time it is invoked, you can use `debugonce()`:
+```{r, eval = FALSE}
+debugonce(r_bivariate_Poisson)
+r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+sim_r_Poisson( 3, N = 4, rho = -0.3, mu1 = 6, mu2 = 4 )
+```
+
+
+## Debugging with `browser()` {#sec-about-browser-debugging}
+\index{browser()}
+
+
+Another useful debugging tool is the `browser()` command. 
+Like `debug()`, it will open up an interactive debugging console so that you can inspect what is happening inside of a function.
+However, instead of pausing whenever a function is called, `browser()` pauses at the point that it is encountered in the code.
+This is helpful for longer functions, so that you do not need to step through every line of code to get to the point where problems start to occur.
+It also makes it possible to pause and debug _contingently_, only if certain conditions are met.
+For instance, we might add a `browser()` call to `r_bivariate_Poisson()` that will be executed only if there are missing values in the generated data:
+```{r, echo = TRUE}
+r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
+  
+  # covariance term, equal to E(Z_3)
+  EZ3 <- rho * sqrt(mu1 * mu2) 
+  
+  # Generate independent components
+  Z1 <- rpois(N, lambda = mu1 - EZ3)
+  Z2 <- rpois(N, lambda = mu2 - EZ3)
+  Z3 <- rpois(N, lambda = EZ3)
+  
+  # Assemble components
+  dat <- data.frame(
+    C1 = Z1 + Z3,
+    C2 = Z2 + Z3
+  )
+  
+  if (any(is.na(dat))) {
+    browser()
+  }
+  
+  return(dat)
+}
+```
+
+Now when we call the function, we only enter the debugging console if there are missing values in the generated data.
+Here we would just get some data:
+```{r, eval=FALSE}
+a <- r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = 0.3)
+```
+Here it would enter the debugger:
+```{r, eval=FALSE}
+b <- r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+```
+```
+Called from: r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+Browse[1]> 
+```
+
+Once we hit a scenario with missing values, we can inspect all of the objects visible to the function and the intermediate variables created by the function.
+In this case, we could see that `Z3` contains missing values and that `EZ3` was negative, from which we can infer that the problem is the negative value for `rho`.
+
+Using `browser()` is a useful way to make sure you understand what values are passed to a function. 
+Many bugs arise due to the wrong thing getting passed to some code that would otherwise work.
+Triggering `browser()` when something bad happens (such as when a set of estimates includes unexpected missing values) can often help you to untangle what is driving an error --- even one that occurs only rarely.
+Because of its versatility, adding `browser()` calls is often our first move when debugging our own simulation code.
+
+## Protecting functions with assertions {#sec-about-stopifnot}
+\index{stopifnot()}
+
+When writing functions, especially those that take a lot of parameters, it is often wise to include _assertions_ to verify that the function's input arguments are as expected.
+For instance, in our `r_bivariate_Poisson()` data generating-function, we should check that `mu1` and `mu2` are both positive and that `rho` is non-negative.
+Adding such assertions is useful because it will make errors apparent and stop your function as early as possible.
+
+In R, a simple way to write assertions is with the `stopifnot()` command.
+For example, we could add the following lines to the top of `r_bivariate_Poisson()`
+```{r, echo = FALSE}
+r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
+  
+  stopifnot(N > 0)
+  stopifnot(mu1 > 0, mu2 > 0)
+  stopifnot(rho >= 0)
+  
+  # covariance term, equal to E(Z_3)
+  EZ3 <- rho * sqrt(mu1 * mu2) 
+  
+  # Generate independent components
+  Z1 <- rpois(N, lambda = mu1 - EZ3)
+  Z2 <- rpois(N, lambda = mu2 - EZ3)
+  Z3 <- rpois(N, lambda = EZ3)
+  
+  # Assemble components
+  dat <- data.frame(
+    C1 = Z1 + Z3,
+    C2 = Z2 + Z3
+  )
+  
+  if (any(is.na(dat))) {
+    browser()
+  }
+  
+  return(dat)
+}
+
+```
+
+```{r, eval = FALSE}
+
+r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
+  
+  stopifnot( N > 0 )
+  stopifnot( mu1 > 0, mu2 > 0 )
+  stopifnot( rho >= 0 )
+  
+  # remainder of function...
+}
+```
+Now if we call the function with a negative correlation, we immediately get a relatively informative error:
+```{r, error = TRUE}
+r_bivariate_Poisson(N = 4, mu1 = 6, mu2 = 4, rho = -0.3)
+```
+
+Assertions can also protect us from silent errors that might arise from the wrong thing getting passed to a function.
+Consider the following function for generating data with different means and variances:
+
+```{r assert_demo}
+make_groups <- function( means, sds ) {
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
+}
+```
+
+If we call `make_groups()` using input vectors of different lengths for `means` and `sds`, the code executes without error because R recycles the standard deviation parameter:
+```{r}
+make_groups( means = c(100,200,300,400), sds = c(1,100,10000) )
+```
+This sort of behavior could produce errors, and it is pernicious because there is no indication that something is wrong.
+Imagine building an entire simulation involving this function, not realizing that your fourth group has the variance of your first.
+You might spend a lot of time and computing power, only to be left scratching your head over results that make no sense.
+Even if you know something is wrong with your simulation, it might take some time and effort to track down the origin of problem.
+
+Adding some simple assertions to the top of our function might let us avoid such hardship and suffering.
+The assertions should verify that the arguments to our function are as they should be, and, if they are not, stop the function in its tracks.
+In this case, we will check that the input arguments are vectors of the same length:
+```{r}
+make_groups <- function( means, sds ) {
+  stopifnot( length(means) == length(sds) )
+  Y = rnorm( length(means), mean=means, sd = sds )
+  round( Y )
+}
+```
+
+Now, if we call our function incorrectly, we get this:
+```{r, error=TRUE}
+make_groups( means = c(100,200,300,400), sds = c(1,100,10000) )
+```
+The `stopifnot()` command throws an error to signal that the inputs to the function are not specified correctly.
+
+Assertions can also serve as a type of documentation for valid inputs to a function.
+Consider, for example:
+```{r}
+make_xy <- function( N, mu_x, mu_y, rho ) {
+  stopifnot( -1 <= rho && rho <= 1 )
+  X = mu_x + rnorm( N )
+  Y = mu_y + rho * X + sqrt(1-rho^2)*rnorm(N)
+  tibble(X = X, Y=Y)
+}
+```
+Here we see that rho should be between -1 and 1.
+The assertion serves as a good reminder of what the input parameter is for.
+
+Assertions can also provide a layer of protection if you mis-specify the order of the input parameters when you call a function.
+Consider:
+```{r, error=TRUE}
+a <- make_xy( 10, 2, 3, 0.75 )
+b <- make_xy( 10, 0.75, 2, 3 )
+```
+
+Of course, it is good practice to use named inputs.
+Better to be safe and call the function as follows:
+```{r}
+c <- make_xy( 10, rho = 0.75, mu_x = 2, mu_y = 3 )
+```
+
+
+## Unit testing {#sec-unit-testing}
+
+Throughout this book, we have emphasized the utility of writing separate functions for the different components of a simulation study, and checking those functions to ensure that they work properly and as expected.
+In previous chapters, we have seen several examples of how to check functions, such as when we made plots of data produced by a data-generating function to see if the distributions looked like we intended.
+This sort of code could be stored in the script alongside the functions being tested,[^FALSE-trick] or in a separate file. 
+In either case, it is useful to retain the code so that you can run it again later to verify that a function still works as expected.
+
+[^FALSE-trick]: To prevent execution of the code, the tests can be cordoned off using the `FALSE` trick discussed in Section @sec-storing-testing-code.
+
+These sorts of informal checks are very useful, but in our experience it is easy to let them fall by the wayside or fall apart as you continue to develop the code for a simulation. 
+It can be hard to find motivation to go and re-run checks after making apparently trivial changes to your core code.
+Likewise, it can also be challenging to track down the ripple effects of changing a low-level function that is used by many other pieces of your code.
+
+Unit testing is a set of practices, commonly used in software development, that formalize the idea of writing code to verify that a function works.
+The spirit of unit testing is to write code to test your functions _thoroughly_ and to run those tests _frequently_ to verify that everything works as intended, even as you make changes to component functions.
+Unit testing frameworks allow you to write test code that, whenever you want, can be used to generate a report of which tests pass and which fail so you can zero in on what problems you might have with your functions.
+
+The `testthat` package is a popular unit testing framework for R.[^testthat]
+Although originally designed for unit testing of functions included as part of R packages, it is nonetheless quite useful for more general coding projects, such as developing the code base for a simulation study.
+There are two general parts to `testthat`: the `expect_*()` methods and the `test_that()` function.
+
+[^testthat]: See Chapters 13 through 15 of @Wickham2023packages for an in-depth discussion of unit testing in the context of R package development
+
+Consider the following simple DGP\index{data-generating process} to generate an X and Y variable with a specified association:
+```{r}
+my_DGP <- function( N, mu, beta ) {
+  stopifnot( N > 0, abs(beta) <= 1 )
+  dat = tibble( X = rnorm( N, mean = 0, sd = 1 ),
+                Y = mu + beta * X + rnorm( N, sd = 1-beta^2 ) )
+}
+```
+
+Here we run an initial set of unit tests for the `my_DGP()` function.
+We get a nice happy message for each test:
+
+```{r}
+library(testthat)
+set.seed(44343)
+test_that("my_DGP produces output of correct form and dimension.", {
+  
+  dta <- my_DGP(10, 0, 0.5)
+  
+  # Check that the output is a tibble
+  expect_s3_class( dta, "tbl_df" )
+  
+  # Check that the output has the right number of rows
+  expect_equal( nrow(dta), 10 )
+  
+  # Check that the output has the right columns
+  expect_true( all(c("X", "Y") %in% colnames(dta)) )
+})
+
+test_that("my_DGP returns errors with incorrect inputs.", {
+    
+  # Check we get an error when we should
+  expect_error( my_DGP(-10, 0, 0.5) )
+  expect_error( my_DGP(10, 1, 1.5) )
+  expect_error( my_DGP(10, 0.4, 0.5, 0.3) )
+
+})
+```
+
+If one or more of our tests fail, we will get a set of error messages that tells us what went wrong, and where things broke:
+
+```{r, warning=TRUE, error=TRUE}
+test_that("my_DGP produces data with expected features.", {
+  
+  # Check that the mean of Y is close to mu
+  dta2 = my_DGP(1000, 2, 0.5)
+  expect_equal(mean(dta2$Y), 2, tolerance = 0.1)
+  
+
+  # Check that the SDs of X and Y are close to 1
+  dta <- my_DGP(10000, 2, 0.2)
+  expect_equal( sd(dta$X), 1, tolerance = 0.02 )
+  expect_equal( sd(dta$Y), 1, tolerance = 0.02 )
+  
+  # Check that the regression slope is close to beta
+  M <- lm( Y ~ X, data=dta )
+  expect_equal( coef(M)[[2]], 0.5, tolerance = 0.02 )
+} )
+```
+
+A thorough set of unit tests will target multiple aspects of a function's behavior---not just that it produces output of the correct form, but also that the output is consistent with the input specifications, that it produces errors when given incorrect inputs, and that it works under a range of scenarios or contingencies that might arise in your simulation study.
+In principle, if you write any code to figure out why something is not working as expected, you should turn that code into a unit test so that you can run it again later, ensuring that any bug you fixed will stay fixed moving forward.
+
+If you have written a set of tests and collected them in a file, you can run them all at once:
+
+```{r}
+test_file(here::here( "code/demo_test_file.R" ) )
+```
+
+The `test_file()` method will produce a printout reporting which of the tests passed, which gave warnings, and which were skipped.[^Run-tests]
+Tests are run "from scratch" in a fresh R session. Because `test_file()` runs the tests in a separate session, you will have to make sure that the testing script loads any needed libraries and creates any objects needed for the unit tests to execute.
+If your unit tests are testing your core (stored in the `R/` folder of your project, see Chapter @sec-organizing-a-simulation-project for further discussion), you need to source the relevant files at the top of your test file.
+
+[^Run-tests]: You can also run the tests from inside RStudio. When in a unit test file, you should see "Run Tests" at the top-right of the script pane. If you click on it, RStudio will start an entirely new work session, and source your file to test it.
+
+If you have written tests for several different functions, you might store the results in several files. 
+You can run all of your test files in sequence using `test_dir()`.
+For instance, if you store all of your testing files in `tests/`, then run
+```{r, eval = FALSE}
+test_dir("tests")
+```
+
+Once you have created a set of unit tests, you can continue to work on your project and tweak your functions. If you make changes to any function, you can re-run _all_ the unit tests to see if you broke anything.
+Perhaps even more important, if you are working with a collaborator, you can both run unit tests to ensure you have not broken something that someone else was counting on!
+Furthermore, you can use the test code as a quick reference for how your functions should be used and what their expected output should look like.
+For any reasonably complex project, having test code can be of enormous benefit.
+
+
+
+
+
+
+
+

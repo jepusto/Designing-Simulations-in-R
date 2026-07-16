@@ -1,7 +1,7 @@
 ################################################################################
 # find_prose_lines.R
 #
-# Search for phrases across .Rmd files, reporting only prose occurrences
+# Search for phrases across .qmd files, reporting only prose occurrences
 # (skips YAML front matter, HTML comments, fenced code blocks, inline code,
 # \@ref() spans, and markdown link URLs — same rules as add_index_terms.R).
 #
@@ -12,8 +12,8 @@
 #
 # Output format (one block per search term):
 #   ── "cluster-randomized trial" ──────────────────
-#   015-Case-study-ANOVA.Rmd     :  185, 291
-#   020-Data-generating-models.Rmd :  73, 313, 359
+#   015-Case-study-ANOVA.qmd     :  185, 291
+#   020-Data-generating-models.qmd :  73, 313, 359
 #
 # When multiple terms are given, a combined summary is also printed showing
 # every file and line that matched ANY of the terms.
@@ -27,8 +27,8 @@ library(stringr)
 # unless CASE_SENSITIVE is set to TRUE.
 SEARCH_TERMS <- "IRT"
 
-# Restrict search to specific files, or NULL for all .Rmd files
-SEARCH_FILES <- NULL   # e.g. c("020-Data-generating-models.Rmd", "030-Estimation-procedures.Rmd")
+# Restrict search to specific files, or NULL for all .qmd files
+SEARCH_FILES <- NULL   # e.g. c("020-Data-generating-models.qmd", "030-Estimation-procedures.qmd")
 
 CASE_SENSITIVE <- FALSE   # usually FALSE is more useful for search
 
@@ -134,8 +134,8 @@ format_lines <- function(lines, gap = 10) {
 
 terms <- str_split(SEARCH_TERMS, "\\|")[[1]] |> str_trim()
 
-EXCLUDE  <- c("Designing-Simulations-in-R.Rmd", "220-index.Rmd")
-all_rmds <- list.files(RMD_DIR, pattern = "\\.Rmd$", full.names = FALSE)
+EXCLUDE  <- c()
+all_rmds <- list.files(RMD_DIR, pattern = "\\.qmd$", full.names = FALSE)
 all_rmds <- sort(all_rmds[!all_rmds %in% EXCLUDE])
 if (!is.null(SEARCH_FILES)) all_rmds <- all_rmds[all_rmds %in% SEARCH_FILES]
 
