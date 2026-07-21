@@ -1,3 +1,7 @@
+
+# Simulating across multiple scenarios {#sec-simulating-multiple-scenarios}
+\index{simulation driver}
+
 ```{r setup-multiple-scenarios, include=FALSE}
 library( tidyverse )
 library( purrr )
@@ -26,9 +30,6 @@ dat <- gen_cluster_RCT( n=5, J=3, p=0.5,
                       alpha = 0.5 )
 
 ```
-
-# Simulating across multiple scenarios {#sec-simulating-multiple-scenarios}
-\index{simulation driver}
 
 In Chapter @sec-simulation-structure, we described the general structure of basic simulations as following four steps: generate, analyze, repeat, and summarize, with each step represented by its own function or set of code.
 We also saw how to bundle these steps into a simulation driver that runs our entire simulation.
@@ -406,7 +407,7 @@ We use the core idea of `pmap()`---call a function for each row of a dataset---t
 Analogous to the single-factor approach, we first make a driver to run a single scenario, and then use `pmap()` to run this driver for each row of `params`.
 We again use `bundle_sim()` as we did for the single-factor simulation.
 
-In Section @sec-estimation-functions, we developed a function called `r_and_z()` for computing confidence intervals for Pearson's correlation using Fisher's $z$ transformation, and in Section @sec-assessing-confidence-intervals, we wrote a function called `evaluate_CIs()` for evaluating confidence interval coverage and average width. 
+In Section @sec-estimation-functions, we developed a function called `r_and_z()` for computing confidence intervals for Pearson's correlation using Fisher's $z$ transformation, and in Section @sec-evaluate-CIs, we wrote a function called `evaluate_CIs()` for evaluating confidence interval coverage and average width. 
 We bundle `r_bivariate_Poisson()`, `r_and_z()`, and `evaluate_CIs()` into a simulation driver as follows:
 ```{r}
 Pearson_sim <- bundle_sim(
@@ -705,11 +706,11 @@ In the next several chapters, we will examine several strategies for exploring a
 
 @brown1974SmallSampleBehavior evaluated the power of the ANOVA $F$ and Welch test under twenty different conditions, varying in the number of groups, sample sizes, and degree of heteroskedasticity (see Table [5.2](case-ANOVA.html#tab:BF-Scenarios) of Chapter @sec-case-ANOVA). 
 
-1. Extend their work by building a multifactor simulation design to compare the power of the tests when $G = 4$, for three or more different sample sizes and for settings with either unbalanced group allocations (e.g., `allocation = c(0.1, 0.2, 0.3, 0.4)`) or equal group sizes.
+1.  Extend their work by building a multifactor simulation design to compare the power of the tests when $G = 4$, for three or more different sample sizes and for settings with either unbalanced group allocations (e.g., `allocation = c(0.1, 0.2, 0.3, 0.4)`) or equal group sizes.
 
-2. Execute the multifactor simulations using `pmap()` or `evaluate_by_row()`.
+2.  Execute the multifactor simulations using `pmap()` or `evaluate_by_row()`.
 
-3. Create a graph or graphs that depict the power levels of each test as a function of `mu_max`, sample size, and group allocations. How do the power levels of the tests compare to each other overall? 
+3.  Create a graph or graphs that depict the power levels of each test as a function of `mu_max`, sample size, and group allocations. How do the power levels of the tests compare to each other overall? 
 
 ### Comparing the trimmed mean, median and mean {#sec-trimmed-mean}
 
@@ -720,52 +721,54 @@ Following tidy simulation principles, the steps described below will walk you th
 
 The aim of this simulation is to investigate the performance of the mean, trimmed mean, and median as estimators of the center of a symmetric distribution (such that the mean and median parameters are identical).  
 As the data-generation function, use a scaled $t$-distribution so that the standard deviation will always be 1 but will have different fatness of tails (high chance of outliers):
+
 ```{r}
 gen_scaled_t <- function( n, mu, df0 ) {
     mu + rt( n, df=df0 ) / sqrt( df0 / (df0-2) )
 }
 ```
+
 The variance of a $t$ distribution is $df/(df-2)$, so when we divide our observations by the
 square root of this, we standardize them so they have unit variance.
 The estimand of interest here is `mu`, the center of the distribution.
 The estimation methods of interest are the conventional (arithemetic) mean, a 10% trimmed mean, and the median of a sample of $n$ observations. 
 For performance measures, focus on bias, true standard error, and root mean squared error\index{performance measures!RMSE\index{performance measures!RMSE}}.
 
-1. Verify that `gen_scaled_t()` produces data with mean `mu` and standard deviation 1 for various `df0` values.
+1.  Verify that `gen_scaled_t()` produces data with mean `mu` and standard deviation 1 for various `df0` values.
 
-2. Write a function to calculate the mean, trimmed mean, and median of a vector of data.
-   The trimmed mean should trim 10% of the data from each end.
-   The method should return a data frame with the three estimates, one row per estimator.
+2.  Write a function to calculate the mean, trimmed mean, and median of a vector of data.
+    The trimmed mean should trim 10% of the data from each end.
+    The method should return a data frame with the three estimates, one row per estimator.
 
-3. Verify your estimation method works by analyzing a dataset generated with `gen_scaled_t()`.
-   For example, you can generate a dataset of size 100 with `gen_scaled_t(100, 0, 3)` and then analyze it.
+3.  Verify your estimation method works by analyzing a dataset generated with `gen_scaled_t()`.
+    For example, you can generate a dataset of size 100 with `gen_scaled_t(100, 0, 3)` and then analyze it.
    
-4. Use `bundle_sim()` to create a simulation function that generates data and then analyzes it.
-   The function should take `n` and `df0` as arguments, and return the estimates from your analysis method.
-   Use `id` to give each simulation run an ID.
+4.  Use `bundle_sim()` to create a simulation function that generates data and then analyzes it.
+    The function should take `n` and `df0` as arguments, and return the estimates from your analysis method.
+    Use `id` to give each simulation run an ID.
 
-5. Run your simulation function for 1000 datasets of size 10, with `mu=0` and `df0=5`.
-   Store the results in a variable called `raw_exps`.
+5.  Run your simulation function for 1000 datasets of size 10, with `mu=0` and `df0=5`.
+    Store the results in a variable called `raw_exps`.
    
-6. Write a function to calculate the RMSE, bias, and standard error for your three estimators, given the results.
+6.  Write a function to calculate the RMSE, bias, and standard error for your three estimators, given the results.
 
-7. Make a single function that takes `df0` and `n`, and runs a simulation and returns the performances of your three methods.
+7.  Make a single function that takes `df0` and `n`, and runs a simulation and returns the performances of your three methods.
 
-8. Now make a grid of $n = 10, 50, 250, 1250$ and $df_0 =  3, 5, 15, 30$, and generate results for your multifactor simulation.
+8.  Now make a grid of $n = 10, 50, 250, 1250$ and $df_0 =  3, 5, 15, 30$, and generate results for your multifactor simulation.
 
-9. Make a plot showing how SE changes as a function of sample size for each estimator. Do the three estimator seem to follow the same pattern? Or do they work differently?
+9.  Make a plot showing how SE changes as a function of sample size for each estimator. Do the three estimator seem to follow the same pattern? Or do they work differently?
 
 ### Estimating latent correlations {#exr-multifactor-latent-correlation}
 
 Exercise @sec-BVNB2 introduced a bivariate negative binomial model and asked you to write a data-generating function that implements the model. Exercise @sec-three-correlation-estimators provided an estimation function (called `three_corrs`) that calculates three different types of correlation coefficients, and asked you to write a function for calculating the bias and RMSE of these measures.\index{example!bivariate Poisson}
 
-1. Combine your data-generating function, `three_corrs()`, and your performance calculation into a simulation driver.
+1.  Combine your data-generating function, `three_corrs()`, and your performance calculation into a simulation driver.
 
-2. Propose a multifactor simulation design to examine the bias and RMSE of these three correlations. Write code to create a parameter grid for your proposed simulations.
+2.  Propose a multifactor simulation design to examine the bias and RMSE of these three correlations. Write code to create a parameter grid for your proposed simulations.
 
-3. Execute the simulations for your proposed design.
+3.  Execute the simulations for your proposed design.
 
-4. Create a graph or graphs that depict the bias and RMSE of each correlation as a function of $\rho$ and any other key parameters. 
+4.  Create a graph or graphs that depict the bias and RMSE of each correlation as a function of $\rho$ and any other key parameters. 
 
 
 ### Examine a multifactor simulation design {#exr-examine-a-multifactor-simulation-design}

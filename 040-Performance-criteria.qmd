@@ -1,9 +1,18 @@
-```{r include = FALSE}
+---
+include-before-body: html/mathjax-preamble.html
+---
+
+# Performance Measures {#sec-performance-measures}
+
+```{r setup, include = FALSE}
 library(tidyverse)
 library(simhelpers)
 conflicted::conflicts_prefer(dplyr::select)
 conflicted::conflicts_prefer(dplyr::filter)
 options(list(dplyr.summarise.inform = FALSE))
+
+source("case_study_code/r_bivariate_Poisson.R")
+source("case_study_code/r_and_z.R")
 source("case_study_code/gen_cluster_RCT.R")
 
 ClusterRCT_runs <- readRDS("results/cluster_RCT_simulation.rds") %>%
@@ -16,8 +25,6 @@ ClusterRCT_runs <- readRDS("results/cluster_RCT_simulation.rds") %>%
   )
 
 ```
-
-# Performance Measures {#sec-performance-measures}
 
 Once we run a simulation, we end up with a pile of results to sort through. 
 For example, Figure @fig-CRT-ATE-hist depicts the distribution of average treatment effect estimates from the cluster-randomized experiment simulation we generated in Section @sec-one-run-reparameterization. 
@@ -1312,25 +1319,35 @@ welch_sub %>%
 
 Later, when we analyze multifactor simulations, this grouping becomes even more powerful: we will group by the simulation factors and evaluate performance for all our scenarios at once.
 
-See below for more examples of using `simhelpers` to calculate different performance measures.
+### Quick confidence interval coverage {#sec-evaluate-CIs}
 
-<!--
-```{r Welch-rejection, echo = FALSE, message = FALSE, eval=FALSE}
-library(kableExtra)
+In Section @sec-BVPois-example, we created the function `r_bivariate_Poisson()` for simulating data from a bivariate Poisson distribution.
+In Section @sec-estimation-functions, we developed a function called `r_and_z()` for computing confidence intervals for Pearson's correlation using Fisher's $z$ transformation.
+In Section @sec-bundle-sim-demo, we created a simulation driver function, `sim_r_Poisson()` from these components.
+We can use this function to generate 1000 simulated confidence intervals:
 
-all_rejection_rates %>%
-  kbl(
-    digits = 3,
-    caption = "Rejection rates of conventional and Welch t-test for varying sample sizes and population mean differences."
-  ) %>%
-  kable_styling(
-    full_width = FALSE,
-    bootstrap_options = c("striped","compact","hover")
-  ) 
+```{r}
+#| echo: false
+sim_r_Poisson <- bundle_sim( f_generate = r_bivariate_Poisson, 
+                             f_analyze = r_and_z, 
+                             id = "rep" )
 ```
--->
 
+```{r}
+bvp_CIs <- sim_r_Poisson( 1000, N = 30, rho = 0.4, mu1 = 8, mu2 = 14 )
+head(bvp_CIs, n = 3)
+```
+It will be useful to have a function that evaluates the coverage and width of these confidence intervals based on a simulated dataset.
+We can create such a function using `calc_coverage()`:
 
+```{r, file = "case_study_code/evaluate_CIs.R"}
+```
+
+This function makes it quite easy to evaluate the output of `sim_r_Poisson()`:
+
+```{r}
+evaluate_CIs(bvp_CIs, rho = 0.4)
+```
 
 
 ### Quick Performance Calculations for our Cluster RCT Example
@@ -1433,11 +1450,11 @@ By looking at different performance measures change across scenario, we can begi
 
 ### Brown and Forsythe (1974) results {#sec-Brown-Forsythe-performance}
 
-1. Use the `generate_ANOVA_data` data-generating function for one-way heteroskedastic ANOVA (Section @sec-case-anova-DGP) and  the data-analysis function you wrote for Exercise @sec-BFFs-forever to create a simulation driver function for the Brown and Forsythe simulations.\index{example!heteroskedastic ANOVA (Welch)}
+1.  Use the `generate_ANOVA_data` data-generating function for one-way heteroskedastic ANOVA (Section @sec-case-anova-DGP) and  the data-analysis function you wrote for Exercise @sec-BFFs-forever to create a simulation driver function for the Brown and Forsythe simulations.\index{example!heteroskedastic ANOVA (Welch)}
 
-2. Use your simulation driver to evaluate the Type-I error rate of the ANOVA $F$-test, Welch's test, and the BFF* test for a scenario with four groups, sample sizes $n_1 = 11$, $n_2 = 16$, $n_3 = 16$, $n_4 = 21$, equal group means $\mu_1 = \mu_2 = \mu_3 = \mu_4 = 0$, and group standard deviations $\sigma_1 = 3$, $\sigma_2 = 2$, $\sigma_3 = 2$, $\sigma_4 = 1$. Are all of the tests level-$\alpha$?
+2.  Use your simulation driver to evaluate the Type-I error rate of the ANOVA $F$-test, Welch's test, and the BFF* test for a scenario with four groups, sample sizes $n_1 = 11$, $n_2 = 16$, $n_3 = 16$, $n_4 = 21$, equal group means $\mu_1 = \mu_2 = \mu_3 = \mu_4 = 0$, and group standard deviations $\sigma_1 = 3$, $\sigma_2 = 2$, $\sigma_3 = 2$, $\sigma_4 = 1$. Are all of the tests level-$\alpha$?
 
-3. Use your simulation driver to evaluate the power of each test for a scenario with group means of $\mu_1 = 0$, $\mu_2 = 0.2$, $\mu_3 = 0.4$, $\mu_4 = 0.6$, with sample sizes and group standard deviations as listed above. Which test has the highest power?
+3.  Use your simulation driver to evaluate the power of each test for a scenario with group means of $\mu_1 = 0$, $\mu_2 = 0.2$, $\mu_3 = 0.4$, $\mu_4 = 0.6$, with sample sizes and group standard deviations as listed above. Which test has the highest power?
 
 ### Size-adjusted power {#sec-size-adjusted-power}
 
@@ -1497,21 +1514,22 @@ three_corrs <- function(
 
 ```
 
-1. Combine your data-generating function and `three_corrs()` into a simulation driver.
+1.  Combine your data-generating function and `three_corrs()` into a simulation driver.
 
-2. Use your simulation driver to generate 500 replications of the simulation for a scenario with $N = 20$, $\mu_1 = \mu_2 = 5$, $p_1 = p_2 = 0.5$, and $\rho = 0.7$.
+2.  Use your simulation driver to generate 500 replications of the simulation for a scenario with $N = 20$, $\mu_1 = \mu_2 = 5$, $p_1 = p_2 = 0.5$, and $\rho = 0.7$.
 
-3. Compute the bias, standard error, and RMSE of each correlation estimator, along with corresponding MCSEs. Which correlation estimator is most accurate?
+3.  Compute the bias, standard error, and RMSE of each correlation estimator, along with corresponding MCSEs. Which correlation estimator is most accurate?
 
-4. Compute the coverage rate and expected width of the confidence intervals based on each correlation estimator. Do any of the estimators have reasonable coverage? If so, which has the best expected width?
+4.  Compute the coverage rate and expected width of the confidence intervals based on each correlation estimator. Do any of the estimators have reasonable coverage? If so, which has the best expected width?
 
-5. Use your simulation driver to estimate the Type-I error rate of the hypothesis tests for each correlation coefficient for a scenario with $N = 20$, $\mu_1 = \mu_2 = 5$, $p_1 = p_2 = 0.5$. Are any of the tests level-$\alpha$?
+5.  Use your simulation driver to estimate the Type-I error rate of the hypothesis tests for each correlation coefficient for a scenario with $N = 20$, $\mu_1 = \mu_2 = 5$, $p_1 = p_2 = 0.5$. Are any of the tests level-$\alpha$?
 
 ### Confidence interval comparison {#sec-cluster-RCT-t-confidence-intervals}
 
 Consider the estimation functions for the cluster RCT example, as given in Section @sec-multiple-estimation-procedures.
 Modify the functions to return __both__ normal Wald-type 95% confidence intervals (as computed in Section @sec-cluster-RCT-CI-coverage) and cluster-robust confidence intervals based on $t$ distributions with Satterthwaite degrees of freedom.
 For the latter, use `conf_int()` from the `clubSandwich` package, as in the following example code:
+
 ```{r, eval = FALSE}
 library(clubSandwich)
 
