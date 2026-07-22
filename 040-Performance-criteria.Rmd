@@ -17,7 +17,8 @@ ClusterRCT_runs <- readRDS("results/cluster_RCT_simulation.rds") %>%
     method_L = case_match(method, 
                         "Agg" ~ "Aggregation",
                         "LR" ~ "Linear regression", 
-                        "MLM" ~ "Multilevel model")
+                        "MLM" ~ "Multilevel model"),
+    runID = rep(1:1000, each = 3L)
   )
 
 ```
@@ -1027,74 +1028,82 @@ The key is to be clear about what you are trying to estimate because the perform
 ## Uncertainty in Performance Estimates (the Monte Carlo Standard Error) {#MCSE}
 
 The performance measures we have described are all defined in terms of an infinite number of replications of the data-generating process.
-Of course, simulations will only involve a finite set of replications, based on which we _estimate_ the measures.
-These estimates involve some Monte Carlo error because they are based on a limited number of replications.
+Of course, simulations only involve a finite set of replications, based on which we _estimate_ the measures.
 If we re-ran the simulation (with a different seed), our estimates would change.
-We can quantify how much they might change by assessing Monte Carlo error.
+We use the term _Monte Carlo error_ to describe the variability of performance measure estimates that is due to using a random, finite set of replications.
+To understand how good our estimates of performance are, we need to assess how large the Monte Carlo error is likely to be.
 
-To account for Monte Carlo error, we can think of our simulation results as a sample from a population.
-Each replication is independent drawn from the population of the sampling distribution. 
-Once we frame the problem in these terms, we can apply standard statistical techniques to calculate standard errors.
-We call these standard errors Monte Carlo Simulation Errors, or MCSEs.
-For most performance measures, closed-form expressions for their MCSEs are available.
+To account for Monte Carlo error, we can think of simulation results as a sample from a population.
+Each replication is an independent draw from the population of the sampling distribution. 
+Once we frame the problem in these terms, we can apply standard statistical techniques to calculate standard errors for our performance measures, which we will call _Monte Carlo Standard Errors_, or MCSEs.
+For most performance measures, closed-form expressions for MCSEs are available.
 If no closed-form expressions are available, we can still estimate MCSEs using techniques such as the jackknife or bootstrap.
 
 
 ### Conventional measures for point estimators
 
-For the performances measures that we have described for evaluating point estimators, Monte Carlo standard errors can be calculated using conventional formulas.[^estimated-MCSEs] 
-Recall that we have a point estimator $T$ of a target parameter $\theta$, and we calculate the mean of the estimator $\bar{T}$ and its sample standard deviation $S_T$ across $R$ replications of the simulation process. 
-In addition, we will need to calculate the standardized skewness and kurtosis of $T$ as 
+For the performances measures that we have described for evaluating point estimators, Monte Carlo standard errors can be calculated using conventional formulas.[^estimated-MCSEs]
+When we run a simulation, we end up with $R$ replicates of a point estimator $T$ of a target parameter $\theta$.
+A performance measure of $T$ (e.g., bias, RMSE, or SE) is a summary across these $R$ replicates.
 
+
+[^estimated-MCSEs]: To be precise, the formulas that we give are _estimators_ for the Monte Carlo standard errors of the performance measure estimators. Our presentation does not emphasize this point because the performance measures will usually be estimated using a large number of replications from an independent and identically distributed process, so the distinction between true and estimated Monte Carlo standard errors will not be consequential. One could write $MCSE$ and $\widehat{MCSE}$ to distinguish between the two, but we avoid this notation for simplicity.
+
+
+For example, the bias of $T$ is $\E(T - \theta)$, which is the expected value of $T$ minus the true parameter value, and we estimate the bias as $\bar{T} - \theta$.
+Each replicate of $T - \theta$ is an _estimate_ of the expected value of $T - \theta$, and, in this case, we have $R$ independent draws of $T - \theta$ and can use simple sampling theory to get the standard error for the population mean of them:
+$$
+MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}},
+(\#eq:MCSE-bias)
+$$
+where $S_T$ is the sample standard deviation of $T$ across the $R$ replications of the simulation process (noting that $Var(T-\theta) = Var(T)$).
+Equation \@ref(eq:MCSE-bias) is simply the standard error for the mean of $R$ independent samples from a population.
+
+This approach is readily extended to estimators of other performance measures. 
+If we have a performance measure $M$ for each replicate in a simulation, we can estimate average performance as the average of the sample of $R$ performances, $\bar{M}$.
+The standard error for average performance then follows along the same lines as \@ref(eq:MCSE-bias).
+For example, the Mean Square Error (the square of RMSE) is simply the average of $M = (T-\theta)^2$ and the MCSE of the MSE is then
+$$ 
+MCSE( \widehat{MSE} ) = \sqrt{\frac{\Var(M)}{R}} = \sqrt{\frac{\Var\left((T-\theta)^2\right)}{R}}.
+(\#eq:MCSE-MSE)
+$$
+For quantifying the accuracy of an estimator, we have recommended using RMSE, or the square root of the MSE, as shown in Equation \@ref(eq:rmse-estimator).
+To get the MCSE for RMSE, we can use a delta method approximation.[^delta-method]
+In the case of the RMSE, 
+$$
+MCSE( \widehat{RMSE} ) = \frac{1}{2 \times RMSE} \sqrt{\frac{Var((T-\theta)^2)}{R}}.
+(\#eq:MCSE-RMSE)
+$$
+To actually approximate the MCSE, we plug in the estimated $RMSE$ and the variance of the $R$ values of $(T-\theta)^2$.
+The delta method approach can be applied to many other quantities of interest as well.
+
+[^delta-method]: @Oehlert1992note provides a friendly introduction to the delta method, or see @pustejovsky2018deltamethod.
+The delta method approximation says (with some conditions), that if we assume $X \sim N\left( \phi, \sigma_X^2 \right)$, then we can approximate the distribution of $g(X)$ for some continuous function $g(\cdot)$ as
+$$ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2 \times \sigma_X^2 \right),$$
+where $g'(\phi)$ is the derivative of $g(\cdot)$ evaluated at $\phi$.
+In practice, $\phi$ is an unknown parameter, but we can estimate the variance of $g(X)$ by substituting $X$ in place of $\phi$. Thus, an approximate estimator of the variance of $g(X)$ is $g'(X)^2 \times \hat\sigma_X^2$, and an approximate SE for $g(X)$ is 
+$$ SE( g(X) ) \approx \left| g'(\mu_X) \right|  \times SE(X).$$
+To find the MCSE of $RMSE$, we apply the delta method approximation to $X = MSE$ with $g(x) = \sqrt{x}$ and $g'(x) =\frac{1}{2\sqrt{x}}$.
+
+
+The MCSE for the true standard error $S_T$ of $T$ does not directly follow the above pattern because the sampling variance $S_T^2$ of $T$ is estimated across all the replicates, rather than simply being an average of $R$ independent estimates.
+Statistical theory gives the standard error of a variance estimator as 
+$$
+MCSE\left(\widehat{\Var}(T)\right) = MCSE\left(S^2_T\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}},
+(\#eq:MCSE-var)
+$$
+where $k_T$ is the standardized kurtosis of $T$:
 $$
 \begin{aligned}
-\text{Skewness (standardized):} &  &g_T &= \frac{1}{R S_T^3}\sum_{r=1}^R \left(T_r - \bar{T}\right)^3 \\
-\text{Kurtosis (standardized):} &  &k_T &= \frac{1}{R S_T^4} \sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
+k_T &=  \frac{1}{S_T^4} \frac{1}{R}\sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
 \end{aligned}
 (\#eq:skewness-kurtosis)
 $$
 
-[^estimated-MCSEs]: To be precise, the formulas that we give are _estimators_ for the Monte Carlo standard errors of the performance measure estimators. Our presentation does not emphasize this point because the performance measures will usually be estimated using a large number of replications from an independent and identically distributed process, so the distinction between true and estimated Monte Carlo standard errors will not be consequential. One could write $MCSE$ and $\widehat{MCSE}$ to distinguish between the two, but we avoid this notation for simplicity.
-
-The bias of $T$ is estimated as $\bar{T} - \theta$, so the MCSE for bias is equal to the MCSE of $\bar{T}$ because $\theta$ is fixed. 
-It can be estimated as 
+With the MCSE of the variance, we can use the same delta method approximation as above to get the MCSE of the standard error:
 $$
-MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}}.
-(\#eq:MCSE-bias)
-$$
-The sampling variance of $T$ is estimated as $S_T^2$, with a MCSE of
-$$
-MCSE\left(\widehat{\Var}(T)\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}}.
-(\#eq:MCSE-var)
-$$
-The true standard error (the square root of the sampling variance) is estimated as $S_T$.
-Using a delta method approximation,[^delta-method] the MCSE of $S_T$ is approximately
-$$
-MCSE\left(S_T\right) \approx \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
+MCSE\left(S_T\right) \approx \frac{1}{2 \sqrt{ S^2_T}} MCSE( S^2_T ) = \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
 (\#eq:MCSE-SE)
-$$
-
-[^delta-method]: The delta method approximation says (with some conditions), that if we assume $X \sim N\left( \phi, \sigma_X^2 \right)$, then we can approximate the distribution of $g(X)$ for some continuous function $g(\cdot)$ as
-$$ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2 \times \sigma_X^2 \right),$$
-where $g'(\phi)$ is the derivative of $g(\cdot)$ evaluated at $\phi$.
-Following this approximation,
-$$ SE( g(X) ) \approx \left| g'(\theta) \right|  \times SE(X) .$$
-For estimation, we plug in $\hat{\theta}$ and our estimate of $SE(X)$ into the above.
-To find the MCSE for $S_T$, we can apply the delta method approximation to $X = S_T^2$ with $g(x) = \sqrt(x)$ and $g'(x) =\frac{1}{2\sqrt{x}}$. [This blog post](https://jepusto.com/posts/Multivariate-delta-method/index.html) provides a friendly introduction.
-
-We estimate RMSE using Equation \@ref(eq:rmse-estimator), which can also be written as
-$$
-\widehat{\RMSE}(T) = \sqrt{(\bar{T} - \theta)^2 + \frac{R - 1}{R} S_T^2}.
-$$
-The MCSE of the estimated mean squared error (the square of RMSE) is
-$$ 
-MCSE( \widehat{MSE} ) = \sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}.
-(\#eq:MCSE-MSE)
-$$
-Again following a delta method approximation, a MCSE for the RMSE is
-$$
-MCSE( \widehat{RMSE} ) = \frac{\sqrt{\frac{1}{R}\left[S_T^4 (k_T - 1) + 4 S_T^3 g_T\left(\bar{T} - \theta\right) + 4 S_T^2 \left(\bar{T} - \theta\right)^2\right]}}{2 \times \widehat{RMSE}}.
-(\#eq:MCSE-RMSE)
 $$
 
 Section \@ref(sec-relative-performance) discussed circumstances where we might prefer to calculate performance measures in relative rather than absolute terms. 
@@ -1127,19 +1136,21 @@ a MCSE is
 MCSE\left(\tilde{T}_{\{p\}}\right) = \sqrt{\frac{U_p}{R}},
 (\#eq:MCSE-trimmed-mean)
 \end{equation}
-where, taking from [@Maronna2006robust, Eq. 2.85],
+where
 $$
 U_p = \frac{1}{(1 - 2p)R}\left( pR\left(T_{(pR)}  - \tilde{T}_{\{p\}}\right)^2 + pR\left(T_{((1-p)R + 1)}  - \tilde{T}_{\{p\}}\right)^2 + \sum_{r=pR + 1}^{(1 - p)R} \left(T_{(r)} - \tilde{T}_{\{p\}}\right)^2 \right) .
 $$
-The additional uncertainty due to the thresholds being estimated is ignorable 
+[@Maronna2006robust, Eq. 2.85].
+The additional uncertainty due to the thresholds being estimated is ignorable.
 
 Performance measures based on winsorization include winsorized bias, winsorized standard error, and winsorized RMSE. 
 MCSEs for these measures can be computed using the same formuals as for the conventional measures of bias, standard error, and RMSE, but using sample moments of $\hat{X}_r$ in place of the sample moments of $T_r$.
+The additional uncertainty from the thresholds being estimated is ignorable.
 
 
 ### MCSE for Confidence Intervals and Hypothesis Tests
 
-Performance measures for confidence intervals and hypothesis tests are simple compared to those we have described for point and variance estimators. 
+Performance measures for confidence intervals and hypothesis tests are simple compared to those we have described for point and variance estimators, and come directly from the theory of estimating the proportion in a population. 
 First, the MCSE for the estimated rejection rate is
 $$
 MCSE(r_\alpha) = \sqrt{\frac{r_\alpha ( 1 - r_\alpha)}{R}}.
