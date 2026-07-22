@@ -4,6 +4,7 @@
 
 ```{r include = FALSE}
 library(tidyverse)
+library(tinytable)
 ```
 In this chapter, we present another detailed example of a simulation study\index{simulation study} to demonstrate how to put the principles of tidy, modular simulation into practice. 
 To illustrate the process of programming a simulation, we reconstruct the simulations from @brown1974SmallSampleBehavior.
@@ -62,19 +63,13 @@ In all, there are a total of `r nrow(table_1_scenarios)` scenarios, covering con
 
 ```{r}
 #| echo: false
+#| tbl-cap: Simulation scenarios explored by Brown and Forsythe (1974)
+#| label: tbl-BF-Scenarios
 
-library(kableExtra)
-
-table_1_scenarios %>%
-  relocate(Scenario) %>%
-  kbl( 
-    caption = "Simulation scenarios explored by Brown and Forsythe (1974)",
-    label = "tbl-BF-Scenarios"
-  ) %>%
-  kable_styling(
-    full_width = FALSE,
-    bootstrap_options = c("striped","compact","hover")
-  ) 
+table_1_scenarios |>
+  relocate(Scenario) |>
+  tt() %>%
+  style_tt(j = 1:4, align = "c")
 ```
 
 
@@ -98,7 +93,11 @@ In contrast, the ANOVA F works fine under scenario A, which is what one would ex
 Brown and Forsythe's choice of scenarios here illustrates a broader design principle: to provide a full picture of the performance of a method or set of methods, it is wise to always evaluate them under conditions where we expect things to work, as well as conditions where we expect them to not work well.
 
 
-```{r tbl-BF-table1, echo=FALSE}
+```{r}
+#| echo: false
+#| label: tbl-BF-table1
+#| tbl-cap: 'Portion of "Table 1" reproduced from Brown and Forsythe (1974)'
+
 library(tibble)
 
 table_5_percent <- tribble(
@@ -115,7 +114,6 @@ table_5_percent <- tribble(
   "6",     4.0,     6.5,      5.4,     5.6,
   "6",    4.9,     3.4,      6.1,     9.5
 )
-#nrow( table_5_percent )
 table_1_percent <- tribble(
   ~Groups, ~`F`, ~`F*`, ~`W`, ~`J`,
   "4",     0.9,     0.5,      0.8,     2.4,
@@ -167,20 +165,14 @@ table_1 <-
   ) %>%
   relocate(Scenario)
 
-#table_1$Group = table_1_scenarios$Groups[1:nrow(table_1)]
-
+colnames(table_1) <- c("Scenario", rep(c("10%","5%","1%"), times = 4))
 table_1 %>%
-  #relocate( Scenario, Group ) %>%
-  kbl( 
-    caption='Portion of "Table 1" reproduced from Brown and Forsythe (1974)',
-    col.names = c("Scenario", rep(c("10%","5%","1%"), times = 4)),
-    label = "tbl-BF-table1"
+  tt() %>%
+  group_tt(
+    j = list("ANOVA F test" = 2:4, "B & F's F* test" = 5:7, "Welch's test" = 8:10, "James' test" = 11:13)
   ) %>%
-  kable_styling(
-    full_width = FALSE, 
-    bootstrap_options = c("striped","compact","hover"),
-  ) %>%
-  add_header_above(c(" " = 1, "ANOVA F test" = 3, "B & F's F* test" = 3,"Welch's test" = 3, "James' test" = 3))
+  style_tt(j = 1, align = "c") %>%
+  style_tt(i = 0:11, j = 2:13, align = "r")
 ```
 
 To replicate the Brown and Forsythe simulation, we will first write functions to generate data for a specified scenario and evaluate data of a given structure.
@@ -444,9 +436,13 @@ Try simulating the Type-I error rates for the parameter values in the first two 
 
 ### Power 
 
-In the primary paper, Table 1 is about Type I error and Table 2 is about power.  A portion of Table 2 follows:
+In the primary paper, Table 1 is about Type I error and Table 2 is about power. A portion of Table 2 follows:
 
-```{r tbl-BF-power, echo = FALSE}
+```{r}
+#| echo: false
+#| label: tbl-BF-power
+#| tbl-cap: 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)'
+
 pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`,
                 "1,1,1,1",   "0,0,0,0", 4.9, 5.1, 5.0,
                 "",          "1,0,0,0", 68.6, 67.6, 65.0,
@@ -455,10 +451,10 @@ pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`
                 )
 
 pow %>%
-  kbl(
-    caption = 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)',
-    label = "tbl-BF-power"
-  )
+  tt() %>%
+  format_tt(replace = "-") %>%
+  style_tt(j = 3:5, align = "r")
+
 ```
 
 In the table, the sizes of the four groups are 11, 16, 16, and 21, for all the scenarios.
