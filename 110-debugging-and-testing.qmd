@@ -399,8 +399,130 @@ For any reasonably complex project, having test code can be of enormous benefit.
 
 
 
+## Concluding thoughts
+
+Coding often comes down to debugging and testing.
+Debugging is usually painful, and no one wants to write the code to test things.
+Happily, these days, agenic AI can do a lot of this work for us.
+Since this landscape is changing so quickly, we will not write much about this beyond stating two points.
+First, these tools can substantially lower the barrier to using the coding practices advocated for in this chapter.
+Second, debugging code and walking through it is a wonderful way to help yourself think through asking what you are asking the computer to do.
+Do not outsource this reflection entirely to AI; the time spent debugging can often be time spent reasoning about the tension between simulation you are actually writing vs. the simulation you are trying to write.
 
 
+## Exercises {.unnumbered}
+
+::: {#exr-debug-print-cat}
+
+### Debugging with `print()` and `cat()`
+
+The function below is meant to summarize the performance of an estimator: given a vector of estimates and the true parameter value, it should return the bias and the root mean squared error (RMSE).
+
+```{r, eval=FALSE}
+summarize_performance <- function( estimates, truth ) {
+  errors <- estimates - truth
+  bias <- mean( errors )
+  rmse <- sqrt( mean( errors )^2 )
+  tibble( bias = bias, rmse = rmse )
+}
+```
+
+If you call this function on a vector of estimates, you will notice that `bias` and `rmse` always come out identical---which should strike you as suspicious, since RMSE and bias measure different things and are essentially never equal in practice.
+
+a)  Add `print()` or `cat()` statements inside `summarize_performance()` to display the value of `errors` and each intermediate calculation. Use these printouts to figure out exactly which line is wrong.
+
+b)  Fix the function so that it correctly calculates the RMSE, and confirm using a small example (e.g., `estimates = c(1, 2, 3, 4)` and `truth = 2`) that `bias` and `rmse` are no longer the same.
+
+c)  Once you are confident the function works, remove or comment out the `print()`/`cat()` statements you added. Why is it good practice to do this?
+
+:::
+
+::: {#exr-debug-browser-trimmed-mean}
+
+### Debugging with `debug()` or `browser()`
+
+Consider the following function, which is supposed to calculate a trimmed mean by dropping the smallest and largest `trim` proportion of values before averaging (compare to the trimmed-mean estimator from @exr-trimmed-mean):
+
+```{r, eval=FALSE}
+trimmed_mean <- function( x, trim = 0.1 ) {
+  n <- length(x)
+  k <- floor( n * trim )
+  x_sorted <- sort(x)
+  x_sorted[ (k+1):n ] |> mean()
+}
+```
+
+Try calling `trimmed_mean( 1:10, trim = 0.2 )`. A 20% trimmed mean of the integers 1 through 10 should drop the two smallest values (1, 2) *and* the two largest values (9, 10), leaving `mean(3:8) = 5.5`.  Do you get this answer?
+
+a)  Use `debug()` (or insert a `browser()` call at the top of the function) to step through `trimmed_mean(1:10, trim = 0.2)` line by line. Inspect `n`, `k`, and `x_sorted` at each step to figure out exactly what the function is doing wrong.
+
+b)  Fix the function so that it trims `k` values from *both* ends of `x_sorted`, and confirm that `trimmed_mean(1:10, trim = 0.2)` now returns `5.5`.
+
+c)  What does your fixed function return if `trim` is large enough that `2 * k >= n`? Why does it do this?  Step through your code to discover what is happening. Is this a sensible result? If not, what might you add to the function to guard against this (see @sec-about-stopifnot)?
+
+:::
+
+::: {#exr-debug-assertions-ANOVA}
+
+### Assertions for the ANOVA data-generating process
+
+Recall the `generate_ANOVA_data()` function from @sec-case-anova-DGP, which takes vectors `mu`, `sigma_sq`, and `sample_size` (one entry per group) and simulates data for a heteroskedastic ANOVA scenario. As written, the function has no assertions, so it will happily run---and silently produce nonsensical output---if it is given badly mismatched or invalid inputs.
+
+a)  What happens if you called the function with, say, `mu` of length 3 and `sample_size` of length 4? Do you get an error, a warning, or silently wrong data? Contrast this with the `make_groups()` example earlier in this chapter, where a similar length mismatch between `means` and `sds` is silently recycled without any error at all. Why do these two functions behave so differently when given mismatched-length inputs?
+
+b)  Add `stopifnot()` statements to the top of `generate_ANOVA_data()` to check that `mu`, `sigma_sq`, and `sample_size` are all the same length, that every element of `sigma_sq` is strictly positive, and that every element of `sample_size` is a positive whole number.
+
+c)  Demonstrate that each of your assertions is triggered by an appropriately bad set of inputs (e.g., a `sigma_sq` with a negative entry, or a `mu` vector that is shorter than `sample_size`).
+
+d)  Write a unit test to ensure you get errors for all of these cases, using the `expect_error()` feature of the `testthat` package.
+
+:::
+
+::: {#exr-debug-unit-tests-r-and-z}
+
+### Unit testing `r_and_z()`
+
+Recall the `r_and_z()` function from @sec-about-browser-debugging, which computes a Pearson correlation, its Fisher-$z$ transformation, and a confidence interval from a bivariate dataset.
+
+a)  Write a `test_that()` block with `expect_*()` calls verifying that, for a dataset generated by `r_bivariate_Poisson()`, `r_and_z()` returns a data frame with columns `r`, `z`, `CI_lo`, and `CI_hi`, and that `r` always falls between $-1$ and $1$ and lies inside the reported confidence interval.
+
+b)  Now write a test for what happens when `r_and_z()` is called on a dataset with only 3 rows. Does the function produce an error, a warning, or a silently strange result?
+
+c)  Based on what you found in part (b), would it be more appropriate to add a `stopifnot()` assertion to `r_and_z()`, or to leave the behavior as is and simply document it? Justify your answer.
+
+:::
+
+::: {#exr-debug-ai-bug-hunt}
+
+<!--
+### Bug hunt
+
+Here is a small simulation driver with a subtle bug:
+
+```{r, eval=FALSE}
+run_one_rep <- function( n, mu, sigma ) {
+  x <- rnorm( n, mean = mu, sd = sigma )
+  tibble( mean_est = mean(x), sd_est = sd(x) )
+}
+
+many_reps <- function( R, n, mu, sigma ) {
+  sigma <- 1
+  map_dfr( 1:R, ~ run_one_rep( n, mu, sigma ) )
+}
+```
+
+If you call `many_reps( R = 100, n = 20, mu = 0, sigma = 5 )`, the resulting `sd_est` values will hover around 1 no matter what value of `sigma` you pass in.
+
+a)  Use whichever combination of `print()`/`cat()`, `debug()`, or `browser()` you find most natural to track down why changing `sigma` has no effect on the output of `many_reps()`. (If you like, also try asking an AI coding assistant to find the bug.) Once you've found it, fix the function.
+
+b)  Add a `stopifnot()` assertion, a unit test, or both, that would have caught this bug for a `sigma` other than 1.
+
+c)  If you asked an AI assistant to help with part (a), compare what it told you to what you learned by stepping through the code yourself. Did it correctly diagnose *why* the bug occurred, or did it just suggest a fix? In a sentence or two, reflect on what, if anything, you understand better about this code as a result of debugging it by hand.
+
+:::
+
+<!-- LWM: This one is maybe not complex enough to motivate the questions.  How could this be changed to make it more interesting?  The prior exercises are on the verge, but more ok.  (These were initially drafted by Claude after reading the chapter.) -->
+-->
 
 
 
