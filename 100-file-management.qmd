@@ -1,0 +1,448 @@
+
+# Organizing a simulation project {#sec-organizing-a-simulation-project}
+
+```{r, include =FALSE}
+library( tidyverse )
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::filter)
+```
+
+Multi-factor simulations can easily grow into quite complex projects with many moving pieces. 
+As a project grows in complexity, the steady accretion of functions, scripts, and stored results can become overwhelming---to the point that you would dread sharing these work products with anyone.
+Fortunately, a bit of forethought and advance planning can make these types of projects much more tractable and manageable.
+
+Before we get started on the content, we strongly recommend using an integrated development environment such as RStudio, Positron, or VS Code to manage projects and develop simulations.
+These Integrated Development Environments (IDEs) not only provide editors that understand the code you are writing (and therefore provide various enhancements such as syntax formatting and checking), but also help manage files and other aspects of a more compelx project.
+As these are now nearly ubiquitous, we do not discuss them further; we do, however, assume that you are using one as we discuss the techniques that follow.
+
+In the next several chapters, we describe some organizing principles and programming practices that will make it easier to handle complex simulation projects.
+In this chapter, we discuss project organization, file management, and storing simulation results. 
+In @sec-debugging-and-testing, we introduce some basic debugging and testing techniques that we have found useful for keeping on top of complex code bases.
+Finally, in @sec-parallel-processing, we demonstrate  parallel processing\index{parallel processing} methods that will help you to speed up the computation involved in multifactor simulations. 
+
+
+
+## Simulation project structure 
+
+In a very simple simulation that does not take long to execute, you might keep all of the code, output, and analysis in a single file.
+However, if any of the computations take substantial time to execute, keeping everything in one file will become unwieldy.
+For more complex or more computationally demanding simulations, there are big benefits to organizing your code across more than one file.
+
+Multifactor simulation studies usually involve three distinct phases of work, each involving a different set of processes and different types of code.
+The first phase involves developing functions for generating data, applying estimators or data analysis procedures to the data, calculating performance measures, and running the full simulation for a single scenario.
+The end-product of this phase is a set of functions or methods for executing a simulation.
+The second phase involves running the simulations across multiple scenarios, as discussed in @sec-simulating-multiple-scenarios.
+The end-product of this phase is a set of results, containing estimates of performance measures for one or more methods under each condition.
+The third phase involves analyzing the simulation results and drawing conclusions about the performance of the method or methods under evaluation.
+The end-product of this phase is often a set of figures, tables, and text (perhaps taking the form of a memo, blog post, slide deck, or manuscript) that summarizes what you find.
+
+To stay organized when conducting a larger, multifactor simulation, we find it generally useful to keep a clear separation between phases. 
+In practice, this means keeping the code for each phase in a separate file (or set of files) and storing the results from each phase so that code for subsequent phases can be re-run or revised without re-executing the entire code base.
+In particular, dividing your simulations in this way allows for easily changing how one _analyzes_ an experiment without re-running the entire thing.
+The modular approach we propose is in keeping with a general principle for organizing large computational projects: keep the code for distinct tasks in different files. 
+
+In this chapter, we describe strategies for such organization.
+We start by offering guidance and recommendations for how to structure individual files and how to make use of code that is organized across more than one file.
+We then describe a directory structure that encourages a clear separation between the phases of a project.
+Finally, we discuss strategies for storing and organizing results when executing a simulation.
+The advice and recommendations we offer are drawn from our own experience working on large simulation projects (including the many mistakes we have made and lessons we have learned through trial-and-error).
+Of course, we readily acknowledge that the approach we describe here is not the only way to do things, and we make no claims of optimality.
+As you gain experience with your own work, you will develop your own systems, habits, and strategies.
+We offer this guidance as a starting point from which to build.
+
+## Well structured code files
+
+Conducting a simulation will require writing, testing, and revising code (potentially quite a bit of code!).
+There are two main types of files for holding R code; plain `.R` scripts and R markdown (`.Rmd`) or Quarto (`.qmd`) notebooks.
+The former can only contain R syntax and comments, whereas the latter can hold a mix of R code chunks and written text.
+The latter work as the source code for creating reproducible reports. 
+Compiling a notebook will automatically run the embedded code and interweave the results with the text, producing a formatted document that can display figures, tables, and other forms of output.
+
+For very small projects, it may be possible to store all of your functions and code for creating, executing and analyzing your simulation.
+An advantage of using a notebook here is that you can easily mix in plain text explanations and descriptions of the component pieces with the actual source code, making all rationales and design decisions fully documented.
+Further, you can re-run the entire simulation at the click of a button, simply by re-compiling the notebook.
+However, it is difficult to work this way if the simulation involves more intensive computation.
+
+Larger or more computationally demanding projects, by contrast, will make more use of the first type of file, the humble `.R` script.
+Ideally, these scripts should follow the principles of modular programming, with each `.R` file holding a collection of code relevant to a single task.
+Accordingly, we distinguish between two types of `.R` scripts: "function library" scripts and scripts that carry out numerical calculations.
+The "function library" scripts just hold functions.
+The only consequence of running them from top to bottom will be to load some new functions into your workspace.
+This makes them easy to use in a modular form.
+The latter type are traditional scripts that do calculations, store or load data files, and create graphs and other summaries of data.
+Sourcing them will actually do work.
+
+
+### Putting headers in your .R file
+
+When you write an `.R` script, it is a good idea to put a header at the top of the file that describes the file's purpose.
+Within the file, you can also describe the contents with shorter section headers.
+For instance, a very simple section header might look like this:
+
+```
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data generating functions ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+```
+
+Note the `----` at the end of the middle line.
+The four trailing dashes trailing dashes tells RStudio's parser that the given line is a heading line that organizes the file.
+If you click on the dropdown at the bottom of the RStudio source pane, you will see a pop-up table of contents listing all of these heading lines along with all defined functions.
+You can use it to quickly navigate to different parts of your source file.
+You can also see the same table of contents by clicking the `Outline` button in the top right corner of the source pane.
+
+
+
+
+### The source command {#sec-about-source-command}
+
+If your code is organized across more than one file, you will need a way to call one file from another. 
+This is the purpose of the `source()` command, which effectively cuts-and-pastes the contents of the named file into your R session.
+For example, the following code runs three separate R scripts in turn:
+
+```{r demo_source_multiple, eval=FALSE}
+source( here::here( "R/data_generators.R" ) )
+source( here::here( "R/estimators.R" ) )
+source( here::here( "R/simulation_support.R" ) )
+```
+
+If the named file has code to run, it will run it.
+If the named file contains a set of functions, those functions will now be available for use.
+The `here::here()` command is a convenience function that allows you to specify a file path relative to your R project root directory, so you can easily find your files.[^working-directory-weirdness]
+
+[^working-directory-weirdness]: If you are used to using RStudio projects, you might wonder why you should use `here::here()`. If you always open your project from the `.Rproj` file, then the working directory will always start out set to the root directory, but it will not necessarily remain so (if a script calls `setwd()`, for instance). Further, when `.Rmd` or `.qmd` notebooks are compiled, the working directory is temporarily changed to the location of the notebook, so relative file references will work differently than in plain `.R` scripts. Wrapping file names in `here::here()` ensures that they will always be evaluated relative to the root directory of the project.
+
+The `source()` command is simple and literal---it runs a specified script from top to bottom, regardless of the contents. 
+In particular, if the sourced script includes further calls of `source()`, the referenced code will be run. 
+For example, the `simulation_support.R` script could include calls to source the other two files.
+In this case, you would only need to source the single `simulation_support.R` file to load the contents of all three files. 
+Although this might seem convenient, it does create some constraints as well.
+With this structure, there would be no way to source the contents of `simulation_support.R` without also sourcing `data_generators.R` and `estimators.R`.
+For this reason, we tend to avoid using `source()` in scripts that might themselves be sourced.
+
+
+One reason for storing code in individual files and using `source()` is that you can also then include testing code in each of your files to both demonstrate the syntax and check the correctness of your functions (see below).
+Then, when you are not focused on that particular function or component, you do not have to look at that testing code.
+Another good reason for this type of modular organization is that is supports developing a broader simulation universe, potentially with a variety of data generating functions.
+With a whole library of options, you can then readily run multiple simulations that involve some different components and some shared features.
+
+We followed this approach in one recent simulation project examining estimators for an instrumental variable analysis, a common approach to handling non-compliance in randomized experiments. 
+In this project, we wrote several different data generating functions that implemented different types of non-compliance patterns.
+Our `data_generators.R` code file then had several methods.
+When we sourced it, we end up with the following methods available to call:
+
+```
+> ls()
+[1] "describe_sim_data"  "make_dat"           "make.dat_1side"     
+[4] "make_dat_1side_old" "make_dat_orig"      "make_dat_simple"
+[7] "make_dat_tuned"     "rand_exp"           "summarize_sim_data"
+```
+
+The main methods in the file are for a set of different data generating methods, each developed over the course of the project as we chased down errors in our estimators and worked to understand strange behavior.
+The `describe()` and `summarize()` methods print summary statistics for a given dataset; we used these to explore and debug our different data generating functions.
+
+We also had a separate file, `estimators.R`, that contained our different estimators we were comparing.
+Having our estimators in a separate file made it easy to use them for other purposes, such as our empirical data analysis.
+We could simply source the `estimators.R` file and then apply them to a real dataset. 
+Having a single file ensured that our simulation and applied analysis were exactly aligned in terms of the estimators we were using.
+After we debugged or tweaked our estimators, we could immediately re-run our applied analysis to update the results.
+<!--without worrying about whether the calculations were up-to-date and consistent with the simulation code.-->
+
+
+
+
+
+### Storing testing code in your scripts {#sec-storing-testing-code}
+
+If you have an extended `.R` file with a collection of functions, you might also want to store some code that runs each function in turn, so you can easily remind yourself of what it does, or what the output looks like.
+
+One way to keep this code around, but not have it run all the time when you run your script, is to put the code inside a "FALSE block," that might look like so:
+
+```{r}
+# My testing code ----
+if ( FALSE ) {
+  res <- my_function( 10, 20, 30 )
+  res
+  # Some notes as to what I want to see.
+  
+  sd( res )
+  # This should be around 20
+}
+```
+
+When you open and look at this script, you can then paste the code inside the block into the console when you want to run it.
+However, if you `source()` the script, the `FALSE` block will not run at all, so you can avoid extraneous output or computations that are not actually needed.
+This is a good way to keep simple demo code or testing code in close proximity to the function it is testing.
+When you want to work on just the part of the project captured by your script, you can work inside the single file very easily, ignoring the other parts of your project.
+
+In previous chapters, we have emphasized the importance of writing code to validate that your functions work as intended. 
+Sometimes, such validation code will involve more than just a quick call to the function.
+In such cases, it can be beneficial to organize validation code in its own file, separate from the function or functions that it tests.
+You would then need to `source()` the files containing the function to be tested.
+This approach does have the drawback that the testing code is not in close proximity to the function to be tested, so you would need to work across multiple files when developing and running the test code. 
+However, unlike with the `FALSE` blocks, organizing your test code in a separate file makes it easier to re-run a collection of several tests.
+This approach to organizing becomes more appealing when the validation code involves calls to functions that are themselves stored in separate files or when it involves invoking packages that are not needed for the main calculations involved in the simulation. 
+It is also closer to how you might work when developing code for an R package, with unit tests that check the correctness of critical functions.
+We discuss unit testing further in @sec-unit-testing.
+
+
+
+## Principled directory structures
+
+_Tidy home, tidy mind_, as the saying goes.\index{tidy design}
+With any computational project, our home is usually a directory on our computer (or in a cloud).
+For multifactor simulation studies, we _strongly_ advocate using an organized and clearly labelled directory structure, which will facilitate more intentional---and easier to follow---coding practices.
+We recommend building a directory structure as follows:
+
+```
+my_project/
+  proj.Rproj
+  README.md
+  R/
+  test/
+  data/
+  scripts/
+  results/
+```
+
+If you have ever looked at the source code for or developed your own R package, this structure will look familiar.
+
+* The `R/` directory is where to put the core R code for your simulation.
+  It should contain one or more `.R` scripts that hold the main functions for implementing a tidy simulation, including data-generating functions, analysis functions, performance calculation functions, and a simulation driver that pulls all the pieces together. 
+  With all of these functions saved in the same directory, you can then `source()` the scripts as needed to gain access to your functions.
+  You _should not_ put the scripts that actually execute the simulation or analyze the results in this folder.
+  Instead, the `R/` folder is reserved for the building blocks of the simulation.
+
+* The `test/` directory is where to put any code for testing the functions and methods you have developed.
+  You could even write formal unit tests for your methods using a testing framework such as the `testthat` package, and put those here.
+  
+* The `data/` directory is for any data files used in executing the simulation.
+  For instance, a simulation of a cluster-randomized experiment might make use of an empirical dataset containing features such as cluster sizes or covariate values, which are sampled when generating artificial datasets.
+  This directory is reserved for _source_ data, which may be read in as part of the simulation.
+  It should not contain any files that are _created_ as part of executing the simulation.
+
+* The `scripts/` directory is where to put scripts that actually run the simulations and analyze simulation results.
+  Some of these scripts will make use of functions saved in the `R/` directory.
+  You will likely have at least one script that runs the simulation and at least one script for analyzing the results.
+
+* The `results/` directory is where to save any generated results of your simulation.
+  This directory should _only_ contain files that have been created by running code in the `scripts/` directory.
+  Sometimes it might be worth having separate directories `raw_results` and `results`, where `raw_results` holds output created from running the simulation driver, and `results` holds final results produced from merging and summarizing the raw results.
+<!-- JEP: This last sentence could be about directories or it could be applied to files within a directory. I've edited to make it about directories---what did you have in mind? Any preference? -->
+
+Using this structure will help you to maintain reproducibility of the full project.
+If any files in `data/`, `R/`, or `scripts/` are changed, then some or all of the files in `results/` may need to be updated.
+In principle, it should be possible to delete all of the files in `results/` and recreate them in full by re-running the files in the `scripts/` directory.
+
+
+## Saving simulation results {#sec-saving-files}
+
+Multifactor simulations can be time-consuming to run, and deciding how to analyze raw simulation results often involves several rounds of iteration and refinement.
+Because of this, it pays to save raw simulation results so that they can be accessed and analyzed without having to re-run the code that generated them.
+As a bare minimum for any multifactor simulation, we recommend saving the complete set of results to a file. 
+In many instances, it may make sense to go further by saving results for each unique condition as soon as it is complete.
+The latter approach provides an additional level of protection in the event that you need to re-run parts of the simulation or if the code crashes out in rare circumstances or for only a subset of the conditions.
+By saving as you go, you can keep the results as they come, and thus not have to restart if something goes wrong.
+
+
+### File formats
+
+There are two primary candidates for saving simulation results: a comma-separated value file (a `.csv` file) or an R-specific `.rds` file.
+
+A comma-seperated value file is a plain text file where each row of data is printed out as a series of values separated by commas.
+To make one, after your simulation has completed, you would save as so:
+```{r, eval=FALSE}
+dir.create("results", showWarnings = FALSE)
+write_csv( res, "results/simulation_CRT.csv" )
+```
+This will make (or overwrite) a file, `simulation_CRT.csv`, in the `results` folder of your project that holds all the information in `res`.
+The `write_csv()` function comes from the `readr` package, which is part of the `tidyverse` suite.
+It takes a dataset and a file name as input and creates a comma-separated value file containing the contents of the dataset.[^write-csv]
+
+Once stored, load the dataset back into R for analysis using `read_csv()`:
+```{r, eval=FALSE}
+res <- read_csv( "results/simulation_CRT.csv" )
+```
+A key advantage of storing results as `.csv` is that it is a general format, so the file can be read by others even if they are not familiar with R.
+The format also makes for convenient viewing in a spreadsheet program.
+However, storing results in this format will only work for plain, rectangular datasets with no special features (such as list-columns).
+Further, saving a dataset as `.csv` and then reading it back into R results in a loss of meta-data, such as variable labels and column data-types.[^factor-to-char]
+
+[^write-csv]: See Section 11.5 of the _R for Data Science_ textbook [@Wickham2023data] for further details.
+
+[^factor-to-char]: For example, a variable that was initially created with `factor()` will be converted into a plain character vector, and the ordering of the factor levels will be lost.
+
+A second option is to use the `saveRDS()` and `readRDS()` methods.
+For instance, you could save a dataset containing simulation results in the file `results/simulation_CRT.rds` like so:
+```{r, eval=FALSE}
+dir.create("results", showWarnings = FALSE)
+saveRDS( res, "results/simulation_CRT.rds" )
+```
+The `saveRDS()` command is a base R function that takes an R object and a file name as input and creates a file that stores the object in a serialized (usually binary) format.
+Once stored, you can load the object back into R for analysis using `readRDS()`:
+```{r, eval=FALSE}
+res <- readRDS( "results/simulation_CRT.csv" )
+```
+One major advantage of storing results in `.rds` format is that they can be reloaded in the exact same form in which they were saved. There is no conversion between file formats, and so no loss of meta-data about variable formats, labels, or the like. 
+Another advantage is that `.rds` can hold _any_ type of R object---whether it be a dataset, a function, a fitted model. 
+Because of this, it can be used to save tibbles even if they included nested listed-columns or other more exotic structures. 
+The main disadvantage is that the contents of the file cannot be interpreted without reading it back into R.
+
+### Saving simulations as you go
+
+For some projects involving multifactor simulations with multiple data-generating conditions, it can be useful to save results from each condition in its own file. 
+This is a prudent step to take if you are not sure you will have time to run the entire simulation, if you are worried that your R session might crash half way through because of an error, or if you are trying to debug an error that only occurs under certain conditions.
+This approach to saving results is also effective when running simulations in parallel, as we will discuss in @sec-parallel-processing.
+With a bit of further machinery, it also makes it possible to selectively delete files and rerun only parts of a larger simulation.[^careful]
+
+[^careful]: Of course this requires some care to ensure everything is still reproducible. Before publishing final results from the simulation, always rerun everything from scratch to ensure everything is up to date and to avoid potentially embarrassing errors.
+
+We will illustrate this approach to storing results by revisiting the simulation study on confidence intervals for Pearson's correlation coefficient under a bivariate Poisson distribution, building on our development in @sec-simulating-multiple-scenarios.
+This simulation involved four different factors, each with multiple levels, with data-generating conditions created as follows:
+```{r}
+params <- expand_grid( 
+  N = c(10, 20, 30),
+  mu1 = c(4, 8, 12),
+  lambda = c(0.5, 1.0),
+  rho = seq(0.0, 0.7, 0.1) 
+) %>%
+  mutate( mu2 = mu1 * lambda )
+```
+
+```{r, echo = FALSE}
+source( "case_study_code/r_bivariate_Poisson.R" )
+source( "case_study_code/r_and_z.R" )
+source( "case_study_code/evaluate_CIs.R" )
+
+# library(future)
+# plan(multisession, workers = 8L)
+
+```
+
+\index{simulation driver}
+In @sec-simulating-multiple-scenarios, we used `bundle_sim()` to create a simulation driver for executing the simulation for a given scenario and then used `evaluate_by_row()` to call the simulation driver for every condition listed in `params`:
+```{r, eval = FALSE}
+library(simhelpers)
+
+Pearson_sim <- bundle_sim( f_generate = r_bivariate_Poisson, 
+                           f_analyze = r_and_z, 
+                           f_summarize = evaluate_CIs )
+
+sim_results <- evaluate_by_row( params, Pearson_sim, reps = 100 )
+```
+
+To store the results from each condition in its own file, we need to modify the simulation driver to save its result to file rather than just returning it.
+One way to do so is to wrap `Pearson_sim()` inside another function:
+```{r}
+Pearson_sim_save <- function(..., filename) {
+  res <- safely(Pearson_sim)(...)
+  if (is.null(res$error)) saveRDS(res$result, file = filename)
+  return(res$error)
+}
+```
+This function calls the simulation driver, `Pearson_sim()` using any arguments in the `...`. 
+To prevent an error from stopping the entire simulation, we have wrapped the simulation driver in `safely()` to trap errors (see @sec-error-handling).
+As long as `Pearson_sim()` does not return an error, it saves the results from the simulation in a file with the user-specified `filename`.
+The function returns any errors as output so that it they can examined to figure out what went wrong.
+
+To use `Pearson_sim_save()`, we first need to create a file name for every condition.
+We also create a unique seed for each condition, which will get passed to the simulation driver to ensure computational reproducibility.
+The unique seed also makes it easy to generate unique file names, so each simulation run will be kept separate.
+Once we have our scenarios, we call `evaluate_by_row()` with `Pearson_sim_save()` as the simulation driver.
+Here is the full block of code:
+
+```{r secret_make_params, include=FALSE}
+params <- 
+  params %>%
+  mutate(
+    seed = 20260129 + row_number(),
+    filename = paste0("results/pearson-sim/pearson-row", 
+                      seed, ".rds")
+  ) %>%
+  select(-lambda)
+```
+
+```{r, eval=FALSE}
+params <- 
+  params %>%
+  mutate(
+    seed = 20260129 + row_number(),
+    filename = paste0("results/pearson-sim/pearson-row", 
+                      seed, ".rds")
+  ) %>%
+  select(-lambda)
+
+saveRDS( params, "results/pearson-sim/pearson-sim-params.rds" )
+
+sim_errors <- evaluate_by_row(params, Pearson_sim_save, reps = 100 )
+```
+
+The above code creates a set of `r nrow(params)` files containing the simulation results from every condition.
+The results are saved inside our code, rather than after the simulation completes, as we saw before.
+
+The object `sim_errors` will include a column containing the error messages from any conditions that did not complete.
+In addition to the simulation results, we save `params` as our "table of contents" that tracks our parameter settings for each condition and the corresponding file name for the results.
+In the event that some conditions produced errors or if we had to stop execution of the simulations before every condition was run, some of the results will still be saved, and we would only need to re-run the remaining conditions.
+
+
+
+**Rerunning a subset of conditions.**
+To illustrate how to re-run a subset of results, suppose that we had only been able to run and save results for the first three conditions.
+The directory containing the simulation results will then only contain three files:
+```{r, eval = FALSE}
+completed_rows <- list.files("results/pearson-sim", full.names = TRUE)
+completed_rows
+```
+```{r, echo = FALSE}
+completed_rows <- list.files("results/pearson-sim", full.names = TRUE)[1:3]
+completed_rows
+```
+To avoid repeating the simulations for these conditions, we screen them out of `params` before running `evaluate_by_row()` again, as in:
+```{r, eval = FALSE}
+params <- readRDS( "results/pearson-sim/pearson-sim-params.rds" )
+sim_errors <- 
+  params %>%
+  filter(!(filename %in% completed_rows)) %>%
+  evaluate_by_row(Pearson_sim_save, reps = 100 )
+```
+
+This will run our simulation on anything _not_ found in the directory.
+
+**Loading all the results.**
+Once all the conditions are run, `results/pearson-sim` will have a set of files containing all the simulation results.
+The only thing left to do is read these files in and combine them into a single dataset.
+To do so, we will first get the names of the files with `list.files()` and check that everything is complete
+```{r}
+completed_rows <- list.files("results/pearson-sim", full.names = TRUE)
+setdiff(params$filename, completed_rows)
+```
+We can then read in the files using `map()` to call `readRDS()` on each file:
+```{r}
+sim_results <- 
+  params %>%
+  # ensure we only read in completed conditions
+  filter(filename %in% completed_rows) %>%
+  # read in results
+  mutate(
+    res = map(filename, readRDS)
+  ) %>%
+  unnest(res) %>%
+  select(-filename)
+```
+The dataset `sim_results` now has all the results from every condition evaluated, organized by stacking the fragments from each of the individual conditions.
+We use the `filename` variable stored in the list of simulation conditions so that the parameter settings of each condition are available in the same dataset as the results.
+
+To avoid having to repeat the process of reading in all the files, we could finally save the full set of results in a separate `.rds` file:
+```{r}
+saveRDS(sim_results, file = "results/pearson-simulation-all-results.rds")
+```
+
+Now we can simply load that file as we have for other simulations previously.
+
+
+## Summary
+
+Few particularly love the project-management aspect of doing simulations, but it is an important part of the process.
+Keeping things organized, even if it feels like extra time along the way, can save a lot of time later on, especially for complex or collaborative projects.
+
+

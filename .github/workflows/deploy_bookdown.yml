@@ -1,36 +1,33 @@
 on:
   push:
-     branches:
-       - main
+    branches:
+      - main
 
 name: Render-and-deploy
 
 jobs:
-  bookdown:
+  quarto:
     name: Render-Book
     if: "! contains(github.event.head_commit.message, '[skip build]')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          tinytex: true
+
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
-      - name: Set up pandoc
-        uses: r-lib/actions/setup-pandoc@v2
+
       - name: Set up renv
         uses: r-lib/actions/setup-renv@v2
-      - name: Render web book
-        run: Rscript -e 'bookdown::render_book("index.Rmd", "bookdown::gitbook")'
-      - name: Set up tinytex
-        uses: r-lib/actions/setup-tinytex@v2
-        env:
-          TINYTEX_INSTALLER: TinyTeX
-      - name: Check latex installation
-        run: tlmgr --version
-      - name: Render pdf book
-        run: Rscript -e 'bookdown::render_book("index.Rmd", "bookdown::pdf_book")'
-      - name: Render epub book
-        run: Rscript -e 'bookdown::render_book("index.Rmd", "bookdown::epub_book")'
-      - name: deploy to github pages
+
+      - name: Render book (HTML, PDF, EPUB)
+        uses: quarto-dev/quarto-actions/render@v2
+
+      - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           token: ${{ secrets.GH_PAT }}
