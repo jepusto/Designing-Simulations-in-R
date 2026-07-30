@@ -4,6 +4,7 @@
 
 ```{r include = FALSE}
 library(tidyverse)
+library(tinytable)
 ```
 In this chapter, we present another detailed example of a simulation study\index{simulation study} to demonstrate how to put the principles of tidy, modular simulation into practice. 
 To illustrate the process of programming a simulation, we reconstruct the simulations from @brown1974SmallSampleBehavior.
@@ -55,24 +56,20 @@ To tackle this question, Brown and Forsythe evaluated two different hypothesis t
 Brown and Forsythe also evaluated the conventional one-way ANOVA F-test as a benchmark, even though this procedure maintains the assumption of equal variances.
 They also proposed and evaluated a new procedure of their own devising.[^typical-stats-methods]
 Their simulation involved comparing the performance of these different hypothesis testing procedures (the methods) under a range of conditions (different data generating processes) with different sample sizes and different degrees of heteroskedasticity.
-They looked at the different scenarios shown as Table @tbl-BF-Scenarios, varying number of groups, group size, and amount of variation within each group.
+They looked at the different scenarios shown as @tbl-BF-Scenarios, varying number of groups, group size, and amount of variation within each group.
 In all, there are a total of `r nrow(table_1_scenarios)` scenarios, covering conditions with between `r min(table_1_scenarios$Groups)` and `r max(table_1_scenarios$Groups)` groups.
 
 [^typical-stats-methods]: This latter piece makes Brown and Forsythe's study a prototypical example of a statistical methodology paper: find some problem that current procedures do not perfectly solve, invent something to do a better job, and then do simulations and/or math to build a case that the new procedure is better.
 
-```{r tbl-BF-Scenarios, echo=FALSE, message = FALSE}
-library(kableExtra)
+```{r}
+#| echo: false
+#| tbl-cap: Simulation scenarios explored by Brown and Forsythe (1974)
+#| label: tbl-BF-Scenarios
 
-table_1_scenarios %>%
-  relocate(Scenario) %>%
-  kbl( 
-    caption = "Simulation scenarios explored by Brown and Forsythe (1974)",
-    label = "tbl-BF-Scenarios"
-  ) %>%
-  kable_styling(
-    full_width = FALSE,
-    bootstrap_options = c("striped","compact","hover")
-  ) 
+table_1_scenarios |>
+  relocate(Scenario) |>
+  tt() %>%
+  style_tt(j = 1:4, align = "c")
 ```
 
 
@@ -88,7 +85,7 @@ It is a measure of how sensitive a method is to violations of the null.
 
 Brown and Forsythe estimated error rates and power for nominal $\alpha$-levels of 1%, 5%, and 10%.
 Table 1 of their paper reports the simulation results for type-I error (labeled as "size").
-Our Table @tbl-BF-table1 reports some of their results with respect to Type I error\index{performance measures!Type I error}.
+Our @tbl-BF-table1 reports some of their results with respect to Type I error\index{performance measures!Type I error}.
 For a well-calibrated hypothesis testing method, the reported numbers should be very close to the desired alpha levels, as listed at the top of the table.
 We can compare the four tests to each other across each row, where each row is a specific scenario defined by a specific data generating process\index{data-generating process}.
 Looking at ANOVA, for example, we see some scenarios with very elevated rates. For instance, in Scenario E, the ANOVA F-test has  21.9% rejection when it should only have 10%.
@@ -96,7 +93,11 @@ In contrast, the ANOVA F works fine under scenario A, which is what one would ex
 Brown and Forsythe's choice of scenarios here illustrates a broader design principle: to provide a full picture of the performance of a method or set of methods, it is wise to always evaluate them under conditions where we expect things to work, as well as conditions where we expect them to not work well.
 
 
-```{r tbl-BF-table1, echo=FALSE}
+```{r}
+#| echo: false
+#| label: tbl-BF-table1
+#| tbl-cap: 'Portion of "Table 1" reproduced from Brown and Forsythe (1974)'
+
 library(tibble)
 
 table_5_percent <- tribble(
@@ -113,7 +114,6 @@ table_5_percent <- tribble(
   "6",     4.0,     6.5,      5.4,     5.6,
   "6",    4.9,     3.4,      6.1,     9.5
 )
-#nrow( table_5_percent )
 table_1_percent <- tribble(
   ~Groups, ~`F`, ~`F*`, ~`W`, ~`J`,
   "4",     0.9,     0.5,      0.8,     2.4,
@@ -165,20 +165,14 @@ table_1 <-
   ) %>%
   relocate(Scenario)
 
-#table_1$Group = table_1_scenarios$Groups[1:nrow(table_1)]
-
+colnames(table_1) <- c("Scenario", rep(c("10%","5%","1%"), times = 4))
 table_1 %>%
-  #relocate( Scenario, Group ) %>%
-  kbl( 
-    caption='Portion of "Table 1" reproduced from Brown and Forsythe (1974)',
-    col.names = c("Scenario", rep(c("10%","5%","1%"), times = 4)),
-    label = "tbl-BF-table1"
+  tt() %>%
+  group_tt(
+    j = list("ANOVA F test" = 2:4, "B & F's F* test" = 5:7, "Welch's test" = 8:10, "James' test" = 11:13)
   ) %>%
-  kable_styling(
-    full_width = FALSE, 
-    bootstrap_options = c("striped","compact","hover"),
-  ) %>%
-  add_header_above(c(" " = 1, "ANOVA F test" = 3, "B & F's F* test" = 3,"Welch's test" = 3, "James' test" = 3))
+  style_tt(j = 1, align = "c") %>%
+  style_tt(i = 0:11, j = 2:13, align = "r")
 ```
 
 To replicate the Brown and Forsythe simulation, we will first write functions to generate data for a specified scenario and evaluate data of a given structure.
@@ -327,7 +321,7 @@ Our estimation function does not care if the data are simulated or not; we call 
 As an alternative to this function, we could instead write code to implement the ANOVA and Welch tests ourselves.
 This has some potential advantages, such as avoiding any extraneous calculations that `oneway.test` does, which take time and slow down our simulation.
 However, there are also drawbacks to doing so, including that writing our own code takes _our_ time and opens up the possibility of errors in our code.
-For further discussion of the trade-offs, see Chapter @sec-optimize-code, where we do implement these tests by hand and see what kind of speed-ups we can obtain.
+For further discussion of the trade-offs, see @sec-optimize-code, where we do implement these tests by hand and see what kind of speed-ups we can obtain.
 
 ## Running the simulation
 
@@ -371,7 +365,7 @@ Arbitrarily, let's start with $G = 4$ groups and set all of the means equal to z
 mu <- rep(0, 4)
 ```
 
-In the fifth row of Table 1 (Scenario E in our Table @tbl-BF-Scenarios), Brown and Forsythe examine performance for the following parameter values for sample size and population variance:
+In the fifth row of Table 1 (Scenario E in our @tbl-BF-Scenarios), Brown and Forsythe examine performance for the following parameter values for sample size and population variance:
 
 ```{r}
 sample_size <- c(4, 8, 10, 12)
@@ -412,29 +406,43 @@ mean(p_vals$Welch < 0.05)
 The Welch test does much better, although it appears to be a little bit in excess of 0.05.
 
 Note that these two numbers are quite close (though not quite identical) to the corresponding entries in Table 1 of Brown and Forsythe (1974). The difference is due to the fact that both Table 1 and are results are actually _estimated_ rejection rates, because we have not actually simulated an infinite number of replications. The estimation error arising from using a finite number of replications is called _simulation error_ (or _Monte Carlo error_).
-In Chapter @sec-performance-measures, we will look more at how to estimate and control the Monte Carlo\index{Monte Carlo simulation} simulation error in performance measures.
+In @sec-performance-measures, we will look more at how to estimate and control the Monte Carlo\index{Monte Carlo simulation} simulation error in performance measures.
 
 So there you have it! Each part of the simulation is a distinct block of code, and together we have a modular simulation that can be easily extended to other scenarios or other tests.
 The exercises at the end of this chapter ask you to extend the framework further. 
 In working through them, you will get to experience first-hand how the modular code that we have started to develop is easier to work with than a single, monolithic block of code.
 
-## Exercises {#sec-exAnovaExercises}
+## Exercises {.unnumbered}
 
-The following exercises involve exploring and tweaking the above simulation code we have developed to replicate the results of Brown and Forsythe (1974).
+The following exercises involve exploring and tweaking the above simulation code we have developed to replicate the results of @brown1974SmallSampleBehavior.
 
-### Other $\alpha$'s {#sec-BF-other-alphas}
+::: {#exr-BF-other-alphas}
 
-Table 1 from Brown and Forsythe reported rejection rates for $\alpha = .01$ and $\alpha = .10$ in addition to $\alpha = .05$. Calculate the rejection rates of the ANOVA F and Welch tests for all three $\alpha$-levels and compare to the table.
+### Other $\alpha$'s 
 
-### Compare results {#sec-BF-compare-results}
+Table 1 from @brown1974SmallSampleBehavior reported rejection rates for $\alpha = .01$ and $\alpha = .10$ in addition to $\alpha = .05$. Calculate the rejection rates of the ANOVA F and Welch tests for all three $\alpha$-levels and compare to the table.
+
+:::
+
+::: {#exr-BF-compare-results}
+
+### Compare results 
 
 Try simulating the Type-I error rates for the parameter values in the first two rows of Table 1 of the original paper. Use 10,000 replications. How do your results compare to the report results?
 
-### Power {#sec-BF-power}
+:::
 
-In the primary paper, Table 1 is about Type I error and Table 2 is about power.  A portion of Table 2 follows:
+::: {#exr-BF-power}
 
-```{r tbl-BF-power, echo = FALSE}
+### Power 
+
+In the primary paper, Table 1 is about Type I error and Table 2 is about power. A portion of Table 2 follows:
+
+```{r}
+#| echo: false
+#| label: tbl-BF-power
+#| tbl-cap: 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)'
+
 pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`,
                 "1,1,1,1",   "0,0,0,0", 4.9, 5.1, 5.0,
                 "",          "1,0,0,0", 68.6, 67.6, 65.0,
@@ -443,18 +451,22 @@ pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`
                 )
 
 pow %>%
-  kbl(
-    caption = 'Portion of "Table 2" reproduced from Brown and Forsythe (1974)',
-    label = "tbl-BF-power"
-  )
+  tt() %>%
+  format_tt(replace = "-") %>%
+  style_tt(j = 3:5, align = "r")
+
 ```
 
 In the table, the sizes of the four groups are 11, 16, 16, and 21, for all the scenarios.
-Try simulating the **power levels** for a couple of sets of parameter values from Table @tbl-BF-power. 
+Try simulating the **power levels** for a couple of sets of parameter values from @tbl-BF-power. 
 Use 10,000 replications. 
 How do your results compare to the results reported in the Table?
 
-### Wide or long? {#sec-BF-wide-long}
+:::
+
+::: {#exr-BF-wide-long}
+
+### Wide or long?
 
 Instead of making `ANOVA_Welch_F` return a single row with the columns for the $p$-values, one could instead return a dataset with one row for each test. The "long" approach is often nicer when evaluating more than two methods, or when each method returns not just a $p$-value but other quantities of interest. For our current simulation, we might also want to store the $F$ statistic, for example. The resulting dataset would then look like the following:
 
@@ -487,17 +499,31 @@ sres <-
   summarise( rejection_rate = mean( pvalue < 0.05 ) )
 ```
 
-### Other tests {#sec-BF-other-tests}
+:::
+
+:::  {#exr-BF-other-tests}
+
+### Other tests
 
 The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means.
-Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from Exercise @sec-BF-wide-long) to also include results from these hypothesis tests.
-Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of Table @tbl-BF-Scenarios.
+Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from @exr-BF-wide-long) to also include results from these hypothesis tests.
+Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of @tbl-BF-Scenarios.
+
+:::
+
+::: {#exr-BF-extension}
 
 ### Methodological extensions
 
 What other methodological questions might you want to investigate about the one-way ANOVA problem? List two or three questions that could be investigated with further simulations.
 
+:::
+
+::: {#exr-BF-power}
+
 ### Power analysis
 
 Suppose you were conducting an experimental study involving several groups (perhaps $G = 3$ or $4$ or $5$). Because of logistical constraints, one of the groups will need to include at least 40% of the full sample, and you anticipate that this group might have more variable outcomes than the other groups. Your collaborators want to know how large a total sample they will need to recruit in order to have a high probability of detecting significant differences between groups.
 How could you use the functions you've developed to answer this question? List out the steps in your approach, and make note of any further information or assumptions you will need in order to answer the question.
+
+:::
