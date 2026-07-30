@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies">
+
+<title>20&nbsp; Simulation under the Potential Outcomes Framework – Designing Monte Carlo Simulations in R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./references.html" rel="next">
+<link href="./140-simulation-for-power-analysis.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-9d6c9622e1db6294580745c4cacaf708.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/sidebar-toggle.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./140-simulation-for-power-analysis.html">Complex Data Structures</a></li><li class="breadcrumb-item"><a href="./150-potential-outcomes-framework.html"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Designing Monte Carlo Simulations in R</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/jepusto/Designing-Simulations-in-R" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="./Designing-Monte-Carlo-Simulations-in-R.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Welcome</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">An Introductory Look</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./001-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./003-programming-preliminaries.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Programming Preliminaries</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./005-initial-t-test-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">An initial simulation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Structure and Mechanics of a Simulation Study</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./010-Simulation-structure.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Structure of a simulation study</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./015-Case-study-ANOVA.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Case Study: Heteroskedastic ANOVA and Welch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./020-Data-generating-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./030-Estimation-procedures.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./035-running-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the Simulation Process</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./040-Performance-criteria.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance Measures</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Systematic Simulations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./060-multiple-scenarios.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./070-experimental-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Designing multifactor simulations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./072-presentation-of-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Exploring and presenting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./074-building-good-vizualizations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Building good visualizations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./075-special-topics-on-reporting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Special Topics on Reporting Simulation Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./080-simulations-as-evidence.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Computational Considerations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./100-file-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./110-debugging-and-testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Debugging and Testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./120-parallel-processing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Complex Data Structures</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./140-simulation-for-power-analysis.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./150-potential-outcomes-framework.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./200-coding-tidbits.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Coding Reference</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#finite-vs.-superpopulation-inference" id="toc-finite-vs.-superpopulation-inference" class="nav-link active" data-scroll-target="#finite-vs.-superpopulation-inference"><span class="header-section-number">20.1</span> Finite vs.&nbsp;Superpopulation inference</a></li>
+  <li><a href="#generating-data-under-the-potential-outcome-framework" id="toc-generating-data-under-the-potential-outcome-framework" class="nav-link" data-scroll-target="#generating-data-under-the-potential-outcome-framework"><span class="header-section-number">20.2</span> Generating data under the potential outcome framework</a></li>
+  <li><a href="#finite-sample-performance-measures" id="toc-finite-sample-performance-measures" class="nav-link" data-scroll-target="#finite-sample-performance-measures"><span class="header-section-number">20.3</span> Finite sample performance measures</a></li>
+  <li><a href="#nested-finite-simulation-procedure" id="toc-nested-finite-simulation-procedure" class="nav-link" data-scroll-target="#nested-finite-simulation-procedure"><span class="header-section-number">20.4</span> Nested finite simulation procedure</a></li>
+  <li><a href="#superpopulation-performance-measures" id="toc-superpopulation-performance-measures" class="nav-link" data-scroll-target="#superpopulation-performance-measures"><span class="header-section-number">20.5</span> Superpopulation performance measures</a></li>
+  <li><a href="#calibrating-simulations-within-the-potential-outcomes-framework" id="toc-calibrating-simulations-within-the-potential-outcomes-framework" class="nav-link" data-scroll-target="#calibrating-simulations-within-the-potential-outcomes-framework"><span class="header-section-number">20.6</span> Calibrating simulations within the potential outcomes framework</a></li>
+  <li><a href="#concluding-thoughts" id="toc-concluding-thoughts" class="nav-link" data-scroll-target="#concluding-thoughts"><span class="header-section-number">20.7</span> Concluding Thoughts</a></li>
+  </ul>
+<div class="toc-actions"><ul class="collapse"><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/150-potential-outcomes-framework.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./140-simulation-for-power-analysis.html">Complex Data Structures</a></li><li class="breadcrumb-item"><a href="./150-potential-outcomes-framework.html"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-potential-outcomes" class="quarto-section-identifier"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>In this chapter we give some general approaches for running simulations in the context of causal inference. The broader point of this chapter is to underscore that one can be very creative in how one designs a simulation, insofar as there is a well-defined way to make data with a well-defined “answer” that we are trying to recover by analyzing the synthetic data.</p>
+<p>When evaluating causal inference methods, we would probably turn to the potential outcomes framework. The potential outcomes framework is a framework typically used in the causal inference literature to make explicit statements regarding the mechanics of causality and the associated estimands one might target. While we recommend reading, for a more thorough overview, either <span class="citation" data-cites="rosenbaum2017observation">Rosenbaum (<a href="references.html#ref-rosenbaum2017observation" role="doc-biblioref">2017</a>)</span> or <span class="citation" data-cites="gerber2017field">Gerber and Green (<a href="references.html#ref-gerber2017field" role="doc-biblioref">2017</a>)</span>, we briefly outline this framework here to set out our notation.</p>
+<p>Take a sample of <span class="math inline">\(n\)</span> experimental units, indexed by <span class="math inline">\(i\)</span>. For each unit, we can treat it or not, with <span class="math inline">\(Z_i = 1\)</span> if we do and <span class="math inline">\(Z_i = 0\)</span> if we do not. Now we imagine each unit has two <em>potential outcomes</em> we might see depending on whether we treated it (<span class="math inline">\(Y_i(1)\)</span>) or not (<span class="math inline">\(Y_i(0)\)</span>). We observe only one of these outcomes, depending on what we did: <span class="math display">\[ Y_i^{obs} = Z_i Y_i(1) + (1-Z_i)Y_i(0) .\]</span> The “Fundamental Problem of Causal Inference” is that we can never see both potential outcomes for a given unit. But with simulation, since we will be making our own data, we can—and that allows us to evaluate causal inference methods in many natural-seeming scenarios.</p>
+<p>Each unit’s treatment effect is then <span class="math inline">\(\tau_i = Y_i(1) - Y_i(0)\)</span>; it is how much our outcome changes if we treat vs.&nbsp;not treat. Frustratingly, because we can only see one of a unit’s two potential outcomes, we can never directly estimate an individual <span class="math inline">\(\tau_i\)</span>. Under this view, causality is a missing data problem: if we only were able to impute the missing potential outcomes, we could have a dataset where we could calculate any estimands we wanted.</p>
+<p>E.g., the most common estimand of the true average treatment effect <em>for the sample</em> <span class="math inline">\(\mathcal{S}\)</span> would be:</p>
+<p><span class="math display">\[ ATE_{\mathcal{S}} = \frac{1}{N} \sum_{i} Y_i(1) - Y_i( 0 ) . \]</span> The average proportional increase, by contrast, would be</p>
+<p><span class="math display">\[ API_{\mathcal{S}} = \frac{1}{N} \sum_{i} \frac{Y_i(1)}{Y_i(0)} \]</span> Importantly, under a potential outcomes framework, our sample is defined by the potential outcomes, and randomness comes from the random assignment of treatment, not the sample itself. We call the process of how units are assigned to treatment the <em>assignment mechanism</em>.</p>
+<section id="finite-vs.-superpopulation-inference" class="level2" data-number="20.1">
+<h2 data-number="20.1" class="anchored" data-anchor-id="finite-vs.-superpopulation-inference"><span class="header-section-number">20.1</span> Finite vs.&nbsp;Superpopulation inference</h2>
+<p>In the above we consider the sample as fixed. That said, if we thought of the sample as being drawn from some larger population (often called a “superpopulation”), we could talk about the true ATE of that larger population.</p>
+<p>This is a tension that often arises in potential outcomes based simulations: if we are focused on <span class="math inline">\(ATE_{\mathcal{S}}\)</span> then for each sample we generate, and different units have different <span class="math inline">\(\tau_i\)</span>, then our estimand could be different, depending on whether our sample has more or fewer units with high <span class="math inline">\(\tau_i\)</span>. If, on the other hand, we are focused on where the units came from (which is our data generating model), our estimand is a property of the DGP, and would be the same across our samples.</p>
+<p>Now if we were generating data with a constant treatment impact, then all the <span class="math inline">\(\tau_i\)</span> are the same and <span class="math inline">\(ATE_{\mathcal{S}} = ATE\)</span> always; this is typical for many simulations in the literature. That being said, treatment variation is what causes a lot of methods to fail, and so having simulations with treatment variation is usually important.</p>
+<p>The catch is when we calculate our performance metrics, we now have two possible targets to pick from: do we compare our estimate to the sample’s true treatment effect, or the population’s? Furthermore, if we are targeting the population ATE, then our error in estimation may be due in part to the representativeness of the sample, <em>not</em> the estimation or uncertainty due to the random assignment.</p>
+<p>We will follow this theme throughout this chapter.</p>
+</section>
+<section id="generating-data-under-the-potential-outcome-framework" class="level2" data-number="20.2">
+<h2 data-number="20.2" class="anchored" data-anchor-id="generating-data-under-the-potential-outcome-framework"><span class="header-section-number">20.2</span> Generating data under the potential outcome framework</h2>
+<p>When writing a simulation using the potential outcomes framework, we recommend first generating a complete set of potential outcomes, then a random assignment based on some assignment mechanism, and finally the observed outcomes as a function of assignment and original potential outcomes.</p>
+<p>For the first step, we generate each unit <span class="math inline">\(i = 1, \ldots, n\)</span>, as <span class="math display">\[
+\begin{aligned}
+X_i &amp;\sim exp( 1 ) - 1 \\
+Y_i(0) &amp;= \beta_0 + \beta_1 X_i + \epsilon_i \mbox{ with } \epsilon_i \sim N( 0, \sigma^2 ) \\
+\tau_i &amp;= \tau_0 + \tau_1 X_i + \alpha u_i \mbox{ with } u_i \sim t_{df} \\
+Y_i(1) &amp;= Y_i(0) + \tau_i ,
+\end{aligned}
+\]</span> with <span class="math inline">\(exp(1)\)</span> being the standard exponential distribution and <span class="math inline">\(t_{df}\)</span> being a <span class="math inline">\(t\)</span> distribution with <span class="math inline">\(df\)</span> degrees of freedom. We subtract 1 from <span class="math inline">\(X_i\)</span> to zero-center it (it is often convenient to have zero-centered covariates so we can then, e.g., interpret <span class="math inline">\(\tau_0\)</span> as the true superpopulation ATE of our experiment).</p>
+<p>The above model says we first, for each unit, generate a covariate. We then generate our two potential outcomes. I.e., we are generating what the outcome would be for each unit if it were treated and if it were not treated. We are driving both the level and the treatment effect with <span class="math inline">\(X_i\)</span>.</p>
+<p>The result of the above is a <em>schedule of potential outcomes</em> for our <span class="math inline">\(n\)</span> units. The schedule of potential outcomes encodes, for each unit, what would happen to it given the possible treatment assignements it might receive.</p>
+<p>One advantage of generating all the potential outcomes is we can then calculate the finite-sample estimands such as the true average treatment effect for the generated sample: we just take the average of <span class="math inline">\(Y_i(1) - Y_i(0)\)</span> for our sample.</p>
+<p>Here is some code implementing the above model (we leave treatment assignment to later):</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>gen_data <span class="ot">&lt;-</span> <span class="cf">function</span>( <span class="at">n =</span> <span class="dv">100</span>,</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>                      <span class="at">R2 =</span> <span class="fl">0.5</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">beta_0 =</span> <span class="dv">0</span>, <span class="at">beta_1 =</span> <span class="dv">1</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">tau_0 =</span> <span class="dv">1</span>, <span class="at">tau_1 =</span> <span class="dv">1</span>, </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>                      <span class="at">alpha =</span> <span class="dv">1</span>, <span class="at">df =</span> <span class="dv">3</span> ) {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>( R2 <span class="sc">&gt;=</span> <span class="dv">0</span> <span class="sc">&amp;&amp;</span> R2 <span class="sc">&lt;</span> <span class="dv">1</span> )</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  X_i <span class="ot">=</span> <span class="fu">rexp</span>( n, <span class="at">rate =</span> <span class="dv">1</span> ) <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  beta_1 <span class="ot">=</span> <span class="fu">sqrt</span>( <span class="dv">1</span> <span class="sc">-</span> R2 )</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  sigma_e <span class="ot">=</span> <span class="fu">sqrt</span>( R2 )</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  Y0_i <span class="ot">=</span> beta_0 <span class="sc">+</span> beta_1 <span class="sc">*</span> X_i <span class="sc">+</span> <span class="fu">rnorm</span>( n, <span class="at">sd=</span>sigma_e )</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  tau_i <span class="ot">=</span> tau_0 <span class="sc">+</span> tau_1 <span class="sc">*</span> X_i <span class="sc">+</span> alpha <span class="sc">*</span> <span class="fu">rt</span>( n, <span class="at">df =</span> df )</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  Y1_i <span class="ot">=</span> Y0_i <span class="sc">+</span> tau_i</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">X =</span> X_i, <span class="at">Y0 =</span> Y0_i, <span class="at">Y1 =</span> Y1_i )</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We have reparameterized our model so we can index our DGP by an R2 value rather than a coefficient on X so we can have a standardized control-side outcome (the expected variation of <span class="math inline">\(Y_i(0)\)</span> will be 1). The treatment outcomes will have more variation due to the heterogeneity of the treatment impacts.</p>
+<p>Here is some sample data:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>( <span class="dv">40454</span> )</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> <span class="fu">gen_data</span>( <span class="dv">50</span> )</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>( d1 )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 3
+       X      Y0     Y1
+   &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+1 -0.769 -0.572   2.50 
+2  0.136 -0.549   1.95 
+3 -0.164 -1.12    2.21 
+4  0.417  0.572   0.623
+5 -0.623  0.493  -2.77 
+6 -0.128  0.0174  0.277</code></pre>
+</div>
+</div>
+<p>We store latent quantities (both potential outcomes, in particular) so we can calculate the estimands of interest or learn about our data generating process. When we hand the data to an estimator, we would not provide this “secret” information.</p>
+<p>Note how our estimand can change with each sample generated:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>( d1<span class="sc">$</span>Y1 <span class="sc">-</span> d1<span class="sc">$</span>Y0 )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.6374925</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>d2 <span class="ot">&lt;-</span> <span class="fu">gen_data</span>( <span class="dv">50</span> )</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mean</span>( d2<span class="sc">$</span>Y1 <span class="sc">-</span> d2<span class="sc">$</span>Y0 )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.5479788</code></pre>
+</div>
+</div>
+<p>In reviewing our model and code, we know our superpopulation ATE should be <code>tau</code>, or 1 exactly. If our estimate for <code>d1</code> is 0.6 do we say that is close or far from the target? From a finite sample performance approach, we nailed it. From superpopulation, less so.</p>
+<p>Once we have our <em>schedule of potential outcomes</em>, we generate the <em>observed outcomes</em> by assigning our (synthetic, randomly generated) <span class="math inline">\(n\)</span> units to treatment or control. For example, say we wanted to simulate an observational context where chance of treatment was a function of our covariate. We could model each unit as flipping a weighted coin with some probability that was a function of <span class="math inline">\(X_i\)</span> as so:</p>
+<p><span class="math display">\[
+\begin{aligned}
+p_i &amp;= logit^{-1}( \xi_0 + \xi_1 X_i ) \\
+Z_i &amp;= Bern( p_i ) \\
+Y_i &amp;= Z_i Y_i(1) + (1-Z_i) Y_i(0)
+\end{aligned}
+\]</span></p>
+<p>Here is code for assigning our data to treatment and control:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>assign_data <span class="ot">&lt;-</span> <span class="cf">function</span>( dat,</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>                         <span class="at">xi_0 =</span> <span class="sc">-</span><span class="dv">1</span>, <span class="at">xi_1 =</span> <span class="dv">1</span> ) {</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">=</span> <span class="fu">nrow</span>(dat)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  dat <span class="ot">=</span> <span class="fu">mutate</span>( dat,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>                <span class="at">p =</span> arm<span class="sc">::</span><span class="fu">invlogit</span>( xi_0 <span class="sc">+</span> xi_1 <span class="sc">*</span> X ),</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>                <span class="at">Z =</span> <span class="fu">rbinom</span>( n, <span class="dv">1</span>, <span class="at">prob=</span>p ),</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>                <span class="at">Yobs =</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, Y1, Y0 ) )</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  dat</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We can then add our assignment variable to our given data as so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">assign_data</span>( d2 )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 50 × 6
+          X     Y0      Y1     p     Z    Yobs
+      &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;
+ 1  0.670    0.667   2.58  0.418     1   2.58 
+ 2  0.371    0.314   4.57  0.348     1   4.57 
+ 3  1.94     1.29    3.03  0.719     0   1.29 
+ 4 -0.244    0.119 -10.0   0.224     1 -10.0  
+ 5  0.00850  1.44    2.88  0.271     0   1.44 
+ 6  1.41     1.14    5.02  0.600     1   5.02 
+ 7 -0.864    0.461   0.802 0.134     1   0.802
+ 8 -0.00533 -0.914  -1.17  0.268     0  -0.914
+ 9 -0.907   -0.202   0.555 0.129     1   0.555
+10 -0.363   -0.141   1.16  0.204     1   1.16 
+# ℹ 40 more rows</code></pre>
+</div>
+</div>
+<p>Note how <code>Yobs</code> is, depending on <code>Z</code>, either <code>Y0</code> or <code>Y1</code>. Separating our our DGP and our random assignment underscores the potential outcomes framework adage of the data are what they are, and we the experimenters (or nature) are randomly assigning these whole units to various conditions and observing the consequences.</p>
+<p>We might put the <code>p_i</code> part of the model in our code generating the outcomes, if we wanted to view the chance of treatment assignment as inherent to the unit (which is what we usually expect in an observational context).</p>
+</section>
+<section id="finite-sample-performance-measures" class="level2" data-number="20.3">
+<h2 data-number="20.3" class="anchored" data-anchor-id="finite-sample-performance-measures"><span class="header-section-number">20.3</span> Finite sample performance measures</h2>
+<p>For a finite sample evaluation, we can generate a single dataset with our DGP from above, and run a small experiment where we actually randomize units to treatment and control:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>n <span class="ot">=</span> <span class="dv">100</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">442423</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">=</span> <span class="fu">gen_data</span>(n, <span class="at">tau_1 =</span> <span class="sc">-</span><span class="dv">1</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">=</span> <span class="fu">mutate</span>( dat,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>              <span class="at">Z =</span> <span class="dv">0</span> <span class="sc">+</span> (<span class="fu">sample</span>( n ) <span class="sc">&lt;=</span> n<span class="sc">/</span><span class="dv">2</span>),</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>              <span class="at">Yobs =</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, Y1, Y0 ) )</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">=</span> <span class="fu">lm</span>( Yobs <span class="sc">~</span> Z, <span class="at">data=</span>dat )</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="fu">coef</span>(mod)[[<span class="st">"Z"</span>]]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.8914992</code></pre>
+</div>
+</div>
+<p>We can compare this to the true finite-sample ATE:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>tauS <span class="ot">=</span> <span class="fu">mean</span>( dat<span class="sc">$</span>Y1 <span class="sc">-</span> dat<span class="sc">$</span>Y0 )</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>tauS</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 1.154018</code></pre>
+</div>
+</div>
+<p>Our finite-population simulation would be:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>rps <span class="ot">&lt;-</span> simhelpers<span class="sc">::</span><span class="fu">repeat_and_stack</span>( <span class="dv">1000</span>, {</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  dat <span class="ot">=</span> <span class="fu">mutate</span>( dat,</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>              <span class="at">Z =</span> <span class="dv">0</span> <span class="sc">+</span> (<span class="fu">sample</span>( n ) <span class="sc">&lt;=</span> n<span class="sc">/</span><span class="dv">2</span>),</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>              <span class="at">Yobs =</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, Y1, Y0 ) )</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  mod <span class="ot">=</span> <span class="fu">lm</span>( Yobs <span class="sc">~</span> Z, <span class="at">data=</span>dat )</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">ATE_hat =</span> <span class="fu">coef</span>(mod)[[<span class="st">"Z"</span>]],</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>          <span class="at">SE_hat =</span> arm<span class="sc">::</span><span class="fu">se.coef</span>(mod)[[<span class="st">"Z"</span>]] )</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  }) </span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>rps <span class="sc">%&gt;%</span> </span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">EATE_hat =</span> <span class="fu">mean</span>( ATE_hat ),</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>             <span class="at">bias =</span> EATE_hat <span class="sc">-</span> tauS,</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>                   <span class="at">SE =</span> <span class="fu">sd</span>( ATE_hat ),</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>                   <span class="at">ESE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  EATE_hat    bias    SE ESE_hat
+     &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+1     1.16 0.00482 0.248   0.309</code></pre>
+</div>
+</div>
+<p>We are simulating on a single dataset. In particular, our set of potential outcomes is entirely fixed; the only source of randomness (and thus the randomness behind our SE) is the random assignment. The finite sample simulation opens up some room for critique: what if our single dataset is non-standard? How can we claim our findings are general? For example, perhaps the difference in the true SE and average estimated one is a quirk of our particular dataset, and not a general phenomenon.</p>
+<p>Our super-population simulation would be, by contrast:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>rps_sup <span class="ot">&lt;-</span> simhelpers<span class="sc">::</span><span class="fu">repeat_and_stack</span>( <span class="dv">1000</span>, {</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  dat <span class="ot">=</span> <span class="fu">gen_data</span>(n)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  dat <span class="ot">=</span> <span class="fu">mutate</span>( dat,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>              <span class="at">Z =</span> <span class="dv">0</span> <span class="sc">+</span> (<span class="fu">sample</span>( n ) <span class="sc">&lt;=</span> n<span class="sc">/</span><span class="dv">2</span>),</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>              <span class="at">Yobs =</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, Y1, Y0 ) )</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  mod <span class="ot">=</span> <span class="fu">lm</span>( Yobs <span class="sc">~</span> Z, <span class="at">data=</span>dat )</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( <span class="at">ATE_hat =</span> <span class="fu">coef</span>(mod)[[<span class="st">"Z"</span>]],</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">SE_hat =</span> arm<span class="sc">::</span><span class="fu">se.coef</span>(mod)[[<span class="st">"Z"</span>]] )</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  }) </span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>rps_sup <span class="sc">%&gt;%</span> <span class="fu">summarise</span>( <span class="at">EATE_hat =</span> <span class="fu">mean</span>( ATE_hat ),</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>                       <span class="at">bias =</span> EATE_hat <span class="sc">-</span> <span class="dv">1</span>,</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>                   <span class="at">SE =</span> <span class="fu">sd</span>( ATE_hat ),</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>                   <span class="at">ESE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  EATE_hat        bias    SE ESE_hat
+     &lt;dbl&gt;       &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+1    1.000 -0.00000591 0.381   0.389</code></pre>
+</div>
+</div>
+<p>First, note our superpopulation simulation is not biased for the superpopulation ATE. Also note the true SE is larger than our finite-sample simulation; this is because part of the uncertainty in our estimator is the uncertainty of whether our sample is representative of the superpopulation.</p>
+<p>Finally, this clarifies that our linear regression estimator is estimating standard errors assuming a superpopulation model. The true finite sample standard error is less than the expected estimated standard error: from a finite sample perspective, our estimator is giving overly conservative uncertainty estimates. (This discrepancy is often called the correlation of potential outcomes problem.)</p>
+</section>
+<section id="nested-finite-simulation-procedure" class="level2" data-number="20.4">
+<h2 data-number="20.4" class="anchored" data-anchor-id="nested-finite-simulation-procedure"><span class="header-section-number">20.4</span> Nested finite simulation procedure</h2>
+<p>We just saw a difference between a specific, single, finite-sample dataset and a superpopulation. What if we wanted to know if this phenomenon was more general across a set of finite datasets? This question can be levied more broadly: if we run a simulation on a single dataset, this is even more narrow than running on a single scenario: if we compare methods and find one is superior to another for our single dataset, how do we know this is not an artifact of some specific characteristic of <em>that data</em> and not a general phenomenon at all?</p>
+<p>One way forward is to run a nested simulation, where we generate a series of finite sample datasets, and then for each dataset run a small simulation. We then calculate the expected finite sample performance across the datasets. One could almost think of the datasets themselves as a “factor” in our multifactor experiment. See <span class="citation" data-cites="miratrix2021applied">Miratrix et al. (<a href="references.html#ref-miratrix2021applied" role="doc-biblioref">2021</a>)</span> for an example of this kind of simulation framework.</p>
+<p>Borrowing from the simulation appendix of <span class="citation" data-cites="miratrix2021applied">Miratrix et al. (<a href="references.html#ref-miratrix2021applied" role="doc-biblioref">2021</a>)</span>, for a nested simulation repeat <span class="math inline">\(R\)</span> times:</p>
+<ol type="1">
+<li><p>Generate a dataset using a particular DGP. This data generation is the “sampling step” for a superpopulation (SP) framework. The DGP represents an infinite superpopulation. We store both potential outcomes for all generated units.</p></li>
+<li><p>Record the true finite-sample ATE for our generated data.</p></li>
+<li><p>Then, three times, do a finite simulation as follows:</p></li>
+</ol>
+<ol type="a">
+<li>Randomize units to treatment and control using the assignment mechanism.</li>
+<li>Calculate the corresponding observed outcomes.</li>
+<li>Analyze the results using the methods of interest, recording both the point estimate and estimated standard error for each.</li>
+</ol>
+<p>Having only three trials will give a poor estimate of within-dataset (finite sample) performance, but the average performance across the <span class="math inline">\(R\)</span> datasets in a given scenario will give a reasonable estimate of the <em>expected</em> performance across datasets of the type we would see given the scenario parameters.</p>
+<p>To demonstrate we first make a mini-finite sample driver:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>one_finite_run <span class="ot">&lt;-</span> <span class="cf">function</span>( <span class="at">R0 =</span> <span class="dv">3</span>, <span class="at">n =</span> <span class="dv">100</span>, ... ) {</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  dat <span class="ot">=</span> <span class="fu">gen_data</span>( <span class="at">n =</span> n, ... )</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  rps <span class="ot">&lt;-</span> simhelpers<span class="sc">::</span><span class="fu">repeat_and_stack</span>( R0, {</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>         dat <span class="ot">=</span> <span class="fu">mutate</span>( dat,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>                    <span class="at">Z =</span> <span class="dv">0</span> <span class="sc">+</span> (<span class="fu">sample</span>( n ) <span class="sc">&lt;=</span> n<span class="sc">/</span><span class="dv">2</span>),</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>                    <span class="at">Yobs =</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, Y1, Y0 ) )</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        mod <span class="ot">=</span> <span class="fu">lm</span>( Yobs <span class="sc">~</span> Z, <span class="at">data=</span>dat )</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">tibble</span>( <span class="at">ATE_hat =</span> <span class="fu">coef</span>(mod)[[<span class="st">"Z"</span>]],</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>                <span class="at">SE_hat =</span> arm<span class="sc">::</span><span class="fu">se.coef</span>(mod)[[<span class="st">"Z"</span>]] )</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>    }) <span class="sc">%&gt;%</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">bind_rows</span>()</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>  rps<span class="sc">$</span>ATE <span class="ot">=</span> <span class="fu">mean</span>( dat<span class="sc">$</span>Y1 <span class="sc">-</span> dat<span class="sc">$</span>Y0 )</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>  rps</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>This driver also stores the finite sample ATE for future reference:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">one_finite_run</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 3
+  ATE_hat SE_hat   ATE
+    &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;
+1   0.348  0.421 0.768
+2   1.32   0.472 0.768
+3   1.17   0.549 0.768</code></pre>
+</div>
+</div>
+<p>We then run a bunch of finite runs.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>runs <span class="ot">&lt;-</span> simhelpers<span class="sc">::</span><span class="fu">repeat_and_stack</span>( <span class="dv">500</span>, <span class="fu">one_finite_run</span>(),</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>                                      <span class="at">id =</span> <span class="st">"runID"</span> )</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>( runs )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  runID    ATE_hat    SE_hat       ATE
+1     1 0.61007830 0.4908961 0.7583748
+2     1 0.04792879 0.3968365 0.7583748
+3     1 0.76594448 0.4617217 0.7583748
+4     2 0.62535954 0.3123307 0.8821758
+5     2 0.59101011 0.3247807 0.8821758
+6     2 1.04007072 0.3666993 0.8821758</code></pre>
+</div>
+</div>
+<p>We set an id because we will need to separate out each finite run and analyze separately, and then aggregate.</p>
+<p>Each finite run is a very noisy simulation for a fixed dataset. This means when we calculate performance measures we have to be careful to avoid bias in the finite-level calculations; in particular, we need to focus on estimating <span class="math inline">\(SE^2\)</span> across the finite runs, not <span class="math inline">\(SE\)</span>, to avoid the bias caused by having a few replicates within each finite sample run:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>fruns <span class="ot">&lt;-</span> runs <span class="sc">%&gt;%</span> </span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( runID ) <span class="sc">%&gt;%</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">EATE_hat =</span> <span class="fu">mean</span>( ATE_hat ),</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">SE2 =</span> <span class="fu">var</span>( ATE_hat ),</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">ESE_hat =</span> <span class="fu">mean</span>( SE_hat ),</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">.groups =</span> <span class="st">"drop"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>And then we aggregate our finite sample runs:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> fruns <span class="sc">%&gt;%</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">EEATE_hat =</span> <span class="fu">mean</span>( EATE_hat ),</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>             <span class="at">EESE_hat =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( ESE_hat<span class="sc">^</span><span class="dv">2</span> ) ),</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">ESE =</span> <span class="fu">sqrt</span>( <span class="fu">mean</span>( SE2 ) ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">calib =</span> <span class="dv">100</span> <span class="sc">*</span> EESE_hat <span class="sc">/</span> ESE )</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>res</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  EEATE_hat EESE_hat   ESE calib
+      &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1     0.996    0.380 0.331  115.</code></pre>
+</div>
+</div>
+<p>We see our expected standard error estimate is, across the collection of finite sample scenarios all sharing a similar parent superpopulation DGP, 15% too large for the true expected finite-sample standard error.</p>
+</section>
+<section id="superpopulation-performance-measures" class="level2" data-number="20.5">
+<h2 data-number="20.5" class="anchored" data-anchor-id="superpopulation-performance-measures"><span class="header-section-number">20.5</span> Superpopulation performance measures</h2>
+<p>For a superpopulation simulation, the easy road is to simply generate a new dataset with each simulation trial. We can also use our collection of mini-finite-sample runs to estimate superpopulation quantities as well. Given that the simulation datasets are i.i.d. draws, we can simply take expectations across all our simulations. The only concern is our estimates of MCSE will be off due to the clustering in our simulation runs.</p>
+<p>Here we calculate superpopulation performance measures (both with the squared SE and without; we prefer the squared version for assessing calibration):</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>runs <span class="sc">%&gt;%</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">EATE_hat =</span> <span class="fu">mean</span>( ATE_hat ),</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>             <span class="at">SE_true =</span> <span class="fu">sd</span>( ATE_hat ),</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">SE_hat =</span> <span class="fu">mean</span>( SE_hat ),</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">SE2_true =</span> <span class="fu">var</span>( ATE_hat ),</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">SE2_hat =</span> <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>( <span class="at">cols =</span> <span class="fu">c</span>(SE_true<span class="sc">:</span>SE2_hat ),</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>                <span class="at">names_to =</span> <span class="fu">c</span>( <span class="st">"estimand"</span>, <span class="st">".value"</span> ),</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>                <span class="at">names_sep =</span><span class="st">"_"</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">inflate =</span> <span class="dv">100</span> <span class="sc">*</span> hat <span class="sc">/</span> true )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 5
+  EATE_hat estimand  true   hat inflate
+     &lt;dbl&gt; &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+1    0.996 SE       0.389 0.377    96.9
+2    0.996 SE2      0.151 0.142    93.9</code></pre>
+</div>
+</div>
+<p>We see our estimated SEs may be a bit too small, on average, as compared to the true SE.</p>
+</section>
+<section id="calibrating-simulations-within-the-potential-outcomes-framework" class="level2" data-number="20.6">
+<h2 data-number="20.6" class="anchored" data-anchor-id="calibrating-simulations-within-the-potential-outcomes-framework"><span class="header-section-number">20.6</span> Calibrating simulations within the potential outcomes framework</h2>
+<p>The potential outcomes framework provides a natural path for generating calibrated simulations for causal inference problems (See <a href="080-simulations-as-evidence.html#sec-calibrated-simulations" class="quarto-xref"><span>Section 15.1.6</span></a> for more discussion of calibration.)</p>
+<p>Under the calibration framework, we would take an existing randomized experiment or observational study and then impute all the missing potential outcomes under some specific scheme. This fully defines the sample of interest and thus any target parameters, such as a measure of heterogeneity, are then fully known.</p>
+<p>Data in hand, we then synthetically, and repeatedly, randomize and “observe” outcomes to be analyzed with the methods we are testing. We could also resample from our dataset to generate datasets of different size, or to have a superpopulation target as our estimand.</p>
+<p>The key feature here is the imputation step: how do we build the full set of covariates and potential outcomes? There are a variety of options that have different pros and cons.</p>
+<p>Regardless of how we generate the missing potential outcomes, once we have a “fully observed” sample with the full set of treatment and control potential outcomes for all of our units, we can calculate any target estimands we like on our population, and then compare our estimators to these ground truths (even if they have no parametric analog) as desired, just as we saw above.</p>
+<section id="matching-based-imputation" class="level3" data-number="20.6.1">
+<h3 data-number="20.6.1" class="anchored" data-anchor-id="matching-based-imputation"><span class="header-section-number">20.6.1</span> Matching-based imputation</h3>
+<p>One approach for generating pairs of potential outcomes is to generate a matched-pairs dataset by, for each unit, finding a close match in terms of the covariates. The opposite pair of each matched unit then gives the imputed potential outcome.<br>
+By doing this (with replacement) for all units we can generate a fully imputed dataset which we can then use as our population, with all outcomes being “real,” as they are taken from actual data. Such matching can mostly preserve complex relationships between covariates and outcomes in a manner that is not model dependent. For example, if an outcome is coarsely defined (e.g., on an integer scale) or has specific clumps (such as from zero-inflation or rounding), this structure will be preserved.</p>
+<p>One concern with the matching approach is the inexactness of the matching could dilute the structure of the treatment effect as the control- and treatment-side potential outcomes may be very unrelated, creating a lot of so-called idiosyncratic treatment variation (unit-to-unit variation in the treatment effects that is not explained by the covariates). This is akin to measurement error diluting found relationships in linear models.</p>
+<p>We could try to reduce such variation by first imputing missing outcomes using some model (e.g., a random forest) fit to the original data, and then matching units including the imputed potential outcomes as additional “covariates.” This is not a data analysis strategy, but instead a method of generating synthetic data that both has a given structure of interest and also remains faithful to the idiosyncrasies of an actual dataset.</p>
+</section>
+<section id="model-based-imputation" class="level3" data-number="20.6.2">
+<h3 data-number="20.6.2" class="anchored" data-anchor-id="model-based-imputation"><span class="header-section-number">20.6.2</span> Model-based imputation</h3>
+<p>A second approach for imputing the missing potential outcomes is to specify a treatment effect model, predict treatment effects for all units and use the predicted effects to impute the treatment potential outcome for all control units and control potential outcomes for all treated units. For example, if we fit <span class="math inline">\(\hat{\tau}(X)\)</span> to the original data, where <span class="math inline">\(\hat{tau}(X)\)</span> estimates the treatment effect for a unit with covariate value <span class="math inline">\(X\)</span>, we can then impute <span class="math inline">\(Y_i(1) = Y_i(0) + \hat{\tau}(X_i)\)</span> for all control units and <span class="math inline">\(Y_i(0) = Y_i(1) - \hat{f}(X_i)\)</span> for all treated units. This imputation perfectly preserves the complex structure between the covariates and the <span class="math inline">\(Y_i(0)\)</span>s for the original controls and covariates and <span class="math inline">\(Y_i(1)\)</span> for the original treated.</p>
+<p>One drawback is the imputed outcomes may not be values we actually see on the counterfactual side. For example, if the original outcomes are binary, but if <span class="math inline">\(\hat{\tau}(X)\)</span> estimates fractional effects, then the imputed outcomes will not be binary, and could even be negative or above 1.</p>
+<p>A second (probably minor) drawback is this form of imputation does not allow for any idiosyncratic treatment variation. To add in idiosyncratic variation we would need to generate a distribution of perturbations and add these to the imputed outcomes just as we would an error term in a regression model.</p>
+<p>One advantage of the modeling approach is it allows for varying the amount of treatment effect. We can, for example, scale <span class="math inline">\(\hat{\tau}(X)\)</span> by some factor to increase or decrease the size of the treatment effects in our imputed dataset.</p>
+</section>
+</section>
+<section id="concluding-thoughts" class="level2" data-number="20.7">
+<h2 data-number="20.7" class="anchored" data-anchor-id="concluding-thoughts"><span class="header-section-number">20.7</span> Concluding Thoughts</h2>
+<p>Potential outcomes are a way of thinking about causal inference where we fully specify characteristics of the data, and then define estimands as summary measures across the full data (including aspects we would not normally see in the real world). This idea is a general one: in any simulation context, it is important to remember that the model for <em>generating</em> the data need not have any relation to how we <em>estimate</em> or <em>analyze</em> the data. By keeping these pieces separate in a simulation, it is much easier to generate data that is relevant to a specific context (e.g., by calibrating to an existing dataset) than when trying to use the same model used for estimation.</p>
+<p>Keeping these parts separate has another important quality of helpling keep the researcher honest: it is usually the case that an estimator will work best on data generated from the estimator’s own working model. By generating using a different process, then the data does not inherently align with the estimator, meaning the estimator performance is less likely to be entirely a special case.</p>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-gerber2017field" class="csl-entry" role="listitem">
+Gerber, Alan S, and Donald P Green. 2017. <span>“Field Experiments on Voter Mobilization: An Overview of a Burgeoning Literature.”</span> <em>Handbook of Economic Field Experiments</em> 1: 395–438.
+</div>
+<div id="ref-miratrix2021applied" class="csl-entry" role="listitem">
+Miratrix, Luke W., Michael J. Weiss, and Brit Henderson. 2021. <span>“An <span>Applied Researcher</span>’s <span>Guide</span> to <span>Estimating Effects</span> from <span>Multisite Individually Randomized Trials</span>: <span>Estimands</span>, <span>Estimators</span>, and <span>Estimates</span>.”</span> <em>Journal of Research on Educational Effectiveness</em> 14 (1): 270–308. <a href="https://doi.org/10.1080/19345747.2020.1831115">https://doi.org/10.1080/19345747.2020.1831115</a>.
+</div>
+<div id="ref-rosenbaum2017observation" class="csl-entry" role="listitem">
+Rosenbaum, Paul R. 2017. <em>Observation and Experiment: An Introduction to Causal Inference</em>. Harvard University Press.
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Create fixed toggle button
+  const toggleBtn = document.createElement("button");
+  toggleBtn.id = "fixed-sidebar-toggle";
+  toggleBtn.title = "Toggle Sidebar";
+  toggleBtn.setAttribute("aria-label", "Toggle Sidebar");
+
+  // SVG Icons for Open vs Closed state
+  const iconSidebarOpen = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm0 1h3v12H2V2zm4 12V2h8v12H6z"/>
+    </svg>`;
+    
+  const iconSidebarClosed = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+      <path d="M11 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H10.5a.5.5 0 0 1 .5.5z"/>
+    </svg>`;
+
+  toggleBtn.innerHTML = iconSidebarOpen;
+
+  toggleBtn.addEventListener("click", function() {
+    const isHidden = document.body.classList.toggle("sidebar-hidden");
+    toggleBtn.innerHTML = isHidden ? iconSidebarClosed : iconSidebarOpen;
+  });
+
+  document.body.appendChild(toggleBtn);
+});
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jepusto\.github\.io\/Designing-Simulations-in-R\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./140-simulation-for-power-analysis.html" class="pagination-link" aria-label="Using simulation as a power calculator">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./references.html" class="pagination-link" aria-label="References">
+        <span class="nav-page-text">References</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/150-potential-outcomes-framework.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></div></div></footer></body></html>

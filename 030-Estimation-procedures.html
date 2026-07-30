@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies">
+
+<title>7&nbsp; Estimation procedures – Designing Monte Carlo Simulations in R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./035-running-simulation.html" rel="next">
+<link href="./020-Data-generating-models.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-9d6c9622e1db6294580745c4cacaf708.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/sidebar-toggle.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./010-Simulation-structure.html">Structure and Mechanics of a Simulation Study</a></li><li class="breadcrumb-item"><a href="./030-Estimation-procedures.html"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Designing Monte Carlo Simulations in R</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/jepusto/Designing-Simulations-in-R" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="./Designing-Monte-Carlo-Simulations-in-R.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Welcome</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">An Introductory Look</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./001-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./003-programming-preliminaries.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Programming Preliminaries</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./005-initial-t-test-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">An initial simulation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Structure and Mechanics of a Simulation Study</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./010-Simulation-structure.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Structure of a simulation study</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./015-Case-study-ANOVA.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Case Study: Heteroskedastic ANOVA and Welch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./020-Data-generating-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./030-Estimation-procedures.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./035-running-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the Simulation Process</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./040-Performance-criteria.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance Measures</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Systematic Simulations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./060-multiple-scenarios.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./070-experimental-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Designing multifactor simulations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./072-presentation-of-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Exploring and presenting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./074-building-good-vizualizations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Building good visualizations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./075-special-topics-on-reporting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Special Topics on Reporting Simulation Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./080-simulations-as-evidence.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Computational Considerations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./100-file-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./110-debugging-and-testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Debugging and Testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./120-parallel-processing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Complex Data Structures</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./140-simulation-for-power-analysis.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./150-potential-outcomes-framework.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./200-coding-tidbits.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Coding Reference</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#sec-estimation-functions" id="toc-sec-estimation-functions" class="nav-link active" data-scroll-target="#sec-estimation-functions"><span class="header-section-number">7.1</span> Writing estimation functions</a></li>
+  <li><a href="#sec-multiple-estimation-procedures" id="toc-sec-multiple-estimation-procedures" class="nav-link" data-scroll-target="#sec-multiple-estimation-procedures"><span class="header-section-number">7.2</span> Including Multiple Data Analysis Procedures</a></li>
+  <li><a href="#sec-validating-estimation-function" id="toc-sec-validating-estimation-function" class="nav-link" data-scroll-target="#sec-validating-estimation-function"><span class="header-section-number">7.3</span> Validating an Estimation Function</a></li>
+  <li><a href="#sec-error-handling" id="toc-sec-error-handling" class="nav-link" data-scroll-target="#sec-error-handling"><span class="header-section-number">7.4</span> Handling errors, warnings, and other hiccups</a></li>
+  <li><a href="#exercises" id="toc-exercises" class="nav-link" data-scroll-target="#exercises">Exercises</a></li>
+  </ul>
+<div class="toc-actions"><ul class="collapse"><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/030-Estimation-procedures.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./010-Simulation-structure.html">Structure and Mechanics of a Simulation Study</a></li><li class="breadcrumb-item"><a href="./030-Estimation-procedures.html"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-estimation-procedures" class="quarto-section-identifier"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>We do simulation studies to understand how to analyze data. Thus, the central object of study is a <em>data analysis procedure</em>, or a set of steps or calculations carried out on a dataset. We want to know how well a procedure would work when applied in practice, and the data generating processes we described in <a href="020-Data-generating-models.html" class="quarto-xref"><span>Chapter 6</span></a> provides a stand-in for real data. To revisit our consumer product testing analogy from <a href="001-introduction.html" class="quarto-xref"><span>Chapter 1</span></a>, the data analysis procedure is the product, and the data generating process is the set of trials to which we subject the product.</p>
+<p>Depending on the research question, a data-analysis procedure might be very simple—as simple as just computing a sample correlation—or it might involve something more complex, such as fitting a multilevel model and generating a confidence interval for a specific coefficient. A data analysis procedure might even involve a combination of several components. For example, the procedure might entail first running a variable screening procedure and then fitting a random forest on the selected predictor variables. As another example, a data-analysis procedure might involve using multiple imputation for missingness on key variables, then fitting a statistical model, and then generating predicted values based on the model. For sake of brevity, we will use the term <em>estimation procedure</em> or just <em>estimator</em> to encompass all of these procedures, even ones that involve multi-step or multi-component procedures.</p>
+<p>In this chapter, we demonstrate how to implement an estimator in the form of an R function, which we call an <em>estimation function</em>, so that its performance can eventually be evaluated by repeatedly applying it to artificial data. We start by describing the high-level design of an estimation function and illustrate with some simple examples in <a href="#sec-estimation-functions" class="quarto-xref"><span>Section 7.1</span></a>.</p>
+<p>Depending on the research question, we will often be interested in comparing several competing estimators. In this case, we will create <em>several</em> functions that implement the estimators that we plan to compare. The easiest approach here is to implement each estimator in turn, and then bundle the collection in a final overall function. We describe how to do this in <a href="#sec-multiple-estimation-procedures" class="quarto-xref"><span>Section 7.2</span></a>.</p>
+<p>In <a href="#sec-validating-estimation-function" class="quarto-xref"><span>Section 7.3</span></a>, we describe strategies for validating the coded-up estimator before running a full simulation. We offer a few strategies for validating ones code, including checking against existing implementations, checking theoretical properties, and using simulations to check for bugs.</p>
+<p>For a full simulation, an estimator needs to be reliable, not crashing and giving answers across the wide range of datasets to which it is applied. An estimator will need to be able to handle odd edge cases or pathological datasets that might be generated as we explore a full range of simulation scenarios. To allow for this, <a href="#sec-error-handling" class="quarto-xref"><span>Section 7.4</span></a> demonstrates several methods for handling common computational problems, such as errors or warnings.</p>
+<section id="sec-estimation-functions" class="level2" data-number="7.1">
+<h2 data-number="7.1" class="anchored" data-anchor-id="sec-estimation-functions"><span class="header-section-number">7.1</span> Writing estimation functions</h2>
+<p>In the abstract, a function that implements an estimation procedure should have the following form:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>estimator <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># calculations/model-fitting/estimation procedures</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(estimates)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>An estimator function should take a dataset as input, fit a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and return these quantities as output. It can return point estimates of parameters, standard errors, confidence intervals, <span class="math inline">\(p\)</span>-values, predictions, or other quantities. The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of the corresponding function for generating simulated data. However, in principle, we should also be able to run the estimation function on real data as well.</p>
+<p>As a first example, suppose we want to evaluate a method for generating a confidence interval for Pearson’s sample correlation coefficient when faced with non-normal data. For bivariate normal data, statistical theory provides some very useful facts. In particular, it tells us that applying Fisher’s <span class="math inline">\(z\)</span>-transformation of Pearson’s correlation coefficient, which is equivalent to the hyperbolic arc-tangent function (<code>atanh()</code> in R), produces a statistic that is very close to normally distributed. It also tells us that the empirical standard error of the <span class="math inline">\(z\)</span>-transformed correlation coefficient is simply <span class="math inline">\(1 / \sqrt{N - 3}\)</span>, and thus independent of the correlation parameter. This makes <span class="math inline">\(z\)</span>-transformation very useful for computing confidence intervals, which can then be back-transformed to the Pearson-<span class="math inline">\(r\)</span> scale. However, these results are specific to bivariate normal distributions. Would this transformation work well in the face of non-normal data, such as the bivariate Poisson distribution we coded in <a href="020-Data-generating-models.html" class="quarto-xref"><span>Chapter 6</span></a>?</p>
+<p>For studying this question with simulation, a simple estimation function would take a dataset with two variables as input and compute the sample correlation and its <span class="math inline">\(z\)</span>-transformation, compute confidence intervals for <span class="math inline">\(z\)</span>, and then back-transform the confidence interval end-points. Here is an implementation of this sequence of calculations:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>r_and_z <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  r <span class="ot">&lt;-</span> <span class="fu">cor</span>(data<span class="sc">$</span>C1, data<span class="sc">$</span>C2)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  z <span class="ot">&lt;-</span> <span class="fu">atanh</span>(r)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  se_z <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">sqrt</span>(<span class="fu">nrow</span>(data) <span class="sc">-</span> <span class="dv">3</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  ci_z <span class="ot">&lt;-</span> z <span class="sc">+</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> <span class="fu">qnorm</span>(.<span class="dv">975</span>) <span class="sc">*</span> se_z</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  ci_r <span class="ot">&lt;-</span> <span class="fu">tanh</span>(ci_z)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>( <span class="at">r =</span> r, <span class="at">z =</span> z, <span class="at">CI_lo =</span> ci_r[<span class="dv">1</span>], <span class="at">CI_hi =</span> ci_r[<span class="dv">2</span>] )</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>To check that the function returns a result of the expected form, we generate a small dataset using the <code>r_bivariate_Poisson()</code> function developed in the last chapter, then apply our estimation function to the result:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Pois_dat <span class="ot">&lt;-</span> <span class="fu">r_bivariate_Poisson</span>(<span class="dv">40</span>, <span class="at">rho =</span> <span class="fl">0.5</span>, <span class="at">mu1 =</span> <span class="dv">4</span>, <span class="at">mu2 =</span> <span class="dv">4</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">r_and_z</span>(Pois_dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          r        z     CI_lo     CI_hi
+1 0.6371712 0.753397 0.4063077 0.7915666</code></pre>
+</div>
+</div>
+<p>Although it is a little cumbersome to do so, we could also apply the estimation function to a real dataset. Here is an example, which calculates the correlation between ratings of judicial integrity and familiarity with the law from the <code>USJudgeRatings</code> dataset (which is included in base R). For the function to work on this dataset, we first need to rename the relevant variables because our function takes a <code>data.frame</code> with two columns named <code>C1</code> and <code>C2</code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(USJudgeRatings)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>USJudgeRatings <span class="sc">%&gt;%</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="at">C1 =</span> INTG, <span class="at">C2 =</span> FAMI) <span class="sc">%&gt;%</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">r_and_z</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         r        z     CI_lo     CI_hi
+1 0.868858 1.328401 0.7692563 0.9272343</code></pre>
+</div>
+</div>
+<p>The function returns a valid result—a quite strong correlation in this case!</p>
+<p>It is good practice to test out a newly-developed estimation function on real data as a check that it is working as intended. Testing on real data ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate. Applying the function to a real dataset demonstrates that the function implements a procedure that could actually be applied in real data analysis contexts.</p>
+</section>
+<section id="sec-multiple-estimation-procedures" class="level2" data-number="7.2">
+<h2 data-number="7.2" class="anchored" data-anchor-id="sec-multiple-estimation-procedures"><span class="header-section-number">7.2</span> Including Multiple Data Analysis Procedures</h2>
+<p>Many simulations involve head-to-head comparisons between more than one data-analysis procedure. As a design principle, we generally recommend writing different functions for each estimation method one is planning on evaluating. Doing so makes it easier to add in additional methods as desired or to focus on just a subset of methods. Writing separate functions also leads to a code base that is flexible and useful for other purposes (such as analyzing real data). Finally (repeating one of our favorite mantras), separating functions makes debugging easier because it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.</p>
+<p>To see how this works in practice, we return to the case study from <a href="020-Data-generating-models.html#sec-case-cluster" class="quarto-xref"><span>Section 6.6</span></a>, where we developed a data-generating function for simulating a cluster-randomized trial with student-level outcomes but school-level treatment assignment. Our data-generating process allowed for varying school sizes and heterogeneous treatment effects that are correlated with school size. Several different procedures might be used to estimate an overall average effect from a clustered experiment. We will consider three different procedures:</p>
+<ul>
+<li>Fitting a multi-level regression model (also known as a hierarchical linear model),</li>
+<li>Fitting an ordinary least squares (OLS) regression model and applying cluster-robust standard errors, or</li>
+<li>Averaging the outcomes by school, then fitting a linear regression model on the mean outcomes.</li>
+</ul>
+<p>All three of these methods are widely used and have some theoretical guarantees supporting their use. Education researchers tend to be more comfortable using multi-level regression models, whereas economists tend to use OLS with clustered standard errors.</p>
+<!-- JEP: Do we want to add any citations for further reading about these strategies? Any further comments about these methods? -->
+<!-- LWM: We can cite my working draft of the cluster rct paper when I post it? -->
+<p>We next develop estimation functions for each of these procedures, focusing on a simple model that does not include any covariates besides the treatment indicator. Each function needs to produce a point estimate, standard error, and <span class="math inline">\(p\)</span>-value for the average treatment effect. To write estimation functions, it is useful to work with an example dataset that has the same structure as the data that will be simulated. To that end, we generate a sample dataset using <a href="./case_study_code/gen_cluster_RCT.R">a revised version of <code>gen_cluster_RCT()</code></a>, which corrects the bug discussed in <a href="020-Data-generating-models.html#exr-cluster-RCT-checks" class="quarto-xref">Exercise&nbsp;<span>6.8</span></a>: <!-- LWM: Do we put the solution to the exercise here?  Or leave it out? --> <!-- JEP: I guess leave it out? --></p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">16</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>, <span class="at">p =</span> <span class="fl">0.5</span>, </span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For the multi-level modeling strategy, there are several different existing packages that we could use. We will implement an estimator using the popular <code>lme4</code> package, via the <code>lmerTest</code> function which calculates a <span class="math inline">\(p\)</span>-value for the average effect. Here is a basic implementation:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>( dat ) {</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  M1_test <span class="ot">&lt;-</span> lmerTest<span class="sc">::</span><span class="fu">lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid), <span class="at">data =</span> dat )</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  M1_summary <span class="ot">&lt;-</span> <span class="fu">summary</span>(M1_test)<span class="sc">$</span>coefficients</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M1_summary[<span class="st">"Z"</span>,<span class="st">"Estimate"</span>], </span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">SE_hat =</span> M1_summary[<span class="st">"Z"</span>,<span class="st">"Std. Error"</span>], </span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_value =</span> M1_summary[<span class="st">"Z"</span>, <span class="st">"Pr(&gt;|t|)"</span>] </span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The function fits a multi-level model with a fixed coefficient for the treatment indicator and random intercepts for each school. It outputs only the statistics in which we are interested.</p>
+<p>Our function makes use of the <code>lmerTest</code> package. Rather than assuming that this package will be loaded, we call the relevant function using the package name as a prefix: <code>lmerTest::lmer()</code>. This way, we can run the function even if we have not loaded the package in the global environment. Referencing functions with their package prefix is also preferable to loading packages inside the function itself (e.g., with <code>require(lmerTest)</code>) because calling the function then does not change which packages are loaded in the global environment.</p>
+<p>Here is a function implementing OLS regression with cluster-robust standard errors:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>analysis_OLS <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">se_type =</span> <span class="st">"CR2"</span> ) {</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  M2 <span class="ot">&lt;-</span> estimatr<span class="sc">::</span><span class="fu">lm_robust</span>( </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> dat, </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">clusters =</span> sid,  <span class="at">se_type =</span> se_type</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M2<span class="sc">$</span>coefficients[[<span class="st">"Z"</span>]], </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">SE_hat =</span> M2<span class="sc">$</span>std.error[[<span class="st">"Z"</span>]], </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_value =</span> M2<span class="sc">$</span>p.value[[<span class="st">"Z"</span>]] </span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>To get cluster-robust standard errors, we use the <code>lm_robust()</code> function from the <code>estimatr()</code> package, again calling only the relevant function using the package prefix rather than loading the whole package. A novel aspect of this estimation function is that it includes an additional intput argument, <code>se_type</code>, which allows us to control the type of standard error calculated by <code>lm_robust()</code>. Adding this option would let us use the same function to compute (and compare) different types of clustered standard errors for the average treatment effect estimate. We set a default option of <code>"CR2"</code>, just like the default of <code>lm_robust()</code>.</p>
+<p>Sometimes an analytic procedure involves multiple steps. For example, the aggregation estimator first involves collapsing the data to a school-level dataset, and then analyzing at the school level. This is no problem:<br>
+we just wrap all the steps in a single estimation function. Once written, all we need to do is call the function—no matter how complicated the process inside. Here is the code for the aggregate-then-analyze approach:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>analysis_agg <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">se_type =</span> <span class="st">"HC2"</span> ) {</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  datagg <span class="ot">&lt;-</span> dplyr<span class="sc">::</span><span class="fu">summarise</span>( </span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    dat,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">Ybar =</span> <span class="fu">mean</span>( Yobs ),</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">n =</span> <span class="fu">n</span>(),</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">.by =</span> <span class="fu">c</span>(sid, Z)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stopifnot</span>( <span class="fu">nrow</span>( datagg ) <span class="sc">==</span> <span class="fu">length</span>(<span class="fu">unique</span>(dat<span class="sc">$</span>sid) ) )</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  M3 <span class="ot">&lt;-</span> estimatr<span class="sc">::</span><span class="fu">lm_robust</span>( </span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    Ybar <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> datagg, </span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">se_type =</span> se_type </span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M3<span class="sc">$</span>coefficients[[<span class="st">"Z"</span>]], </span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">SE_hat =</span> M3<span class="sc">$</span>std.error[[<span class="st">"Z"</span>]], </span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_value =</span> M3<span class="sc">$</span>p.value[[<span class="st">"Z"</span>]] </span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Note the <code>stopifnot</code> command: it will throw an error if the condition is not true. This <code>stopifnot</code> ensures we do not have both treatment and control students within a single school–if we did, we would have more aggregated values than school ids due to the grouping! Putting <em>assert statements</em> in your code like this is a good way to guarantee you are not introducing weird and hard-to-track errors. A <code>stopifnot</code> statement halts your code as soon as something goes wrong, rather than letting that initial error flow on to further work, potentially creating odd results that are hard to understand. Here we are protecting ourselves from strange results if, for example, we messed up our DGP code to have treatment not nested within school, or if we were using data that did not actually come from a cluster randomized experiment. See <a href="110-debugging-and-testing.html#sec-about-stopifnot" class="quarto-xref"><span>Section 17.4</span></a> for more.</p>
+<p>All of our functions produce output in the same format:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+  ATE_hat SE_hat p_value
+    &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+1  -0.176  0.383   0.653</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_OLS</span>( dat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+  ATE_hat SE_hat p_value
+    &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+1  -0.124  0.462   0.793</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_agg</span>( dat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+  ATE_hat SE_hat p_value
+    &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+1  -0.178  0.378   0.645</code></pre>
+</div>
+</div>
+<p>Ensuring that the output of all the functions is structured in the same way will make it easy to keep the results organized once we start running multiple iterations of the simulation. If each estimation method returns a dataset with the same variables, we can simply stack the results on top of each other. Here is a function that bundles all the estimation procedures together:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>analyze_data <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    data, </span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">CR_se_type =</span> <span class="st">"CR2"</span>, <span class="at">agg_se_type =</span> <span class="st">"HC2"</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>) {</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">bind_rows</span>(</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">MLM =</span> <span class="fu">analysis_MLM</span>( data ),</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">OLS =</span> <span class="fu">analysis_OLS</span>( data, <span class="at">se_type =</span> CR_se_type),</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">agg =</span> <span class="fu">analysis_agg</span>( data, <span class="at">se_type =</span> agg_se_type),</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">.id =</span> <span class="st">"estimator"</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">analyze_data</span>(dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 4
+  estimator ATE_hat SE_hat p_value
+  &lt;chr&gt;       &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+1 MLM        -0.176  0.383   0.653
+2 OLS        -0.124  0.462   0.793
+3 agg        -0.178  0.378   0.645</code></pre>
+</div>
+</div>
+<p>This is a common coding pattern for simulations that involve multiple estimators. Each procedure is expressed in its own function, then these are assembled together in a single function so that they can all easily be applied to the same dataset. Stacking the results row-wise will make it easy to compute performance measures for all methods at once. The benefit of stacking will become even more evident once we are working across multiple replications of the simulation process, as we will in <a href="035-running-simulation.html" class="quarto-xref"><span>Chapter 8</span></a>.</p>
+</section>
+<section id="sec-validating-estimation-function" class="level2" data-number="7.3">
+<h2 data-number="7.3" class="anchored" data-anchor-id="sec-validating-estimation-function"><span class="header-section-number">7.3</span> Validating an Estimation Function</h2>
+<p>Just as with data-generating functions, it is critical to verify that an estimation function is correctly implemented. If an estimation function involves a known procedure that has been implemented in R or one of its contributed packages, then a straightforward way to do this is to compare your implementation to another existing implementation. For estimation functions that involve multi-step procedures or novel methods, other approaches to verification may be needed.</p>
+<section id="checking-against-existing-implementations" class="level3" data-number="7.3.1">
+<h3 data-number="7.3.1" class="anchored" data-anchor-id="checking-against-existing-implementations"><span class="header-section-number">7.3.1</span> Checking against existing implementations</h3>
+<p>In <a href="015-Case-study-ANOVA.html" class="quarto-xref"><span>Chapter 5</span></a>, we wrote a function called <code>ANOVA_Welch_F()</code> for computing <span class="math inline">\(p\)</span>-values from two different procedures for testing equality of means in a heteroskedastic ANOVA:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>ANOVA_Welch_F <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  anova_F <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> group, <span class="at">data =</span> data, <span class="at">var.equal =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  Welch_F <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> group, <span class="at">data =</span> data, <span class="at">var.equal =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">ANOVA =</span> anova_F<span class="sc">$</span>p.value,</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">Welch =</span> Welch_F<span class="sc">$</span>p.value</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(result)</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We can test this function by comparing its output against the built-in <code>oneway.test</code> function, as follows:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>sim_data <span class="ot">&lt;-</span> <span class="fu">generate_ANOVA_data</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">6</span>), </span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_sq =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">1</span>),</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sample_size =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>aov_results <span class="ot">&lt;-</span> <span class="fu">oneway.test</span>(x <span class="sc">~</span> <span class="fu">factor</span>(group), <span class="at">data =</span> sim_data, <span class="at">var.equal =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>aov_results</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    One-way analysis of means (not assuming equal variances)
+
+data:  x and factor(group)
+F = 15.577, num df = 3.0000, denom df = 3.0993, p-value
+= 0.02275</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>Welch_results <span class="ot">&lt;-</span> <span class="fu">ANOVA_Welch_F</span>(sim_data)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(aov_results<span class="sc">$</span>p.value, Welch_results<span class="sc">$</span>Welch)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>We use <code>all.equal()</code> because it will check equality up to a tolerance in R, which can avoid some perplexing errors due to rounding.</p>
+<p> For the bivariate correlation example introduced in <a href="#sec-estimation-functions" class="quarto-xref"><span>Section 7.1</span></a>, we can check the output of <code>r_and_z()</code> against R’s built-in <code>cor.test()</code> function:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>Pois_dat <span class="ot">&lt;-</span> <span class="fu">r_bivariate_Poisson</span>(<span class="dv">15</span>, <span class="at">rho =</span> <span class="fl">0.6</span>, <span class="at">mu1 =</span> <span class="dv">14</span>, <span class="at">mu2 =</span> <span class="dv">8</span>)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>my_result <span class="ot">&lt;-</span> <span class="fu">r_and_z</span>(Pois_dat) <span class="sc">|&gt;</span> <span class="fu">subset</span>(<span class="at">select =</span> <span class="sc">-</span>z)</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>my_result</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          r     CI_lo     CI_hi
+1 0.7474359 0.3810838 0.9109217</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>R_result <span class="ot">&lt;-</span> <span class="fu">cor.test</span>(<span class="sc">~</span> C1 <span class="sc">+</span> C2, <span class="at">data =</span> Pois_dat)</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>R_result <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">r =</span> R_result<span class="sc">$</span>estimate[[<span class="st">"cor"</span>]], </span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">CI_lo =</span> R_result<span class="sc">$</span>conf.int[<span class="dv">1</span>], </span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>                   <span class="at">CI_hi =</span> R_result<span class="sc">$</span>conf.int[<span class="dv">2</span>])</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>R_result</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+      r CI_lo CI_hi
+  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1 0.747 0.381 0.911</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>( <span class="fu">as.numeric</span>(R_result), <span class="fu">as.numeric</span>(my_result) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>This type of check is all the more useful here because <code>r_and_z()</code> uses our own implementation of the confidence interval calculations, rather than relying on R’s built-in functions as we did with <code>ANOVA_Welch_F()</code>.</p>
+<p>One might ask why you should bother implementing your own function if you already have a version implemented in R. In some cases, it might be possible to implement a faster version of a function because you can cut corners by skipping input data verification, providing fewer estimation options, or cutting out post-estimation processing. Any of these could help with the overall speed of your simulation. On the other hand, gains in computational efficiency might not be worth the human time it would take to implement the calculations from scratch. See <a href="200-coding-tidbits.html#sec-optimize-code" class="quarto-xref"><span>Section A.4</span></a> for more discussion of this trade-off.</p>
+</section>
+<section id="checking-novel-procedures" class="level3" data-number="7.3.2">
+<h3 data-number="7.3.2" class="anchored" data-anchor-id="checking-novel-procedures"><span class="header-section-number">7.3.2</span> Checking novel procedures</h3>
+<p>Simulations are usually an integral part of projects to develop novel statistical methods. Checking estimation functions in such projects presents a challenge: if an estimator truly is new, how do you check that your code is correct? Effective methods for doing so will vary from problem to problem, but an over-arching strategy is to use theoretical results about the performance of the estimator to check that your implementation works as expected. For instance, we might work out the algebraic properties of an estimator for a special case and then check that the result of the estimation function agrees with our algebra. For some estimation problems, we might be able to identify theoretical properties of an estimator when applied to a very large sample of data and when the model is correctly specified. If we can find results about large-sample behavior, then we can test an estimation function by applying it to a very large sample and checking whether the resulting estimates are very close to specified parameter values. We illustrate each of these approaches using our functions for estimating treatment effects from cluster-randomized trials.</p>
+<p>We start by testing an algebraic property. With each of the three methods we have implemented, the treatment effect estimator is a difference between the weighted average of the outcomes from students in each treatment condition; the only difference between the estimators is in what weights are used. In the special case where all schools have the same number of students, the weights used by all three methods end up being the same: all three methods allocate equal weight to each school. Therefore, we know that there should be no difference between the three point estimates. Furthermore, a bit of algebra will show that the cluster-robust standard error from the OLS approach will end up being identical to the robust standard error from the aggregation approach. If there are also equal numbers of schools assigned to both conditions, then the standard error from the multilevel model will also be identical to the other standard errors.</p>
+<p>Let’s verify that our estimation functions produce results that are consistent with these theoretical properties. To do so, we will need to generate a dataset with equal cluster sizes, setting <span class="math inline">\(\alpha = 0\)</span>:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">12</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="dv">0</span>, <span class="at">p =</span> <span class="fl">0.5</span>, </span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(dat<span class="sc">$</span>sid) <span class="co"># verify equal-sized clusters</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+ 1  2  3  4  5  6  7  8  9 10 11 12 
+30 30 30 30 30 30 30 30 30 30 30 30 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">analyze_data</span>(dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 4
+  estimator ATE_hat SE_hat p_value
+  &lt;chr&gt;       &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+1 MLM         0.456  0.401   0.282
+2 OLS         0.456  0.401   0.282
+3 agg         0.456  0.401   0.282</code></pre>
+</div>
+</div>
+<p>All three methods yield identical results. Now let’s try equal school sizes but unequal allocation to treatment:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">12</span>, <span class="at">n_bar =</span> <span class="dv">30</span>, <span class="at">alpha =</span> <span class="dv">0</span>, <span class="at">p =</span> <span class="dv">2</span> <span class="sc">/</span> <span class="dv">3</span>, </span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">0</span>, <span class="at">gamma_1 =</span> <span class="fl">0.2</span>, <span class="at">gamma_2 =</span> <span class="fl">0.2</span>,</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a><span class="fu">analyze_data</span>(dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 4
+  estimator ATE_hat SE_hat p_value
+  &lt;chr&gt;       &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+1 MLM         0.292  0.309   0.367
+2 OLS         0.292  0.260   0.303
+3 agg         0.292  0.260   0.287</code></pre>
+</div>
+</div>
+<p>As expected, all three point estimators match, but the SE from the multilevel model is a little bit discrepant from the others.</p>
+<p>We can also use large-sample theory to check the multilevel modeling estimator. If the model is correctly specified, then <em>all</em> the parameters of the model should be accurately estimated if the model is fit to a very large sample of data. To check this property, we will need access to the full model output, not just the selected results returned by <code>analysis_MLM()</code>. One way to handle this is to make a small tweak to the estimation function, adding an option to control whether to return the entire model or just selected results. Here is the tweaked function:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>( dat, <span class="at">all_results =</span> <span class="cn">FALSE</span>) {</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>  M1_test <span class="ot">&lt;-</span> lmerTest<span class="sc">::</span><span class="fu">lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid), <span class="at">data =</span> dat )</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (all_results) {</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">summary</span>(M1_test))</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>  } </span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>  M1_summary <span class="ot">&lt;-</span> <span class="fu">summary</span>(M1_test)<span class="sc">$</span>coefficients</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">ATE_hat =</span> M1_summary[<span class="st">"Z"</span>,<span class="st">"Estimate"</span>], </span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">SE_hat =</span> M1_summary[<span class="st">"Z"</span>,<span class="st">"Std. Error"</span>], </span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">p_value =</span> M1_summary[<span class="st">"Z"</span>, <span class="st">"Pr(&gt;|t|)"</span>] </span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Setting <code>all_results</code> to <code>TRUE</code> will return the entire function; keeping it at the default value of <code>FALSE</code> will return the same output as the other functions. Now let’s apply the estimation function to a very large dataset, with variation in cluster sizes. We set <code>gamma_2 = 0</code> so that the estimation model is correctly specified:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( </span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">J=</span><span class="dv">5000</span>, <span class="at">n_bar =</span> <span class="dv">20</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>, <span class="at">p =</span> <span class="dv">2</span> <span class="sc">/</span> <span class="dv">3</span>, </span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">gamma_0 =</span> <span class="dv">2</span>, <span class="at">gamma_1 =</span> <span class="fl">0.30</span>, <span class="at">gamma_2 =</span> <span class="dv">0</span>,</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma2_u =</span> <span class="fl">0.4</span>, <span class="at">sigma2_e =</span> <span class="fl">0.6</span></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM</span>(dat, <span class="at">all_results =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Linear mixed model fit by REML. t-tests use Satterthwaite's
+  method [lmerModLmerTest]
+Formula: Yobs ~ 1 + Z + (1 | sid)
+   Data: dat
+
+REML criterion at convergence: 241831
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-4.5540 -0.6605  0.0009  0.6593  4.3081 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ sid      (Intercept) 0.3924   0.6264  
+ Residual             0.5984   0.7736  
+Number of obs: 98739, groups:  sid, 5000
+
+Fixed effects:
+             Estimate Std. Error        df t value Pr(&gt;|t|)    
+(Intercept) 2.005e+00  1.627e-02 4.960e+03   123.2   &lt;2e-16 ***
+Z           3.028e-01  1.992e-02 4.949e+03    15.2   &lt;2e-16 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Correlation of Fixed Effects:
+  (Intr)
+Z -0.817</code></pre>
+</div>
+</div>
+<p>The intercept and treatment effect coefficient estimates are very close to their true parameter values, as are the estimated school-level variance and student-level residual variance. This all gives some assurance that the <code>analysis_MLM()</code> function is working properly.</p>
+<p>Of course, it is important to bear in mind that these tests are only partial verifications. With the algebraic test, we have only checked that the functions seem to be working properly for scenarios with equal school sizes, but they still might have errors that only appear when school sizes vary. Likewise, <code>analysis_MLM()</code> seems to be working properly for very large datasets, but our test does not rule out the possibility of bugs that only crawl out when <span class="math inline">\(J\)</span> is small. Our large-sample test also relies on the correctness of the <code>gen_cluster_RCT()</code> function; if we had seen a discrepancy between parameters and estimates from the multilevel model, it could have been because of a problem with the data-generation function rather than with the estimation function.</p>
+<p>These limitations are typical of what can be accomplished through tests based on theoretical results, because theoretical results typically only hold under specific conditions. After all, if we had comprehensive theoretical results, we would not need to simulate anything in the first place! Nonetheless, it is good to work through such tests to the extent that relevant theory is available for the problem you are studying.</p>
+</section>
+<section id="checking-with-simulations" class="level3" data-number="7.3.3">
+<h3 data-number="7.3.3" class="anchored" data-anchor-id="checking-with-simulations"><span class="header-section-number">7.3.3</span> Checking with simulations</h3>
+<p>Checking, debugging, and revising should not be limited to when you are initially developing estimation functions. It often happens that later steps in the process of conducting a simulation will reveal problems with the code for earlier steps. For instance, once you have run the data-generating and estimation steps repeatedly, calculated performance summaries, and created some graphs of the results, you might find an unusual or anomolous pattern in the performance of an estimator. This might be a legitimate result—perhaps the estimator really does behave weirdly or not work well—or it might be due to a problem in how you implemented the estimator or data-generating process. When faced with an unusual pattern, revisit the estimation code to double check for bugs and also think further about what might lead to the anomaly. Further exploration might lead you to a deeper understanding of how a method works and perhaps even an idea for how to improve the estimator or refine the data-generating process.</p>
+<p>A good illustration of this process comes from one of Luke’s past research projects (see <span class="citation" data-cites="pashley2024improving">Pashley et al. (<a href="references.html#ref-pashley2024improving" role="doc-biblioref">2024</a>)</span>), in which he and other co-authors were working on a way to improve Instrumental Variable (IV) estimation using post-stratification. The method they studied involved grouping units based on a covariate that predicts compliance status, then calculating estimates within each group, then averaging the estimates across groups. They used simulations to see whether this method would improve the accuracy of the overall summary effect estimate. In the first simulation, the estimates were full of missing values and odd results because the estimation function failed to account for what happens in groups of observations where the number of compliers was estimated to be zero. After repairing that problem and re-running everything, the simulation results still indicated serious and unexpected bias, which turned out to be due to an error in how the estimation function implemented the step of averaging estimates across groups. After again correcting and re-running, the simulation results showed that the gains in accuracy from this new method were minimal, even when the groups were formed based on a variable that was almost perfectly predictive of compliance status. Eventually, we understood that the groups with very few compliers produced such unstable estimates that they spoiled the overall average estimate. This inspired us to revise our estimation strategy and introduce a method that dropped or down-weighted strata with few compliers, which ultimately helped us to strengthen the contribution of our work.</p>
+<p>As this experience highlights, simulations seldom follow a single, well-defined trajectory. The point of conducting simulations is to help us, as researchers, learn about estimation methods so that we can analyze real data better. Simulations can strengthen our methodological and theoretical understanding, which can then inspire ideas for better approaches which we can then test in subsequent simulations. Of course, at some point one needs to step off this merry-go-round, write up the findings, cook dinner, and clean the bathroom. But, just like many other research endeavors, simulations are often a highly iterative process.</p>
+</section>
+</section>
+<section id="sec-error-handling" class="level2" data-number="7.4">
+<h2 data-number="7.4" class="anchored" data-anchor-id="sec-error-handling"><span class="header-section-number">7.4</span> Handling errors, warnings, and other hiccups</h2>
+<p></p>
+<p>Especially when working with more advanced estimation methods, it is possible that your estimation function will fail, throw an error, or return something uninterpretable for certain input datasets. For instance, maximum likelihood estimation often involves using iterative, numerical optimization algorithms that sometimes fail to converge. This might happen rarely enough that it takes a while to even notice that it is a problem, but even quite rare things can occur when you run simulations with many thousands of repetitions. Less dire but still annoying, your estimation function might occasionally generate warnings, which can pile up if you are running many repetitions. In some cases, such warnings might also signal that the estimator produced a bad result, and it may not be clear whether we should retain this result in the estimator’s overall performance assessments. After all, the function tried to warn us that something is off!</p>
+<p>Errors and warnings in estimation functions pose two problems, one purely technical and one conceptual. On a technical level, R functions stop running if they hit an error, so we need ways to handle the errors in order to get our simulations up and running. Furthermore, warnings can clutter up the console and slow down code execution, so we may want to capture and suppress them as well. On a conceptual level, we need to decide how to use the information contained in errors and warnings, whether that be by further elaborating the estimators to address different contingencies or by evaluating the performance of the estimators in a way that appropriately accounts for these events. We consider both these problems here, and then revisit the conceptual considerations in <a href="040-Performance-criteria.html" class="quarto-xref"><span>Chapter 9</span></a>, where we discuss assessing estimator performance.</p>
+<section id="sec-capturing-errors-and-warnings" class="level3" data-number="7.4.1">
+<h3 data-number="7.4.1" class="anchored" data-anchor-id="sec-capturing-errors-and-warnings"><span class="header-section-number">7.4.1</span> Capturing errors and warnings</h3>
+<p>Some estimation functions will require complicated or stochastic calculations that can sometimes produce errors. Intermittent errors can really be annoying and time-consuming if not addressed. To protect yourself, it is good practice to anticipate potential errors, so that you can prevent them from stopping code execution and allow your simulations to keep running. We next demonstrate some techniques for error-handling using tools from the <code>purrr</code> package.</p>
+<p>For illustrative purposes, consider the following error-prone function that sometimes returns what we want, sometimes returns <code>NaN</code> due to taking the square root of a negative number, and sometimes crashes completely because <code>broken_code()</code> does not exist:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>my_complex_function <span class="ot">=</span> <span class="cf">function</span>( param ) {</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>    vals <span class="ot">=</span> <span class="fu">rnorm</span>( param, <span class="at">mean =</span> <span class="fl">0.5</span> )</span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> ( <span class="fu">sum</span>( vals ) <span class="sc">&gt;</span> <span class="dv">5</span> ) {</span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">broken_code</span>( <span class="dv">4</span> )</span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">sqrt</span>( <span class="fu">sum</span>( vals ) <span class="sc">*</span> <span class="fu">sign</span>( vals )[[<span class="dv">1</span>]] )</span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Running it a few times produces a mix of results and warnings:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">156858</span>)</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_complex_function</span>( <span class="dv">7</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] NaN</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_complex_function</span>( <span class="dv">7</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.11999</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_complex_function</span>( <span class="dv">4</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.09896136</code></pre>
+</div>
+</div>
+<p>Running it many times produces warnings, then an error:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>( <span class="dv">131</span> )</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>resu <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">20</span>, <span class="fu">my_complex_function</span>( <span class="dv">6</span> ))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-error">
+<pre><code>Error in `broken_code()`:
+! could not find function "broken_code"</code></pre>
+</div>
+</div>
+<p>We need to “trap” these warnings and errors so they do not clutter or stop our simulation. Let’s do the errors first.</p>
+<p>The <code>purrr</code> package includes a function called <code>possibly()</code> that makes it easy to trap errors:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>my_possible_function <span class="ot">&lt;-</span> <span class="fu">possibly</span>( my_complex_function, <span class="at">otherwise =</span> <span class="cn">NA</span> )</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_possible_function</span>( <span class="dv">7</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] NaN</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>rs <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">20</span>, <span class="fu">my_possible_function</span>( <span class="dv">7</span> ))</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>rs</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] 0.8653335       NaN 2.0056463       NaN        NA       NaN
+ [7]       NaN 1.0718040 1.5937092 2.0111968       NaN        NA
+[13] 1.7401242       NaN 0.9721895       NaN 2.0947465       NaN
+[19]       NaN       NaN</code></pre>
+</div>
+</div>
+<p><code>possibly()</code> is an example of a <em>functional</em> (or an <em>abverb</em> or “wrapper function”), which takes a function and returns a new function that does something slightly different. The new function has the exact same parameters as the function we put into it. The difference is the new version of the function will, if an error happens, return the value specified by the <code>otherwise</code> argument (here, <code>NA</code>), rather than stopping execution with an error. It does not silence the warnings, however.</p>
+<p>To handle warnings, the <code>quietly()</code> functional leads to results that are bundled together with any console output, warnings, and messages, rather than printing anything to the console:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>my_quiet_function <span class="ot">&lt;-</span> <span class="fu">quietly</span>( my_complex_function )</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="fu">my_quiet_function</span>( <span class="dv">1</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$result
+[1] 0.6065094
+
+$output
+[1] ""
+
+$warnings
+character(0)
+
+$messages
+character(0)</code></pre>
+</div>
+</div>
+<p>Wrapping a function with <code>quietly()</code> can be especially useful to reduce extraneous printing in a simulation, which can slow down code execution more than you might expect. However, <code>quietly()</code> does not trap errors:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>rs <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">20</span>, <span class="fu">my_quiet_function</span>( <span class="dv">7</span> ))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-error">
+<pre><code>Error in `broken_code()`:
+! could not find function "broken_code"</code></pre>
+</div>
+</div>
+<p>To handle both errors and warnings, we double-wrap the function, first with <code>possibly()</code> and then with <code>quietly()</code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>my_safe_quiet_function <span class="ot">&lt;-</span> <span class="fu">quietly</span>( <span class="fu">possibly</span>( my_complex_function, <span class="at">otherwise =</span> <span class="cn">NA</span> ) )</span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_safe_quiet_function</span>(<span class="dv">7</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$result
+[1] 1.538658
+
+$output
+[1] ""
+
+$warnings
+character(0)
+
+$messages
+character(0)</code></pre>
+</div>
+</div>
+<p>To see how this works in practice, we will adapt our <code>analysis_MLM()</code> function, which makes use of <code>lmer()</code> for fitting a multilevel model. Currently, the estimation function sometimes prints messages to the console:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">101012</span>)  <span class="co"># (hand-picked to show a warning.)</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( <span class="at">J =</span> <span class="dv">50</span>, <span class="at">n_bar =</span> <span class="dv">100</span>, <span class="at">sigma2_u =</span> <span class="dv">0</span> )</span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">analysis_MLM</span>(dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Wrapping <code>lmer()</code> with <code>quietly()</code> makes it possible to catch such output and store it along with other results, as in the following:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a>quiet_safe_lmer <span class="ot">&lt;-</span> <span class="fu">quietly</span>( <span class="fu">possibly</span>( lmerTest<span class="sc">::</span>lmer, <span class="at">otherwise =</span> <span class="cn">NULL</span> ) )</span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>M1 <span class="ot">&lt;-</span> <span class="fu">quiet_safe_lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>sid), <span class="at">data=</span>dat )</span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>M1</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$result
+Linear mixed model fit by REML ['lmerModLmerTest']
+Formula: ..1
+   Data: ..2
+REML criterion at convergence: 14026.44
+Random effects:
+ Groups   Name        Std.Dev.
+ sid      (Intercept) 0.0000  
+ Residual             0.9828  
+Number of obs: 5000, groups:  sid, 50
+Fixed Effects:
+(Intercept)            Z  
+  -0.013930    -0.008804  
+optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings 
+
+$output
+[1] ""
+
+$warnings
+character(0)
+
+$messages
+[1] "boundary (singular) fit: see help('isSingular')\n"</code></pre>
+</div>
+</div>
+<p>In our estimation function, we replace the original <code>lmer()</code> call with our quiet-and-safe version, <code>quiet_safe_lmer()</code>. We then pick apart the pieces of its output to return a tidy dataset of results. (Separately, we also add in a generally preferred optimizer, bobyqa, to try and avoid the warnings and errors in the first place.) The resulting function is:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>analysis_MLM_safe <span class="ot">&lt;-</span> <span class="cf">function</span>( dat ) {</span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>  M1 <span class="ot">&lt;-</span> <span class="fu">quiet_safe_lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid),</span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a>                         <span class="at">data=</span>dat,</span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a>                         <span class="at">control =</span> lme4<span class="sc">::</span><span class="fu">lmerControl</span>(</span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a>                           <span class="at">optimizer =</span> <span class="st">"bobyqa"</span></span>
+<span id="cb62-7"><a href="#cb62-7" aria-hidden="true" tabindex="-1"></a>                         ) )</span>
+<span id="cb62-8"><a href="#cb62-8" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb62-9"><a href="#cb62-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> ( <span class="fu">is.null</span>( M1<span class="sc">$</span>result ) ) {</span>
+<span id="cb62-10"><a href="#cb62-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># we had an error!</span></span>
+<span id="cb62-11"><a href="#cb62-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( <span class="at">ATE_hat =</span> <span class="cn">NA</span>, <span class="at">SE_hat =</span> <span class="cn">NA</span>, <span class="at">p_value =</span> <span class="cn">NA</span>,</span>
+<span id="cb62-12"><a href="#cb62-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">message =</span> M1<span class="sc">$</span>message,</span>
+<span id="cb62-13"><a href="#cb62-13" aria-hidden="true" tabindex="-1"></a>            <span class="at">warning =</span> M1<span class="sc">$</span>warning,</span>
+<span id="cb62-14"><a href="#cb62-14" aria-hidden="true" tabindex="-1"></a>            <span class="at">error =</span> <span class="cn">TRUE</span> )</span>
+<span id="cb62-15"><a href="#cb62-15" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb62-16"><a href="#cb62-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># no error!</span></span>
+<span id="cb62-17"><a href="#cb62-17" aria-hidden="true" tabindex="-1"></a>    sum <span class="ot">&lt;-</span> <span class="fu">summary</span>( M1<span class="sc">$</span>result )</span>
+<span id="cb62-18"><a href="#cb62-18" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb62-19"><a href="#cb62-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( </span>
+<span id="cb62-20"><a href="#cb62-20" aria-hidden="true" tabindex="-1"></a>      <span class="at">ATE_hat =</span> sum<span class="sc">$</span>coefficients[<span class="st">"Z"</span>,<span class="st">"Estimate"</span>], </span>
+<span id="cb62-21"><a href="#cb62-21" aria-hidden="true" tabindex="-1"></a>      <span class="at">SE_hat =</span> sum<span class="sc">$</span>coefficients[<span class="st">"Z"</span>,<span class="st">"Std. Error"</span>], </span>
+<span id="cb62-22"><a href="#cb62-22" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_value =</span> sum<span class="sc">$</span>coefficients[<span class="st">"Z"</span>, <span class="st">"Pr(&gt;|t|)"</span>],</span>
+<span id="cb62-23"><a href="#cb62-23" aria-hidden="true" tabindex="-1"></a>      <span class="at">message =</span> <span class="fu">length</span>( M1<span class="sc">$</span>messages ) <span class="sc">&gt;</span> <span class="dv">0</span>,</span>
+<span id="cb62-24"><a href="#cb62-24" aria-hidden="true" tabindex="-1"></a>      <span class="at">warning =</span> <span class="fu">length</span>( M1<span class="sc">$</span>warning ) <span class="sc">&gt;</span> <span class="dv">0</span>,</span>
+<span id="cb62-25"><a href="#cb62-25" aria-hidden="true" tabindex="-1"></a>      <span class="at">error =</span> <span class="cn">FALSE</span></span>
+<span id="cb62-26"><a href="#cb62-26" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb62-27"><a href="#cb62-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb62-28"><a href="#cb62-28" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Our improved function runs without extraneous messages and returns the estimation results along with any diagnostic information from messages or warnings:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">analysis_MLM_safe</span>(dat)</span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>mod</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 6
+   ATE_hat SE_hat p_value message warning error
+     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt; &lt;lgl&gt;   &lt;lgl&gt;   &lt;lgl&gt;
+1 -0.00880 0.0278   0.751 TRUE    FALSE   FALSE</code></pre>
+</div>
+</div>
+<p>Recall that <code>analysis_MLM()</code> was one part of our method that ran all three estimators (MLM, OLS, and Agg) on our data. If we do not want to protect the other methods (perhaps because they do not seem to fail) we can write a “quiet” version of our <code>analyze_data()</code> function as so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb65"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a>quiet_analyze_data <span class="ot">&lt;-</span> <span class="cf">function</span>(dat,</span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a>                               <span class="at">CR_se_type =</span> <span class="st">"CR2"</span>,</span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a>                               <span class="at">agg_se_type =</span> <span class="st">"HC2"</span>) {</span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># MLM</span></span>
+<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">=</span> <span class="fu">Sys.time</span>()</span>
+<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a>  MLM <span class="ot">&lt;-</span> <span class="fu">analysis_MLM_safe</span>(dat)</span>
+<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a>  MLM<span class="sc">$</span>seconds <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">Sys.time</span>() <span class="sc">-</span> a, <span class="at">units =</span> <span class="st">"secs"</span>)</span>
+<span id="cb65-9"><a href="#cb65-9" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb65-10"><a href="#cb65-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># OLS</span></span>
+<span id="cb65-11"><a href="#cb65-11" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">=</span> <span class="fu">Sys.time</span>()</span>
+<span id="cb65-12"><a href="#cb65-12" aria-hidden="true" tabindex="-1"></a>  LR <span class="ot">&lt;-</span> <span class="fu">analysis_OLS</span>(dat, <span class="at">se_type =</span> CR_se_type)</span>
+<span id="cb65-13"><a href="#cb65-13" aria-hidden="true" tabindex="-1"></a>  LR<span class="sc">$</span>seconds <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">Sys.time</span>() <span class="sc">-</span> a, <span class="at">units =</span> <span class="st">"secs"</span>)</span>
+<span id="cb65-14"><a href="#cb65-14" aria-hidden="true" tabindex="-1"></a>  LR<span class="sc">$</span>message <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb65-15"><a href="#cb65-15" aria-hidden="true" tabindex="-1"></a>  LR<span class="sc">$</span>warning <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb65-16"><a href="#cb65-16" aria-hidden="true" tabindex="-1"></a>  LR<span class="sc">$</span>error <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb65-17"><a href="#cb65-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb65-18"><a href="#cb65-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Aggregated</span></span>
+<span id="cb65-19"><a href="#cb65-19" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">=</span> <span class="fu">Sys.time</span>()</span>
+<span id="cb65-20"><a href="#cb65-20" aria-hidden="true" tabindex="-1"></a>  Agg <span class="ot">&lt;-</span> <span class="fu">analysis_agg</span>(dat, <span class="at">se_type =</span> agg_se_type)</span>
+<span id="cb65-21"><a href="#cb65-21" aria-hidden="true" tabindex="-1"></a>  Agg<span class="sc">$</span>seconds <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">Sys.time</span>() <span class="sc">-</span> a, <span class="at">units =</span> <span class="st">"secs"</span>)</span>
+<span id="cb65-22"><a href="#cb65-22" aria-hidden="true" tabindex="-1"></a>  Agg<span class="sc">$</span>message <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb65-23"><a href="#cb65-23" aria-hidden="true" tabindex="-1"></a>  Agg<span class="sc">$</span>warning <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb65-24"><a href="#cb65-24" aria-hidden="true" tabindex="-1"></a>  Agg<span class="sc">$</span>error <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb65-25"><a href="#cb65-25" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb65-26"><a href="#cb65-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(<span class="at">MLM =</span> MLM, <span class="at">LR =</span> LR, <span class="at">Agg =</span> Agg, <span class="at">.id =</span> <span class="st">"method"</span>)</span>
+<span id="cb65-27"><a href="#cb65-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>For the other methods we manually set the flags for messages and warnings to 0, and then stack to get our final results. We also calculate run time for each method, which can be useful for determining where our simulation might be especially slow. See <a href="200-coding-tidbits.html#sec-profiling-code" class="quarto-xref"><span>Section A.3</span></a> for more on timing.</p>
+<p>Here is what our method now returns:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="fu">quiet_analyze_data</span>(dat) <span class="sc">%&gt;%</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>( <span class="at">digits =</span> <span class="dv">3</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 8
+  method  ATE_hat SE_hat p_value message warning error seconds
+  &lt;chr&gt;     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+1 MLM    -0.00880 0.0278   0.751       1       0     0 0.340  
+2 LR     -0.00880 0.0257   0.733       0       0     0 0.0533 
+3 Agg    -0.00880 0.0257   0.733       0       0     0 0.00814</code></pre>
+</div>
+</div>
+<p>Storing error and warning information will let us evaluate what proportion of the time there was a concern, run additional analyses on the subset of replications where there was no such warning, or even modify the estimator to take the diagnostics into account. We have solved the technical problem—our code will run and give results—but not the conceptual one: what does it mean when our estimator gives an NA or a convergence warning with a nominal answer? How do we decide how good our estimator is when it does this?</p>
+</section>
+<section id="sec-adapting-for-errors" class="level3" data-number="7.4.2">
+<h3 data-number="7.4.2" class="anchored" data-anchor-id="sec-adapting-for-errors"><span class="header-section-number">7.4.2</span> Estimator processes that anticipate errors and warnings</h3>
+<p>So far, we have seen techniques for handling technical hiccups that occur when data analysis procedures do not always produce results. But how do we account for the absence of results in a simulation? In <a href="040-Performance-criteria.html" class="quarto-xref"><span>Chapter 9</span></a>, we will delve into the conceptual issues with summarizing the performance of methods that do not always provide an answer. However, one of the best solutions to such problems still concerns the formulation of estimation processes, and so we introduce it here. That solution is to <em>re-define the estimation process</em> to include contingencies for handling a lack of results.</p>
+<p>Consider a data analyst who was planning to apply a fancy statistical model to their data, but then finds that the model does not converge. What would that analyst do in practice (besides cussing and taking a snack break)? Rather than giving up entirely, they would probably think of an alternative analysis and attempt to apply it, perhaps by simplifying the model in some way. To the extent that we can anticipate such possibilities, we can build these error-contingent alternative analyses into our estimation function. In short, we can implement an <em>estimation procedure</em> or a <em>data-analysis procedure</em> rather than just an <em>estimator</em>. In the real world, an overall analysis strategy may involve multiple steps in a branching structure. We can try to emulate such strategies in our code, and then evaluate how well that multiple-step approach works using simulations.</p>
+<p>To illustrate, consider an error (a not-particularly-subtle one) that could crop up in the cluster-randomized trial example when clusters are very small:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">65842</span>)</span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>tiny_dat <span class="ot">&lt;-</span> <span class="fu">gen_cluster_RCT</span>( <span class="at">J =</span> <span class="dv">10</span>, <span class="at">n_bar =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)</span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM</span>(tiny_dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-error">
+<pre><code>Error:
+! number of levels of each grouping factor must be &lt; number of observations (problems: sid)</code></pre>
+</div>
+</div>
+<p>The method failed! The error occured because all 10 simulated schools happened to include a single student each, making it impossible to estimate a random-intercepts multilevel model:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tiny_dat<span class="sc">$</span>sid)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+ 1  2  3  4  5  6  7  8  9 10 
+ 1  1  1  1  1  1  1  1  1  1 </code></pre>
+</div>
+</div>
+<p>A natural fall-back analysis here would be to estimate an ordinary least squares regression analysis.</p>
+<p>Suppose that our imaginary analyst is not especially into nuance, and so will fall back onto ordinary least squares whenever the multilevel model produces an error. We can express this logic in our estimation function by first catching the error thrown by <code>lmer()</code> and then running an OLS regression in the event an error is thrown:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb72"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a>analysis_MLM_contingent <span class="ot">&lt;-</span> <span class="cf">function</span>( dat ) {</span>
+<span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb72-3"><a href="#cb72-3" aria-hidden="true" tabindex="-1"></a>  M1 <span class="ot">&lt;-</span> <span class="fu">quiet_safe_lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid), <span class="at">data=</span>dat )</span>
+<span id="cb72-4"><a href="#cb72-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb72-5"><a href="#cb72-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(M1<span class="sc">$</span>result)) { </span>
+<span id="cb72-6"><a href="#cb72-6" aria-hidden="true" tabindex="-1"></a>    sum <span class="ot">&lt;-</span> <span class="fu">summary</span>( M1<span class="sc">$</span>result )</span>
+<span id="cb72-7"><a href="#cb72-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( </span>
+<span id="cb72-8"><a href="#cb72-8" aria-hidden="true" tabindex="-1"></a>      <span class="at">ATE_hat =</span> sum<span class="sc">$</span>coefficients[<span class="st">"Z"</span>,<span class="st">"Estimate"</span>], </span>
+<span id="cb72-9"><a href="#cb72-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">SE_hat =</span> sum<span class="sc">$</span>coefficients[<span class="st">"Z"</span>,<span class="st">"Std. Error"</span>], </span>
+<span id="cb72-10"><a href="#cb72-10" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_value =</span> sum<span class="sc">$</span>coefficients[<span class="st">"Z"</span>, <span class="st">"Pr(&gt;|t|)"</span>] )</span>
+<span id="cb72-11"><a href="#cb72-11" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb72-12"><a href="#cb72-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># If lmer() errors, fall back on OLS</span></span>
+<span id="cb72-13"><a href="#cb72-13" aria-hidden="true" tabindex="-1"></a>    M_ols <span class="ot">&lt;-</span> <span class="fu">summary</span>(<span class="fu">lm</span>(Yobs <span class="sc">~</span> Z, <span class="at">data =</span> dat))</span>
+<span id="cb72-14"><a href="#cb72-14" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">tibble</span>( </span>
+<span id="cb72-15"><a href="#cb72-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">ATE_hat =</span> M_ols<span class="sc">$</span>coefficients[<span class="st">"Z"</span>,<span class="st">"Estimate"</span>], </span>
+<span id="cb72-16"><a href="#cb72-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">SE_hat =</span> M_ols<span class="sc">$</span>coefficients[<span class="st">"Z"</span>, <span class="st">"Std. Error"</span>], </span>
+<span id="cb72-17"><a href="#cb72-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">p_value =</span> M_ols<span class="sc">$</span>coefficients[<span class="st">"Z"</span>,<span class="st">"Pr(&gt;|t|)"</span>] )</span>
+<span id="cb72-18"><a href="#cb72-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb72-19"><a href="#cb72-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb72-20"><a href="#cb72-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Store original messages, warnings, errors  </span></span>
+<span id="cb72-21"><a href="#cb72-21" aria-hidden="true" tabindex="-1"></a>  res<span class="sc">$</span>message <span class="ot">&lt;-</span> <span class="fu">ifelse</span>( <span class="fu">length</span>( M1<span class="sc">$</span>message ) <span class="sc">&gt;</span> <span class="dv">0</span>, M1<span class="sc">$</span>message, <span class="cn">NA_character_</span> )</span>
+<span id="cb72-22"><a href="#cb72-22" aria-hidden="true" tabindex="-1"></a>  res<span class="sc">$</span>warning <span class="ot">&lt;-</span> <span class="fu">ifelse</span>( <span class="fu">length</span>( M1<span class="sc">$</span>warning ) <span class="sc">&gt;</span> <span class="dv">0</span>, M1<span class="sc">$</span>warning, <span class="cn">NA_character_</span> )</span>
+<span id="cb72-23"><a href="#cb72-23" aria-hidden="true" tabindex="-1"></a>  res<span class="sc">$</span>error <span class="ot">&lt;-</span> <span class="fu">is.null</span>( M1<span class="sc">$</span>result )</span>
+<span id="cb72-24"><a href="#cb72-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb72-25"><a href="#cb72-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(res)</span>
+<span id="cb72-26"><a href="#cb72-26" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We still store the messages, warnings, and errors from the initial <code>lmer()</code> fit so that we can keep track of how often errors occur. The function now returns a treatment effect estimate even if <code>lmer()</code> errors out:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb73"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM_contingent</span>(tiny_dat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 6
+  ATE_hat SE_hat p_value message warning error
+    &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;   &lt;lgl&gt;
+1   0.400  0.603   0.525 &lt;NA&gt;    &lt;NA&gt;    TRUE </code></pre>
+</div>
+</div>
+<p>Of course, we can easily anticipate the conditions under which this particular error will occur: all we need to do is check whether all the clusters are single observations. Because it is easily anticipated, a better strategy for handling this error would be to check <em>before</em> fitting the multilevel model and proceeding accordingly in the event that the clusters are all singletons. <a href="#exr-contingent-estimator-processing" class="quarto-xref">Exercise&nbsp;<span>7.5</span></a> asks you to implement this approach and further refine this contingent analysis strategy.</p>
+<p>Adapting estimation functions to address errors can be an effective—and often very interesting—strategy for studying the performance of estimation procedures. Rather than studying the performance of a data-analysis method that is only sometimes well-defined, we shift to studying a stylized cognitive model for the analyst’s decision-making process, one which handles contingencies that might crop up whether analyzing simulated data or real empirical data. Of course, studying such a model is only interesting to the extent that the implemented decision-making process is a plausible representation of what an analyst might actually do in practice.</p>
+<p>The adaptive estimation approach does lead to more complex estimation functions, which entail implementing multiple estimation methods and a set of decision rules for applying them. Often, the set of contingencies that need to be handled will not be immediately obvious, so you may find that you need to build and refine the decision rules as you learn more about how they work. Running an estimator over multiple, simulated datasets is an excellent (if aggravating!) way to identify errors and edge cases. We turn to procedures for doing so in <a href="035-running-simulation.html" class="quarto-xref"><span>Chapter 8</span></a>.</p>
+</section>
+<section id="the-safely-option" class="level3" data-number="7.4.3">
+<h3 data-number="7.4.3" class="anchored" data-anchor-id="the-safely-option"><span class="header-section-number">7.4.3</span> The <code>safely()</code> option</h3>
+<p>There is one final <code>purrr</code> option, <code>safely()</code>, which traps the full error message, instead of just replacing the output with a fixed value as <code>possibly()</code> does. <code>safely()</code> returns a list with two entries: the original result of the original function (or some fixed value if there was an error), and the error message (or NULL if there was no error).</p>
+<p>To use it, we feed our function into <code>safely()</code> to create a new version:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a>my_safe_function <span class="ot">&lt;-</span> <span class="fu">safely</span>( my_complex_function, <span class="at">otherwise =</span> <span class="cn">NA</span> )</span>
+<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_safe_function</span>( <span class="dv">7</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$result
+[1] 1.277916
+
+$error
+NULL</code></pre>
+</div>
+</div>
+<p>Just as with <code>possibly()</code>, we include <code>otherwise = NA</code> to set a return value if there is an error.</p>
+<p>We can use the safe function repeatedly and it will always return a result:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a>resu <span class="ot">&lt;-</span> <span class="fu">replicate</span>(<span class="dv">20</span>, <span class="fu">my_safe_function</span>( <span class="dv">7</span> ), <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We still get warnings, but any errors are trapped so the function does not crash.</p>
+<p>We end up with a 20-entry list, with each element consisting of a pair of the result and error message:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb78"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>( resu )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 20</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb80"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a>resu[[<span class="dv">3</span>]]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$result
+[1] NaN
+
+$error
+NULL</code></pre>
+</div>
+</div>
+<p>We can massage our data into a format that is easier to parse:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb82"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a>resu <span class="ot">&lt;-</span> <span class="fu">transpose</span>( resu )</span>
+<span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a><span class="fu">unlist</span>(resu<span class="sc">$</span>result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1]        NA        NA       NaN       NaN        NA 1.1766144
+ [7]        NA 1.6221953        NA       NaN        NA 1.6086350
+[13]       NaN 1.5356493        NA 1.1105727        NA       NaN
+[19] 1.1576487 0.8228205</code></pre>
+</div>
+</div>
+<p>The <code>transpose()</code> function takes a list of lists, and reorganizes them to give you a list of all the first elements, a list of all the second elements, etc. <code>transpose()</code> is very powerful for wrangling data, because then we can make a tibble with list columns as so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb84"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a>tb <span class="ot">&lt;-</span> <span class="fu">tibble</span>( <span class="at">result =</span> <span class="fu">unlist</span>( resu<span class="sc">$</span>result ), </span>
+<span id="cb84-2"><a href="#cb84-2" aria-hidden="true" tabindex="-1"></a>              <span class="at">error =</span> resu<span class="sc">$</span>error )</span>
+<span id="cb84-3"><a href="#cb84-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>( tb, <span class="at">n =</span> <span class="dv">4</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 20 × 2
+  result error     
+   &lt;dbl&gt; &lt;list&gt;    
+1     NA &lt;smplErrr&gt;
+2     NA &lt;smplErrr&gt;
+3    NaN &lt;NULL&gt;    
+4    NaN &lt;NULL&gt;    
+# ℹ 16 more rows</code></pre>
+</div>
+</div>
+<p>We now have our results all organized, and we can see which iterations produced errors.</p>
+<p>Unfortunately, to use <code>safely()</code> and <code>quietly()</code> together, we get a bit of a mess. Extending our cluster RCT example, we have:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb86"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a>quiet_safe_lmer <span class="ot">&lt;-</span> <span class="fu">quietly</span>( <span class="fu">safely</span>( lmerTest<span class="sc">::</span>lmer, <span class="at">otherwise=</span><span class="cn">NULL</span> ) )</span>
+<span id="cb86-2"><a href="#cb86-2" aria-hidden="true" tabindex="-1"></a>M1 <span class="ot">&lt;-</span> <span class="fu">quiet_safe_lmer</span>( Yobs <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> sid), <span class="at">data =</span> dat )</span>
+<span id="cb86-3"><a href="#cb86-3" aria-hidden="true" tabindex="-1"></a>M1</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$result
+$result$result
+Linear mixed model fit by REML ['lmerModLmerTest']
+Formula: ..1
+   Data: ..2
+REML criterion at convergence: 14026.44
+Random effects:
+ Groups   Name        Std.Dev.
+ sid      (Intercept) 0.0000  
+ Residual             0.9828  
+Number of obs: 5000, groups:  sid, 50
+Fixed Effects:
+(Intercept)            Z  
+  -0.013930    -0.008804  
+optimizer (nloptwrap) convergence code: 0 (OK) ; 0 optimizer warnings; 1 lme4 warnings 
+
+$result$error
+NULL
+
+
+$output
+[1] ""
+
+$warnings
+character(0)
+
+$messages
+[1] "boundary (singular) fit: see help('isSingular')\n"</code></pre>
+</div>
+</div>
+<p>The resulting object has the estimation results buried inside it. Even though the result is a bit of a mess, this structure provides all the pieces that we need, including any errors, warnings, and other output.</p>
+<p>We can then carefully unpack what we get back in our estimation function, as so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> ( <span class="fu">is.null</span>( M1<span class="sc">$</span>result<span class="sc">$</span>result ) ) {</span>
+<span id="cb88-2"><a href="#cb88-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># we had an error!</span></span>
+<span id="cb88-3"><a href="#cb88-3" aria-hidden="true" tabindex="-1"></a>  error <span class="ot">=</span> M1<span class="sc">$</span>result<span class="sc">$</span>error</span>
+<span id="cb88-4"><a href="#cb88-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb88-5"><a href="#cb88-5" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb88-6"><a href="#cb88-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># We did not.</span></span>
+<span id="cb88-7"><a href="#cb88-7" aria-hidden="true" tabindex="-1"></a>  error <span class="ot">=</span> <span class="cn">NULL</span></span>
+<span id="cb88-8"><a href="#cb88-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Now plug in the same code as above</span></span>
+<span id="cb88-9"><a href="#cb88-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb88-10"><a href="#cb88-10" aria-hidden="true" tabindex="-1"></a><span class="co"># etc.</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Fortunately, once we have written all this code, we can tuck it inside our estimation function, and then forget about it. Once written, applying the function will produce a tidy table of results that we can easily analyze.</p>
+</section>
+</section>
+<section id="exercises" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="exercises">Exercises</h2>
+<div id="exr-BFFs-forever" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.1 (More Heteroskedastic ANOVA)</strong></span> In the classic simulation by <span class="citation" data-cites="brown1974SmallSampleBehavior">Brown and Forsythe (<a href="references.html#ref-brown1974SmallSampleBehavior" role="doc-biblioref">1974</a>)</span>, they not only looked at the performance of the homoskedastic ANOVA-F test and Welch’s heteroskedastic-F test, they also proposed their own new hypothesis testing procedure.</p>
+<ol type="1">
+<li><p>This exercise continues the running example introduces in <a href="015-Case-study-ANOVA.html#sec-ANOVA-hypothesis-testing-function" class="quarto-xref"><span>Section 5.2</span></a>. Write a function that implements the Brown-Forsythe F* test (the BFF* test!) as described on p.&nbsp;130 of <span class="citation" data-cites="brown1974SmallSampleBehavior">Brown and Forsythe (<a href="references.html#ref-brown1974SmallSampleBehavior" role="doc-biblioref">1974</a>)</span>, using the following code skeleton:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb89"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb89-1"><a href="#cb89-1" aria-hidden="true" tabindex="-1"></a>BF_F <span class="ot">&lt;-</span> <span class="cf">function</span>( data ) {</span>
+<span id="cb89-2"><a href="#cb89-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb89-3"><a href="#cb89-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># fill in the guts here</span></span>
+<span id="cb89-4"><a href="#cb89-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb89-5"><a href="#cb89-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(pval)</span>
+<span id="cb89-6"><a href="#cb89-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Run the following code to check that your function produces a result:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb90"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a>sim_data <span class="ot">&lt;-</span> <span class="fu">generate_ANOVA_data</span>(</span>
+<span id="cb90-2"><a href="#cb90-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">mu =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">6</span>), </span>
+<span id="cb90-3"><a href="#cb90-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma_sq =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">1</span>),</span>
+<span id="cb90-4"><a href="#cb90-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sample_size =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>, <span class="dv">2</span>, <span class="dv">4</span>)</span>
+<span id="cb90-5"><a href="#cb90-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb90-6"><a href="#cb90-6" aria-hidden="true" tabindex="-1"></a><span class="fu">BF_F</span>( sim_data )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div></li>
+<li><p>Try calling your <code>BF_F</code> function on a variety of datasets of different sizes and shapes, to make sure it works. What kinds of datasets should you test out?</p></li>
+<li><p>Add the BFF* test into the output of <code>ANOVA_Welch_F()</code> (see <a href="015-Case-study-ANOVA.html#sec-ANOVA-hypothesis-testing-function" class="quarto-xref"><span>Section 5.2</span></a>) by calling your <code>BF_F()</code> function inside the body of <code>ANOVA_Welch_F()</code>.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p></li>
+<li><p>The <a href="https://cran.r-project.org/package=onewaytests"><code>onewaytests</code> package</a> implements a variety of different hypothesis testing procedures for one-way ANOVA. Validate your <code>Welch_ANOVA_F()</code> function by comparing the results to the output of the relevant functions from <code>onewaytests</code>.</p></li>
+</ol>
+</div>
+<div id="exr-contingent-testing" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.2 (Contingent testing)</strong></span> In the one-way ANOVA problem, one approach that an analyst might think to take is to conduct a preliminary significance test for heterogeneity of variances (such as Levene’s test or Bartlett’s test), and then report the <span class="math inline">\(p\)</span>-value from the homoskedastic ANOVA F test if variance heterogeneity is not detected but the <span class="math inline">\(p\)</span>-value from the BFF* test if variance heteogeneity is detected. Modify the <code>Welch_ANOVA_F()</code> function to return the <span class="math inline">\(p\)</span>-value from this contingent BFF* test in addition to the <span class="math inline">\(p\)</span>-values from the (non-contingent) ANOVA-F, Welch, and BFF* tests. Include an input option that allows the user to control the <span class="math inline">\(\alpha\)</span> level of the preliminary test for heterogeneity of variances, as in the following skeleton.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb91"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb91-1"><a href="#cb91-1" aria-hidden="true" tabindex="-1"></a>Welch_ANOVA_F <span class="ot">&lt;-</span> <span class="cf">function</span>( data , <span class="at">pre_alpha =</span> .<span class="dv">05</span>) {</span>
+<span id="cb91-2"><a href="#cb91-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># preliminary test for variance heterogeneity</span></span>
+<span id="cb91-3"><a href="#cb91-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># compute non-contingent F tests for group differences</span></span>
+<span id="cb91-4"><a href="#cb91-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># compute contingent test</span></span>
+<span id="cb91-5"><a href="#cb91-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># compile results</span></span>
+<span id="cb91-6"><a href="#cb91-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(result)</span>
+<span id="cb91-7"><a href="#cb91-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+<div id="exr-cross-check-CRT-estimators" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.3 (Check the cluster-RCT functions)</strong></span> <a href="#sec-multiple-estimation-procedures" class="quarto-xref"><span>Section 7.2</span></a> presented functions implementing several different strategies for estimating an average treatment effect from a cluster-randomized trial. Write some code to validate these functions by comparing their output to the results of other tools for doing the same calculation. Use one or more datasets simulated with <code>gen_cluster_RCT()</code>. For each of these tests, you will need to figure out the appropriate syntax by reading the package documentation.</p>
+<ol type="1">
+<li><p>For <code>analysis_MLM()</code>, check the output by fitting the same model using <code>lme()</code> from the <code>nlme()</code> package or <code>glmmTMB()</code> from the package of the same name.</p></li>
+<li><p>For <code>analysis_OLS()</code>, check the output by fitting the linear model using the base R function <code>lm()</code>, then computing standard errors using <code>vcovCL()</code> from the <code>sandwich</code> package. Also compare the output to the results of feeding the fitted model through <code>coef_test()</code> from the <code>clubSandwich</code> package.</p></li>
+<li><p>For <code>analysis_agg()</code>, check the output by aggregating the data to the school-level, fitting the linear model using <code>lm()</code>, and computing standard errors using <code>vcovHC()</code> from the <code>sandwich</code> package.</p></li>
+</ol>
+</div>
+<div id="exr-CRT-ANCOVA-estimators" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.4 (Extending the cluster-RCT functions)</strong></span> <a href="020-Data-generating-models.html#exr-cluster-RCT-baseline" class="quarto-xref">Exercise&nbsp;<span>6.10</span></a> from <a href="020-Data-generating-models.html" class="quarto-xref"><span>Chapter 6</span></a> asked you to extend the data-generating function for the cluster-randomized trial to include generating a student-level covariate, <span class="math inline">\(X\)</span>, that is predictive of the outcome. Use your modified function to generate a dataset.</p>
+<ol type="1">
+<li><p>Modify the estimation functions from <a href="#sec-multiple-estimation-procedures" class="quarto-xref"><span>Section 7.2</span></a> to use models that include the covariate as a predictor. Your function should return three estimates: an MLM version (<code>analysis_MLM_cov()</code>), an aggregated version (<code>analysis_agg_cov()</code>), and an OLS version (<code>analysis_OLS_cov()</code>. Wrap all three in a final function <code>analyze_data_cov()</code> that applies all three methods to the same dataset and returns a tidy dataframe of results. Test that your functions work as expected.</p></li>
+<li><p>Further extend the functions to include an input argument for the set of predictors to be included in the model, as in the following skeleton for the multi-level model estimator:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb92"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb92-1"><a href="#cb92-1" aria-hidden="true" tabindex="-1"></a>analysis_MLM <span class="ot">&lt;-</span> <span class="cf">function</span>(dat, <span class="at">predictors =</span> <span class="st">"W"</span>) {</span>
+<span id="cb92-2"><a href="#cb92-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb92-3"><a href="#cb92-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb92-4"><a href="#cb92-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb92-5"><a href="#cb92-5" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat )</span>
+<span id="cb92-6"><a href="#cb92-6" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat, <span class="at">predictors =</span> <span class="fu">c</span>(<span class="st">"W"</span>,<span class="st">"X"</span>))</span>
+<span id="cb92-7"><a href="#cb92-7" aria-hidden="true" tabindex="-1"></a><span class="fu">analysis_MLM</span>( dat, <span class="at">predictors =</span> <span class="fu">c</span>(<span class="st">"W"</span>,<span class="st">"X"</span>, <span class="st">"X:W"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Hint: Check out the <code>reformulate()</code> function, which makes it easy to build formulas for different sets of predictors. Alternately, you could instead design the function to take a formula that defines the set of predictors, as in <code>predictors = ~ W + X + W:X</code>. With this approach, you will need to wrangle the formula into a useable form.</p></li>
+</ol>
+</div>
+<div id="exr-contingent-estimator-processing" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.5 (Contingent estimator processing)</strong></span> In <a href="#sec-adapting-for-errors" class="quarto-xref"><span>Section 7.4.2</span></a> we developed a version of <code>analysis_MLM()</code> that fell back on OLS regression in the event that <code>lmer()</code> produced any error. The implementation that we demonstrated is not especially smart. For one, it does not anticipate that the error will occur. For another, if we are using this function as one of several estimation strategies, it will require fitting the OLS regression multiple times. Can you fix these problems?</p>
+<ol type="1">
+<li><p>Revise <code>analysis_MLM_contingent()</code> so that it checks whether all clusters are single observations <em>before</em> fitting the multilevel model. If all clusters are singletons, skip the model-fitting step, return an <code>NA</code> values for the point estimator, standard error, and p-value, and return an informative message in the <code>error</code> variable. Test that the function works as expected.</p></li>
+<li><p>Revise <code>analyze_data()</code> to use your new version of <code>analysis_MLM_contingent()</code>. The revised function will now sometimes return <code>NA</code> values for the <code>MLM</code> results. To implement the strategy of falling-back on OLS regression, add some code in <code>analyze_data()</code> that replaces any <code>NA</code> values for the MLM results with corresponding results of <code>analysis_OLS()</code>. Test that the function is working as expected (in this case, if the MLM fails, the final result would have the same estimates for MLM and OLS as two separate rows). Compared to having <code>analysis_MLM_contingent()</code> run OLS internally, writing code this way improves efficiency because we do not fit the OLS regression multiple times on the same data; such an improvement could make a simulation faster to run.</p></li>
+</ol>
+</div>
+<div id="exr-IRT-3PL-estimation" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.6 (Estimating 3-parameter item response theory models)</strong></span> <a href="020-Data-generating-models.html#exr-IRT-DGP-parameters" class="quarto-xref">Exercise&nbsp;<span>6.11</span></a> asked you to write a data-generating function for the 3-parameter IRT model described in described in <a href="020-Data-generating-models.html#sec-three-parameter-IRT" class="quarto-xref"><span>Section 6.7</span></a>. Use your function to generate a large dataset. Using functions from the <a href="https://cran.r-project.org/package=ltm"><code>{ltm}</code></a>, <a href="https://cran.r-project.org/package=mirt"><code>{mirt}</code></a>, or <a href="https://cran.r-project.org/package=TAM"><code>{TAM}</code></a> packages, <em>estimate</em> the parameters of the 3-parameter IRT model based on the simulated dataset.</p>
+<ol type="1">
+<li><p>Write a function to <em>estimate</em> a 3-parameter IRT model and return a dataset containing estimates of the item characteristics <span class="math inline">\((\alpha_m, \beta_m, \gamma_m)\)</span>.</p></li>
+<li><p>Add an option to the function to allow the user to specify a shared known value <code>gamma</code> for the <span class="math inline">\(\gamma_m\)</span>. Your function would then assume all items had that value if <code>gamma</code> is not <code>NULL</code>, but would estimate the <span class="math inline">\(\gamma_m\)</span> if <code>gamma = NULL</code>.</p></li>
+<li><p>Create a graphic showing how the item parameter estimates compare to the true item characteristics for a single run of your DGP, with <span class="math inline">\(M=20\)</span> items and <span class="math inline">\(N=1000\)</span> respondents.</p></li>
+<li><p>Write a function or set of functions that use the <a href="https://cran.r-project.org/package=mirt"><code>{mirt}</code></a> package to estimate and return the student-level ability estimates <span class="math inline">\(\theta_1,...,\theta_N\)</span> along with their standard errors, given a test dataset.</p></li>
+</ol>
+</div>
+<div id="exr-Vevea-Hedges-estimation" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 7.7 (Meta-regression with selective reporting)</strong></span> <a href="020-Data-generating-models.html#exr-Vevea-Hedges-DGP" class="quarto-xref">Exercise&nbsp;<span>6.15</span></a> asked you to write a data-generating function for the <span class="citation" data-cites="vevea1995general">Vevea and Hedges (<a href="references.html#ref-vevea1995general" role="doc-biblioref">1995</a>)</span> selection model. The <code>{metafor}</code> package includes a function for fitting this model (as well as a variety of other selection models). Here is an example of the syntax for estimating this model, using a dataset from the <code>{metadat}</code> package:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb93"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(metafor)</span>
+<span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">"dat.assink2016"</span>, <span class="at">package =</span> <span class="st">"metadat"</span>)</span>
+<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a><span class="co"># rename variables and tidy up</span></span>
+<span id="cb93-5"><a href="#cb93-5" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> </span>
+<span id="cb93-6"><a href="#cb93-6" aria-hidden="true" tabindex="-1"></a>  dat.assink2016 <span class="sc">%&gt;%</span></span>
+<span id="cb93-7"><a href="#cb93-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">si =</span> <span class="fu">sqrt</span>(vi) ) <span class="sc">%&gt;%</span></span>
+<span id="cb93-8"><a href="#cb93-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>( <span class="at">Ti =</span> yi, <span class="at">s_sq =</span> vi, <span class="at">Xi =</span> year )</span>
+<span id="cb93-9"><a href="#cb93-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb93-10"><a href="#cb93-10" aria-hidden="true" tabindex="-1"></a><span class="co"># fit a random effects meta-regression model</span></span>
+<span id="cb93-11"><a href="#cb93-11" aria-hidden="true" tabindex="-1"></a>rma_fit <span class="ot">&lt;-</span> <span class="fu">rma.uni</span>(<span class="at">yi =</span> Ti, <span class="at">sei =</span> si, <span class="at">mods =</span> <span class="sc">~</span> Xi, <span class="at">data =</span> dat)</span>
+<span id="cb93-12"><a href="#cb93-12" aria-hidden="true" tabindex="-1"></a><span class="co"># fit two-step selection model</span></span>
+<span id="cb93-13"><a href="#cb93-13" aria-hidden="true" tabindex="-1"></a><span class="fu">selmodel</span>(rma_fit, <span class="at">type =</span> <span class="st">"step"</span>, <span class="at">steps =</span> <span class="fu">c</span>(.<span class="dv">025</span>, .<span class="dv">500</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Mixed-Effects Model (k = 100; tau^2 estimator: ML)
+
+tau^2 (estimated amount of residual heterogeneity): 0.2314 (SE = 0.0500)
+tau (square root of estimated tau^2 value):         0.4810
+
+Test for Residual Heterogeneity:
+LRT(df = 1) = 349.3718, p-val &lt; .0001
+
+Test of Moderators (coefficient 2):
+QM(df = 1) = 42.1433, p-val &lt; .0001
+
+Model Results:
+
+         estimate      se     zval    pval    ci.lb    ci.ub 
+intrcpt    0.4149  0.1013   4.0942  &lt;.0001   0.2163   0.6135 
+Xi        -0.0782  0.0120  -6.4918  &lt;.0001  -0.1018  -0.0546 
+             
+intrcpt  *** 
+Xi       *** 
+
+Test for Selection Model Parameters:
+LRT(df = 2) = 1.7814, p-val = 0.4104
+
+Selection Model Results:
+
+                     k  estimate      se     zval    pval 
+0     &lt; p &lt;= 0.025  59    1.0000     ---      ---     --- 
+0.025 &lt; p &lt;= 0.5    23    0.6990  0.2307  -1.3049  0.1919 
+0.5   &lt; p &lt;= 1      18    0.5027  0.2743  -1.8132  0.0698 
+                     ci.lb   ci.ub    
+0     &lt; p &lt;= 0.025     ---     ---    
+0.025 &lt; p &lt;= 0.5    0.2470  1.1511    
+0.5   &lt; p &lt;= 1      0.0000  1.0403  . 
+
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
+</div>
+</div>
+<p>The <code>selmodel()</code> function can also be used to fit selection models in which one or both of the selection parameters are fixed to user-specified values. For example:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb95"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb95-1"><a href="#cb95-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fixing lambda_1 = 0.5, lambda_2 = 0.2</span></span>
+<span id="cb95-2"><a href="#cb95-2" aria-hidden="true" tabindex="-1"></a>fix_both <span class="ot">&lt;-</span> <span class="fu">selmodel</span>(rma_fit, <span class="at">type =</span> <span class="st">"step"</span>, <span class="at">steps =</span> <span class="fu">c</span>(.<span class="dv">025</span>, .<span class="dv">500</span>), </span>
+<span id="cb95-3"><a href="#cb95-3" aria-hidden="true" tabindex="-1"></a>                     <span class="at">delta =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.5</span>, <span class="fl">0.2</span>))</span>
+<span id="cb95-4"><a href="#cb95-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb95-5"><a href="#cb95-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Fixing lambda_1 = 0.5, estimating lambda_2</span></span>
+<span id="cb95-6"><a href="#cb95-6" aria-hidden="true" tabindex="-1"></a>fix_one <span class="ot">&lt;-</span> <span class="fu">selmodel</span>(rma_fit, <span class="at">type =</span> <span class="st">"step"</span>, <span class="at">steps =</span> <span class="fu">c</span>(.<span class="dv">025</span>, .<span class="dv">500</span>), </span>
+<span id="cb95-7"><a href="#cb95-7" aria-hidden="true" tabindex="-1"></a>                    <span class="at">delta =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.5</span>, <span class="cn">NA</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<ol type="1">
+<li><p>Write an estimation function that fits the selection model and returns estimates, standard errors, and confidence intervals for each of the model parameters <span class="math inline">\((\beta_0,\beta_1,\tau,\lambda_1,\lambda_2)\)</span>.</p></li>
+<li><p>The <code>selmodel()</code> fitting function sometimes returns errors, as in the following example:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb96"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a>dat_sig <span class="ot">&lt;-</span> dat <span class="sc">%&gt;%</span> <span class="fu">filter</span>(Ti <span class="sc">/</span> si <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a>rma_pos <span class="ot">&lt;-</span> <span class="fu">rma.uni</span>(<span class="at">yi =</span> Ti, <span class="at">sei =</span> si, <span class="at">mods =</span> <span class="sc">~</span> Xi, <span class="at">data =</span> dat_sig)</span>
+<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a><span class="co"># fit two-step selection model</span></span>
+<span id="cb96-4"><a href="#cb96-4" aria-hidden="true" tabindex="-1"></a>sel_fit <span class="ot">&lt;-</span> <span class="fu">selmodel</span>(rma_pos, <span class="at">type =</span> <span class="st">"step"</span>, <span class="at">steps =</span> <span class="fu">c</span>(.<span class="dv">025</span>, .<span class="dv">500</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Modify your estimation function to catch and return warnings such as these. Write code demonstrating that the function works as expected.</p></li>
+<li><p>The <code>selmodel()</code> throws warnings when the dataset contains no observations with <span class="math inline">\(p_i\)</span> in one of the specified intervals. Modify your estimation function to set the selection probability for an interval to <span class="math inline">\(\lambda_1 = 0.1\)</span> if there are no <span class="math inline">\(p_i\)</span> values between .025 and .500 and to set <span class="math inline">\(\lambda_2 = 0.1\)</span> if there are no <span class="math inline">\(p_i\)</span> values larger than .500. Write code demonstrating that the function works as expected.</p></li>
+</ol>
+</div>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-brown1974SmallSampleBehavior" class="csl-entry" role="listitem">
+Brown, Morton B., and Alan B. Forsythe. 1974. <span>“The <span>Small Sample Behavior</span> of <span>Some Statistics Which Test</span> the <span>Equality</span> of <span>Several Means</span>.”</span> <em>Technometrics</em> 16 (1): 129–32. <a href="https://doi.org/10.1080/00401706.1974.10489158">https://doi.org/10.1080/00401706.1974.10489158</a>.
+</div>
+<div id="ref-pashley2024improving" class="csl-entry" role="listitem">
+Pashley, Nicole E, Luke Keele, and Luke W Miratrix. 2024. <span>“Improving Instrumental Variable Estimators with Poststratification.”</span> <em>Journal of the Royal Statistical Society Series A: Statistics in Society</em>, qnae073.
+</div>
+<div id="ref-vevea1995general" class="csl-entry" role="listitem">
+Vevea, Jack L, and Larry V Hedges. 1995. <span>“A General Linear Model for Estimating Effect Size in the Presence of Publication Bias.”</span> <em>Psychometrika</em> 60 (3): 419–35. <a href="https://doi.org/10.1007/BF02294384">https://doi.org/10.1007/BF02294384</a>.
+</div>
+</div>
+</section>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn1"><p>Note that <a href="015-Case-study-ANOVA.html#exr-BF-other-tests" class="quarto-xref">Exercise&nbsp;<span>5.5</span></a> had you do this using an R package; see next exercise below for using that package to validate your code.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+
+</main> <!-- /main -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Create fixed toggle button
+  const toggleBtn = document.createElement("button");
+  toggleBtn.id = "fixed-sidebar-toggle";
+  toggleBtn.title = "Toggle Sidebar";
+  toggleBtn.setAttribute("aria-label", "Toggle Sidebar");
+
+  // SVG Icons for Open vs Closed state
+  const iconSidebarOpen = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm0 1h3v12H2V2zm4 12V2h8v12H6z"/>
+    </svg>`;
+    
+  const iconSidebarClosed = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+      <path d="M11 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H10.5a.5.5 0 0 1 .5.5z"/>
+    </svg>`;
+
+  toggleBtn.innerHTML = iconSidebarOpen;
+
+  toggleBtn.addEventListener("click", function() {
+    const isHidden = document.body.classList.toggle("sidebar-hidden");
+    toggleBtn.innerHTML = isHidden ? iconSidebarClosed : iconSidebarOpen;
+  });
+
+  document.body.appendChild(toggleBtn);
+});
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jepusto\.github\.io\/Designing-Simulations-in-R\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./020-Data-generating-models.html" class="pagination-link" aria-label="Data-generating processes">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./035-running-simulation.html" class="pagination-link" aria-label="Running the Simulation Process">
+        <span class="nav-page-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the Simulation Process</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/030-Estimation-procedures.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></div></div></footer></body></html>

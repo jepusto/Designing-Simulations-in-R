@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies">
+
+<title>19&nbsp; Using simulation as a power calculator – Designing Monte Carlo Simulations in R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./150-potential-outcomes-framework.html" rel="next">
+<link href="./120-parallel-processing.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-9d6c9622e1db6294580745c4cacaf708.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/sidebar-toggle.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./140-simulation-for-power-analysis.html">Complex Data Structures</a></li><li class="breadcrumb-item"><a href="./140-simulation-for-power-analysis.html"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Designing Monte Carlo Simulations in R</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/jepusto/Designing-Simulations-in-R" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="./Designing-Monte-Carlo-Simulations-in-R.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Welcome</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">An Introductory Look</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./001-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./003-programming-preliminaries.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Programming Preliminaries</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./005-initial-t-test-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">An initial simulation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Structure and Mechanics of a Simulation Study</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./010-Simulation-structure.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Structure of a simulation study</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./015-Case-study-ANOVA.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Case Study: Heteroskedastic ANOVA and Welch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./020-Data-generating-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./030-Estimation-procedures.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./035-running-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the Simulation Process</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./040-Performance-criteria.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance Measures</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Systematic Simulations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./060-multiple-scenarios.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./070-experimental-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Designing multifactor simulations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./072-presentation-of-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Exploring and presenting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./074-building-good-vizualizations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Building good visualizations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./075-special-topics-on-reporting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Special Topics on Reporting Simulation Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./080-simulations-as-evidence.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Computational Considerations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./100-file-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./110-debugging-and-testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Debugging and Testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./120-parallel-processing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Complex Data Structures</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./140-simulation-for-power-analysis.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./150-potential-outcomes-framework.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./200-coding-tidbits.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Coding Reference</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#getting-design-parameters-from-pilot-data" id="toc-getting-design-parameters-from-pilot-data" class="nav-link active" data-scroll-target="#getting-design-parameters-from-pilot-data"><span class="header-section-number">19.1</span> Getting design parameters from pilot data</a></li>
+  <li><a href="#the-data-generating-process" id="toc-the-data-generating-process" class="nav-link" data-scroll-target="#the-data-generating-process"><span class="header-section-number">19.2</span> The data generating process</a></li>
+  <li><a href="#running-the-simulation" id="toc-running-the-simulation" class="nav-link" data-scroll-target="#running-the-simulation"><span class="header-section-number">19.3</span> Running the simulation</a></li>
+  <li><a href="#evaluating-power" id="toc-evaluating-power" class="nav-link" data-scroll-target="#evaluating-power"><span class="header-section-number">19.4</span> Evaluating power</a></li>
+  <li><a href="#using-and-exploring-packages-for-power-calculations" id="toc-using-and-exploring-packages-for-power-calculations" class="nav-link" data-scroll-target="#using-and-exploring-packages-for-power-calculations"><span class="header-section-number">19.5</span> Using and exploring packages for power calculations</a></li>
+  <li><a href="#concluding-thoughts" id="toc-concluding-thoughts" class="nav-link" data-scroll-target="#concluding-thoughts"><span class="header-section-number">19.6</span> Concluding Thoughts</a></li>
+  </ul>
+<div class="toc-actions"><ul class="collapse"><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/140-simulation-for-power-analysis.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./140-simulation-for-power-analysis.html">Complex Data Structures</a></li><li class="breadcrumb-item"><a href="./140-simulation-for-power-analysis.html"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-power" class="quarto-section-identifier"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>We can use simulation as a power calculator. In particular, to estimate power, generate data according to a best guess as to what we might find in a planned evaluation, and then analyze the data to see if the effect built into the DGP is detectable. The average chance of detection across multiple trials of simulated data is power.</p>
+<p>Now, if we are generally right about our DGP, and the associated parameters we plugged into it, being an accurate model of the world, then our power will be right on. Estimating the chance of detection given a working model of the world is all a power analysis is, using simulation or otherwise. A power analysis simulation should, in other words, be a calibrated simulation.</p>
+<p>Simulation has benefits over using power calculators for two reasons. First, it is easy to take into account special circumstances we might want to account for such as missing values or non-normal distributions. Second, it is easy to assess non-standard approaches to evaluation that we might not be able to find in an off-the-shelf power calculator. In particular, we can compare different proposals for how we would analyze our data, to see which ones are most powerful (and also verify that they are not biased or otherwise broken).</p>
+<p>We illustrate these ideas with a case study. In this example, we are planning a school-level intervention to reduce rates of discipline via an intervention on both teachers and students that targets socio-emotional skills.</p>
+<p>We are planning a planned randomized controlled trial (RCT), where we will treat entire schools (so this is a cluster-randomized study). Power is a concern because treating each school is very expensive (we have to run a large training program and also provide coaching of the staff), so treating each unit is a major decision. Ideally, we want something like 4, 5, or maybe 6 treated schools. Our diving question is: Can we get away with this? And does it help at all if our control group is larger, even if the treatment group is tiny?</p>
+<p>Our outcome is the discipline rate at the school level for one and two years after treatment. We know we will have three years of baseline rates of discipline that we can use as a school-level covariate. After some initial brainstorming, we generated a list of different possible regression models we might use, such as using prior years discipline rates as a control in a simple linear regression, or using a two-way fixed effects model. Our second question is then: Are these models valid in this context, and which one is best?</p>
+<section id="getting-design-parameters-from-pilot-data" class="level2" data-number="19.1">
+<h2 data-number="19.1" class="anchored" data-anchor-id="getting-design-parameters-from-pilot-data"><span class="header-section-number">19.1</span> Getting design parameters from pilot data</h2>
+<p>Power analyses, via simulation or otherwise, depend on our assessment of what the data will look like when we finally do our analysis. In our case, we have pilot data from school administrative records (in particular discipline rates for each school and year for a series of five years), and we will use those to estimate parameters to plug into our simulation. We assume our experimental sample will be on schools that have chronic issues with discipline, so we filtered our historic data to get those schools most likely be in our study. Our assumption is that the data we are using for our simulation look like the data we would see (for the control group) when we actually run our experiment.</p>
+<p>Here are our data, with each row a potential school in the district:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>( datW, <span class="at">n=</span><span class="dv">4</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 27 × 6
+  Code  `2015` `2016` `2017` `2018` `2019`
+  &lt;chr&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;
+1 S1     0.057  0.06   0.054  0.03   0.007
+2 S2     0.027  0.059  0.077  0.063  0.036
+3 S3     0.05   0.056  0.06   0.034  0.007
+4 S4     0.02   0.041  0.08   0.026  0.013
+# ℹ 23 more rows</code></pre>
+</div>
+</div>
+</section>
+<section id="the-data-generating-process" class="level2" data-number="19.2">
+<h2 data-number="19.2" class="anchored" data-anchor-id="the-data-generating-process"><span class="header-section-number">19.2</span> The data generating process</h2>
+<p>Our first step is to write a data generator that, given a desired number of control and treatment schools, and a hypothesized treatment effect, makes a synthetic dataset by generating time series of discipline rates, and then imposes a “treatment effect” of scaling the discipline rate by the treatment coefficient for the last two years.</p>
+<p>We first summarize our five years of pilot data to estimate a mean and variance-covariance matrix on the log-transformed rates (we used the log transform to put things on a multiplicative scale, and to make the distribution of rates more normal, given a heavy skew in the original):</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>datWl <span class="ot">=</span> <span class="fu">log</span>( datW[ , <span class="sc">-</span><span class="dv">1</span>] )</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>lpd_mns <span class="ot">=</span> <span class="fu">apply</span>( datWl, <span class="dv">2</span>, mean )</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>lpd_mns</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     2015      2016      2017      2018      2019 
+-3.074399 -2.870688 -2.928910 -3.334486 -4.014886 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>lpd_cov <span class="ot">=</span> <span class="fu">cov</span>( datWl )</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">round</span>( lpd_cov, <span class="at">digits=</span><span class="dv">2</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     2015 2016 2017 2018 2019
+2015 0.42 0.30 0.23 0.37 0.18
+2016 0.30 0.37 0.20 0.25 0.16
+2017 0.23 0.20 0.31 0.29 0.25
+2018 0.37 0.25 0.29 0.57 0.29
+2019 0.18 0.16 0.25 0.29 0.54</code></pre>
+</div>
+</div>
+<p>To generate fake schools, we then sample from a multivariate normal distribution with the estimated mean and covariance structure. Here is our DGP function, <code>make_dat_param()</code>, that does this:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>make_dat_param <span class="ot">=</span> <span class="cf">function</span>( n_c, n_t, <span class="at">tx=</span><span class="dv">1</span> ) {</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    n <span class="ot">=</span> n_c <span class="sc">+</span> n_t</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> MASS<span class="sc">::</span><span class="fu">mvrnorm</span>( n, <span class="at">mu =</span> lpd_mns, <span class="at">Sigma =</span> lpd_cov )</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> <span class="fu">exp</span>( lpdisc )</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">colnames</span>( lpdisc ) <span class="ot">=</span> <span class="fu">paste0</span>( <span class="st">"pdisc_"</span>, <span class="fu">colnames</span>( lpdisc ) )</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> dplyr<span class="sc">::</span><span class="fu">as_tibble</span>( lpdisc ) <span class="sc">%&gt;%</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        dplyr<span class="sc">::</span><span class="fu">mutate</span>( <span class="at">ID =</span> <span class="dv">1</span><span class="sc">:</span>(dplyr<span class="sc">::</span><span class="fu">n</span>()),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>                <span class="at">Z =</span> <span class="dv">0</span> <span class="sc">+</span> ( <span class="fu">sample</span>( n ) <span class="sc">&lt;=</span> n_t ) )</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add in treatment effect</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="ot">=</span> dplyr<span class="sc">::</span><span class="fu">mutate</span>( lpdisc, </span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>                     <span class="at">pdisc_2018 =</span> pdisc_2018 <span class="sc">*</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, tx, <span class="dv">1</span> ),</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>                     <span class="at">pdisc_2019 =</span> pdisc_2019 <span class="sc">*</span> <span class="fu">ifelse</span>( Z <span class="sc">==</span> <span class="dv">1</span>, tx, <span class="dv">1</span> ) )</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    lpdisc <span class="sc">%&gt;%</span> </span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">relocate</span>( ID, Z )</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Our function generates schools with discipline given by the provided mean and covariance structure; we have calibrated our data generating process to give us data that looks very similar to the data we would see in the field. For power, realism, in terms of the aspects impacting uncertainty, is key.</p>
+<p>For our impact model, the treatment kicks in for the final two years, multiplying discipline rate by <code>tx</code> (so <code>tx = 1</code> means no treatment effect).</p>
+<p>We test our function, hypothesizing the treatment reduces discipline by 50% in the two follow-up years:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>( <span class="dv">594585</span> )</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>a <span class="ot">=</span> <span class="fu">make_dat_param</span>( <span class="dv">100</span>, <span class="dv">100</span>, <span class="fl">0.5</span> )  </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>( a, <span class="at">n =</span> <span class="dv">4</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 200 × 7
+     ID     Z pdisc_2015 pdisc_2016 pdisc_2017 pdisc_2018
+  &lt;int&gt; &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;
+1     1     0     0.0227     0.0610     0.0440     0.0489
+2     2     0     0.0586     0.0626     0.0299     0.0293
+3     3     0     0.0803     0.0752     0.0903     0.0567
+4     4     1     0.0185     0.0279     0.0599     0.0154
+# ℹ 196 more rows
+# ℹ 1 more variable: pdisc_2019 &lt;dbl&gt;</code></pre>
+</div>
+</div>
+<p>We can group each treatment arm and look at discipline over the years for our synthetic dataset:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="140-simulation-for-power-analysis_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Our treatment group drops faster than the control. We also see the nonlinear structure actually observed in our original data in terms of discipline over time has been replicated (original data is in black).</p>
+<p>We next implement all of our candidate treatment effect estimators. This should all feel very familiar: we are just doing our simulation framework, as usual.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>eval_dat <span class="ot">=</span> <span class="cf">function</span>( sdat, <span class="at">include_FE =</span> <span class="cn">TRUE</span> ) {</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># No covariate adjustment, average change model (on log outcome)</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    M_raw <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( pdisc_2018 ) <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data=</span>sdat )</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple average change model using 2018 as outcome.</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    M_simple <span class="ot">=</span> <span class="fu">lm</span>( pdisc_2018 <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> pdisc_2017 <span class="sc">+</span> pdisc_2016 <span class="sc">+</span> pdisc_2015,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>                   <span class="at">data=</span>sdat )</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Simple model on logged outcome</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    M_log <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( pdisc_2018 ) <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> <span class="fu">log</span>( pdisc_2017) <span class="sc">+</span> </span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">log</span>( pdisc_2016) <span class="sc">+</span> <span class="fu">log</span>( pdisc_2015 ),</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>                <span class="at">data=</span>sdat )</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Ratio of average disc to average prior disc as outcome</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    sdat <span class="ot">=</span> dplyr<span class="sc">::</span><span class="fu">mutate</span>( sdat,</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>                   <span class="at">avg_disc =</span> (pdisc_2018 <span class="sc">+</span> pdisc_2019)<span class="sc">/</span><span class="dv">2</span>,</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>                   <span class="at">prior_disc =</span> (pdisc_2017 <span class="sc">+</span> pdisc_2016 <span class="sc">+</span> pdisc_2015 )<span class="sc">/</span><span class="dv">3</span>,</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>                   <span class="at">disc =</span> pdisc_2018 <span class="sc">/</span> prior_disc,</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>                   <span class="at">disc_two =</span> avg_disc <span class="sc">/</span> prior_disc )</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    M_ratio <span class="ot">=</span> <span class="fu">lm</span>( disc <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> sdat )</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    M_ratio_twopost <span class="ot">=</span> <span class="fu">lm</span>( disc_two <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z, <span class="at">data =</span> sdat )</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use average of two post-tx time periods, averaged to reduce noise</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>    M_twopost <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( avg_disc ) <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> Z <span class="sc">+</span> <span class="fu">log</span>( pdisc_2017 ) <span class="sc">+</span> </span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>                      <span class="fu">log</span>( pdisc_2016 ) <span class="sc">+</span> <span class="fu">log</span>( pdisc_2015 ), </span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>                    <span class="at">data=</span>sdat )</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Time and unit fixed effects</span></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> ( include_FE ) {</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>      sdatL <span class="ot">=</span> tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>( sdat, <span class="at">cols =</span> pdisc_2015<span class="sc">:</span>pdisc_2019, </span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>                                   <span class="at">names_to =</span> <span class="st">"year"</span>,</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>                                   <span class="at">values_to =</span> <span class="st">"pdisc"</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>        dplyr<span class="sc">::</span><span class="fu">mutate</span>( <span class="at">Z =</span> Z <span class="sc">*</span> (year <span class="sc">%in%</span> <span class="fu">c</span>( <span class="st">"pdisc_2018"</span>, <span class="st">"pdisc_2019"</span> ) ),</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>                       <span class="at">ID =</span> <span class="fu">paste0</span>( <span class="st">"S"</span>, ID ) )</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>      M_2wfe <span class="ot">=</span> <span class="fu">lm</span>( <span class="fu">log</span>( pdisc ) <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> ID <span class="sc">+</span> year <span class="sc">+</span> Z,</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>                   <span class="at">data=</span>sdatL )</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>      M_2wfe <span class="ot">=</span> <span class="cn">NULL</span></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Bundle all our models by getting the estimated treatment impact</span></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>    <span class="co"># from each.</span></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>    models <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">raw=</span>M_raw, <span class="at">simple=</span>M_simple,</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>                       <span class="at">log=</span>M_log, <span class="at">ratio =</span> M_ratio, </span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>                       <span class="at">ratio_twopost =</span> M_ratio_twopost,</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>                       <span class="at">log_twopost =</span> M_twopost, </span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>                       <span class="at">FE =</span> M_2wfe )</span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>    rs <span class="ot">&lt;-</span> purrr<span class="sc">::</span><span class="fu">map_df</span>( models, broom<span class="sc">::</span>tidy, <span class="at">.id=</span><span class="st">"model"</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">filter</span>( term<span class="sc">==</span><span class="st">"Z"</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>term ) <span class="sc">%&gt;%</span></span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">arrange</span>( model )</span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>    rs</span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Our method marches through a host of models; we weren’t sure what the gains would be from one model to another, so we decided to conduct power analyses on all of them. Here is the result of our evaluation function on a single dataset:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">=</span> <span class="fu">make_dat_param</span>( <span class="at">n_c =</span> <span class="dv">4</span>, <span class="at">n_t =</span> <span class="dv">4</span>, <span class="at">tx =</span> <span class="fl">0.5</span> )</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">eval_dat</span>( dat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 7 × 5
+  model         estimate std.error statistic p.value
+  &lt;chr&gt;            &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;
+1 FE             -0.652     0.307     -2.12   0.0429
+2 log            -0.329     0.401     -0.821  0.472 
+3 log_twopost    -0.576     0.383     -1.50   0.230 
+4 ratio          -0.145     0.140     -1.03   0.341 
+5 ratio_twopost  -0.185     0.146     -1.27   0.252 
+6 raw            -0.718     0.634     -1.13   0.301 
+7 simple         -0.0118    0.0128    -0.927  0.422 </code></pre>
+</div>
+</div>
+<p>We have a nice set of estimates, one for each model.</p>
+</section>
+<section id="running-the-simulation" class="level2" data-number="19.3">
+<h2 data-number="19.3" class="anchored" data-anchor-id="running-the-simulation"><span class="header-section-number">19.3</span> Running the simulation</h2>
+<p>Now we put it all together in our classic simulator:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>sim_run <span class="ot">=</span> simhelpers<span class="sc">::</span><span class="fu">bundle_sim</span>( make_dat_param, eval_dat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We then do the usual to run across a set of scenarios, running <code>sim_run</code> on each row of the following:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">expand_grid</span>( <span class="at">tx =</span> <span class="fu">c</span>( <span class="dv">1</span>, <span class="fl">0.75</span>, <span class="fl">0.5</span> ),</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">n_c =</span> <span class="fu">c</span>( <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">12</span>, <span class="dv">20</span> ),</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">n_t =</span> <span class="fu">c</span>( <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span> ) )</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>reps <span class="ot">=</span> <span class="dv">1000</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>seed <span class="ot">=</span> <span class="dv">1010203</span> <span class="sc">+</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(res)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We then use <code>evaluate_by_row()</code> to run our simulation across all of our scenarios, and save the results for later analysis:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plan</span>(multisession, <span class="at">workers =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>() <span class="sc">-</span> <span class="dv">1</span> )</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>fopts <span class="ot">=</span> <span class="fu">furrr_options</span>(<span class="at">seed =</span> <span class="cn">NULL</span>,</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">globals =</span> <span class="fu">c</span>(<span class="st">"lpd_mns"</span>, <span class="st">"lpd_cov"</span>) )</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>res_u <span class="ot">&lt;-</span> simhelpers<span class="sc">::</span><span class="fu">evaluate_by_row</span>( <span class="at">params =</span> res,</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>                                      sim_run, </span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>                                      <span class="at">.options =</span> fopts,                 </span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                                      <span class="at">.progress =</span> <span class="cn">TRUE</span> )</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="fu">plan</span>( sequential )</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>( res_u, <span class="at">file=</span><span class="st">"data/discipline_simulation.rds"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Note that we pass our estimated mean and covariance structure from our pilot data to the parallel environment. For parallel processing, you sometimes need to explicitly hand over parts of the workspace so each worker can have access to them.</p>
+<p>For evaluation, we load our saved results and calculate rejection rates (we use an alpha of 0.10 since we are doing one-sided testing):</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">readRDS</span>( <span class="at">file=</span><span class="st">"data/discipline_simulation.rds"</span> )</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>sres <span class="ot">&lt;-</span> res <span class="sc">%&gt;%</span> </span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( n_c, n_t, tx, model ) <span class="sc">%&gt;%</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">E_est =</span> <span class="fu">mean</span>( estimate ),</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">SE =</span> <span class="fu">sd</span>( estimate ),</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">E_SE_hat =</span> <span class="fu">mean</span>( std.error ),</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">pow =</span> <span class="fu">mean</span>( p.value <span class="sc">&lt;=</span> <span class="fl">0.10</span> ) ) <span class="co"># one-sided testing</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>sres</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 378 × 8
+# Groups:   n_c, n_t, tx [54]
+     n_c   n_t    tx model           E_est     SE E_SE_hat   pow
+   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;           &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt;
+ 1     4     4  0.5  FE            -0.684  0.318    0.278  0.739
+ 2     4     4  0.5  log           -0.664  0.467    0.438  0.356
+ 3     4     4  0.5  log_twopost   -0.659  0.433    0.390  0.38 
+ 4     4     4  0.5  ratio         -0.363  0.214    0.198  0.46 
+ 5     4     4  0.5  ratio_twopost -0.285  0.152    0.138  0.552
+ 6     4     4  0.5  raw           -0.660  0.527    0.505  0.295
+ 7     4     4  0.5  simple        -0.0189 0.0207   0.0155 0.268
+ 8     4     4  0.75 FE            -0.294  0.319    0.276  0.299
+ 9     4     4  0.75 log           -0.276  0.481    0.432  0.15 
+10     4     4  0.75 log_twopost   -0.279  0.425    0.377  0.153
+# ℹ 368 more rows</code></pre>
+</div>
+</div>
+<p>We now have rejection rates across a range of scenarios. Before we look at power, we need to check on whether our different models are valid. Once we determine which methods are valid, we will then check to see which are most powerful, and also assess when we would have sufficient power to detect plausible effects.</p>
+</section>
+<section id="evaluating-power" class="level2" data-number="19.4">
+<h2 data-number="19.4" class="anchored" data-anchor-id="evaluating-power"><span class="header-section-number">19.4</span> Evaluating power</h2>
+<p>Before we start examining power, note that our different models are estimating different quantities. Here we look at the average estimated treatment effect across our simulation scenarios, for each method:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( model, tx ) <span class="sc">%&gt;%</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">E_est =</span> <span class="fu">mean</span>( E_est ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>( <span class="at">names_from=</span><span class="st">"tx"</span>, <span class="at">values_from=</span><span class="st">"E_est"</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>( <span class="st">`</span><span class="at">0.5</span><span class="st">`</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>( <span class="at">digits =</span> <span class="dv">2</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">model</th>
+<th style="text-align: right;">0.5</th>
+<th style="text-align: right;">0.75</th>
+<th style="text-align: right;">1</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FE</td>
+<td style="text-align: right;">-0.69</td>
+<td style="text-align: right;">-0.29</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">log_twopost</td>
+<td style="text-align: right;">-0.69</td>
+<td style="text-align: right;">-0.29</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">log</td>
+<td style="text-align: right;">-0.69</td>
+<td style="text-align: right;">-0.29</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">raw</td>
+<td style="text-align: right;">-0.69</td>
+<td style="text-align: right;">-0.28</td>
+<td style="text-align: right;">-0.01</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">ratio</td>
+<td style="text-align: right;">-0.37</td>
+<td style="text-align: right;">-0.19</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ratio_twopost</td>
+<td style="text-align: right;">-0.29</td>
+<td style="text-align: right;">-0.15</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">simple</td>
+<td style="text-align: right;">-0.02</td>
+<td style="text-align: right;">-0.01</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>For no treatment effect, we are generally seeing no estimated effect—this is good, suggesting that they are unbiased under the null of no effect whatsoever. Note, however, that when there is a treatment effect, the different methods are giving different answers. Furthermore, in the 0.5 case, none of these answers are close to 0.5!</p>
+<p>What is happening, is our models are estimating different things, none of which are the treatment effect as we parameterized it. In particular, “FE,” “log,” “raw,” and “log_twopost” are all estimating the impact on the log scale. Note that <span class="math inline">\(log( 0.5 ) \approx -0.69\)</span> and <span class="math inline">\(log( 0.75 ) \approx -0.29\)</span>, which corresponds to what we see on the above. Our “simple” estimator is estimating the impact on the absolute scale; it turns out that reducing discipline rates by 50% corresponds to about a 2% reduction in actual cases. Finally, “ratio” and “ratio_twopost” are estimating the change in the average ratio of post-policy discipline to pre; they are akin to a gain score as compared to the log regressions.</p>
+<p>Estimating different things, from a power point of view, is ok. Power is the chance of detecting an effect, and is dependent on the p-values, not scale of the estimate. We next show how to assess methods for validity, and then show how to evaluate power.</p>
+<section id="checking-the-validity-of-our-models" class="level3" data-number="19.4.1">
+<h3 data-number="19.4.1" class="anchored" data-anchor-id="checking-the-validity-of-our-models"><span class="header-section-number">19.4.1</span> Checking the validity of our models</h3>
+<p>Validity is especially important as we are in a small <span class="math inline">\(n\)</span> context, so we know asymptotics may not hold as they should. To check our models for validity we subset our trials to where <code>tx = 1</code> (no treatment effect), and look at the rejection rates by plotting rejection rates for all models across all our simulation factors. We use a linear smoother to reduce Monte Carlo noise, and mark the nominal 10% rejection rate with a dashed line.</p>
+<!-- We first run a regression to see if rejection rate is a function of sample size (are smaller samples more invalid?) or treatment-control imbalance.
+We center both variables so our intercepts are the overall average rejection rates for each model considered:
+
+
+::: {.cell layout-align="center"}
+
+```{.r .cell-code}
+sres = mutate( sres,
+               n = n_c + n_t,
+               imbalance = pmax( n_t / n_c, n_c / n_t ) - 1 )
+sres$n = (sres$n - mean(sres$n)) / sd(sres$n)
+mod = lm( pow ~ 0 + (n + imbalance) * model - n - imbalance,
+          data = filter( sres, tx == 1 ) )
+broom::tidy(mod) %>%
+  knitr::kable( digits = 3)
+```
+:::
+
+
+We can also plot the nominal rejection rates under the null:
+-->
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span> <span class="fu">filter</span>( tx <span class="sc">==</span> <span class="dv">1</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>( <span class="fu">aes</span>( n_c, pow, <span class="at">col=</span><span class="fu">as.factor</span>(n_t) ) ) <span class="sc">+</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>( <span class="sc">~</span> model, <span class="at">nrow=</span><span class="dv">1</span> ) <span class="sc">+</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>( <span class="at">alpha=</span><span class="fl">0.5</span> ) <span class="sc">+</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>( <span class="at">method=</span><span class="st">"lm"</span>, <span class="at">se=</span><span class="cn">FALSE</span> ) <span class="sc">+</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="fl">0.10</span>, <span class="at">lty =</span> <span class="dv">2</span> ) <span class="sc">+</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_log10</span>(<span class="at">breaks=</span><span class="fu">unique</span>(sres<span class="sc">$</span>n_c) ) <span class="sc">+</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">col=</span><span class="st">"n_t"</span>, <span class="at">y=</span><span class="st">"Rejection Rate"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="140-simulation-for-power-analysis_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>We see the fixed effect models have notably elevated rates of rejection under all scenarios considered. The other models look fine. This means our fixed effect approach is an invalid choice for analysis; even if it is more powerful, it is not giving us a fair evaluation. We therefore drop it in our subsequent power analysis.</p>
+<!--
+### Assessing Precision (SE)
+
+Now, which methods are the most precise?
+We look at the true standard errors across our methods (we drop "simple" and the "ratio" estimators since they are not on the ratio scale):
+
+
+::: {.cell layout-align="center"}
+
+```{.r .cell-code}
+sres %>% 
+  group_by( model, n_c, n_t ) %>%
+  summarise( SE = mean(SE ) ) %>%
+  filter( !(model %in% c( "simple", "ratio", "ratio_twopost" ) ) ) %>%
+  ggplot( aes( n_c, SE, col=model )) +
+    facet_grid( . ~ n_t ) +
+    geom_line() + geom_point() +
+    geom_hline( yintercept = 0 ) +
+  labs( colour = "Model" )
+```
+:::
+
+
+It looks like averaging two years for the outcome is helpful, and bumps up precision.
+The two way fixed effects model seems to react to the number of control units differently than the other estimators; it is way more precise when the number of controls is few, but the other estimators catch up.
+The "raw" estimator gives a baseline of no covariate adjustment; everything is substantially more precise than it.
+The covariates matter a lot.
+-->
+</section>
+<section id="assessing-power" class="level3" data-number="19.4.2">
+<h3 data-number="19.4.2" class="anchored" data-anchor-id="assessing-power"><span class="header-section-number">19.4.2</span> Assessing power</h3>
+<p>We next look at power over our explored contexts, for the models that we find to be valid (i.e., not FE).</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>sres <span class="sc">%&gt;%</span> </span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>( model <span class="sc">!=</span> <span class="st">"FE"</span>,tx <span class="sc">!=</span> <span class="dv">1</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>( <span class="fu">aes</span>( n_c, pow, <span class="at">col=</span>model )) <span class="sc">+</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_grid</span>(   tx <span class="sc">~</span> n_t, <span class="at">labeller =</span> label_both ) <span class="sc">+</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>() <span class="sc">+</span> <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">col=</span><span class="st">"grey"</span> ) <span class="sc">+</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="fu">c</span>( <span class="fl">0.80</span> ), <span class="at">lty=</span><span class="dv">2</span> ) <span class="sc">+</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_log10</span>( <span class="at">breaks=</span><span class="fu">unique</span>( sres<span class="sc">$</span>n_c ))  <span class="sc">+</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>( <span class="at">breaks=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">0.2</span>, <span class="fl">0.4</span>, <span class="fl">0.6</span>, <span class="fl">0.8</span>, <span class="dv">1</span>) ) <span class="sc">+</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expand_limits</span>( <span class="at">y =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>) ) <span class="sc">+</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()<span class="sc">+</span> <span class="fu">theme</span>( <span class="at">legend.position=</span><span class="st">"bottom"</span>,</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>                          <span class="at">legend.direction=</span><span class="st">"horizontal"</span>,</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>                          <span class="at">legend.key.width=</span><span class="fu">unit</span>(<span class="dv">1</span>,<span class="st">"cm"</span>),</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>                          <span class="at">panel.border =</span> <span class="fu">element_blank</span>() ) <span class="sc">+</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">title=</span><span class="st">"Power for various methods vs number of controls."</span>,</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">y =</span> <span class="st">"Power"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="140-simulation-for-power-analysis_files/figure-html/disc_power-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<!-- LWM: Should we only do tx=0.5 to simplify the plots, and then do MDE with varying tx below?  Or drop some estimators, like ratio? -->
+<p>We mark 80% power with a dashed line. For a 25% reduction in discipline, nothing reaches desired levels of power. For 50% reduction, some designs do, but we need substantial numbers of control schools. The “raw” estimator gives a baseline of no covariate adjustment; everything is substantially more precise than it. The covariates matter a lot. Not working with the log scale is costly: the simple estimator, which adjusts for covariates but does not use a log transform, is also low power. Averaging two years of outcomes post-treatment also seems beneficial: the “twopost” methods have a distinct power bump over their counterparts. For a single year of outcome data, the log model seems our best bet.</p>
+</section>
+<section id="assessing-minimum-detectable-effects" class="level3" data-number="19.4.3">
+<h3 data-number="19.4.3" class="anchored" data-anchor-id="assessing-minimum-detectable-effects"><span class="header-section-number">19.4.3</span> Assessing Minimum Detectable Effects</h3>
+<p>Sometimes we want to know, given a design, what size effect we might be able to detect. The usual measure for this is the Minimum Detectable Effect (MDE), which is usually the size of the smallest effect we could detect with power 80%. If working with standard errors, a MDE is usually the SE times a constant, such as 2.8 for 80% power, 0.05 alpha, and a normal approximation.</p>
+<p>With simulation, we can calculate Minimal Detectable Effects by generating a series of scenarios with gradually increasing treatment effects, and then finding out how large they have to get to obtain 80% power.</p>
+<p>Using the same code as above, we have:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">expand_grid</span>( <span class="at">tx =</span> <span class="fu">seq</span>( <span class="fl">0.3</span>, <span class="fl">0.6</span>, <span class="at">by =</span> <span class="fl">0.01</span> ),</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">n_c =</span> <span class="fu">c</span>( <span class="dv">12</span> ),</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">n_t =</span> <span class="fu">c</span>( <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span> ) )</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>reps <span class="ot">=</span> <span class="dv">200</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>seed <span class="ot">=</span> <span class="dv">101440203</span> <span class="sc">+</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(res)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We will end up with a lot of simulation scenarios to run (in this case we have 93). For each scenario, we do not need to run many replicates since we will be smoothing across our continuous treatment effect values. We run these using the same template as above.</p>
+<p>Here we plot our results:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">readRDS</span>( <span class="at">file=</span><span class="st">"data/discipline_simulation_MDE.rds"</span> )</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>sresMDE <span class="ot">&lt;-</span> res <span class="sc">%&gt;%</span> </span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( model, tx, n_c, n_t ) <span class="sc">%&gt;%</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( <span class="at">pow =</span> <span class="fu">mean</span>( p.value <span class="sc">&lt;=</span> <span class="fl">0.10</span> ) )</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>( sresMDE, <span class="fu">aes</span>( tx, pow, <span class="at">col=</span>model) ) <span class="sc">+</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>( <span class="sc">~</span> n_t ) <span class="sc">+</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>( <span class="at">se=</span><span class="cn">FALSE</span> ) <span class="sc">+</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>( <span class="at">yintercept =</span> <span class="fl">0.8</span>, <span class="at">lty =</span> <span class="dv">2</span> ) <span class="sc">+</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">y =</span> <span class="st">"Power"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="140-simulation-for-power-analysis_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>In looking at the graph, the point where each line crosses the 0.80 dashed line is our MDE, in terms of our treatment effect as a reduction in disciplinary rates. Remember that smaller values are <em>larger</em> effects (since it is the percent of prior discipline). We can convert to percent reduction by subtracting these values from 1, and then estimate the MDEs for each method by solving where each line crosses 0.8:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>mde_est <span class="ot">&lt;-</span> sresMDE <span class="sc">%&gt;%</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">tx =</span> <span class="dv">1</span> <span class="sc">-</span> tx ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(model, n_c, n_t) <span class="sc">%&gt;%</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_modify</span>( \(.x, .y) {</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>    fit <span class="ot">&lt;-</span> <span class="fu">loess</span>(pow <span class="sc">~</span> tx, <span class="at">data =</span> .x)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    .x <span class="sc">%&gt;%</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">pred =</span> <span class="fu">predict</span>(fit)) <span class="sc">%&gt;%</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">slice_min</span>( <span class="fu">abs</span>(pred<span class="fl">-0.8</span>), <span class="at">n =</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(<span class="at">mde =</span> tx, pred)</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>pred ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>( <span class="at">names_from =</span> n_t, <span class="at">values_from =</span> mde ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>( <span class="st">`</span><span class="at">6</span><span class="st">`</span> )</span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>mde_est</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 5
+  model           n_c   `4`   `5`   `6`
+  &lt;chr&gt;         &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1 log_twopost      12  0.49  0.46  0.44
+2 log              12  0.53  0.51  0.47
+3 ratio_twopost    12  0.55  0.5   0.47
+4 ratio            12  0.6   0.55  0.52
+5 simple           12  0.7   0.66  0.61
+6 raw              12  0.69  0.65  0.62</code></pre>
+</div>
+</div>
+<p>With 6 treatment units and 12 control units, we can detect a 44% reduction in discipline rates with 80% power, using the twopost estimator working with log-transformed discipline.</p>
+<!--
+where they cross for the log-scale estimators, 
+we first average our SEs over our different designs, grouped by sample size, and then convert the SEs to MDEs by multiplying by 2.8.
+We then have to convert to our treatment scale by flipping the sign and exponentiating, to get out of the log scale.
+
+
+::: {.cell layout-align="center"}
+
+```{.r .cell-code}
+sres2 = sres %>% 
+  group_by( model, n_c, n_t ) %>%
+  summarise( SE = mean( SE ),
+             E_SE_hat = mean( E_SE_hat ),
+             K = n() ) %>%
+  mutate( MDE = exp( - (1.64 + 0.8) * SE ) )
+
+sres2 %>% 
+  filter( !(model %in% c( "FE", "simple", "ratio", "ratio_twopost" ) ) ) %>%
+  ggplot( aes( n_c, MDE, col=model ) ) +
+  facet_wrap( ~ n_t, labeller = label_both ) +
+  geom_point() + geom_line()  +
+  geom_hline( yintercept = 0.5, lty=2 ) +
+  theme_minimal() +
+  scale_x_log10( breaks = unique( sres$n_c ) ) +
+  theme( legend.position="bottom",
+         legend.direction="horizontal", legend.key.width=unit(1,"cm"),
+         panel.border = element_blank() ) +
+  labs( x = "Number of control units", y = "MDE (proportion reduction of rate)",
+        caption = "A MDE of 0.6 means a 60% reduction (more than half) in discipline rates",
+        title = "MDE vs number of control units for various methods" )
+```
+:::
+
+
+Corresponding with our findings regarding precision, above, the twopost estimator is the most sensitive, finding the smallest effects.
+-->
+</section>
+</section>
+<section id="using-and-exploring-packages-for-power-calculations" class="level2" data-number="19.5">
+<h2 data-number="19.5" class="anchored" data-anchor-id="using-and-exploring-packages-for-power-calculations"><span class="header-section-number">19.5</span> Using and exploring packages for power calculations</h2>
+<p>Many randomized trials have distinct structure such as clustering. For example, researchers frequently want to calculate power for multisite randomized trials, where each of a series of sites has students randomized to treatment, or not. Our earlier cluster RCT case study (see, e.g., <a href="020-Data-generating-models.html#sec-case-cluster" class="quarto-xref"><span>Section 6.6</span></a>) is another example of this, where entire sites are randomized, but we have outcomes at the student level.</p>
+<p>We can use the same simulation framework as above to calculate power for these types of models. We write a data generation function that generates our data given our target structure, and then repeatedly generate and analyze data to assess power, just as we have done.</p>
+<p>As we saw earlier, however, it can be sometimes tricky to write code that properly has covariates that relate to the different levels of our model, or that divides variance appropriately across levels. For example, in a multisite experiment, we might want a covariate that has a different mean value within each cluster, but also has variation within cluster.</p>
+<p>Instead of immediately writing our own data generation function when faced with such a project, it might be worth looking to the literature to see what tools are available. If we looked in this case, for example, we might come across <span class="citation" data-cites="enders2023simple">Enders et al. (<a href="references.html#ref-enders2023simple" role="doc-biblioref">2023</a>)</span>, which showcases a package, <code>mlmpower</code>, designed to generate data according to a flexible range of multilevel models.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>( mlmpower )</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">outcome</span>(<span class="st">'Y'</span>) <span class="sc">+</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">within_predictor</span>(<span class="st">'X'</span>) <span class="sc">+</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">between_predictor</span>(<span class="st">'W'</span>) <span class="sc">+</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">effect_size</span>(<span class="at">icc =</span> <span class="fl">0.1</span>,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>              <span class="at">within =</span> <span class="fl">0.2</span> )</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">4232345</span>)</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">generate</span>( model, </span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>                 <span class="at">n_within =</span> <span class="dv">5</span>, </span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>                 <span class="at">n_between =</span> <span class="dv">12</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>()</span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>( dat, <span class="at">n=</span><span class="dv">4</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 60 × 4
+  `_id`     Y      X        W
+  &lt;int&gt; &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;
+1     1 20.6   0.705 -0.00235
+2     1  5.32 -0.146 -0.00235
+3     1 15.6   0.265 -0.00235
+4     1  4.69  1.32  -0.00235
+# ℹ 56 more rows</code></pre>
+</div>
+</div>
+<p>Due to our coefficient specification, our covariate <span class="math inline">\(X\)</span> is correlated with <span class="math inline">\(Y\)</span>:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cor</span>( dat<span class="sc">$</span>X, dat<span class="sc">$</span>Y )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.5310738</code></pre>
+</div>
+</div>
+<p>The package even provides methods for calculating power, assuming multilevel modeling (via the <code>lme4</code> package) is used for the estimator. The power analysis method of this package in fact runs a multifactor simulation:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output cell-output-stdout">
+<pre><code>                  value     mc_moe
+fixed.(Intercept)  1.00 0.00000000
+fixed.cgm(X)       0.95 0.04293162
+fixed.cgm(W)       0.05 0.04293162</code></pre>
+</div>
+</div>
+<p>We have estimated 95% power for detecting the effect of the within-level predictor, <code>X</code>, with 10 students per site and 5 sites, given the parameters we set. We refer the reader to the package documentation for how to use this specific package.</p>
+<p>The broader point is it is sometimes worth digging into provided code to get material for generating data or even running simulations. That said, each package is designed for a specific purpose, and has its own language. Here, for example, the effect size, defined as <code>within</code>, is rooted in how the package centers and incorporates covariates into the model. Tying its parameterization to classic regression coefficients may be non-obvious. It is thus sometimes easy to use a package to get data that looks like data, but does not actually have the structure you intend. As always, do diagnostics and verification to ensure the tools are working as you expect.</p>
+<p>Here, for example, we might generate a very large dataset to get estimated coefficients as a sanity check:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">generate</span>( model, </span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>                 <span class="at">n_within =</span> <span class="dv">100</span>, </span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>                 <span class="at">n_between =</span> <span class="dv">100</span> ) <span class="sc">%&gt;%</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>()</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>M <span class="ot">=</span> lme4<span class="sc">::</span><span class="fu">lmer</span>( Y <span class="sc">~</span> X <span class="sc">+</span> W <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span><span class="st">`</span><span class="at">_id</span><span class="st">`</span>), <span class="at">data=</span>dat )</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>arm<span class="sc">::</span><span class="fu">display</span>(M)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>lme4::lmer(formula = Y ~ X + W + (1 | `_id`), data = dat)
+            coef.est coef.se
+(Intercept) 10.05     0.15  
+X            2.44     0.04  
+W            0.03     0.14  
+
+Error terms:
+ Groups   Name        Std.Dev.
+ _id      (Intercept) 1.40    
+ Residual             4.22    
+---
+number of obs: 10000, groups: _id, 100
+AIC = 57462.4, DIC = 57435.4
+deviance = 57443.9 </code></pre>
+</div>
+</div>
+<p>The coefficient for X is 2.44, which is not the 0.2 we specified. Clearly some scaling is happening.</p>
+<p>We can check our ICC:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>sigma2_2 <span class="ot">=</span> lme4<span class="sc">::</span><span class="fu">VarCorr</span>(M)<span class="sc">$</span><span class="st">`</span><span class="at">_id</span><span class="st">`</span>[<span class="dv">1</span>]</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>sigma2_1 <span class="ot">=</span> <span class="fu">attr</span>(lme4<span class="sc">::</span><span class="fu">VarCorr</span>(M), <span class="st">"sc"</span>)<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>sigma2_2 <span class="sc">/</span> (sigma2_2 <span class="sc">+</span> sigma2_1)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.09864158</code></pre>
+</div>
+</div>
+<p>At least this is close to the listed 0.10. More testing is needed.</p>
+</section>
+<section id="concluding-thoughts" class="level2" data-number="19.6">
+<h2 data-number="19.6" class="anchored" data-anchor-id="concluding-thoughts"><span class="header-section-number">19.6</span> Concluding Thoughts</h2>
+<p>Power analysis simulations are simply simulations with the chance of rejecting the null as the primary performance measure of interest. The key concern with a power analysis is to calibrate the simulation to ones best guess as to what the real data will look like. It is wise to run a series of simulations under related scenarios to try and triangulate what possible worlds one might face, and then see how power changes in the face of that uncertainty.</p>
+<p>Power analysis can also be used for planning: by comparing different designs, we can see which ones are valid, and which are most powerful.</p>
+<p>Power analysis simulations have some advantages over calculators. First, it is easier to test how things might change given possible features of the data. For example, we saw how non-normality impacted our estimators in the primary simulation on discipline, above. Second, once the simulation is written, the code for analyzing the future data is also written! By the end of a simulation power analysis, the researcher knows their methods deeply, has the framework to test their methods in the face of misspecification, and knows the chance of errors in their code is minimal (especially if they did a valididty check as well as power analysis).</p>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-enders2023simple" class="csl-entry" role="listitem">
+Enders, Craig K, Brian T Keller, and Michael P Woller. 2023. <span>“A Simple Monte Carlo Method for Estimating Power in Multilevel Designs.”</span> <em>Psychological Methods</em>.
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Create fixed toggle button
+  const toggleBtn = document.createElement("button");
+  toggleBtn.id = "fixed-sidebar-toggle";
+  toggleBtn.title = "Toggle Sidebar";
+  toggleBtn.setAttribute("aria-label", "Toggle Sidebar");
+
+  // SVG Icons for Open vs Closed state
+  const iconSidebarOpen = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm0 1h3v12H2V2zm4 12V2h8v12H6z"/>
+    </svg>`;
+    
+  const iconSidebarClosed = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+      <path d="M11 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H10.5a.5.5 0 0 1 .5.5z"/>
+    </svg>`;
+
+  toggleBtn.innerHTML = iconSidebarOpen;
+
+  toggleBtn.addEventListener("click", function() {
+    const isHidden = document.body.classList.toggle("sidebar-hidden");
+    toggleBtn.innerHTML = isHidden ? iconSidebarClosed : iconSidebarOpen;
+  });
+
+  document.body.appendChild(toggleBtn);
+});
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jepusto\.github\.io\/Designing-Simulations-in-R\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./120-parallel-processing.html" class="pagination-link" aria-label="Parallel Processing">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./150-potential-outcomes-framework.html" class="pagination-link" aria-label="Simulation under the Potential Outcomes Framework">
+        <span class="nav-page-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/140-simulation-for-power-analysis.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></div></div></footer></body></html>

@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies">
+
+<title>15&nbsp; Simulations as evidence – Designing Monte Carlo Simulations in R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./100-file-management.html" rel="next">
+<link href="./075-special-topics-on-reporting.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-9d6c9622e1db6294580745c4cacaf708.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/sidebar-toggle.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./060-multiple-scenarios.html">Systematic Simulations</a></li><li class="breadcrumb-item"><a href="./080-simulations-as-evidence.html"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Designing Monte Carlo Simulations in R</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/jepusto/Designing-Simulations-in-R" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="./Designing-Monte-Carlo-Simulations-in-R.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Welcome</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">An Introductory Look</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./001-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./003-programming-preliminaries.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Programming Preliminaries</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./005-initial-t-test-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">An initial simulation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Structure and Mechanics of a Simulation Study</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./010-Simulation-structure.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Structure of a simulation study</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./015-Case-study-ANOVA.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Case Study: Heteroskedastic ANOVA and Welch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./020-Data-generating-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./030-Estimation-procedures.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./035-running-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the Simulation Process</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./040-Performance-criteria.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance Measures</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Systematic Simulations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./060-multiple-scenarios.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./070-experimental-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Designing multifactor simulations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./072-presentation-of-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Exploring and presenting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./074-building-good-vizualizations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Building good visualizations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./075-special-topics-on-reporting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Special Topics on Reporting Simulation Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./080-simulations-as-evidence.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Computational Considerations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./100-file-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./110-debugging-and-testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Debugging and Testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./120-parallel-processing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Complex Data Structures</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./140-simulation-for-power-analysis.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./150-potential-outcomes-framework.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./200-coding-tidbits.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Coding Reference</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#making-simulations-relevant" id="toc-making-simulations-relevant" class="nav-link active" data-scroll-target="#making-simulations-relevant"><span class="header-section-number">15.1</span> Making simulations relevant</a></li>
+  <li><a href="#case-study-using-copulas-to-generate-calibrated-data" id="toc-case-study-using-copulas-to-generate-calibrated-data" class="nav-link" data-scroll-target="#case-study-using-copulas-to-generate-calibrated-data"><span class="header-section-number">15.2</span> Case study: Using copulas to generate calibrated data</a></li>
+  <li><a href="#simulation-sections-in-methods-papers" id="toc-simulation-sections-in-methods-papers" class="nav-link" data-scroll-target="#simulation-sections-in-methods-papers"><span class="header-section-number">15.3</span> Simulation Sections in Methods Papers</a></li>
+  <li><a href="#concluding-thoughts" id="toc-concluding-thoughts" class="nav-link" data-scroll-target="#concluding-thoughts"><span class="header-section-number">15.4</span> Concluding Thoughts</a></li>
+  </ul>
+<div class="toc-actions"><ul class="collapse"><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/080-simulations-as-evidence.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./060-multiple-scenarios.html">Systematic Simulations</a></li><li class="breadcrumb-item"><a href="./080-simulations-as-evidence.html"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>We began this book with an acknowledgement that simulation is fraught with the potential for misuse: <em>simulations are doomed to succeed</em>. We close this part by reiterating this point, and then discussing several ways researchers might design their simulations so they more arguably produce real evidence.</p>
+<p>When our work is done, ideally we will have generated simulations that provide a sort of “consumer product testing” for the statistical methods we are exploring. Clearly, it is important to do some consumer product tests that are grounded in how consumers will actually use the product in real life—but before you get to that point, it can be helpful to cover an array of conditions that are probably more extreme than what will be experienced in practice (simulations akin to dropping things off buildings or driving over them with cars or whatever else). For simulation, extreme levels of a factor make understanding the role they play more clear. Extreme contexts can also help lay bare the limits of our methods.</p>
+<p>“Extreme” can go in both the good and bad directions. Extreme contexts can include best-case (or at least optimistic) scenarios for when our estimator of interest will excel, giving a nominal upper bound on how well things could go. Usually extreme simulations are simple ones, with fairly straightforward data generating processes that do not attempt to capture the complexities of real data. Such extreme simulations might be considered overly <em>clean</em> tests.</p>
+<p>Extreme and clean simulations are also usually easier to write, manipulate, and understand. Such simulations can help us learn about the estimators themselves. For example, we can use simulation to uncover how different aspects of a data generating process affect the performance of an estimator. To discover this, we would need a data generation process with clear levers controlling those aspects. Simple simulations can be used to push theory further—we can experiment to gain an inclination of whether a novel approach to something is a good idea at all, or to verify we are right about an intuition or derivation about how well an estimator can work.</p>
+<p>But such simulations cannot be the end of our journey. In general, a researcher should work to ensure their simulation evidence is <em>relevant</em>. The evidence should inform how things are likely to work out in practice. A set of simulations only using unrealistic data generating processes may not be that useful. Unless the estimators being tested have truly universally stable properties, we will not learn much from a simulation if it is not relevant to the problem at hand. After exploring the overly extreme or overly clean, we have to circle back to providing testing of the sorts of situations an eventual user of our methods might encounter in practice. So how can we make our simulations more relevant?</p>
+<section id="making-simulations-relevant" class="level2" data-number="15.1">
+<h2 data-number="15.1" class="anchored" data-anchor-id="making-simulations-relevant"><span class="header-section-number">15.1</span> Making simulations relevant</h2>
+<p>In the following subsections we go through a range of general strategies for making relevant simulations:</p>
+<ol type="1">
+<li>Break symmetries and regularities.</li>
+<li>Use extensive multi-factor simulations.</li>
+<li>Use simulation DGPs from prior literature.</li>
+<li>Pick simulation factors based on real data.</li>
+<li>Resample real data directly to get authentic distributions.</li>
+<li>Design a fully calibrated simulation.</li>
+</ol>
+<section id="break-symmetries-and-regularities" class="level3" data-number="15.1.1">
+<h3 data-number="15.1.1" class="anchored" data-anchor-id="break-symmetries-and-regularities"><span class="header-section-number">15.1.1</span> Break symmetries and regularities</h3>
+<p>In a series of famous causal inference papers <span class="citation" data-cites="lin2013agnostic freedman2008regression">(<a href="references.html#ref-lin2013agnostic" role="doc-biblioref">Lin 2013</a>; <a href="references.html#ref-freedman2008regression" role="doc-biblioref">Freedman 2008</a>)</span>, researchers examined when linear regression adjustment of a randomized experiment (i.e., when controlling for baseline covariates in a randomized experiment) could cause problems. Critically, if the treatment assignment is 50%, then the concerns that these researchers examined do not come into play, as asymmetries between the two groups get perfectly cancelled out. That said, if the treatment proportion is more lopsided, then under some circumstances you can get bias and invalid standard errors, depending on other structures of the data.</p>
+<p>Simulations can be used to explore these issues, but only if we break the symmetry of the 50% treatment assignment. When designing simulations, it is worth looking for places of symmetry, because in those contexts estimators will often work better than they might otherwise, and other factors may not have as much of an effect on performance as anticipated.</p>
+<p>Similarly, in recent work on best practices for analyzing multisite experiments <span class="citation" data-cites="miratrix2021applied">(<a href="references.html#ref-miratrix2021applied" role="doc-biblioref">Miratrix et al. 2021</a>)</span>, we identified how different estimators could be targeting different estimands. In particular, some estimators target site-average treatment effects, some target person-average treatment effects, and some target a kind of precision-weighted blend of the two. To see this play out in practice, our simulations needed the sizes of sites to vary, and also the proportion of treated within site to vary across sites. If we had run simulations with equal site size or equal proportion treated, we would not see the broader behavior that separates the estimators considered.</p>
+<p>Overall, it is important to make your data generation processes irregular.</p>
+</section>
+<section id="use-extensive-multi-factor-simulations." class="level3" data-number="15.1.2">
+<h3 data-number="15.1.2" class="anchored" data-anchor-id="use-extensive-multi-factor-simulations."><span class="header-section-number">15.1.2</span> Use extensive multi-factor simulations.</h3>
+<p>“If a single simulation is not convincing, use more of them,” is one principle a researcher might take. By conducting extensive multifactor simulations, once can explore a large space of possible data generating scenarios. If, across the full range of scenarios, a general story bears out, then perhaps that will be more convincing than a narrower range.</p>
+<p>Of course, the critic will claim that some aspect of your DGP that is not varying is the real culprit. If this aspect is unrealistic, then the findings, across the board, may be less relevant. Thus, pick the factors one varies with care, and pick factors in anticipation of reviewer critique.</p>
+</section>
+<section id="use-simulation-dgps-from-prior-literature." class="level3" data-number="15.1.3">
+<h3 data-number="15.1.3" class="anchored" data-anchor-id="use-simulation-dgps-from-prior-literature."><span class="header-section-number">15.1.3</span> Use simulation DGPs from prior literature.</h3>
+<p>If a relevant prior paper uses a simulation to make a case, one approach is to replicate that simulation, adding in the new estimator one wants to evaluate. In effect, use previously published simulations to beat them at their own game. Using an established DGP makes it (more) clear that you are not fishing: you are using something that already exists in the literature as a published benchmark. By constraining oneself to published simulations, one has less wiggle room to cherry pick a data generating process that works the way you want. Indeed, such a benchmarking approach is often taken in the machine learning literature, where different canonical datasets are used to benchmark the performance of new methods.</p>
+</section>
+<section id="pick-simulation-factors-based-on-real-data" class="level3" data-number="15.1.4">
+<h3 data-number="15.1.4" class="anchored" data-anchor-id="pick-simulation-factors-based-on-real-data"><span class="header-section-number">15.1.4</span> Pick simulation factors based on real data</h3>
+<p>Use real data to inform choice of factor levels or other data generation features. For example, in James’s work on designing methods for meta-analysis, there is often a question of how big simulated sample sizes should be and how many different simulated outcomes per study there should be when generating sets of hypothetical studies to be included in hypothetical meta-analyses. In one project, to make such simulations realistic, James obtained data from a set of past real meta-analyses and fit parametric models to these features, and then used the resulting parameter estimates as benchmarks for how large and how varied the simulated meta analyses should be. <!-- LWM: James, can you put a cite here for reference? --></p>
+<p>When doing this, we recommend not using the exact estimated values, but instead using them as a point of reference. For instance, say we find that the distribution of study sizes fits a Poisson(63) pretty well. We might then then simulate study sizes using a Poisson with mean parameters of 40, 60, or 80 (where 40, 60, and 80 would be one factor in our multifactor experiment).</p>
+</section>
+<section id="resample-real-data-directly-to-get-authentic-distributions" class="level3" data-number="15.1.5">
+<h3 data-number="15.1.5" class="anchored" data-anchor-id="resample-real-data-directly-to-get-authentic-distributions"><span class="header-section-number">15.1.5</span> Resample real data directly to get authentic distributions</h3>
+<p>You can use real data directly in your simulation. For example, say you need a population distribution for a slew of covariates. Rather than using something artificial (such as a multivariate normal), you can pull population data on a collection of covariates from some administrative data and then use those data as a population distribution. You then sample (probably with replacement) rows from your reference population to generate your simulation sample.</p>
+<p>The appeal here is that your covariates will then have distributions that are much more authentic than some multivariate normal–they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.</p>
+<p><span class="citation" data-cites="longUsingHeteroscedasticityConsistent2000">Long and Ervin (<a href="references.html#ref-longUsingHeteroscedasticityConsistent2000" role="doc-biblioref">2000</a>)</span> used an approach like this in their study of heteroscedasticity-robust standard errors. They wanted to explore how well these standard errors worked in practice, with a focus on how high leverage points could undermine their effectiveness. Leverage is purely a function of the covariate distribution, so they needed to have an authentic covariate distribution in order to properly explore this issue. Generating realistic leverage is hard to do with a parametric model, so instead they used examples from real life to make the simulation more relevant.</p>
+<p>Resampling the real data, and then adding an outcome model on top of that, is a form of <strong>semi-synthetic</strong> simulation, to acknowledge the hybrid approach, or <strong>plasmode simulation</strong>, which has ties to electronic health records research. These approaches are often used in causal inference work, where investigators attempt to determine which of the many observational study tools might work best, and when. This context is particularly hard because even with real data in hand, there is no observed ground truth as to what the actual treatment effects are; everything must be estimated.</p>
+<p>A key advantage of a semi-synthetic or plasmode approaches is that they can naturally adapt to contexts, such as electronic health records research, where covariate spaces can be extraordinarily high-dimensional, with complex dependence structures that purely parametric simulation cannot plausibly reproduce <span class="citation" data-cites="franklin2014plasmode">(<a href="references.html#ref-franklin2014plasmode" role="doc-biblioref">Franklin et al. 2014</a>)</span>. By simply bootstrapping the covariates from the raw data, all the dependencies are preserved. A design question, if working in a causal inference framework, is then whether any treatment indicator should be included along with the covariates or generated independently; see, e.g., <span class="citation" data-cites="shaw2025cautionary">Shaw et al. (<a href="references.html#ref-shaw2025cautionary" role="doc-biblioref">2025</a>)</span>, who argue that sampling the treatment can cause estimators to appear spuriously biased in some cases.</p>
+<!-- LWM: Is this section and the next really the same thing?  It feels like the structure of this chapter is not quite right. -->
+</section>
+<section id="sec-calibrated-simulations" class="level3" data-number="15.1.6">
+<h3 data-number="15.1.6" class="anchored" data-anchor-id="sec-calibrated-simulations"><span class="header-section-number">15.1.6</span> Build a calibrated simulation</h3>
+<p>Extending some of the prior ideas even further, one practice in increasing vogue is to generate <em>calibrated simulations</em>. See <span class="citation" data-cites="Kern2014calibrated">Kern et al. (<a href="references.html#ref-Kern2014calibrated" role="doc-biblioref">2014</a>)</span> for an example of this in the context of generalizing experiments. This paper has one of the earliest uses of this term, as far as we know.</p>
+<p>A calibrated simulation is one that is tailored to a specific applied context, with a DGP that is close to what we think the real world is like in that context. Usually, this means we try to generate data that looks as much like a target dataset as possible, with the same covariate distributions and the same relationships between covariates and outcomes. These simulations are not particularly general, but instead are designed to more narrowly inform what how well things would work for a particular circumstance.</p>
+<p>Once we have a fully calibrated DGP, targeting a specific dataset, we can then modify it by adjusting sample sizes or other aspects to explore a space of DGPs that are all connected to this core initial calibrated DGP. We can thus still build more general evidence, but the evidence will always be anchored by our initial target.</p>
+<p>We usually would build a calibrated simulation out of existing data. As discussed in the prior section, we might start with sampling from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.</p>
+<p>Just putting a model on top of a real dataset does not necessarily achieve true calibration. The relationship between our covariates and outcome would need to, even if it is model dependent, be realistic in order to truly assess how well the estimators work in practice. It is very easy to accidentally put a very simple model in place for this final component, thus making a calibrated simulation that is quite naive in, perhaps, the very way that counts.</p>
+<p>One approach to get a more realistic model between covariates and outcomes is to fit a flexible model to the original data, and then use the model to predict outcomes from the covariates. One would then generate residuals to add to the predictions, ideally in a way that preserves the heteroscedasticity and overall outcome distribution of the original data. For example, in the subsection below, we provide a copula based approach to doing this, which ensures the outcome distribution is in line with the original data while allowing control over how tightly coupled the covariates are to the outcome. We do not say this is the only approach, but rather one of a large range of possibilities.</p>
+<p>Clearly, these calibration games can be fairly complex. Calibrated simulations frequently do not lend themselves to a clear factor-based structure that have levers that change targeted aspects of the data generating process (although sometimes you can craft your approach to make such levers possible). In exchange for this loss of clean structure, we end up with a simulation that might be more faithfully capturing aspects of a specific context, making our simulations more relevant to answering the narrower question of “how will things work here?” even if they are less relevant for answering the question of “how will things work generally?”</p>
+<!--
+This could be true--generated by Claude, but not to be trusted:
+The term was introduced by @cattell1967integration to describe a dataset whose
+values were known to conform to a specified mathematical model, and was
+subsequently revived and formalized in the statistical literature
+[@vaughan2009plasmodes; @franklin2014plasmode]. 
+
+-->
+<p>Semi-synthetic approaches occupy the middle ground between purely synthetic simulation (where every variable is fabricated from pre-specified distributions and the data bear no necessary resemblance to any real population) and fully empirical analysis (where ground truth treatment effects may be unobservable, making evaluation of an estimator difficult).</p>
+<p>One canonical motivation for a semi-synthetic approach is the fundamental problem of causal inference: because we never observe counterfactual outcomes (e.g., the outcome we would have seen for a treated unit if it had not been treated) we cannot soly rely on the raw data if we are estimated in the “real” treatment effects. A famous example of a semi-synthetic approach is the IHDP benchmark, in which <span class="citation" data-cites="hill2011bayesian">Hill (<a href="references.html#ref-hill2011bayesian" role="doc-biblioref">2011</a>)</span> removed a subset of treated units from the Infant Health and Development Program randomized trial to introduce selection bias, and then replaced the observed outcomes with simulated potential outcomes generated from a nonparametric Bayesian model; this benchmark subsequently anchored a large fraction of the machine-learning literature on heterogeneous treatment-effect estimation. See, for example the Atlantic Causal Inference Conference data challenge, discussed in <span class="citation" data-cites="dorie2019automated">Dorie et al. (<a href="references.html#ref-dorie2019automated" role="doc-biblioref">2019</a>)</span>. <span class="citation" data-cites="gentzel2021how">Gentzel et al. (<a href="references.html#ref-gentzel2021how" role="doc-biblioref">2021</a>)</span> further systematized this approach, walking through different ways of generating data for simulation evaluation of causal inference methods.</p>
+</section>
+</section>
+<section id="case-study-using-copulas-to-generate-calibrated-data" class="level2" data-number="15.2">
+<h2 data-number="15.2" class="anchored" data-anchor-id="case-study-using-copulas-to-generate-calibrated-data"><span class="header-section-number">15.2</span> Case study: Using copulas to generate calibrated data</h2>
+<p></p>
+<!-- LWM: I stole from my blog post and cut it down a bit.  But this might be overly specialized.  I wanted to make the calibrated discussion a bit more explicit above.  But perhaps we should cut? -->
+<p>In this section, we borrow from a blog post<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> to illustrate how to use copulas to generate data that is very calibrated to a target dataset. In this example, we will generate new observations <span class="math inline">\((X, Y)\)</span>, where <span class="math inline">\(X\)</span> is a vector of covariates (some continuous, some categorical) and <span class="math inline">\(Y\)</span> is a continuous outcome of an arbitrary distribution as described by a target dataset.</p>
+<p>A copula is a mathematical device that is used to describe a multivariate distribution in terms of its marginals and the correlation structure between them, and we used it to generate new <span class="math inline">\(Y_i\)</span> values based on the <span class="math inline">\(X_i\)</span> in a way that maintained the same marginal distributions for all variables as the empirical dataset.</p>
+<p>We found the copula to have several benefits. First, the copula approach can give a different <span class="math inline">\(Y\)</span> for a given <span class="math inline">\(X\)</span>. By contrast, simply bootstrapping our empirical data (a common way to generate synthetic data that looks like an empirical target) would not achieve this. Second, we could control the tightness of the coupling between <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span>, while maintaining a fairly complex and nonlinear relationship between <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span>, and while maintaining possible heteroskedasticity found in the initial dataset.</p>
+<p>To illustrate, we will use a (fake) dataset with four covariates, X1, X2, X3, and X4, and an outcome, Y. Here are a few rows of this “empirical” data that we are trying to match:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">X1</th>
+<th style="text-align: right;">X2</th>
+<th style="text-align: right;">X3</th>
+<th style="text-align: right;">X4</th>
+<th style="text-align: right;">Y</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">5.89</td>
+<td style="text-align: right;">0.15</td>
+<td style="text-align: right;">801.43</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">5.37</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">550.00</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">2.58</td>
+<td style="text-align: right;">3.61</td>
+<td style="text-align: right;">129.28</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">3.37</td>
+<td style="text-align: right;">3.12</td>
+<td style="text-align: right;">550.00</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">-2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">-0.22</td>
+<td style="text-align: right;">-0.57</td>
+<td style="text-align: right;">1.50</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Our outcome in this case is a bit funky:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="080-simulations-as-evidence_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The covariates have a correlation structure with themselves and also Y. Here are the pairwise correlations on the raw values:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>( <span class="fu">round</span>( <span class="fu">cor</span>( dat ), <span class="at">digits =</span> <span class="dv">2</span> ) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      X1    X2   X3    X4    Y
+X1  1.00 -0.23 0.34  0.81 0.53
+X2 -0.23  1.00 0.21 -0.17 0.19
+X3  0.34  0.21 1.00  0.29 0.63
+X4  0.81 -0.17 0.29  1.00 0.45
+Y   0.53  0.19 0.63  0.45 1.00</code></pre>
+</div>
+</div>
+<p>We want to generate synthetic data that captures the correlation structure of our empirical data along with the marginal distributions of each covariate and outcome. We will do this via the following steps:</p>
+<p><strong>Steps for making data with a copula:</strong></p>
+<ol type="1">
+<li>Predict <span class="math inline">\(Y\)</span> given the full set of covariates <span class="math inline">\(X\)</span> using a machine learner.</li>
+<li>Tie <span class="math inline">\(\hat{Y}_i\)</span> and <span class="math inline">\(Y_i\)</span> together with a copula.</li>
+<li>Generate new <span class="math inline">\(X\)</span>s (in our case, via the bootstrap).</li>
+<li>Generate a predicted <span class="math inline">\(\hat{Y}_i\)</span> for each <span class="math inline">\(X_i\)</span> using the machine learner.</li>
+<li>Generate the final, observed, <span class="math inline">\(Y_i\)</span> using our copula.</li>
+</ol>
+<section id="step-1.-predict-the-outcome-given-the-covariates" class="level3" data-number="15.2.1">
+<h3 data-number="15.2.1" class="anchored" data-anchor-id="step-1.-predict-the-outcome-given-the-covariates"><span class="header-section-number">15.2.1</span> Step 1. Predict the outcome given the covariates</h3>
+<p>We can use some machine learning model to make predictions of <span class="math inline">\(Y\)</span> given <span class="math inline">\(X\)</span>. Here we use a random forest:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(randomForest) </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>mod <span class="ot">&lt;-</span> <span class="fu">randomForest</span>( Y <span class="sc">~</span> ., </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                     <span class="at">data=</span>dat,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                     <span class="at">ntree =</span> <span class="dv">200</span> )</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>dat<span class="sc">$</span>Y_hat <span class="ot">=</span> <span class="fu">predict</span>( mod )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Our predictive model for <span class="math inline">\(Y\)</span> can be anything we want: we are just trying to get some predicted <span class="math inline">\(Y\)</span> that is appropriately tied to the <span class="math inline">\(X\)</span>.</p>
+<p>Our predictions will be under dispersed and not natural in appearance. For starters, the standard deviation of the <span class="math inline">\(\hat{Y}\)</span> will be less than the original <span class="math inline">\(Y\)</span>, because our predictions are only getting at the structural aspects, not the residual noise:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>( <span class="at">sd_Yhat =</span> <span class="fu">sd</span>( dat<span class="sc">$</span>Y_hat ),</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">sd_Y =</span> <span class="fu">sd</span>( dat<span class="sc">$</span>Y ),</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">cor =</span> <span class="fu">cor</span>( dat<span class="sc">$</span>Y_hat, dat<span class="sc">$</span>Y ) ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>( <span class="at">digits =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>,<span class="dv">2</span>) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">sd_Yhat</th>
+<th style="text-align: right;">sd_Y</th>
+<th style="text-align: right;">cor</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">329.4</td>
+<td style="text-align: right;">459</td>
+<td style="text-align: right;">0.9</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Our synthetic <span class="math inline">\(Y\)</span> values will need to be “noised up” so they look more natural. We also want them to match the empirical distribution of our original data.</p>
+</section>
+<section id="step-2.-tie-haty-to-y-with-a-copula" class="level3" data-number="15.2.2">
+<h3 data-number="15.2.2" class="anchored" data-anchor-id="step-2.-tie-haty-to-y-with-a-copula"><span class="header-section-number">15.2.2</span> Step 2. Tie <span class="math inline">\(\hat{Y}\)</span> to <span class="math inline">\(Y\)</span> with a copula</h3>
+<p>The first step of the copula approach is to make a function that converts empirical data to normalized <span class="math inline">\(z\)</span>-scores based on their percentile rank, as we will be doing all our data generation in “normal <span class="math inline">\(z\)</span>-score space.” In other words, we take a value, calculate its percentile, and then calculate what <span class="math inline">\(z\)</span>-score that percentile would have, if the value came from a standard normal distribution.</p>
+<p>Here is a function to do this:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>convert_to_z <span class="ot">&lt;-</span> <span class="cf">function</span>( Y ) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  K <span class="ot">=</span> <span class="fu">length</span>(Y)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  r_Y <span class="ot">&lt;-</span> <span class="fu">rank</span>( Y, <span class="at">ties.method =</span> <span class="st">"random"</span> )<span class="sc">/</span>K <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span>(<span class="dv">2</span><span class="sc">*</span>K)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  z <span class="ot">&lt;-</span> <span class="fu">qnorm</span>( r_Y )</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  z</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We calculate percentiles by ranking the values, and then taking the midpoint of each rank. If we had 20 values, for example, we would then have percentiles of 5%, 15%, …, 95%. (We can’t have 0 or 100% since this will turn into Infinity when converting to a <span class="math inline">\(z\)</span>-score.)</p>
+<p>Using our function, we convert both our <span class="math inline">\(Y\)</span> and predicted <span class="math inline">\(Y\)</span> to these normal <span class="math inline">\(z\)</span>-scores:</p>
+<div class="cell" data-layout-align="center" data-messages="false">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>z_Y <span class="ot">=</span> <span class="fu">convert_to_z</span>( dat<span class="sc">$</span>Y )</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>z_Yhat <span class="ot">=</span> <span class="fu">convert_to_z</span>( dat<span class="sc">$</span>Y_hat )</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">qplot</span>( z_Y, z_Yhat, <span class="at">asp =</span> <span class="dv">1</span>, <span class="at">alpha=</span><span class="fl">0.05</span> ) <span class="sc">+</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>( <span class="at">slope=</span><span class="dv">1</span>, <span class="at">intercept=</span><span class="dv">0</span>, <span class="at">col=</span><span class="st">"red"</span> ) <span class="sc">+</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">title =</span> <span class="st">"$z$-scores of Y vs predicted Y"</span> ) <span class="sc">+</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_fixed</span>() <span class="sc">+</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>( <span class="at">legend.position =</span> <span class="st">"none"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="080-simulations-as-evidence_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Note how the <span class="math inline">\(z\)</span>-scores have smoothed our Y distribution due to the random ties, breaking up our spikes of identical values. We can then see how coupled the predicted and actual are:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>stats <span class="ot">&lt;-</span> <span class="fu">tibble</span>( </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">rho =</span> <span class="fu">cor</span>( z_Y, z_Yhat ),</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_Y =</span> <span class="fu">sd</span>( z_Y ),</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_Yhat =</span> <span class="fu">sd</span>( z_Yhat ) )</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>stats</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+    rho  sd_Y sd_Yhat
+  &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+1 0.773 1.000   1.000</code></pre>
+</div>
+</div>
+</section>
+<section id="step-3.-get-some-new-xs" class="level3" data-number="15.2.3">
+<h3 data-number="15.2.3" class="anchored" data-anchor-id="step-3.-get-some-new-xs"><span class="header-section-number">15.2.3</span> Step 3. Get some new Xs</h3>
+<p>So far we are just modeling relationship in our original data. We next set the stage for generating a new dataset. We start with making more <span class="math inline">\(X\)</span> values. A simple trick is to simply bootstrap the data, keeping the <span class="math inline">\(X\)</span> only. We might, for example, generate a new dataset of 500 observations like so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>nd <span class="ot">=</span> dat <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="fu">starts_with</span>(<span class="st">"X"</span>) ) <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_sample</span>( <span class="at">n =</span> <span class="dv">500</span>, <span class="at">replace =</span> <span class="cn">TRUE</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>If we don’t want exact duplicates of the vectors of <span class="math inline">\(X\)</span> values in our data, we can use other methods such as the <code>synthpop</code> package, which generates data based on a series of conditional distributions.</p>
+<p>So we can check our work later, we are instead going to cheat and use a dataset, <code>new_data</code> that is generated from the same DGP as our original fake data. It looks like so:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3,000 × 5
+      X1    X2    X3      X4    trueY
+   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;    &lt;dbl&gt;
+ 1     0     1 2.15   0.0169   33.3  
+ 2     1     0 1.48   1.01     29.5  
+ 3     0     1 4.19   0.896    77.4  
+ 4     0     1 2.71  -0.0180    0.331
+ 5    -1     1 0.369  0.446     1.93 
+ 6     6     1 2.89   1.43    550    
+ 7     3     1 5.04   0.830   550    
+ 8     0     1 2.23   0.440    55.5  
+ 9     8     0 4.33   4.30    550    
+10     9     0 6.29   3.76   1345.   
+# ℹ 2,990 more rows</code></pre>
+</div>
+</div>
+<p>To be very specific, <code>trueY</code> would not normally be in our data at this point; we have it here so we can compare our generated Y to the true Y to see how well our DGP is working. In practice, we would not be able to do this: we would need to generate new <span class="math inline">\(X\)</span> like shown above.</p>
+</section>
+<section id="step-4.-generate-a-predicted-haty_i-for-each-x_i-using-the-machine-learner." class="level3" data-number="15.2.4">
+<h3 data-number="15.2.4" class="anchored" data-anchor-id="step-4.-generate-a-predicted-haty_i-for-each-x_i-using-the-machine-learner."><span class="header-section-number">15.2.4</span> Step 4. Generate a predicted <span class="math inline">\(\hat{Y}_i\)</span> for each <span class="math inline">\(X_i\)</span> using the machine learner.</h3>
+<p>This step is quite easy:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>new_data<span class="sc">$</span>Yhat <span class="ot">=</span> <span class="fu">predict</span>( mod, <span class="at">newdata =</span> new_data )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Done!</p>
+</section>
+<section id="step-5.-generate-the-final-observed-y_i-using-a-copula-that-ties-haty_i-to-y_i." class="level3" data-number="15.2.5">
+<h3 data-number="15.2.5" class="anchored" data-anchor-id="step-5.-generate-the-final-observed-y_i-using-a-copula-that-ties-haty_i-to-y_i."><span class="header-section-number">15.2.5</span> Step 5. Generate the final, observed, <span class="math inline">\(Y_i\)</span> using a copula that ties <span class="math inline">\(\hat{Y}_i\)</span> to <span class="math inline">\(Y_i\)</span>.</h3>
+<p>Now we generate our new <span class="math inline">\(Y\)</span> by converting our predictions (the Yhat) to the new <span class="math inline">\(Y\)</span> via the copula. We are bascially using the same pieces that are in the <span class="math inline">\(z\)</span>-score function, above.</p>
+<p>We first generate the percentiles the Y-hats represent:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>K <span class="ot">=</span> <span class="fu">nrow</span>(new_data)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>new_data<span class="sc">$</span>r_Yhat <span class="ot">=</span> <span class="fu">rank</span>( new_data<span class="sc">$</span>Yhat ) <span class="sc">/</span> K <span class="sc">-</span> <span class="dv">1</span><span class="sc">/</span>(<span class="dv">2</span><span class="sc">*</span>K)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>( new_data<span class="sc">$</span>r_Yhat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.0001667 0.2500833 0.5000000 0.5000000 0.7499167 0.9998333 </code></pre>
+</div>
+</div>
+<p>We then convert the percentiles to the <span class="math inline">\(z\)</span>-scores they represent:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>new_data<span class="sc">$</span>z_Yhat <span class="ot">=</span> <span class="fu">qnorm</span>( new_data<span class="sc">$</span>r_Yhat )</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>( new_data<span class="sc">$</span>z_Yhat )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+-3.5879 -0.6742  0.0000  0.0000  0.6742  3.5879 </code></pre>
+</div>
+</div>
+<p>We next use a formula for the conditional distribution of a normal variable given the other variable, namely, if <span class="math inline">\(X_1, X_2\)</span> both have unit variance and mean zero, we use <span class="math display">\[X_2 | X_1 = a \sim N( \rho a, 1 - \rho^2 ) .\]</span> With this formula, we generate <span class="math inline">\(Y\)</span> as so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>rho <span class="ot">=</span> <span class="fu">cor</span>( z_Y, z_Yhat ) <span class="co"># from our empirical</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>new_data<span class="sc">$</span>z_Y <span class="ot">=</span> <span class="fu">rnorm</span>( K, </span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">mean =</span> rho <span class="sc">*</span> new_data<span class="sc">$</span>z_Yhat, </span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">sd =</span> <span class="fu">sqrt</span>( <span class="dv">1</span><span class="sc">-</span>rho<span class="sc">^</span><span class="dv">2</span> ) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Now, finally, for each observation in z-space, we figure out what rank it would correspond to in our empirical distribution, and then take that empirical data point as the value:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>empDist <span class="ot">=</span> <span class="fu">sort</span>(dat<span class="sc">$</span>Y)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>K <span class="ot">=</span> <span class="fu">length</span>(empDist)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>new_data<span class="sc">$</span>r_Y <span class="ot">=</span> <span class="fu">ceiling</span>( <span class="fu">pnorm</span>( new_data<span class="sc">$</span>z_Y ) <span class="sc">*</span> K )</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>new_data<span class="sc">$</span>Y <span class="ot">=</span> empDist[ new_data<span class="sc">$</span>r_Y ]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>And we are done!</p>
+</section>
+<section id="assessing-the-copulas-success" class="level3" data-number="15.2.6">
+<h3 data-number="15.2.6" class="anchored" data-anchor-id="assessing-the-copulas-success"><span class="header-section-number">15.2.6</span> Assessing the copula’s success</h3>
+<p>Let us next see how the distribution of our generated <span class="math inline">\(Y\)</span> to the true <span class="math inline">\(Y\)</span> from the real DGP:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="080-simulations-as-evidence_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p><code>trueY</code> and <span class="math inline">\(Y\)</span> are very close! Note the Yhat is quite different, by contrast.</p>
+<p>We further check our process by looking at how closely the correlations of our new Y with the Xs match the correlations of the true Y and the Xs:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Variable</th>
+<th style="text-align: right;">Y</th>
+<th style="text-align: right;">trueY</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">X1</td>
+<td style="text-align: right;">0.44</td>
+<td style="text-align: right;">0.56</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">X2</td>
+<td style="text-align: right;">0.18</td>
+<td style="text-align: right;">0.18</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">X3</td>
+<td style="text-align: right;">0.52</td>
+<td style="text-align: right;">0.65</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">X4</td>
+<td style="text-align: right;">0.40</td>
+<td style="text-align: right;">0.46</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Our new Y roughly looks like the true Y, with respect to the correlation with the Xs. We gave our copula approach a hard test here–simpler covariate relationships will be better captured. That said, this doesn’t seem that bad.</p>
+<!--In our $z$-space we match by design; it is the transform that is distorting our relationship:
+
+::: {.cell layout-align="center"}
+
+```{.r .cell-code}
+new_data$z_trueY = convert_to_z(new_data$trueY)
+cor( new_data[ c( "z_Yhat", "z_Y", "z_trueY" ) ] ) %>%
+  knitr::kable( digits = 2 )
+```
+:::
+
+-->
+</section>
+<section id="building-a-multifactor-simulation-from-our-calibrated-dgp" class="level3" data-number="15.2.7">
+<h3 data-number="15.2.7" class="anchored" data-anchor-id="building-a-multifactor-simulation-from-our-calibrated-dgp"><span class="header-section-number">15.2.7</span> Building a multifactor simulation from our calibrated DGP</h3>
+<p>In the above, we made a DGP that mimics, as closely as we can, the empirical data we are targeting. In an actual simulation, however, we would generally want to manipulate different aspects of our DGP to explore how different methods might function.</p>
+<p>We offer some examples of how to do this for this context.</p>
+<p>First, we can directly set <code>rho</code> to control how tightly coupled the outcome is to the covariates. If <code>rho</code> is 0, then our outcome distribution will be exactly the same, but there would be no connection between it and the covariates. For <code>rho</code> of 1, the outcome would be perfectly predicted by the predicted outcome, which is a function of the covariates. The strength of the connection between <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> is maximized.</p>
+<p>Second, we can easily control sample size by generating larger or smaller datasets of <span class="math inline">\(X\)</span> and then generating <span class="math inline">\(Y\)</span> from those <span class="math inline">\(X\)</span>.</p>
+<p>Third, we can drop some of our <span class="math inline">\(X\)</span>s by simply not including them in the prediction model, thus making them noise variables. We may still end up with relationships between a dropped <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> due to the dropped <span class="math inline">\(X\)</span>’s correlation structure with other <span class="math inline">\(X\)</span>s that are tied to <span class="math inline">\(Y\)</span>.</p>
+</section>
+</section>
+<section id="simulation-sections-in-methods-papers" class="level2" data-number="15.3">
+<h2 data-number="15.3" class="anchored" data-anchor-id="simulation-sections-in-methods-papers"><span class="header-section-number">15.3</span> Simulation Sections in Methods Papers</h2>
+<p>Simulations, as we have argued, have many uses, and appear in many places. One of the most prevalent is the simulation section of a statistical methods paper. In this section, we make a case for what kinds of simulation evidence a methods paper should have, and outline several principles to consider if you are writing up, or reviewing, such a section.</p>
+<p>In what follows, we discuss several related goals that simulations in methods papers should serve, along with practical guidance on how to accomplish each of them. We then give some advice on navigating the many design decisions of a simulation, and conclude with some guiding principles for achieving these ends.</p>
+<section id="the-simulations-purpose" class="level3" data-number="15.3.1">
+<h3 data-number="15.3.1" class="anchored" data-anchor-id="the-simulations-purpose"><span class="header-section-number">15.3.1</span> The simulation’s purpose</h3>
+<p>Ideally, a simulation study in a methods paper is not decoration. In the best case, it provides evidence for an argument. These arguments can be pointed (the researcher has an agenda to prove) or more exploratory (the researcher is trying to learn something). Which kind of argument correlates with what kind of methods paper is being written.</p>
+<p>Broadly speaking, there are two kinds of methods papers that involve simulation. The first is a methods development paper. These usually propose some novel approach, have some (mathematical) theory arguing for its utility, have a simulation to justify or illustrate the argument, and finally an applied example to demonstrate the method’s use. For these papers, the argument of the simulation is generally something along the lines of “our proposed method is an improvement over whatever else is out there.” The simulation evidence is then the empirical case for whatever claim is being made.</p>
+<p>The second type of methods paper is a “simulation paper,” where the researchers are specifically using simulation to evaluate some set of research questions. Here there is not necessarily a specific case being made, but instead a research question such as, “which of a set of methods is most appropriate for our given context of interest?” Now the simulation results are evidence to help adjudicate which options are most promising, and when.</p>
+<p>In either case, the simulation evidence is only good insofar as the choice of data generating process, factors and levels, and performance metrics are relevant.</p>
+<section id="increase-belief-in-the-theory" class="level4" data-number="15.3.1.1">
+<h4 data-number="15.3.1.1" class="anchored" data-anchor-id="increase-belief-in-the-theory"><span class="header-section-number">15.3.1.1</span> Increase belief in the theory</h4>
+<p>We generally hope that a mathematical theorem in a paper is correct, but few of us will spend the time carefully reading any accompanying proof or deriviation to ensure this is so. In fact, many papers have these derivations in a supplement, and often they are cut down, without many of the intermediate steps.</p>
+<p>Simulation can provide a sanity check and reassurance in this case. One might even say that the most basic job of a simulation is to verify that the theory behind a method actually works. Such a “sanity check” simulation is often a simple one. A clean, stylized data generating process with the key structural features the theory assumes—perhaps independent errors, a specific parametric form for the outcome, or a particular covariate distribution—is entirely appropriate here. The goal is not to show that the method works in a realistic context; it is to show that the theory does what it says it does. For example, if your theory says the estimator has a bias that diminishes at rate <span class="math inline">\(1/n\)</span>, you should see this as a linear relationship of bias vs.&nbsp;<span class="math inline">\(n\)</span> on a log scale.</p>
+<p>For this type of simulation, one useful practice is to verify not just that the point estimates look right, but also that the uncertainty quantification is correct. Coverage of nominal 95% confidence intervals is a particularly demanding test: it requires both that the point estimate be close to unbiased and the standard error be well estimated. Showing close-to-nominal coverage in a clean setting can be a quite meaningful form of theoretical verification.</p>
+</section>
+<section id="increase-the-readibility-of-your-paper" class="level4" data-number="15.3.1.2">
+<h4 data-number="15.3.1.2" class="anchored" data-anchor-id="increase-the-readibility-of-your-paper"><span class="header-section-number">15.3.1.2</span> Increase the readibility of your paper</h4>
+<p>Methods papers can be extremely technical, and the theory can be difficult to understand. If the notation is not well laid out (which in many cases it is not), even deciphering what a theorem is saying, or what an estimator actually is, can be difficult. The simulation section often has to get down to brass tacks, laying out the problem cleanly. Thus simulations can be an accessible entry point into your paper, providing some concrete examples of what the context for the estimators given are, what assumptions the estimators depend on, and so forth.</p>
+<p>While we advocate making the rest of your paper readable, we also note that a good simulation can help add clarity to your overall project. Clean simulations of this type are also useful for illustrating <em>how</em> the method works.</p>
+</section>
+<section id="demonstrate-finite-sample-relevance" class="level4" data-number="15.3.1.3">
+<h4 data-number="15.3.1.3" class="anchored" data-anchor-id="demonstrate-finite-sample-relevance"><span class="header-section-number">15.3.1.3</span> Demonstrate finite-sample relevance</h4>
+<p>Most statistical theory is asymptotic: as <span class="math inline">\(n \to \infty\)</span>, the estimator is consistent; as the number of studies grows, the coverage of a confidence interval approaches 95%; as the sample size grows, some test statistic converges to a chi-squared distribution. Such asymptotic results might say little about whether the method works at the sample sizes anyone would actually encounter. Simulations, on the other hand, can show that at some reasonable <span class="math inline">\(n\)</span>, things are in fact close to what theory promises (for at least the contexts explored). For an alarming example of the perils of “asymptopia,” <span class="citation" data-cites="kang2018inference">Kang et al. (<a href="references.html#ref-kang2018inference" role="doc-biblioref">2018</a>)</span> examines weak instruments for Instrumental Variable analysis. Even though asymptotic IV estimators guarantee 95% coverage <em>eventually</em>, Kang et al.&nbsp;find coverage below 50%!</p>
+<p>If you have derived a new estimator and proved it is consistent and asymptotically normal, a simulation showing that at <span class="math inline">\(n = 500\)</span> the bias is small, the sampling distribution is approximately normal, and the confidence intervals achieve close to nominal coverage could be reassuring to readers in a way that the asymptotic proof alone might not be. Readers are (rightly) skeptical of novel methods, and seeing the theory confirmed in a clean, interpretable simulation builds trust.</p>
+<p>A second major purpose of simulation is therefore to show that the method works— or to characterize how well it works—in the finite-sample conditions that are realistic for the problem. This is where the multi-factor simulation framework developed earlier becomes essential. Finite-sample performance depends on more than just <span class="math inline">\(n\)</span>. It depends on signal-to-noise ratios, covariate distributions, the complexity of the true outcome model, the degree of model misspecification, and a host of other features. A convincing finite-sample simulation should vary these features systematically, using levels that span the realistic range of what practitioners in the domain are likely to encounter.</p>
+<p>This requirement does put a burden on the researcher to understand their domain. What are typical sample sizes in your field? What kinds of covariate structures are common? How much model misspecification should one worry about? The simulation factors you choose, and the levels you assign to them, are an implicit argument about what a domain looks like.</p>
+</section>
+<section id="motivate-and-contextualize-the-subsequent-applied-analysis" class="level4" data-number="15.3.1.4">
+<h4 data-number="15.3.1.4" class="anchored" data-anchor-id="motivate-and-contextualize-the-subsequent-applied-analysis"><span class="header-section-number">15.3.1.4</span> Motivate and contextualize the subsequent applied analysis</h4>
+<p>A methods paper often includes an applied data analysis, usually to show that the methods work on real data and to make an appeal that the methods designed are not completely useless or irrelevant. Simulations can play a supporting role here. If your applied analysis shows that methods A and B gave different answers, then you might need your simulation section to make the case that we should believe A and not B.</p>
+<p>Such a case can be best built via what one might call a <em>domain-calibrated simulation</em>, distinct from the multifactor simulation. Where the multifactor simulation explores many conditions to establish (ideally) general properties, a domain-calibrated simulation is specifically designed to mimic the applied dataset in the paper. It is built using the methods discussed above: the covariate distribution migth be drawn from the actual data, the outcome model might be fit to the actual data, and key features of the real setting (sample size, proportion treated, etc.) would all be matched.</p>
+<p>The purpose of this calibrated simulation is not to add statistical generality—it may add very little—but to argue that, in a context that looks a lot like the problem we care about, we should prefer one method over another. This is especially true if the multifactor simulation shows that in some cases we might prefer the other method, or if in some cases there is no real difference between the two.</p>
+<p>A natural structure for a methods paper, then, is to present the multifactor simulation first to establish a general story, and then follow it with a calibrated simulation tied to the applied data.</p>
+</section>
+</section>
+<section id="navigating-the-many-design-decisions" class="level3" data-number="15.3.2">
+<h3 data-number="15.3.2" class="anchored" data-anchor-id="navigating-the-many-design-decisions"><span class="header-section-number">15.3.2</span> Navigating the many design decisions</h3>
+<p>We next discuss several decisions one needs to make as they design their simulation.</p>
+<section id="what-performance-metrics" class="level4" data-number="15.3.2.1">
+<h4 data-number="15.3.2.1" class="anchored" data-anchor-id="what-performance-metrics"><span class="header-section-number">15.3.2.1</span> What performance metrics?</h4>
+<p>The choice of what to measure in a simulation is not neutral. Different metrics emphasize different aspects of performance, and a method that looks good on one metric can look bad on another. Bias measures systematic error; variance measures precision; mean squared error combines them. Coverage of confidence intervals assesses the full inferential pipeline. Type I error rate assesses validity of tests under the null. Power assesses sensitivity. Computational time is sometimes also relevant.</p>
+<p>For a given paper, some of these matter more than others. If you are proposing a new estimator meant to correct a bias problem, bias is obviously central. If you are proposing a new test for a hypothesis where existing tests are known to be anti-conservative, Type I error rate is central. Think carefully about which metrics are directly relevant to the specific claim your paper is making, and report those prominently. Do not, of course, report only favorable metrics. Do report a more full range of metrics in your appendix, if you are only presenting a few in the main paper.</p>
+<p>Do not focus overly narrowly on your primary metric, however. For example, methods that controls bias tightly can often have much larger variances. If you are introducing a new method that controls bias, you should first show bias reduction, but also show that your method achieves a favorable bias-variance trade-off.</p>
+</section>
+<section id="how-many-replications" class="level4" data-number="15.3.2.2">
+<h4 data-number="15.3.2.2" class="anchored" data-anchor-id="how-many-replications"><span class="header-section-number">15.3.2.2</span> How many replications?</h4>
+<p>Too few replications and your simulation results will be noisy—a reviewer may reasonably wonder whether your conclusions hold up, or whether you got lucky. Too many and you waste computational resources that could have been spent on more scenarios or factors.</p>
+<p>In your paper, you should compute and report <em>Monte Carlo standard errors</em> for your key performance metrics. You can even use the MCSE formula to calculate target iterations. For example, the Monte Carlo standard error for an estimated coverage probability <span class="math inline">\(\hat{p}\)</span> based on <span class="math inline">\(B\)</span> replications is approximately <span class="math inline">\(\sqrt{\hat{p}(1 - \hat{p}) / B}\)</span>. For a nominal 95% confidence interval, this means at <span class="math inline">\(B = 1000\)</span> replications, the Monte Carlo SE is about 0.7 percentage points—precise enough to distinguish coverage of 93% from 95% but not to distinguish 94% from 95%. If that level of precision is important for your argument, you need more replications. Reporting these Monte Carlo SEs, or at minimum thinking carefully about them when choosing <span class="math inline">\(B\)</span>, signals methodological care to readers.</p>
+<p>All of this said, as a rule of thumb, <span class="math inline">\(B = 1000\)</span> is often good enough.</p>
+</section>
+<section id="how-many-factors" class="level4" data-number="15.3.2.3">
+<h4 data-number="15.3.2.3" class="anchored" data-anchor-id="how-many-factors"><span class="header-section-number">15.3.2.3</span> How many factors?</h4>
+<p>Start with a few factors, run <span class="math inline">\(R=10\)</span> or so iterations, and time your code to see how long your simulation runs (see <a href="200-coding-tidbits.html#sec-profiling-code" class="quarto-xref"><span>Section A.3</span></a> for how). If your simulation runs quickly, you can add more factors in addition to scaling up the number of replications, and you probably should.</p>
+</section>
+</section>
+<section id="principles-of-design-and-presentation" class="level3" data-number="15.3.3">
+<h3 data-number="15.3.3" class="anchored" data-anchor-id="principles-of-design-and-presentation"><span class="header-section-number">15.3.3</span> Principles of design and presentation</h3>
+<p>We next dive into some suggested principles.</p>
+<section id="dont-make-your-dgp-stupid" class="level4" data-number="15.3.3.1">
+<h4 data-number="15.3.3.1" class="anchored" data-anchor-id="dont-make-your-dgp-stupid"><span class="header-section-number">15.3.3.1</span> Don’t make your DGP stupid</h4>
+<p>All too often, the simulation section of a methods paper uses a DGP that is so extreme it is hard to image how it can be useful for anything other than a quick check of theory. In reading papers, watch for exponential functions, extremely small amounts of noise relative to the variation of the covariates, or other features that make the DGP unrealistic.</p>
+<p>Do not do this, if you do not have good reason.</p>
+</section>
+<section id="figures-not-tables" class="level4" data-number="15.3.3.2">
+<h4 data-number="15.3.3.2" class="anchored" data-anchor-id="figures-not-tables"><span class="header-section-number">15.3.3.2</span> Figures, not Tables</h4>
+<p>As we discussed extensively in prior chapters, use figures, not tables. Figures allow you to show trends (as something goes up, something else goes down, and so forth). Tables do not make trends apparent.</p>
+<p>That said, including all your raw numbers in an excel table or csv file as supplemental material is good for transparency. You might also have the raw values in a supplement, if you think people may be interested in exactly what those numbers are.</p>
+</section>
+<section id="avoid-selective-reporting" class="level4" data-number="15.3.3.3">
+<h4 data-number="15.3.3.3" class="anchored" data-anchor-id="avoid-selective-reporting"><span class="header-section-number">15.3.3.3</span> Avoid selective reporting</h4>
+<p>Simulations are particularly susceptible to selective reporting. The combination of degrees of freedom available to the researcher and the pressure to present results favorably creates a real risk of findings that do not paint an accurate picture.</p>
+<p>There are three ways to defend against selective reporting.</p>
+<p>The first is advanced planning. Before running your main set of simulations, think through the full set of factors you will vary and commit to a range of levels for each. If you deviate from this plan—because a factor turned out not to matter, or because a computational constraint forced a change—be transparent about why. Full factorial designs, with all combinations of all levels, are preferable to hand-selected sets of scenarios precisely because they leave less room for post-hoc selection.</p>
+<p>The second is code sharing. Code sharing is increasingly expected in many fields, and for simulation studies it is particularly valuable. Sharing the simulation code allows readers to verify results, extend the simulation to additional conditions, or reproduce your findings if they are skeptical. Beyond serving the field, code sharing also disciplines the researcher: knowing that others could read and run the code tends to make one more careful and more honest. In practice, this means keeping simulation code clean and well-documented, something that the software engineering practices discussed earlier in this book will help facilitate.</p>
+<p>The third is to find contexts where your methods fail. If you present simulations that include boundaries where your methods fail, then you are giving a more complex picture of the landscape of performance. You also gain credibility: by showing areas where things fall apart, you are signaling that you are not just cherry picking favorable results.</p>
+</section>
+<section id="tell-a-coherent-story" class="level4" data-number="15.3.3.4">
+<h4 data-number="15.3.3.4" class="anchored" data-anchor-id="tell-a-coherent-story"><span class="header-section-number">15.3.3.4</span> Tell a coherent story</h4>
+<p>The best simulation sections should not be a list of very specific findings. This, for example, is poor:</p>
+<blockquote class="blockquote">
+<p>In scenario A, method X had an RMSE of 0.34, and method Y had an RMSE of 0.23, so Y was preferred, while in scenario B, method X’s RMSE rose to 0.44 and Y rose to 0.52, which was higher. In scenario C, X’s RMSE rose again to 0.55, higher than Y’s 0.45, and in scenario D, X’s RMSE was 0.40, lower than Y’s 0.42.</p>
+</blockquote>
+<p>This is better:</p>
+<blockquote class="blockquote">
+<p>Results were mixed: Method X outperformed Y in scenarios B and D, while Y outperformed X in scenarios A and C.</p>
+</blockquote>
+<p>And even better:</p>
+<blockquote class="blockquote">
+<p>In Scenarios B and D, which had a nonlinear trend, method X outperformed Y, but Y was superior when the trend was linear.</p>
+</blockquote>
+<p>In the discussion you then might have:</p>
+<blockquote class="blockquote">
+<p>Earlier we saw that method X outperformed Y when the trend was nonlinear, but Y outperformed X when the trend was linear. This is consistent with the fact that method X is designed to capture nonlinear trends: it has a stability cost (note the higher SEs on Table Q), but that cost is worth it if there is something to correct for. We generated our nonlinear trend based on our fit model to the applied example discussed in the next section; we therfore view the risk of increased bias in practical settings as quite real, and thus recommend using X over Y in practice, without strong reason to believe a linear trend.</p>
+</blockquote>
+<p>Some people try to report all the results, without interpretation, and then have the discussion after. Under this model, the reporting part can be extremely difficult to write, and extremely painful and boring to read. Keep it short and refer to the tables and figures for the details. Do not just list all those numbers without any contextualization.</p>
+<p>In fact, if you can get away with it, just present the figures and tables, and dive right into interpretation as you explain how to read those tables.</p>
+<p>E.g., continuing the running example from above:</p>
+<blockquote class="blockquote">
+<p>Table Q1 shows method X, with the bias correction, outperforms Y in the “nonlinear” scenarios, but Y outperforms when the trend is in fact linear. The higher RMSE in the linear scenarios is a stability cost (also note the higher SEs on Table Q2), but that cost is worth it if there is something to correct for. We generated our nonlinear trend based on our fit model to the applied example discussed in the next section; we therfore view the risk of increased bias in practical settings as quite real, and thus recommend using X over Y in practice, without strong reason to believe a linear trend.</p>
+</blockquote>
+<p>Overall, make an argument. Give the reader your best understanding of why the proposed method works, when it works, how much it matters, and when one should or should not worry.</p>
+<p>Your visualizations should be selected to support your argument. In the above, connect your linear scenarios with a line, and the non-linear ones with a different line, to make it easy to see the pattern. Curate your visualizations to show the findings that matter, and put the remainder in the supplement for transparency.</p>
+</section>
+<section id="give-summaries-not-details-in-the-main-text" class="level4" data-number="15.3.3.5">
+<h4 data-number="15.3.3.5" class="anchored" data-anchor-id="give-summaries-not-details-in-the-main-text"><span class="header-section-number">15.3.3.5</span> Give summaries, not details, in the main text</h4>
+<p>Extending the above, in the main text you might have summaries of your performance. For example, in a large multifactor simulation of hundreds of scenarios, you might say</p>
+<blockquote class="blockquote">
+<p>Across the scenarios considered, the RMSE of method X ranged from 0.24 to 0.64. The other methods generally had higher RMSEs, ranging from 0.32 to 0.81. That said, in 15% of the scenarios explored, method X’s RMSEs were more than 20% larger than the overall average, well beyond what could be explained by the Monte Carlo uncertainty.</p>
+</blockquote>
+</section>
+<section id="keep-the-main-text-simple" class="level4" data-number="15.3.3.6">
+<h4 data-number="15.3.3.6" class="anchored" data-anchor-id="keep-the-main-text-simple"><span class="header-section-number">15.3.3.6</span> Keep the main text simple</h4>
+<p>Not everything should be in the main text. It is entirely appropriate to put secondary results—additional factor levels, supplementary metrics, robustness checks—in an appendix or supplementary materials. What belongs in the main text are the figures that most directly supports the central claim of the paper, presented as clearly and compactly as possible.</p>
+</section>
+<section id="report-mcses-but-do-it-concisely" class="level4" data-number="15.3.3.7">
+<h4 data-number="15.3.3.7" class="anchored" data-anchor-id="report-mcses-but-do-it-concisely"><span class="header-section-number">15.3.3.7</span> Report MCSEs, but do it concisely</h4>
+<p>Including error bars from MCSEs on your plots can increase clutter substantially. Instead consider putting the range of MCSEs in the caption of your plot.</p>
+<p>In your text, do not report differences between methods that are smaller than the MCSEs you are calculating. If arguing equivalence, say that your simulations show the methods are about the same, but could differ by about twice your MCSE (getting a true MCSE on the difference can be surprisingly tricky as the estimated performance measures of different methods will be correlated; see <a href="075-special-topics-on-reporting.html#sec-multilevel-meta-regression" class="quarto-xref"><span>Section 14.4</span></a> for further discussion).</p>
+</section>
+</section>
+</section>
+<section id="concluding-thoughts" class="level2" data-number="15.4">
+<h2 data-number="15.4" class="anchored" data-anchor-id="concluding-thoughts"><span class="header-section-number">15.4</span> Concluding Thoughts</h2>
+<p>For a methods paper, simulations should generally serve at least three purposes: verifying that the theory is correct in clean conditions, demonstrating that the method works in finite samples at realistic scales for the domain, and motivating the applied analysis by showing how the method performs in a context that resembles the real application. It should use performance metrics that are directly relevant to the paper’s central claims, report enough replications to make the results trustworthy, and be presented in a way that tells a coherent story rather than merely exhausting the reader with numbers and details. Getting all of this right is not easy, but it is what separates a simulation study that genuinely advances knowledge from one that merely fills space between the theory section and the data analysis.</p>
+<p>Simulations generally have a bad reputation, and that is unfortunately deserved. When reading methods papers, keep an eye out for extreme simulations that have no connection to reality, simulations that only report on one metric, leaving other ones unstated, and reported measures where it is impossible to tell if a difference is substantively meaningful or not. These examples are all too easy to find. Please do not increase the pool, in this regard.</p>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-dorie2019automated" class="csl-entry" role="listitem">
+Dorie, Vincent, Jennifer Hill, Uri Shalit, Marc Scott, and Dan Cervone. 2019. <span>“Automated Versus Do-It-Yourself Methods for Causal Inference: Lessons Learned from a Data Analysis Competition.”</span> <em>Statistical Science</em> 34 (1): 43–68. <a href="https://doi.org/10.1214/18-STS667">https://doi.org/10.1214/18-STS667</a>.
+</div>
+<div id="ref-franklin2014plasmode" class="csl-entry" role="listitem">
+Franklin, Jessica M., Sebastian Schneeweiss, Jennifer M. Polinski, and Jeremy A. Rassen. 2014. <span>“Plasmode Simulation for the Evaluation of Pharmacoepidemiologic Methods in Complex Healthcare Databases.”</span> <em>Computational Statistics &amp; Data Analysis</em> 72: 219–26. <a href="https://doi.org/10.1016/j.csda.2013.10.018">https://doi.org/10.1016/j.csda.2013.10.018</a>.
+</div>
+<div id="ref-freedman2008regression" class="csl-entry" role="listitem">
+Freedman, David A. 2008. <span>“On Regression Adjustments to Experimental Data.”</span> <em>Advances in Applied Mathematics</em> 40 (2): 180–93.
+</div>
+<div id="ref-gentzel2021how" class="csl-entry" role="listitem">
+Gentzel, Amanda M., Purva Pruthi, and David Jensen. 2021. <span>“How and Why to Use Experimental Data to Evaluate Methods for Observational Causal Inference.”</span> <em>Proceedings of the 38th International Conference on Machine Learning</em>, Proceedings of machine learning research, vol. 139: 3660–71. <a href="https://proceedings.mlr.press/v139/gentzel21a.html">https://proceedings.mlr.press/v139/gentzel21a.html</a>.
+</div>
+<div id="ref-hill2011bayesian" class="csl-entry" role="listitem">
+Hill, Jennifer L. 2011. <span>“Bayesian Nonparametric Modeling for Causal Inference.”</span> <em>Journal of Computational and Graphical Statistics</em> 20 (1): 217–40. <a href="https://doi.org/10.1198/jcgs.2010.08162">https://doi.org/10.1198/jcgs.2010.08162</a>.
+</div>
+<div id="ref-kang2018inference" class="csl-entry" role="listitem">
+Kang, Hyunseung, Laura Peck, and Luke Keele. 2018. <span>“Inference for Instrumental Variables: A Randomization Inference Approach.”</span> <em>Journal of the Royal Statistical Society Series A: Statistics in Society</em> 181 (4): 1231–54.
+</div>
+<div id="ref-Kern2014calibrated" class="csl-entry" role="listitem">
+Kern, Holger L., Elizabeth A. Stuart, Jennifer Hill, and Donald P. Green. 2014. <span>“<span class="nocase">Assessing Methods for Generalizing Experimental Impact Estimates to Target Populations</span>.”</span> <em>Journal of Research on Educational Effectiveness</em> 9 (1): 103–27. <a href="https://doi.org/10.1080/19345747.2015.1060282">https://doi.org/10.1080/19345747.2015.1060282</a>.
+</div>
+<div id="ref-lin2013agnostic" class="csl-entry" role="listitem">
+Lin, Winston. 2013. <span>“Agnostic Notes on Regression Adjustments to Experimental Data: Reexamining Freedman’s Critique.”</span> <em>The Annals of Applied Statistics</em>, 295–318.
+</div>
+<div id="ref-longUsingHeteroscedasticityConsistent2000" class="csl-entry" role="listitem">
+Long, J. Scott, and Laurie H. Ervin. 2000. <span>“Using Heteroscedasticity Consistent Standard Errors in the Linear Regression Model.”</span> <em>The American Statistician</em> 54 (3): 217–24. <a href="https://doi.org/10.1080/00031305.2000.10474549">https://doi.org/10.1080/00031305.2000.10474549</a>.
+</div>
+<div id="ref-miratrix2021applied" class="csl-entry" role="listitem">
+Miratrix, Luke W., Michael J. Weiss, and Brit Henderson. 2021. <span>“An <span>Applied Researcher</span>’s <span>Guide</span> to <span>Estimating Effects</span> from <span>Multisite Individually Randomized Trials</span>: <span>Estimands</span>, <span>Estimators</span>, and <span>Estimates</span>.”</span> <em>Journal of Research on Educational Effectiveness</em> 14 (1): 270–308. <a href="https://doi.org/10.1080/19345747.2020.1831115">https://doi.org/10.1080/19345747.2020.1831115</a>.
+</div>
+<div id="ref-shaw2025cautionary" class="csl-entry" role="listitem">
+Shaw, Pamela A., Susan Gruber, Brian D. Williamson, et al. 2025. <em>A Cautionary Note for Plasmode Simulation Studies in the Setting of Causal Inference</em>. <a href="https://arxiv.org/abs/2504.11740">https://arxiv.org/abs/2504.11740</a>.
+</div>
+</div>
+</section>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn1"><p>See (https://cares-blog.gse.harvard.edu/post/copulas-for-simulation/)<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+
+</main> <!-- /main -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Create fixed toggle button
+  const toggleBtn = document.createElement("button");
+  toggleBtn.id = "fixed-sidebar-toggle";
+  toggleBtn.title = "Toggle Sidebar";
+  toggleBtn.setAttribute("aria-label", "Toggle Sidebar");
+
+  // SVG Icons for Open vs Closed state
+  const iconSidebarOpen = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm0 1h3v12H2V2zm4 12V2h8v12H6z"/>
+    </svg>`;
+    
+  const iconSidebarClosed = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+      <path d="M11 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H10.5a.5.5 0 0 1 .5.5z"/>
+    </svg>`;
+
+  toggleBtn.innerHTML = iconSidebarOpen;
+
+  toggleBtn.addEventListener("click", function() {
+    const isHidden = document.body.classList.toggle("sidebar-hidden");
+    toggleBtn.innerHTML = isHidden ? iconSidebarClosed : iconSidebarOpen;
+  });
+
+  document.body.appendChild(toggleBtn);
+});
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jepusto\.github\.io\/Designing-Simulations-in-R\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./075-special-topics-on-reporting.html" class="pagination-link" aria-label="Special Topics on Reporting Simulation Results">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Special Topics on Reporting Simulation Results</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./100-file-management.html" class="pagination-link" aria-label="Organizing a simulation project">
+        <span class="nav-page-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/080-simulations-as-evidence.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></div></div></footer></body></html>

@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies">
+
+<title>18&nbsp; Parallel Processing – Designing Monte Carlo Simulations in R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./140-simulation-for-power-analysis.html" rel="next">
+<link href="./110-debugging-and-testing.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-9d6c9622e1db6294580745c4cacaf708.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>
+
+
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/sidebar-toggle.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./100-file-management.html">Computational Considerations</a></li><li class="breadcrumb-item"><a href="./120-parallel-processing.html"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Designing Monte Carlo Simulations in R</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/jepusto/Designing-Simulations-in-R" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="./Designing-Monte-Carlo-Simulations-in-R.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Welcome</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">An Introductory Look</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./001-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./003-programming-preliminaries.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Programming Preliminaries</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./005-initial-t-test-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">An initial simulation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Structure and Mechanics of a Simulation Study</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./010-Simulation-structure.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Structure of a simulation study</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./015-Case-study-ANOVA.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Case Study: Heteroskedastic ANOVA and Welch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./020-Data-generating-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./030-Estimation-procedures.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./035-running-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the Simulation Process</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./040-Performance-criteria.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance Measures</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Systematic Simulations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./060-multiple-scenarios.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./070-experimental-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Designing multifactor simulations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./072-presentation-of-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Exploring and presenting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./074-building-good-vizualizations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Building good visualizations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./075-special-topics-on-reporting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Special Topics on Reporting Simulation Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./080-simulations-as-evidence.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Computational Considerations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./100-file-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./110-debugging-and-testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Debugging and Testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./120-parallel-processing.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Complex Data Structures</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./140-simulation-for-power-analysis.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./150-potential-outcomes-framework.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes Framework</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./200-coding-tidbits.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Coding Reference</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#parallel-on-your-computer" id="toc-parallel-on-your-computer" class="nav-link active" data-scroll-target="#parallel-on-your-computer"><span class="header-section-number">18.1</span> Parallel on your computer</a></li>
+  <li><a href="#parallel-on-a-virtual-machine" id="toc-parallel-on-a-virtual-machine" class="nav-link" data-scroll-target="#parallel-on-a-virtual-machine"><span class="header-section-number">18.2</span> Parallel on a virtual machine</a></li>
+  <li><a href="#parallel-on-a-cluster" id="toc-parallel-on-a-cluster" class="nav-link" data-scroll-target="#parallel-on-a-cluster"><span class="header-section-number">18.3</span> Parallel on a cluster</a></li>
+  <li><a href="#concluding-thoughts" id="toc-concluding-thoughts" class="nav-link" data-scroll-target="#concluding-thoughts"><span class="header-section-number">18.4</span> Concluding Thoughts</a></li>
+  </ul>
+<div class="toc-actions"><ul class="collapse"><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/120-parallel-processing.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./100-file-management.html">Computational Considerations</a></li><li class="breadcrumb-item"><a href="./120-parallel-processing.html"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-parallel-processing" class="quarto-section-identifier"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Parallel Processing</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Especially if you take our advice of “when in doubt, go more general” and if are running enough replicates to get nice and samll Monte Carlo errors, you will quickly come up against the computational limits of your computer. Simulations can be incredibly computationally intensive, and there are a few means for dealing with that. The first is to optimize code by removing extraneous calculation (e.g., by writing methods from scratch rather than using the safety-checking and thus sometimes slower methods in R, or by saving calculations that are shared across different estimation approaches) to make it run faster. This approach is usually quite hard, and the benefits often minimal; see Appendix <a href="200-coding-tidbits.html#sec-optimize-code" class="quarto-xref"><span>Section A.4</span></a> for further discussion and examples. The second is to use more computing power by making the simulation <em>parallel</em>. This latter approach is the topic of this chapter.</p>
+<p><em>Parallel computation</em> is where you have multiple computers working on a problem at the same time. Simulations are very easy to do in parallel. With a multifactor experiment it is very easy to break apart the overall into pieces. For example, each computer could do one of your scenarios in a multi-factor simulation. Even without a multifactor experiment, due to the cycle of “generate data, then analyze,” it is easy to have a bunch of computers doing the same thing, as long as they are generating different datasets, with a final collection step where all the individual iterations are combined into a single set at the end. In either case, the <em>total</em> work is the same, but since each computer is doing a piece at the same time, the overall simulation will be completed much sooner.</p>
+<p>There are three general ways to do parallel calculation. The first is to take advantage of the fact that most modern computers come with multiple cores (i.e., computers) built in. For this simplest approach, we simply tell R to use more of this processing power. If your computer has eight cores, you can easily get a near eight-fold increase in the speed of your simulation.</p>
+<p>The second is to use cloud computing, putting your simulation on a virtual computer that might have 50 or more cores. Other than having to handle moving files back and forth from your machine to the cloud, this is not much different from the first approach: you are still just telling R to use more cores, but now you have more cores to use. Even if the speed-up itself is not massive, this approach also takes the computing off your computer entirely, making it easier to set up a job to run for days or weeks without making your day to day life any more difficult.</p>
+<p>The third way is to use a computing cluster. A cluster is a network of hundreds or thousands of computers, coupled with commands for breaking apart a simulation into pieces and sending the pieces to that vast army. Conceptually, this approach is the same as when you do baby parallel on your desktop: more cores equals more simulations per minute and thus faster simulation overall. But the interface to a cluster can be a bit tricky, and very cluster-dependent.</p>
+<p>But once you get a cluster up and running, it can be a very powerful tool. Not only is it off your personal computer, a cluster can potentially give you hundreds of cores, which means a speed-up of hundreds rather than four or eight.</p>
+<section id="parallel-on-your-computer" class="level2" data-number="18.1">
+<h2 data-number="18.1" class="anchored" data-anchor-id="parallel-on-your-computer"><span class="header-section-number">18.1</span> Parallel on your computer</h2>
+<p>Most modern computers have multiple cores, so you can run a parallel simulation right in the privacy of your own home!</p>
+<p>To assess how many cores you have on your computer, you can use the <code>detectCores()</code> method in the <code>parallel</code> package:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>parallel<span class="sc">::</span><span class="fu">detectCores</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 4</code></pre>
+</div>
+</div>
+<p>Normally, unless you tell it to do otherwise, <strong><em>R only uses one core</em></strong>. This is obviously a bit lazy on R’s part. But it is easy to take advantage of multiple cores using the <code>future</code> and <code>furrr</code> packages.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(future)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(furrr)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>In particular, the <code>furrr</code> package replicates our <code>map</code> functions, but in parallel. We first tell our R session what kind of parallel processing we want using the <code>future</code> package. In general, using <code>plan(multisession)</code> is the cleanest: it will start one entire R session per core, and have each session do work for you. The alternative, <code>multicore</code> does not seem to work well with Windows machines, nor with RStudio in general.</p>
+<p>The call is simple:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plan</span>(multisession, <span class="at">workers =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>() <span class="sc">-</span> <span class="dv">1</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The <code>workers</code> parameter specifies how many of your cores you want to use. Using all but one will let your computer still operate mostly normally for checking email and so forth. You are carving out a bit of space for your own adventures.</p>
+<p>Once you set up your plan, you use <code>future_pmap()</code>; it works just like <code>pmap()</code> but evaluates across all available workers specified in the plan call. Here we are running a parallel version of the multifactor experiment discussed in <span class="quarto-unresolved-ref">?sec-exp_design</span> (see <span class="quarto-unresolved-ref">?sec-case_Cronback</span> for the simulation itself).</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>params<span class="sc">$</span>res <span class="ot">=</span> <span class="fu">future_pmap</span>(params,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                         <span class="at">.f =</span> run_alpha_sim,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                         <span class="at">.options =</span> <span class="fu">furrr_options</span>(<span class="at">seed =</span> <span class="cn">NULL</span>))</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Note the <code>.options = furrr_options(seed = NULL)</code> part of the argument. This is to silence some warnings. Given how tasks are handed out, R will get upset if you do not do some handholding regarding how it should set seeds for pseudoranom number generation. In particular, if you do not set the seed, the multiple sessions could end up having the same starting seed and thus run the exact same simulations (in principle). We have seen before how to set specific seed for each simulation scenario, but <code>furrr</code> doesn’t know we have done this. This is why the extra argument about seeds: it is being explicit that we are handling seed setting on our own.</p>
+<p>We can compare the running time to running in serial (i.e.&nbsp;using only one worker):</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>params<span class="sc">$</span>res2 <span class="ot">=</span> dplyr<span class="sc">::</span><span class="fu">select</span>(params, n<span class="sc">:</span>seed) <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pmap</span>(<span class="at">.f =</span> run_alpha_sim)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>(The <code>select</code> command is to drop the <code>res</code> column from the parallel run; it would otherwise be passed as as parameter to <code>run_alpha_sim</code> which would in turn cause an error due to the unrecognized parameter.)</p>
+</section>
+<section id="parallel-on-a-virtual-machine" class="level2" data-number="18.2">
+<h2 data-number="18.2" class="anchored" data-anchor-id="parallel-on-a-virtual-machine"><span class="header-section-number">18.2</span> Parallel on a virtual machine</h2>
+<p>Your laptop probably has around 8 cores, meaning you can have an 8 fold speed-up. But wouldn’t it be nice to have a computer with 50 cores? Or even more? You can get one!</p>
+<p>Cloud services, such as Amazon Web Services (AWS), can give you a <em>virtual machine</em> that can have many cores (where many is usually 50 or so). Some of these services give you what is effectively an R Studio session, and so you can run your scripts and everything just like we have discussed above, with no change.</p>
+<p>The Data Colada blog advocates for an alternative to AWS, which is [Kamatera] (https://www.kamatera.com). The Data Colada folks say “it is much easier to use, way faster to set up, and flexible (e.g., you can easily update R and R Studio in it).” See <a href="https://datacolada.org/102">Data Colada’s post</a> for more information.</p>
+<p>This kind of cloud computing is relatively straightforward, once you understand parallel on your own computer. But you can go further, where you dispatch a very large number of computers on your task. We discuss this last option next.</p>
+</section>
+<section id="parallel-on-a-cluster" class="level2" data-number="18.3">
+<h2 data-number="18.3" class="anchored" data-anchor-id="parallel-on-a-cluster"><span class="header-section-number">18.3</span> Parallel on a cluster</h2>
+<p>In general, a “cluster” is a system of computers that are connected up to form a large distributed network that many different people can use to do large computational tasks (e.g., simulations!). These clusters will have some overlaying coordinating programs that you, the user, will interact with to set up a “job,” or set of jobs, which are the tasks you want the computers to do for you.</p>
+<p>The coordinating programs will differ, depending on what cluster you are using, but have some similarities that bear mention. For running simulations, you only need the smallest amount of knowledge about how to engage with these systems because you do not need all the individual computers working on your project communicating with each other (which is the hard part of distributed computing, in general).</p>
+<section id="command-line-interfaces-and-cmd-mode-in-r" class="level3" data-number="18.3.1">
+<h3 data-number="18.3.1" class="anchored" data-anchor-id="command-line-interfaces-and-cmd-mode-in-r"><span class="header-section-number">18.3.1</span> Command-line interfaces and CMD mode in R</h3>
+<p>In the good ol’ days, when things were simpler, yet more difficult, you would interact with your computer via a “command-line interface.” The easiest way to think about this is as an R console, but in a different language that the entire computer speaks. A command line interface is designed to do things such as find files with a specific name, or copy entire directories, or, importantly, start different programs. One place you may have used a command line interface is when working with Git: anything fancy with Git is often done via command-line. People will talk about a “shell” (a generic term for this computer interface) or “bash” or “csh” (which are specific versions of this interface). You can get access to a shell from within RStudio by clicking on the “Terminal” tab. Try it, if you have never done anything like this before, and type (the “&gt;” is not part of what you type):</p>
+<pre><code>&gt; ls</code></pre>
+<p>You should see a list of file names. In your computer system, files are stored in a directory structure, and when you open a terminal, you are somewhere in that structure. To find out where, you can type</p>
+<pre><code>&gt; pwd</code></pre>
+<p>for “Print Working Directory”. This will list the directory holding all the files you just saw via the <code>ls</code> command.</p>
+<p>For a shell, commands do <em>not</em> have parenthesis after the command, like in R or most other programming languages. The syntax of a shell is usually mystifying and brutal: it is best to just steal scripts from the internet or some generative AI and try not to think about it too much, unless you want to think about it a lot.</p>
+<p>Importantly for us, from the command line interface you can start an R program, telling it to start up and run a script for you. This way of running R is non-interactive: you say “go do this thing,” and R starts up, goes and does it, and then quits. Any output R generates on the way will be saved in a file, and any files your script saves along the way will also be at your disposal once R has completed.</p>
+<p>To see command-line R in action make the following script in a file called “dumb_job.R”:</p>
+<pre><code>library( tidyverse )
+cat( "Making numbers\n" )
+Sys.sleep(30)
+cat( "Now I'm ready\n" )
+dat = tibble( A = rnorm( 1000 ), B = runif( 1000 ) * A )
+write_csv( dat, file="sim_results.csv" )
+Sys.sleep(30)
+cat( "Finished\n" )</code></pre>
+<p>After you save, open the terminal and type <code>ls</code> to list the files, as above. Do you see your <code>dumb_job.R</code> file? If not, your terminal session is in the wrong directory. Look at the <code>pwd</code> command to find out where R thinks it is, and then save your dumb job file to wherever that is.</p>
+<p>Alternatively, you can change directories using <code>cd</code>, e.g., <code>cd ~/Desktop/temp</code> means “change directory to the temp folder inside Desktop inside my home directory” (the <code>~</code> is shorthand for home directory). One more useful commands is <code>cd ..</code> (change to the parent directory).</p>
+<p>Once you are in the directory with your file, type:</p>
+<pre><code>&gt; R CMD BATCH dumb_job.R R_output.txt --no-save</code></pre>
+<p>The above command says “Run R” (the first part) in batch mode (the “CMD BATCH” part), meaning source the <code>dumb_job.R</code> script as soon as R starts, and save all console output in the file <code>R_output.txt</code> (the file will be saved in the current directory where you run the program). The <code>--no-save</code> means do not save the R workspace when finished.</p>
+<p>Your command should take about a minute to complete, because our script sleeps a lot (the sleep represents your script doing a lot of work, like a real simulation would do). Once the command completes (you will see your “&gt;” prompt come back), verify that you have the <code>R_output.txt</code> and the data file <code>sim_results.csv</code> by typing <code>ls</code>.</p>
+<p>While the job is running, if you open up your Finder or Microsoft equivalent, you can actually see the <code>R_output.txt</code> file appear half-way through. If you open it, you will see the usual header of R loading up, the “Making numbers” comment, and so forth. R is saving all the output as it works through your script.</p>
+<p>Running R in this fashion is the key element to a basic way of setting up a massive job on the cluster: you launch a bunch of R programs that are each running a script like this on different computers in the cluster. They will all save their results to files (they will have files of different names so you do not overwrite your work) and then you will gather these files together to get your final set of results.</p>
+<p><em>Small Exercise:</em> Try putting an error in your <code>dumb_job.R</code> script. What happens when you run it in batch mode?</p>
+</section>
+<section id="task-dispatchers-and-command-line-scripts" class="level3" data-number="18.3.2">
+<h3 data-number="18.3.2" class="anchored" data-anchor-id="task-dispatchers-and-command-line-scripts"><span class="header-section-number">18.3.2</span> Task dispatchers and command line scripts</h3>
+<p>In the above, when you run a command on the command-line, it pauses until the command is complete.</p>
+<p>When you properly run a big job (program) on a cluster, it does not quite work that way. You will instead set a program to run, but tell the cluster to run it somewhere else (people might say “run it in the background”). This is good because you get your command-line prompt back, and can use it to tell your computer to do other things, all while the program is running.</p>
+<p>There are various methods for starting a job, but they usually boil down to a request from you to some sort of managerial process (a dispatcher) that takes requests and assigns some computer, somewhere, to do them. For a sense of this process, imagine a dispatcher at a taxi company. You call up, ask for a ride, and the dispatcher sends you a taxi to do it. The dispatcher is just fielding requests, not doing them.</p>
+<p>One dispatcher on some clusters is called <code>slurm</code> (which may or may not be on the cluster you are attempting to use; this is where a lot of this information gets very cluster-specific).</p>
+<p>For slurm, you first set up a script that describes the job to be run. It is like a work request, and then you can request a worker to do the request via a slurm command called <code>sbatch</code>. These scripts are plain text files, such as this example (<code>sbatch_runScript.txt</code>):</p>
+<pre><code>#!/bin/bash
+
+# Number of cores requested
+#SBATCH -n 32
+
+# Ensure that all cores are on one machine
+#SBATCH -N 1
+
+# Upper bound on runtime in minutes
+#SBATCH -t 480
+
+# Partition to submit to
+#SBATCH -p stats
+
+# Memory per cpu in MB
+#SBATCH --mem-per-cpu=1000
+
+# Append to output file, don't truncate
+#SBATCH --open-mode=append
+
+# Standard out goes to this file
+#SBATCH -o /output/directory/out/%j.out
+
+# Standard err goes to this file
+#SBATCH -e /output/directory/out/%j.err
+
+# Email notification options : BEGIN, END, FAIL, ALL
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=email@gmail.com
+
+# Load modules for the computing environment
+source new-modules.sh
+module load gcc/7.1.0-fasrc01
+module load R
+
+# Set user R library path
+export R_LIBS_USER=$HOME/apps/R:$R_LIBS_USER
+
+# Run R script; write output to indexed log file
+R CMD BATCH simulation_script.R \
+                 logs/R_output_${INDEX_VAR}.txt \
+                 --no-save --no-restore</code></pre>
+<p>This file starts by setting a bunch of variables that describe how <code>sbatch</code> should handle the request. It then has a series of commands that gets the computer environment ready. Finally, it has the <code>R CMD BATCH</code> command that does the work you want.</p>
+<p>These scripts can be quite confusing to understand. There are so many options! What do these things even do? The answer is, for researchers early on their journey to do this kind of work, “Who knows?” The general rule is to find a working example file for the system you are on, and then modify it for your own purposes.</p>
+<p>Once you have such a file, you could run it on the command line, like this:</p>
+<pre><code>sbatch -o stdout.txt \
+        --job-name=my_script \
+        sbatch_runScript.txt</code></pre>
+<p>You do this, and it will <em>not</em> sit there and wait for the job to be done. The <code>sbatch</code> command will instead send the job off to some computer which will do the work in the background.</p>
+<p>Interestingly, your R script <code>simulation_script.R</code> could, at this point, do the “one computer” parallel type code listed above and use <code>future_pmap()</code> or similar. Note the sbatch script above asks for 32 cores; your single job could then have 32 cores all working away on their individual pieces of the simulation, as before. You would have about a 32-fold speedup, in this case.</p>
+<p>Using this <code>sbatch</code> command to request a computer to do a task is the core element to having your simulation run on a cluster. The next step is to do this <em>a lot</em>, sending off a bunch of these jobs to different computers.</p>
+</section>
+<section id="running-lots-of-jobs-on-a-cluster" class="level3" data-number="18.3.3">
+<h3 data-number="18.3.3" class="anchored" data-anchor-id="running-lots-of-jobs-on-a-cluster"><span class="header-section-number">18.3.3</span> Running lots of jobs on a cluster</h3>
+<p>We have seen how to fire off a job (possibly a big job) that could run over days or weeks to give you your results. There is one more piece that can allow you to use even more computing resources to do things even faster, which is to do a whole bunch of job requests like the above, all at once. This multiple dispatching of sbatch commands is the final component for large simulations on a cluster: you are setting in motion a bunch of processes, each set to a specific task.</p>
+<p>Asking for multiple, smaller, jobs is also nicer for the cluster than having one giant job that goes on for a long time. By dividing a job into smaller pieces, and asking the scheduler to schedule those pieces, you can let the scheduler share and allocate resources between you and others more fairly. It can make a list of your jobs, and farm them out as it has space. This might go faster for you; with a really big job, the scheduler could not even allocate it until the needed number of workers are available. With smaller jobs, you can take a lot of little spaces to get your work done. Especially since simulation is so independent (just doing the same thing over and over) there is rarely any need for one giant process that has to do everything.</p>
+<p>To make multiple, related, requests, we create a program in the shell that makes a whole series of sbatch requests, with each request responsible for one part of the overall simulation. We write this program in the shell, just like we write R scripts in R.</p>
+<p>For example, the following <code>run_full_simulation.sh</code> is a script that fires off a bunch of jobs for a simulation:</p>
+<pre><code>export R_LIBS_USER=$HOME/apps/R:$R_LIBS_USER
+
+for INDEX_VAR in $(seq 1 500); do
+
+  #print out indexes
+  echo "${INDEX_VAR}"
+
+  #give indexes to R so it can find them.
+  export INDEX_VAR 
+
+  #Run R script, and produce output files
+  sbatch -o logs/sbout_p${INDEX_VAR}.stdout.txt \
+        --job-name=runScr_p${INDEX_VAR} \
+        sbatch_runScript.txt
+  
+  sleep 1 # pause to be kind to the scheduler
+
+done</code></pre>
+<p>The first <code>export</code> line adds a collection of R libraries to the path stored in <code>R_LIBS_USER</code> (a “path” is a list of places where R will look for libraries). The next line sets up a loop: it will run the indented code once for each number from 1 to 500. In the loop we export the <code>INDEX_VAR</code> variable, so each task can know what part of the simulation it is responsible for. The script also specifies where to put log files and names each job with the index so you can know which job generated which file.</p>
+<p>One question is then how to have the different processes read <code>INDEX_VAR</code> so they know what part of the simulation they should be working on. E.g., each worker needs to have its own seed so it does not do exactly the same simulation as a different worker! The workers also need their own filenames so they save things in their own files. The key is the <code>export INDEX_VAR</code> line: this puts a variable in the environment that will be set to a specific number. Then, inside your R script, the index is read like so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>index <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(<span class="fu">Sys.getenv</span>(<span class="st">"INDEX_VAR"</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The script can then use <code>index</code> to make unique filenames and seeds. For example:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>filename <span class="ot">=</span> <span class="fu">paste0</span>( <span class="st">"raw_results/simulation_results_"</span>, index, _<span class="st">".rds"</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>and</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>factors <span class="ot">=</span> <span class="fu">mutate</span>( factors,</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>                  <span class="at">seed =</span> <span class="fu">set.seed</span>( <span class="dv">1000</span> <span class="sc">*</span> seed <span class="sc">+</span> index ) )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Now even if you have a series of seeds within the simulation script (as we have seen before), each script will have unique seeds not shared by any other script (assuming you have fewer than 1000 separate job requests).</p>
+<p>So far we have not fully specified how to have each worker know what to work on. Consider the case of a multifactor experiment, where we have a large set of simulation scenarios we want to run.</p>
+<p>There are two approaches one might use here. One simple approach is the following: generate all the factors with <code>expand_grid()</code> as usual, and then take the row of this grid that corresponds to our index.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>sim_factors <span class="ot">=</span> <span class="fu">expand_grid</span>( ... )</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>index <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(<span class="fu">Sys.getenv</span>(<span class="st">"INDEX_VAR"</span>)))</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>filename <span class="ot">=</span> <span class="fu">paste0</span>( <span class="st">"raw_results/simulation_results_"</span>, index, _<span class="st">".rds"</span> )</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>( index <span class="sc">&gt;=</span> <span class="dv">1</span> <span class="sc">&amp;&amp;</span> index <span class="sc">&lt;=</span> <span class="fu">nrow</span>(sim_factors ) )</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">do.call</span>( my_sim_function, sim_factors[ index, ] )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The <code>do.call()</code> command runs the simulation function, passing all the arguments listed in the targeted row. You then need to make sure you have your shell call the right number of workers to run your entire simulation.</p>
+<p>One problem with this approach is some simulations might be a lot more work than others: consider your simulation with a huge sample size vs.&nbsp;one with a small sample size. Instead, you can have each worker run a small number of simulations of each scenario, and then stack your results later. E.g.,</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>sim_factors <span class="ot">=</span> <span class="fu">expand_grid</span>( ... )</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>index <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(<span class="fu">Sys.getenv</span>(<span class="st">"INDEX_VAR"</span>)))</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>sim_factors<span class="sc">$</span>seed <span class="ot">=</span> <span class="dv">1000000</span> <span class="sc">*</span> index <span class="sc">+</span> <span class="dv">17</span> <span class="sc">*</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(sim_factors)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>and then do your usual <code>pmap</code> call with <code>R = 10</code> (or some other small number of replicates.) Now if you want 1000 total replicates for each scenario, you would have 100 workers, each doing 10 replicates of each scenario.</p>
+<p>For saving files and then loading and combining them for analysis, see <a href="100-file-management.html#sec-saving-files" class="quarto-xref"><span>Section 16.4</span></a>.</p>
+</section>
+<section id="moving-files-to-and-from-a-cluster" class="level3" data-number="18.3.4">
+<h3 data-number="18.3.4" class="anchored" data-anchor-id="moving-files-to-and-from-a-cluster"><span class="header-section-number">18.3.4</span> Moving files to and from a cluster</h3>
+<p>One annoying issue with working on a cluster is you will need to get all your code <em>to</em> the cluster and get all of your results <em>back</em>. One approach for getting the code to the cluster is to use GitHub. Make a project, and then check out the project on the cluster. This has the advantage of making it easier to develop your code on your local computer, where you can easily run RStudio or another IDE. GitHub also has the advantage of allowing you to record which version of the code you ran, so you can know exactly which code produced which results.</p>
+<p>For getting your results off the cluster it is <em>not</em> recommended to use GitHub as your full results may take many gigabytes of space. They are also not really in the spirit of a version control system. Instead, use a scp (secure copy) client such as FileZilla to transfer files back to your personal computer.</p>
+<p>Overall, keeping your code in Git and downloading your simulation results outside of Git is a good rule of thumb.</p>
+</section>
+<section id="checking-on-a-job" class="level3" data-number="18.3.5">
+<h3 data-number="18.3.5" class="anchored" data-anchor-id="checking-on-a-job"><span class="header-section-number">18.3.5</span> Checking on a job</h3>
+<p>Once your jobs are dispatched, the cluster will keep at it until they finish (or crash, or are terminated for taking up too much memory or time). As your jobs chug away, there will be different ways to check on them. For example, you can, from the console, list the jobs you have running to see what is happening:</p>
+<pre><code>sacct -u lmiratrix</code></pre>
+<p>except, of course, “<code>lmiratrix</code>” would be changed to whatever your username is. The <code>sacct</code> command lists if your file is running, pending, timed out, etc. If your job is pending, your job request is in a queue waiting to be assigned because the dispatcher has not found a free worker of sufficient size to do it yet.</p>
+<p>The <code>sacct</code> command is customizable, e.g.,</p>
+<pre><code>sacct -u lmiratrix --format=JobID,JobName%30,State</code></pre>
+<p>will not truncate your job names, so you can find them more easily.</p>
+<p>You can check on a specific job, if you know the ID:</p>
+<pre><code>squeue -j JOBID</code></pre>
+<!--You can also check who else is running files on the stats server by typing:
+```
+showq-slurm -p stats -o
+```
+-->
+<p>Another way to check on jobs is to look at the log files to see if the job is logging information as it is working:</p>
+<pre><code>tail my_log_file.log</code></pre>
+<p>Finally, in the original sbatch script, you can set up email notifications to be sent to you when the job starts, ends, and/or fails. The email notifications you can choose are <code>BEGIN</code>, <code>END</code>, <code>FAIL</code>, and <code>ALL</code>; <code>ALL</code> is generally good. What is a few more emails?</p>
+</section>
+</section>
+<section id="concluding-thoughts" class="level2" data-number="18.4">
+<h2 data-number="18.4" class="anchored" data-anchor-id="concluding-thoughts"><span class="header-section-number">18.4</span> Concluding Thoughts</h2>
+<p>Simulation lends itself naturally to parallel processing, because a simulation inherently is doing the same thing over and over. You can do parallel processing on your laptop, which can give very easy speed ups with minimal effort. If you want even more speed up, you need to turn to cloud computing or cluster computing, where you launch a simulation across many different computers. There are a variety of ways to do this, but the core workflow is going to be the same: have the different processes save their piece of the simulation results, and then assemble all of the results at the end.</p>
+<p>When getting used to a new system for doing parallel processing, we recommend finding existing code and modifying it to suit your needs. With modular programming, this should be straightforward.</p>
+<p><strong>Acknowledgements:</strong> Some of the above material is based on tutorials built by Kristen Hunter and Zach Branson, past doctoral students of Harvard’s statistics department.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Create fixed toggle button
+  const toggleBtn = document.createElement("button");
+  toggleBtn.id = "fixed-sidebar-toggle";
+  toggleBtn.title = "Toggle Sidebar";
+  toggleBtn.setAttribute("aria-label", "Toggle Sidebar");
+
+  // SVG Icons for Open vs Closed state
+  const iconSidebarOpen = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2zm0 1h3v12H2V2zm4 12V2h8v12H6z"/>
+    </svg>`;
+    
+  const iconSidebarClosed = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+      <path d="M11 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H10.5a.5.5 0 0 1 .5.5z"/>
+    </svg>`;
+
+  toggleBtn.innerHTML = iconSidebarOpen;
+
+  toggleBtn.addEventListener("click", function() {
+    const isHidden = document.body.classList.toggle("sidebar-hidden");
+    toggleBtn.innerHTML = isHidden ? iconSidebarClosed : iconSidebarOpen;
+  });
+
+  document.body.appendChild(toggleBtn);
+});
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jepusto\.github\.io\/Designing-Simulations-in-R\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./110-debugging-and-testing.html" class="pagination-link" aria-label="Debugging and Testing">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Debugging and Testing</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./140-simulation-for-power-analysis.html" class="pagination-link" aria-label="Using simulation as a power calculator">
+        <span class="nav-page-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/120-parallel-processing.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></div></div></footer></body></html>
