@@ -117,29 +117,46 @@ print( a, n = 4 )
 ```
 
 We can group each treatment arm and look at discipline over the years for our synthetic dataset:
-```{r, echo=FALSE}
-datWL <- datW %>% 
-  pivot_longer( `2015`:`2019`, names_to = "year",
-                values_to = "pdisc" ) %>%
-  mutate( year = as.numeric( year ) ) %>%
+```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 6
+#| fig-height: 3
+#| fig-cap: "Synthetic discipline data compared to initial data"
+
+datWL <- 
+  datW %>% 
+  pivot_longer( 
+    `2015`:`2019`, names_to = "year",
+    values_to = "pdisc" 
+  ) %>%
+  mutate( 
+    year = as.numeric( year ) 
+  ) %>%
   group_by( year ) %>%
   summarise( pdisc = mean( pdisc ) )
 
-aL = a %>% 
-  pivot_longer( pdisc_2015:pdisc_2019, 
-                names_to = c( ".value", "year" ),
-                names_pattern = "(.*)_(.*)" ) %>%
-  mutate( year = as.numeric( year ) )
+aL <- 
+  a %>% 
+  pivot_longer( 
+    pdisc_2015:pdisc_2019, 
+    names_to = c( ".value", "year" ),
+    names_pattern = "(.*)_(.*)" 
+  ) %>%
+  mutate( 
+    year = as.numeric( year ) 
+  )
 
-aLg = aL %>% group_by( year, Z ) %>%
+aLg <- 
+  aL %>% 
+  group_by( year, Z ) %>%
   summarise( pdisc = mean( pdisc ) )
 
 ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
   geom_line() + geom_point() +
   scale_color_manual( values = c("orange","blue", "black" ) ) +
   geom_line( data=datWL, aes( x=year, y=pdisc, col="Real Data" ), lty=2 ) +
-  labs( title = "Synthetic discipline data compared to initial data",
-        color = "Tx Grp" )
+  labs( color = "Treatment Group" )
 ```
 
 Our treatment group drops faster than the control.
@@ -351,14 +368,26 @@ We can also plot the nominal rejection rates under the null:
 
 
 ```{r}
-sres %>% filter( tx == 1 ) %>%
-ggplot( aes( n_c, pow, col=as.factor(n_t) ) ) +
-  facet_wrap( ~ model, nrow=1 ) +
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| message: false
+#| fig-width: 8
+#| fig-height: 5
+
+sres %>% 
+  filter( tx == 1 ) %>%
+ggplot( aes( n_c, pow, color = as.factor(n_t) ) ) +
+  facet_wrap( ~ model, nrow = 2 ) +
   geom_point( alpha=0.5 ) +
   geom_smooth( method="lm", se=FALSE ) +
   geom_hline( yintercept = 0.10, lty = 2 ) +
   scale_x_log10(breaks=unique(sres$n_c) ) +
-  labs( col="n_t", y="Rejection Rate" )
+  labs( 
+    color = expression(n[t]), 
+    x = expression(n[c]),
+    y = "Rejection Rate" 
+  ) + 
+  theme( legend.position = "bottom") 
 ```
 
 We see the fixed effect models have notably elevated rates of rejection under all scenarios considered.
@@ -395,7 +424,13 @@ The covariates matter a lot.
 
 We next look at power over our explored contexts, for the models that we find to be valid (i.e., not FE).  
 
-```{r disc_power}
+```{r}
+#| label: disc-power
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 5
+
 sres %>% 
   filter( model != "FE",tx != 1 ) %>%
   ggplot( aes( n_c, pow, col=model )) +
@@ -406,16 +441,23 @@ sres %>%
   scale_x_log10( breaks=unique( sres$n_c ))  +
   scale_y_continuous( breaks=c(0, 0.2, 0.4, 0.6, 0.8, 1) ) +
   expand_limits( y = c(0,1) ) +
-  theme_minimal()+ theme( legend.position="bottom",
-                          legend.direction="horizontal",
-                          legend.key.width=unit(1,"cm"),
-                          panel.border = element_blank() ) +
-  labs( title="Power for various methods vs number of controls.",
-      y = "Power" )
+  theme_minimal()+ 
+  theme( 
+    legend.position="bottom",
+    legend.direction="horizontal",
+    legend.key.width=unit(1,"cm"),
+    panel.border = element_blank() 
+  ) +
+  labs( 
+    title="Power for various methods vs number of controls.",
+    x = expression(n[c]),
+    y = "Power" 
+  )
 ```
 
 <!-- LWM: Should we only do tx=0.5 to simplify the plots, and then do MDE with varying tx below?  Or drop some estimators, like ratio? -->
 ```{r, include=FALSE, eval=FALSE} 
+
 # Alt plot?
 sres %>% 
   filter( model != "FE",tx != 1 ) %>%
@@ -492,6 +534,12 @@ if ( !file.exists( "data/discipline_simulation_MDE.rds" ) ) {
 
 Here we plot our results:
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| message: false
+#| fig-width: 7
+#| fig-height: 3
+
 res <- readRDS( file="data/discipline_simulation_MDE.rds" )
 sresMDE <- res %>% 
   group_by( model, tx, n_c, n_t ) %>%
