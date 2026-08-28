@@ -6,7 +6,7 @@
 %
 \documentclass[
   letterpaper,
-  krantz1]{krantz}
+  krantz2]{krantz}
 \usepackage{xcolor}
 \usepackage{amsmath,amssymb}
 \setcounter{secnumdepth}{5}
@@ -107,6 +107,7 @@
 \newcommand{\WarningTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
 
 \usepackage{longtable,booktabs,array}
+\newcounter{none} % for unnumbered tables
 \usepackage{calc} % for calculating minipage widths
 % Correct order of tables after \paragraph or \subparagraph
 \usepackage{etoolbox}
@@ -159,6 +160,23 @@
 
 \usepackage{color}
 \usepackage{subfig}
+
+% Exercise sub-parts (a), b), c), ...): keep them flush with the exercise
+% text instead of the default enumerate indent, so they don't read as a
+% nested bulleted sub-list.
+\usepackage{enumitem}
+\usepackage{etoolbox}
+\AtBeginEnvironment{exercise}{%
+  \setlist[enumerate]{leftmargin=1.5em, itemsep=2pt, topsep=4pt, parsep=0pt}
+}
+
+% Epigraph-style quotes (see epigraph.lua): centered, italicized, no
+% attribution rule.
+\newenvironment{epigraph}{%
+  \begin{quote}\centering\itshape
+}{%
+  \end{quote}
+}
 
 \usepackage{makeidx}
 \makeindex
@@ -286,13 +304,12 @@
 
 \title{Designing Monte Carlo Simulations in R}
 \author{Luke W. Miratrix \and James E. Pustejovsky}
-\date{2026-07-22}
+\date{2026-08-28}
 \begin{document}
 \maketitle
 
 \renewcommand*\contentsname{Table of contents}
 {
-\hypersetup{linkcolor=}
 \setcounter{tocdepth}{2}
 \tableofcontents
 }
@@ -371,7 +388,7 @@ order is alphabetical, but perhaps imagine it as a circle, or something
 with no start or end:
 
 \begin{center}
-\includegraphics[width=0.75\linewidth,height=\textheight,keepaspectratio]{index_files/figure-pdf/author-circle-1.pdf}
+\includegraphics[width=0.5\linewidth,height=\textheight,keepaspectratio]{index_files/figure-pdf/author-circle-1.pdf}
 \end{center}
 
 But anymore, more about us.
@@ -421,8 +438,8 @@ for most of the exercises were completed and written up by Nathan
 Kessler, who also flagged several issues of clarity and accuracy in the
 text; thank you, Nathan, for your work on this book! Some parts of this
 book are based on memos or other writings generated for various
-purposes, some of which were written by others. This has been attributed
-throughout.
+purposes. Some of these parts were initially written by or co-written
+with others; we have attributed these as they arise.
 
 \part{An Introductory Look}
 
@@ -698,40 +715,11 @@ to detect an effect of a specified size.
 Using simulation instead of analytic formulas allows for power analyses
 that are more nuanced and more tailored to the researcher's circumstance
 than what can be obtained from available software. For example,
-simulation can be useful for the following:
-
-\begin{itemize}
-\item
-  When estimating power in multi-site, block- or cluster-randomized
-  trials, the formulas implemented in available software assume that
-  sites are of equal size and that outcome distributions are unrelated
-  to the size of each site. Small deviations from these assumptions are
-  unlikely to change the results, but in practice, researchers may face
-  situations where sites vary quite widely in size or where site-level
-  outcomes are related to site size. Simulation can estimate power in
-  this case.
-\item
-  Available software such as
-  \href{https://www.causalevaluation.org/power-analysis.html}{PowerUp!}
-  allows investigators to build in assumptions about anticipated rates
-  of attrition in cluster-randomized trials, under the assumption that
-  attrition is completely at random and unrelated to anything. However,
-  researchers might anticipate that, in practice, attrition will be
-  related to baseline characteristics. Simulation can be used to assess
-  how this might affect the power of a planned study.
-\item
-  There are some closed-form expressions for power to test mediational
-  relations (i.e., indirect and direct effects) in a variety of
-  different experimental designs, and these formulas are now available
-  in
-  \href{https://www.causalevaluation.org/power-analysis.html}{PowerUp!}.
-  However, the formulas involve a large number of parameters (including
-  some where it may be difficult to develop credible assumptions) and
-  they apply only to a specific analytic model for the mediating
-  relationships. Researchers planning a study to investigate mediation
-  might therefore find it useful to generate realistic data structures
-  and conduct power analysis via simulation.
-\end{itemize}
+simulation can account for variation in the size of clusters in a
+cluster-randomized trial, or for attrition that is related to baseline
+characteristics, or for complex mediational relationships that are
+difficult to analyze mathematically. See Chapter~\ref{sec-power} for
+further discussion of power analysis and simulation.
 
 \subsection{Simulating processess}\label{simulating-processess}
 
@@ -809,9 +797,11 @@ discretion and judgement, and even for personal or professional biases
 findings are held in great skepticism by many. The following motto
 summarizes the skeptic's concern:
 
-\begin{quote}
+\begin{epigraph}
+
 Simulations are doomed to succeed.
-\end{quote}
+
+\end{epigraph}
 
 As this motto captures, simulations are alluring: once a simulation
 framework is set up, it is easy to tweak and adjust. It is natural for
@@ -1127,7 +1117,7 @@ normal distribution:
 \end{Shaded}
 
 \begin{verbatim}
-[1] -0.2442534  2.1852982  0.5499681
+[1] -0.2623123  0.7275166  0.6443532
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -1139,7 +1129,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-[1] -0.1044369 -1.0035742 -1.0696122
+[1] 1.5360558 0.8236758 1.3023970
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let
@@ -1153,7 +1143,7 @@ from which numbers are drawn:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 9.016563 9.338435 8.935050
+[1] 9.729024 9.766116 9.607958
 \end{verbatim}
 
 In writing code for simulations, we will make extensive use of this
@@ -1224,7 +1214,7 @@ like:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 5.278281e-78
+[1] 1.330269e-66
 \end{verbatim}
 
 \begin{Shaded}
@@ -1234,7 +1224,7 @@ like:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.5197274
+[1] 0.6758869
 \end{verbatim}
 
 \begin{Shaded}
@@ -1244,7 +1234,7 @@ like:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.01175112
+[1] 2.032912e-06
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated
@@ -2267,8 +2257,7 @@ Although the general trend is pretty clear, the graph is still a bit
 messy because each point is an \emph{estimated} coverage rate, with some
 Monte Carlo error baked in.
 
-\section{Extending the simulation
-design}\label{extending-the-simulation-design}
+\section{Concluding thoughts}\label{concluding-thoughts}
 
 So far, we have executed a simple simulation to assess how well a
 statistical method works in a given circumstance, then expanded the
@@ -2934,7 +2923,7 @@ We discuss the specifics of different performance measures and
 assessment of Monte Carlo error in
 Chapter~\ref{sec-performance-measures}.
 
-\subsection{Multifactor simulations}\label{multifactor-simulations}
+\subsection{Concluding thoughts}\label{concluding-thoughts-1}
 
 Thus far, we have sketched out the structure of a modular, tidy
 simulation for a single context.\index{tidy design} In our \(t\)-test
@@ -2952,20 +2941,25 @@ a variety of different scenarios to see how they perform, then seek to
 identify more general patterns that hold beyond the specific scenarios
 examined. This is the heart of simulation for methodological evaluation.
 
-To implement a multifactor simulation, we will follows the same
-principles of modular, tidy simulation. In particular, we will take the
-code developed for simulating a single context and bundle it into a
-function that can be evaluated for any and all scenarios of interest.
+When we combine the elements in this chapter we can build a core
+building block of a single simulation scenario. In particular, we will
+take the code developed for simulating a single context and bundle it
+into a function that can be evaluated for any and all scenarios of
+interest. We can then use this element as a core element for more
+complex simulations and explorations.
+
 Simulation studies often follow a full factorial design, in which each
 level of a factor (something we vary, such as sample size, true
 treatment effect, or residual variance) is crossed with every other
 level. The experimental design then consists of sets of parameter values
 (including design parameters, such as sample sizes), and these too can
 be represented in an object, distinct from the other components of the
-simulation. We will discuss multiple-scenario simulations in Part III
-(starting with Chapter~\ref{sec-simulating-multiple-scenarios}), after
-we more fully develop the core concepts and techniques involved in
-simulating a single context.
+simulation.
+
+We will discuss multiple-scenario simulations in Part III (starting with
+Chapter~\ref{sec-simulating-multiple-scenarios}). Before that, we, in
+the following chapters, more fully develop the core concepts and
+techniques involved in simulating a single context.
 
 \section*{Exercises}\label{exercises-2}
 \addcontentsline{toc}{section}{Exercises}
@@ -3267,23 +3261,23 @@ group memberships and the measured characteristic:
 
 \begin{verbatim}
 # A tibble: 15 x 2
-   group      x
-   <fct>  <dbl>
- 1 1      5.56 
- 2 1      1.90 
- 3 1      1.25 
- 4 2      2.05 
- 5 2      3.33 
- 6 2      2.14 
- 7 2      1.49 
- 8 2      3.78 
- 9 2     -0.105
-10 3      6.31 
-11 3      8.48 
-12 4      5.80 
-13 4      6.18 
-14 4      5.09 
-15 4      7.42 
+   group       x
+   <fct>   <dbl>
+ 1 1      3.54  
+ 2 1     -1.92  
+ 3 1     -1.74  
+ 4 2      3.28  
+ 5 2      1.61  
+ 6 2      2.14  
+ 7 2      3.50  
+ 8 2      0.1000
+ 9 2     -0.593 
+10 3      2.29  
+11 3      3.08  
+12 4      4.70  
+13 4      4.96  
+14 4      5.54  
+15 4      4.69  
 \end{verbatim}
 
 We have followed the strategy of first constructing a dataset with
@@ -3359,7 +3353,7 @@ same parameters as before, we can do:
 \begin{verbatim}
 tibble [15 x 2] (S3: tbl_df/tbl/data.frame)
  $ group: Factor w/ 4 levels "1","2","3","4": 1 1 1 2 2 2 2 2 2 3 ...
- $ x    : num [1:15] -0.424 0.741 1.284 0.602 4.215 ...
+ $ x    : num [1:15] 0.857 -0.114 -1.926 2.775 4.149 ...
 \end{verbatim}
 
 To generate one with population means of zero in all the groups, but the
@@ -3380,7 +3374,7 @@ same group variances and sample sizes as before, we can do:
 \begin{verbatim}
 tibble [15 x 2] (S3: tbl_df/tbl/data.frame)
  $ group: Factor w/ 4 levels "1","2","3","4": 1 1 1 2 2 2 2 2 2 3 ...
- $ x    : num [1:15] -0.424 0.741 1.284 0.602 4.215 ...
+ $ x    : num [1:15] 0.857 -0.114 -1.926 2.775 4.149 ...
 \end{verbatim}
 
 Following the principles of tidy, modular simulation, we have written a
@@ -3445,7 +3439,8 @@ will calculate this test automatically:
     One-way analysis of means
 
 data:  x and group
-F = 9.7423, num df = 3, denom df = 11, p-value = 0.001978
+F = 4.0912, num df = 3, denom df = 11, p-value =
+0.0354
 \end{verbatim}
 
 We can use the same function to calculate Welch's test by setting
@@ -3460,10 +3455,12 @@ We can use the same function to calculate Welch's test by setting
 
 \begin{verbatim}
 
-    One-way analysis of means (not assuming equal variances)
+    One-way analysis of means (not assuming equal
+    variances)
 
 data:  x and group
-F = 21.864, num df = 3.0000, denom df = 5.2673, p-value = 0.002152
+F = 6.3483, num df = 3.0000, denom df = 3.2357,
+p-value = 0.07322
 \end{verbatim}
 
 The main results we need here are the \(p\)-values of the tests, which
@@ -3496,9 +3493,9 @@ Welch test:
 
 \begin{verbatim}
 # A tibble: 1 x 2
-    ANOVA   Welch
-    <dbl>   <dbl>
-1 0.00198 0.00215
+   ANOVA  Welch
+   <dbl>  <dbl>
+1 0.0354 0.0732
 \end{verbatim}
 
 Following our tidy, modular simulation principles, this function returns
@@ -3541,9 +3538,9 @@ single function:
 
 \begin{verbatim}
 # A tibble: 1 x 2
-   ANOVA  Welch
-   <dbl>  <dbl>
-1 0.0102 0.0607
+      ANOVA   Welch
+      <dbl>   <dbl>
+1 0.0000824 0.00113
 \end{verbatim}
 
 This function implements a single simulation trial by generating
@@ -3569,12 +3566,12 @@ single dataset:\index{package!simhelpers}\index{repeat\_and\_stack()}
 
 \begin{verbatim}
 # A tibble: 4 x 2
-     ANOVA   Welch
-     <dbl>   <dbl>
-1 0.000711 0.00523
-2 0.0176   0.0653 
-3 0.000463 0.0164 
-4 0.00184  0.0330 
+     ANOVA    Welch
+     <dbl>    <dbl>
+1 0.000693 0.000441
+2 0.0126   0.0502  
+3 0.00757  0.0356  
+4 0.000959 0.0311  
 \end{verbatim}
 
 Voila! We have simulated \(p\)-values!
@@ -3636,7 +3633,7 @@ calculate the proportion of replications where the null is rejected:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.1421
+[1] 0.1394
 \end{verbatim}
 
 This is equivalent to taking the mean of the logical conditions:
@@ -3648,7 +3645,7 @@ This is equivalent to taking the mean of the logical conditions:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.1421
+[1] 0.1394
 \end{verbatim}
 
 We get a rejection rate that is much larger than \(\alpha = .05\). We
@@ -3662,7 +3659,7 @@ error under this set of conditions.
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.0639
+[1] 0.0663
 \end{verbatim}
 
 The Welch test does much better, although it appears to be a little bit
@@ -3679,13 +3676,20 @@ Chapter~\ref{sec-performance-measures}, we will look more at how to
 estimate and control the Monte Carlo\index{Monte Carlo simulation}
 simulation error in performance measures.
 
-So there you have it! Each part of the simulation is a distinct block of
-code, and together we have a modular simulation that can be easily
-extended to other scenarios or other tests. The exercises at the end of
-this chapter ask you to extend the framework further. In working through
-them, you will get to experience first-hand how the modular code that we
-have started to develop is easier to work with than a single, monolithic
-block of code.
+\section{Concluding thoughts}\label{concluding-thoughts-2}
+
+Our ANOVA example above and our \(t\)-test example of
+Chapter~\ref{sec-t-test-simulation} are, when compared, essentially the
+same. Each part of the simulation is a distinct block of code, and
+together we have a modular simulation that can be easily extended to
+other scenarios or other tests. In this example we have bundled each
+part into its own function; these individual components are more easily
+customized, tested, and reused.
+
+The exercises at the end of this chapter ask you to extend the framework
+further. In working through them, you will get to experience first-hand
+how the modular code that we have started to develop is easier to work
+with than a single, monolithic block of code.
 
 \section*{Exercises}\label{exercises-3}
 \addcontentsline{toc}{section}{Exercises}
@@ -3775,10 +3779,10 @@ example. The resulting dataset would then look like the following:
 
 \begin{verbatim}
 # A tibble: 2 x 3
-  method Fstat  pvalue
-  <chr>  <dbl>   <dbl>
-1 ANOVA   9.45 0.00222
-2 Welch   8.99 0.0389 
+  method Fstat pvalue
+  <chr>  <dbl>  <dbl>
+1 ANOVA   5.17 0.0180
+2 Welch  12.0  0.0219
 \end{verbatim}
 
 Modify \texttt{ANOVA\_Welch\_F()} to return output in the long format,
@@ -4241,11 +4245,11 @@ Here we generate 5 observations from the bivariate Poisson with
 
 \begin{verbatim}
   C1 C2
-1  4  2
-2  1  5
-3  6  6
-4  4  5
-5  4  4
+1  6  4
+2  9  6
+3  6  2
+4  3  3
+5  5  5
 \end{verbatim}
 
 \section{Plot the artificial data}\label{sec-DGP-plotting}
@@ -4445,6 +4449,7 @@ schools, with each student having a school id, a treatment assignment
 for building a DGP is to first sketch out what a simulated dataset
 should look like. For this example, we need data like the following:
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}rrrrr@{}}
 \toprule\noalign{}
 schoolID & Z & size & studentID & Y \\
@@ -4461,6 +4466,7 @@ schoolID & Z & size & studentID & Y \\
 2 & 0 & 32 & 3 & 1.2 \\
 etc & etc & etc & etc & etc \\
 \end{longtable}
+}
 
 When running simulations, it is good practice to look at simple
 scenarios along with complex ones. This lets us not only identify
@@ -5114,9 +5120,10 @@ responding to each of the items by computing sample means for each item:
 
 \begin{verbatim}
 # A tibble: 1 x 12
-     q1    q2    q3    q4    q5    q6    q7    q8    q9   q10   q11   q12
-  <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>
-1 0.622 0.618 0.620 0.619 0.761 0.626 0.624 0.618 0.622 0.627 0.666 0.628
+     q1    q2    q3    q4    q5    q6    q7    q8    q9
+  <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>
+1 0.622 0.618 0.620 0.619 0.761 0.626 0.624 0.618 0.622
+# i 3 more variables: q10 <dbl>, q11 <dbl>, q12 <dbl>
 \end{verbatim}
 
 The percentage of correct responses varies from 61.8\% to 76.1. What are
@@ -5132,9 +5139,10 @@ check:
 
 \begin{verbatim}
 # A tibble: 1 x 12
-     q1    q2    q3    q4    q5    q6    q7    q8    q9   q10   q11   q12
-  <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>
-1 0.261 0.294 0.284 0.285 0.358 0.304 0.278 0.274 0.279 0.284 0.372 0.292
+     q1    q2    q3    q4    q5    q6    q7    q8    q9
+  <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>
+1 0.261 0.294 0.284 0.285 0.358 0.304 0.278 0.274 0.279
+# i 3 more variables: q10 <dbl>, q11 <dbl>, q12 <dbl>
 \end{verbatim}
 
 Note that simulating a new dataset will produce different results for
@@ -5160,7 +5168,7 @@ how the different parameters would create variation in our data---and it
 would be easy to tweak those parameters to see how things changed to
 learn even more.
 
-\section{More to explore}\label{more-to-explore}
+\section{Concluding thoughts}\label{concluding-thoughts-3}
 
 This chapter has introduced the core components of a data-generating
 process and demonstrated how to move from formulating a full
@@ -5216,11 +5224,12 @@ parameter.
 \end{Shaded}
 
 \begin{verbatim}
-[1] 3.165957 4.476384 5.693423 4.697553 1.901471 3.050113 4.110213 3.269402
+[1] 3.165957 4.476384 5.693423 4.697553 1.901471 3.050113
+[7] 4.110213 3.269402
 \end{verbatim}
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Modify the Welch simulation's \texttt{generate\_ANOVA\_data()}
   function from Section~\ref{sec-Welch-DGP} to generate data from
@@ -5365,7 +5374,7 @@ distributions with moments \[
 \]
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Write a DGP function that implements this distribution given the
   \(\alpha_0\), \(\alpha_1\), \(\alpha_2\), \(\beta\), and \(\delta\)
@@ -5434,7 +5443,7 @@ C_1 = F_{NB}^{-1}(U_1 | \mu_1, p_1) \qquad C_2 = F_{NB}^{-1}(U_2 |  \mu_2, p_2).
 be equal to \(\rho\).
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Write a DGP function that implements this distribution. It should have
   the following form:
@@ -5481,7 +5490,7 @@ In the following we run a few tests on the cluster RCT DGP code
 (\texttt{gen\_cluster\_RCT()}) to see if it works as advertised.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   What is the variance of the outcomes generated by the model for the
   cluster-randomized trial if there are no treatment effects? (Try
@@ -5543,7 +5552,7 @@ Y_{ij} = \beta_{0j} + \beta_{1} X_{ij} + \epsilon_{ij}.
 a DGP, you will have to decide how to generate \(X_{ij}\).
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Use words and equations to explain your auxiliary model for
   \(X_{ij}\).
@@ -5581,7 +5590,7 @@ interest is in understanding how well we can recover the item
 characteristics.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Modify \texttt{r\_3PL\_IRT()} to return a named list containing two
   datasets (use R's \texttt{list()} function). The first entry in the
@@ -5642,7 +5651,7 @@ sure to specify what your other parameters are, as you test how a target
 parameter of interest varies.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   What happens to the distribution of total scores if the items cover a
   broad range of difficulties (i.e., a very high \(\tau_\alpha\))?
@@ -5683,7 +5692,7 @@ corresponds to the sampling error, which we assume has known variance
 \(s_i^2\).
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Of the variables in the random effects meta-regression model, which
   are structural features, which are covariates, and which are outcomes?
@@ -5730,7 +5739,7 @@ distribution with \[
 \(0 \leq \lambda_2 \leq 1\).
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Modify your data-generating function from
   Exercise~\ref{exr-meta-regression-DGP} to follow the Vevea-Hedges
@@ -6255,10 +6264,12 @@ We can test this function by comparing its output against the built-in
 
 \begin{verbatim}
 
-    One-way analysis of means (not assuming equal variances)
+    One-way analysis of means (not assuming equal
+    variances)
 
 data:  x and factor(group)
-F = 15.577, num df = 3.0000, denom df = 3.0993, p-value = 0.02275
+F = 15.577, num df = 3.0000, denom df = 3.0993,
+p-value = 0.02275
 \end{verbatim}
 
 \begin{Shaded}
@@ -6484,8 +6495,8 @@ specified:
 \end{Shaded}
 
 \begin{verbatim}
-Linear mixed model fit by REML. t-tests use Satterthwaite's method [
-lmerModLmerTest]
+Linear mixed model fit by REML. t-tests use
+  Satterthwaite's method [lmerModLmerTest]
 Formula: Yobs ~ 1 + Z + (1 | sid)
    Data: dat
 
@@ -6502,11 +6513,15 @@ Random effects:
 Number of obs: 98739, groups:  sid, 5000
 
 Fixed effects:
-             Estimate Std. Error        df t value Pr(>|t|)    
-(Intercept) 2.005e+00  1.627e-02 4.960e+03   123.2   <2e-16 ***
-Z           3.028e-01  1.992e-02 4.949e+03    15.2   <2e-16 ***
+             Estimate Std. Error        df t value Pr(>|t|)
+(Intercept) 2.005e+00  1.627e-02 4.960e+03   123.2   <2e-16
+Z           3.028e-01  1.992e-02 4.949e+03    15.2   <2e-16
+               
+(Intercept) ***
+Z           ***
 ---
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+Signif. codes:  
+0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Correlation of Fixed Effects:
   (Intr)
@@ -6727,9 +6742,10 @@ The \texttt{purrr} package includes a function called
 \end{Shaded}
 
 \begin{verbatim}
- [1] 0.8653335       NaN 2.0056463       NaN        NA       NaN       NaN
- [8] 1.0718040 1.5937092 2.0111968       NaN        NA 1.7401242       NaN
-[15] 0.9721895       NaN 2.0947465       NaN       NaN       NaN
+ [1] 0.8653335       NaN 2.0056463       NaN        NA
+ [6]       NaN       NaN 1.0718040 1.5937092 2.0111968
+[11]       NaN        NA 1.7401242       NaN 0.9721895
+[16]       NaN 2.0947465       NaN       NaN       NaN
 \end{verbatim}
 
 \texttt{possibly()} is an example of a \emph{functional} (or an
@@ -6970,11 +6986,12 @@ Here is what our method now returns:
 
 \begin{verbatim}
 # A tibble: 3 x 8
-  method  ATE_hat SE_hat p_value message warning error seconds
-  <chr>     <dbl>  <dbl>   <dbl>   <dbl>   <dbl> <dbl>   <dbl>
-1 MLM    -0.00880 0.0278   0.751       1       0     0 0.0976 
-2 LR     -0.00880 0.0257   0.733       0       0     0 0.0532 
-3 Agg    -0.00880 0.0257   0.733       0       0     0 0.00566
+  method  ATE_hat SE_hat p_value message warning error
+  <chr>     <dbl>  <dbl>   <dbl>   <dbl>   <dbl> <dbl>
+1 MLM    -0.00880 0.0278   0.751       1       0     0
+2 LR     -0.00880 0.0257   0.733       0       0     0
+3 Agg    -0.00880 0.0257   0.733       0       0     0
+# i 1 more variable: seconds <dbl>
 \end{verbatim}
 
 Storing error and warning information will let us evaluate what
@@ -7213,9 +7230,10 @@ We can massage our data into a format that is easier to parse:
 \end{Shaded}
 
 \begin{verbatim}
- [1]        NA        NA       NaN       NaN        NA 1.1766144        NA
- [8] 1.6221953        NA       NaN        NA 1.6086350       NaN 1.5356493
-[15]        NA 1.1105727        NA       NaN 1.1576487 0.8228205
+ [1]        NA        NA       NaN       NaN        NA
+ [6] 1.1766144        NA 1.6221953        NA       NaN
+[11]        NA 1.6086350       NaN 1.5356493        NA
+[16] 1.1105727        NA       NaN 1.1576487 0.8228205
 \end{verbatim}
 
 The \texttt{transpose()} function takes a list of lists, and reorganizes
@@ -7315,6 +7333,22 @@ our estimation function, and then forget about it. Once written,
 applying the function will produce a tidy table of results that we can
 easily analyze.
 
+\section{Concluding thoughts}\label{concluding-thoughts-4}
+
+The estimation procedures are not really in the domain of the simulation
+design. These are the methods that we are trying to evaluate, and should
+come out of the core research and development that is motivating the
+simulation in the first place.
+
+That said, there are three core elements to how to handle these
+procedures in the context of a simulation. First, wrap your estimation
+procedures in functions with canonical parameters, so they can easily be
+used without having to think too much about what is going on inside
+them. Second, do spend some time making sure they are implemented
+correctly, so you end up evaluating what you think you are! Finally, use
+error trapping to ensure your procedures, if they go awry, do not
+destroy your entire simulation pipeline.
+
 \section*{Exercises}\label{exercises-5}
 \addcontentsline{toc}{section}{Exercises}
 
@@ -7330,7 +7364,7 @@ hypothesis testing
 procedure.\index{example!heteroskedastic ANOVA (Welch)}
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   This exercise continues the running example introduces in
   Section~\ref{sec-ANOVA-hypothesis-testing-function}. Write a function
@@ -7427,7 +7461,7 @@ you will need to figure out the appropriate syntax by reading the
 package documentation.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   For \texttt{analysis\_MLM()}, check the output by fitting the same
   model using \texttt{lme()} from the \texttt{nlme()} package or
@@ -7457,7 +7491,7 @@ generating a student-level covariate, \(X\), that is predictive of the
 outcome. Use your modified function to generate a dataset.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Modify the estimation functions from
   Section~\ref{sec-multiple-estimation-procedures} to use models that
@@ -7507,7 +7541,7 @@ one of several estimation strategies, it will require fitting the OLS
 regression multiple times. Can you fix these problems?
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Revise \texttt{analysis\_MLM\_contingent()} so that it checks whether
   all clusters are single observations \emph{before} fitting the
@@ -7548,7 +7582,7 @@ packages, \emph{estimate} the parameters of the 3-parameter IRT model
 based on the simulated dataset.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Write a function to \emph{estimate} a 3-parameter IRT model and return
   a dataset containing estimates of the item characteristics
@@ -7617,19 +7651,26 @@ QM(df = 1) = 42.1433, p-val < .0001
 
 Model Results:
 
-         estimate      se     zval    pval    ci.lb    ci.ub      
-intrcpt    0.4149  0.1013   4.0942  <.0001   0.2163   0.6135  *** 
-Xi        -0.0782  0.0120  -6.4918  <.0001  -0.1018  -0.0546  *** 
+         estimate      se     zval    pval    ci.lb 
+intrcpt    0.4149  0.1013   4.0942  <.0001   0.2163 
+Xi        -0.0782  0.0120  -6.4918  <.0001  -0.1018 
+           ci.ub      
+intrcpt   0.6135  *** 
+Xi       -0.0546  *** 
 
 Test for Selection Model Parameters:
 LRT(df = 2) = 1.7814, p-val = 0.4104
 
 Selection Model Results:
 
-                     k  estimate      se     zval    pval   ci.lb   ci.ub    
-0     < p <= 0.025  59    1.0000     ---      ---     ---     ---     ---    
-0.025 < p <= 0.5    23    0.6990  0.2307  -1.3049  0.1919  0.2470  1.1511    
-0.5   < p <= 1      18    0.5027  0.2743  -1.8132  0.0698  0.0000  1.0403  . 
+                     k  estimate      se     zval    pval 
+0     < p <= 0.025  59    1.0000     ---      ---     --- 
+0.025 < p <= 0.5    23    0.6990  0.2307  -1.3049  0.1919 
+0.5   < p <= 1      18    0.5027  0.2743  -1.8132  0.0698 
+                     ci.lb   ci.ub    
+0     < p <= 0.025     ---     ---    
+0.025 < p <= 0.5    0.2470  1.1511    
+0.5   < p <= 1      0.0000  1.0403  . 
 
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
@@ -7652,7 +7693,7 @@ user-specified values. For example:
 \end{Shaded}
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Write an estimation function that fits the selection model and returns
   estimates, standard errors, and confidence intervals for each of the
@@ -7720,8 +7761,8 @@ functions in turn:
 \end{Shaded}
 
 \begin{verbatim}
-         r         z     CI_lo     CI_hi
-1 0.622918 0.7297592 0.3386474 0.8029832
+          r         z     CI_lo     CI_hi
+1 0.6344914 0.7488985 0.3554807 0.8096781
 \end{verbatim}
 
 To execute a simulation with these components, we need to repeat this
@@ -7747,12 +7788,12 @@ use it to generate five replications of our correlation coefficient:
 \end{Shaded}
 
 \begin{verbatim}
-  rep          r         z        CI_lo     CI_hi
-1   1 0.09936621 0.0996952 -0.270589744 0.4437498
-2   2 0.36740534 0.3854202  0.008224796 0.6426149
-3   3 0.15747074 0.1587921 -0.214995580 0.4899445
-4   4 0.47186569 0.5124677  0.134453368 0.7112272
-5   5 0.42772466 0.4571085  0.079743612 0.6827802
+  rep         r         z       CI_lo     CI_hi
+1   1 0.5294201 0.5893390  0.20901756 0.7471774
+2   2 0.2704053 0.2773011 -0.09956319 0.5746891
+3   3 0.6657177 0.8030127  0.40181996 0.8275172
+4   4 0.5160327 0.5709174  0.19133460 0.7389274
+5   5 0.6253559 0.7337527  0.34217816 0.8043972
 \end{verbatim}
 
 The first argument specifies the number of times to repeat the
@@ -7805,8 +7846,8 @@ Calling the function produces a nicely formatted set of results:
 \end{Shaded}
 
 \begin{verbatim}
-          r         z      CI_lo    CI_hi
-1 0.4107744 0.4365425 0.05927763 0.671647
+          r         z     CI_lo     CI_hi
+1 0.4546013 0.4904851 0.1128076 0.7001936
 \end{verbatim}
 
 We can then evaluate the function over and over using
@@ -7823,12 +7864,12 @@ We can then evaluate the function over and over using
 \end{Shaded}
 
 \begin{verbatim}
-  rep          r           z        CI_lo     CI_hi
-1   1 0.00554161 0.005541666 -0.355437233 0.3650820
-2   2 0.51961757 0.575815735  0.196049192 0.7411432
-3   3 0.59416635 0.684081441  0.297601709 0.7861520
-4   4 0.35903549 0.375778224 -0.001417019 0.6369195
-5   5 0.37622896 0.395659507  0.018462165 0.6485864
+  rep         r         z       CI_lo     CI_hi
+1   1 0.5414477 0.6062015  0.22508516 0.7545326
+2   2 0.5700878 0.6476530  0.26405068 0.7718339
+3   3 0.3244300 0.3365903 -0.04058261 0.6130452
+4   4 0.4230554 0.4514076  0.07407645 0.6797251
+5   5 0.4574186 0.4940420  0.11631783 0.7020022
 \end{verbatim}
 
 This technique of wrapping the data-generating function and estimation
@@ -7886,9 +7927,9 @@ call the function, we get a nicely structured table of results:
 # A tibble: 3 x 4
   method ATE_hat SE_hat p_value
   <chr>    <dbl>  <dbl>   <dbl>
-1 MLM      0.500  0.221  0.0365
-2 LR       0.584  0.224  0.0188
-3 Agg      0.489  0.222  0.0411
+1 MLM      0.312  0.169  0.0814
+2 LR       0.306  0.165  0.0817
+3 Agg      0.313  0.171  0.0833
 \end{verbatim}
 
 We organize the output in a tibble to make it easier to do subsequent
@@ -8066,11 +8107,11 @@ function as so:
 \end{Shaded}
 
 \begin{verbatim}
-  rep          r         z       CI_lo     CI_hi
-1   1 0.58207616 0.6655970  0.28066316 0.7789883
-2   2 0.41902630 0.4465104  0.06920432 0.6770817
-3   3 0.20738125 0.2104334 -0.16523304 0.5281879
-4   4 0.08596689 0.0861796 -0.28306934 0.4328308
+  rep         r         z       CI_lo     CI_hi
+1   1 0.4522117 0.4874770  0.10983684 0.6986571
+2   2 0.1704826 0.1721636 -0.20220607 0.5000396
+3   3 0.6827435 0.8342351  0.42766853 0.8371080
+4   4 0.4046942 0.4292498  0.05200758 0.6676245
 \end{verbatim}
 
 To create this simulation function, \texttt{bundle\_sim()} examined
@@ -8158,9 +8199,9 @@ variables:
 \end{Shaded}
 
 \begin{verbatim}
-       [,1]     [,2]     [,3]     [,4]
-c1 3.384325 2.261104 5.499065 2.054668
-c2 2.231153 1.219777 4.196488 1.440664
+        [,1]     [,2]     [,3]     [,4]
+c1 1.7587635 5.348861 2.278523 5.837167
+c2 0.4281391 1.740379 3.629188 2.330811
 \end{verbatim}
 
 If you run the same code as above, you will get different results from
@@ -8336,7 +8377,7 @@ without error, we know we fixed the problem. If we had not set the seed,
 we would not know if we were just getting (un)lucky, and avoiding the
 error by chance.
 
-\section{Conclusions}\label{conclusions}
+\section{Concluding thoughts}\label{concluding-thoughts-5}
 
 The act of running a simulation is not itself the goal of a simulation
 study. Rather, it is only the procedural mechanism by which we generate
@@ -8388,7 +8429,7 @@ and analysis function
 \href{case_study_code/r_and_z.R}{\texttt{r\_and\_z()}}.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Use \texttt{sim\_r\_Poisson()} to generate 5000 replications of the
   Fisher-\(z\)-transformed correlation coefficient under a bivariate
@@ -8437,7 +8478,7 @@ was to create an estimation function that could be applied to data from
 such a trial.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Using your work from these exercises, create a bundled simulation
   function \texttt{one\_run\_cov()} that combines the data-generating
@@ -8614,7 +8655,7 @@ To define these quantities more precisely, consider a generic estimator
 \(T\) that is targeting a parameter \(\theta\). We call the target
 parameter the \emph{estimand}. Formally, the bias, variance, and RMSE of
 \(T\) are then defined as
-\begin{equation}\phantomsection\label{eq-bias-variance-RMSE}{
+\begin{equation}\protect\phantomsection\label{eq-bias-variance-RMSE}{
 \begin{aligned}
 \Bias(T) &= \E(T) - \theta, \\ 
 \Var(T) &= \E\left[\left(T - \E (T)\right)^2 \right], \\
@@ -8630,7 +8671,7 @@ predict well?
 
 These three measures are inter-connected. In particular, RMSE is the
 combination of (squared) bias and variance, as in
-\begin{equation}\phantomsection\label{eq-RMSE-decomposition}{
+\begin{equation}\protect\phantomsection\label{eq-RMSE-decomposition}{
 \left[\RMSE(T)\right]^2 = \left[\Bias(T)\right]^2 + \Var(T). 
 }\end{equation}
 
@@ -8642,12 +8683,12 @@ them. To estimate performance, we analyze each dataset, obtaining a
 sample of estimates \(T_1,...,T_R\) drawn from the sampling distribution
 and then plug in sample quantities in place of the expectations and
 variances. Specifically, we estimate bias by taking
-\begin{equation}\phantomsection\label{eq-bias-estimator}{
+\begin{equation}\protect\phantomsection\label{eq-bias-estimator}{
 \widehat{\Bias}(T) = \bar{T} - \theta, 
 }\end{equation} where \(\bar{T}\) is the arithmetic mean of the
 replicates, \(\bar{T} = \frac{1}{R}\sum_{r=1}^R T_r\). We estimate
 variance by taking the sample variance of the replicates, as
-\begin{equation}\phantomsection\label{eq-var-estimator}{
+\begin{equation}\protect\phantomsection\label{eq-var-estimator}{
 S_T^2 = \frac{1}{R - 1}\sum_{r=1}^R \left(T_r - \bar{T}\right)^2. 
 }\end{equation} \(S_T\) (the square root of \(S^2_T\)) is an estimate of
 the \emph{true} standard error, \(SE\), of \(T\), which is the standard
@@ -8667,7 +8708,7 @@ the true SE \(S_T\) rather than the sampling variance \(S_T^2\) because
 the former quantity has the same units as the target parameter.
 
 Finally, the RMSE estimate can be calculated as
-\begin{equation}\phantomsection\label{eq-rmse-estimator}{
+\begin{equation}\protect\phantomsection\label{eq-rmse-estimator}{
 \widehat{\RMSE}(T) = \sqrt{\frac{1}{R} \sum_{r = 1}^R \left( T_r - \theta\right)^2 }.  
 }\end{equation} Often, people talk about the MSE (Mean Squared Error),
 which is just the square of RMSE. Just as the true SE is usually easier
@@ -8890,13 +8931,13 @@ tendency uses the \(p \times 100\%\)-trimmed mean, which ignores the
 estimates in the lowest and highest \(p\)-quantiles of the sampling
 distribution. Formally, the trimmed-mean
 bias\index{performance measures!trimmed mean bias} is
-\begin{equation}\phantomsection\label{eq-trimmed-bias}{
+\begin{equation}\protect\phantomsection\label{eq-trimmed-bias}{
 \text{Trimmed-Bias}(T; p) = \E\left[ T \left| \Q_{p}(T) < T < \Q_{1 - p}(T) \right.\right] - \theta. 
 }\end{equation}
 
 To estimate the trimmed bias, we take the mean of the middle \(1 - 2p\)
 fraction of the distribution:
-\begin{equation}\phantomsection\label{eq-sample-trimmed-bias}{
+\begin{equation}\protect\phantomsection\label{eq-sample-trimmed-bias}{
 \widehat{\text{Trimmed-Bias}}(T; p) = \tilde{T}_{\{p\}} - \theta.
 }\end{equation} where (assuming \(pR\) is a whole number): \[
 \tilde{T}_{\{p\}} = \frac{1}{(1 - 2p)R} \sum_{r=pR + 1}^{(1-p)R} T_{(r)}
@@ -8916,13 +8957,13 @@ median bias implies that more than 50\% of the sampling distribution
 exceeds the quantity of interest, while negative median bias implies
 that more than 50\% of the sampling distribution fall below the quantity
 of interest. Formally,
-\begin{equation}\phantomsection\label{eq-median-bias}{
+\begin{equation}\protect\phantomsection\label{eq-median-bias}{
 \text{Median-Bias}(T) = \M(T) - \theta 
 .
 }\end{equation} where \(\M(T)\) is the median of \(T\).
 
 We estimate median bias with the sample median, as
-\begin{equation}\phantomsection\label{eq-sample-median-bias}{
+\begin{equation}\protect\phantomsection\label{eq-sample-median-bias}{
 \widehat{\text{Median-Bias}}(T) = M_T - \theta ,
 }\end{equation} where, if we define \(T_{(r)}\) as the \(r^{th}\) order
 statistic for \(r = 1,...,R\), we have \(M_T = T_{((R+1)/2)}\) if \(R\)
@@ -8957,7 +8998,7 @@ bias\index{performance measures!winsorized bias},
 variance\index{performance measures!winsorized variance}, and
 RMSE\index{performance measures!winsorized RMSE} are then defined using
 winsorized values in place of the raw values of \(T\), as
-\begin{equation}\phantomsection\label{eq-winsorized-variance-RMSE}{
+\begin{equation}\protect\phantomsection\label{eq-winsorized-variance-RMSE}{
 \begin{aligned}
 \text{Bias}(X) &= \E\left(X\right) - \theta, \\
 \Var\left(X\right) &= \E\left[\left(X - \E (X)\right)^2 \right], \\
@@ -8977,7 +9018,7 @@ Equation~\ref{eq-rmse-estimator}, but with \(\hat{X}_r\) in place of
 Alternative measures of the overall accuracy of an estimator can also be
 defined using quantiles. For instance, an alternative to RMSE is to use
 the median absolute error (MAE), defined as
-\begin{equation}\phantomsection\label{eq-MAE}{
+\begin{equation}\protect\phantomsection\label{eq-MAE}{
 \text{MAE} = \M\left(\left|T - \theta\right|\right).
 }\end{equation} Letting \(E_r = |T_r - \theta|\), the MAE can be
 estimated by taking the sample median of \(E_1,...,E_R\). Many other
@@ -9053,7 +9094,8 @@ In our simulation we obtain a large sample of standard errors,
 \(\widehat{SE}_1,...,\widehat{SE}_R\) and corresponding variance
 estimators \(V_r = \widehat{SE}_r^2\) for \(r = 1,...,R\). Formally, the
 \textbf{relative bias} or \textbf{calibration} of \(V\) is then defined
-as \begin{equation}\phantomsection\label{eq-relative-bias-SE-RMSE}{
+as
+\begin{equation}\protect\phantomsection\label{eq-relative-bias-SE-RMSE}{
 \begin{aligned}
 \text{Relative Bias}(V) &= \frac{\E(V)}{\Var(T)} \\
 \end{aligned}
@@ -9087,7 +9129,7 @@ replications. Denoting the arithmetic mean of the variance estimates
 across simulation trials as \[
 \bar{V} = \frac{1}{R} \sum_{r=1}^R V_r
 \] we estimate the relative bias (calibration) of \(V\) using
-\begin{equation}\phantomsection\label{eq-relative-bias-variance-estimators}{
+\begin{equation}\protect\phantomsection\label{eq-relative-bias-variance-estimators}{
 \begin{aligned}
 \widehat{\text{Relative Bias}}(V) &= \frac{\bar{V}}{S_T^2} . \\
 \end{aligned}
@@ -9129,7 +9171,7 @@ standard error (i.e., it is stable), and thus a small relative RMSE.
 
 We can estimate the relative variance and MSE simply by plugging in
 estimates of the various quantities:
-\begin{equation}\phantomsection\label{eq-relative-bias-MSE-estimators}{
+\begin{equation}\protect\phantomsection\label{eq-relative-bias-MSE-estimators}{
 \begin{aligned}
 \widehat{\text{Relative Var}}(V) &= \frac{S^2_V}{S_T^2} \\
 \widehat{\text{Relative MSE}}(V) &= \frac{\frac{1}{R}\sum_{r=1}^R\left(V_r - S_T^2\right)^2}{S_T^2},
@@ -9162,10 +9204,10 @@ of independent observations used to estimate \(V\).
 
 Following \citet{Satterthwaite1946approximate}, we define the effective
 degrees of freedom of \(V\) as
-\begin{equation}\phantomsection\label{eq-Satterthwaite-df}{
+\begin{equation}\protect\phantomsection\label{eq-Satterthwaite-df}{
 df = \frac{2 \left[\E(V)\right]^2}{\Var(V)}.
 }\end{equation} We can estimate the degrees of freedom by taking
-\begin{equation}\phantomsection\label{eq-Satterthwaite-df-estimator}{
+\begin{equation}\protect\phantomsection\label{eq-Satterthwaite-df-estimator}{
 \widehat{df} = \frac{2 \bar{V}^2}{S_V^2}.
 }\end{equation} For simple statistical methods in which \(V\) is based
 on a sum-of-squares of normally distributed errors, the effective
@@ -9262,7 +9304,7 @@ differ each time we compute the interval on a different dataset. The
 coverage rate of a \(\beta\)-level interval estimator is the probability
 that it covers the true parameter, formally defined as
 
-\begin{equation}\phantomsection\label{eq-coverage}{
+\begin{equation}\protect\phantomsection\label{eq-coverage}{
 \text{Coverage}(A,B) = \Prob(A \leq \theta \leq B).
 }\end{equation} For a well-performing interval estimator,
 \(\text{Coverage}\) will be at least \(\beta\) and ideally will not
@@ -9274,7 +9316,8 @@ and where it is desirable for each of these rates to be near
 
 The expected width of a \(\beta\)-level interval estimator is the
 average difference between the upper and lower endpoints, formally
-defined as \begin{equation}\phantomsection\label{eq-expected-width}{
+defined as
+\begin{equation}\protect\phantomsection\label{eq-expected-width}{
 \text{Width}(A,B) = \E[ B - A].
 }\end{equation} Smaller expected width means that the interval tends to
 be narrower, on average, and thus more informative about the value of
@@ -9288,7 +9331,7 @@ process. Let \(A_r\) and \(B_r\) denote the lower and upper end-points
 of the confidence interval from simulation replication \(r\), and let
 \(W_r = B_r - A_r\). The coverage rate and expected length measures can
 be estimated as
-\begin{equation}\phantomsection\label{eq-coverage-width}{
+\begin{equation}\protect\phantomsection\label{eq-coverage-width}{
 \begin{aligned}
 \widehat{\text{Coverage}}(A,B) &= \frac{1}{R}\sum_{r=1}^R I(A_r \leq \theta \leq B_r) \\
 \widehat{\text{Width}}(A,B) &= \frac{1}{R} \sum_{r=1}^R W_r = \frac{1}{R} \sum_{r=1}^R \left(B_r - A_r\right).
@@ -9499,7 +9542,7 @@ When evaluating either validity or power, the main performance measure
 is the \textbf{rejection rate} of the hypothesis test. Let \(P\) be the
 \(p\)-value from a procedure for testing the null hypothesis that a
 parameter \(\theta = 0\). The rejection rate is then
-\begin{equation}\phantomsection\label{eq-rejection-rate}{
+\begin{equation}\protect\phantomsection\label{eq-rejection-rate}{
 \rho_\alpha(\theta) = \Prob(P < \alpha)
 }\end{equation}
 
@@ -9515,7 +9558,7 @@ where the test rejects the null hypothesis. Letting \(P_1,...,P_R\) be
 the \(p\)-values simulated from \(R\) replications of a data-generating
 process with true parameter \(\theta\), estimate the rejection rate by
 calculating
-\begin{equation}\phantomsection\label{eq-rejection-rate-estimate}{
+\begin{equation}\protect\phantomsection\label{eq-rejection-rate-estimate}{
 r_\alpha(\theta) = \frac{1}{R} \sum_{r=1}^R I(P_r < \alpha).
 }\end{equation} It may be of interest to evaluate the performance of the
 test at several different \(\alpha\) levels. For instance,
@@ -9684,13 +9727,13 @@ relative or absolute measures?
 Many published simulation studies do use relative performance measures
 for evaluating point estimators. For instance, studies might use
 relative bias or relative RMSE, defined as
-\begin{equation}\phantomsection\label{eq-relative-bias-RMSE}{
+\begin{equation}\protect\phantomsection\label{eq-relative-bias-RMSE}{
 \begin{aligned}
 \text{Relative }\Bias(T) &= \frac{\E(T)}{\theta}, \\ 
 \text{Relative }\RMSE(T) &= \frac{\sqrt{\E\left[\left(T - \theta\right)^2 \right]}}{\theta}.
 \end{aligned}
 }\end{equation} and estimated as
-\begin{equation}\phantomsection\label{eq-relative-bias-RMSE-estimators}{
+\begin{equation}\protect\phantomsection\label{eq-relative-bias-RMSE-estimators}{
 \begin{aligned}
 \widehat{\text{Relative }\Bias(T)} &= \frac{\bar{T}}{\theta}, \\ 
 \widehat{\text{Relative }\RMSE(T)} &= \frac{\widehat{RMSE}(T)}{\theta}.
@@ -9903,9 +9946,9 @@ estimators will shift, although the standard errors will stay the same.
 # A tibble: 3 x 5
   method    bias    SE  RMSE per_RMSE
   <chr>    <dbl> <dbl> <dbl>    <dbl>
-1 Agg    -0.0939 0.214 0.233     1.04
-2 LR     -0.0114 0.224 0.224     1   
-3 MLM    -0.0816 0.213 0.228     1.02
+1 Agg    -0.0936 0.214 0.233     1.04
+2 LR     -0.0110 0.224 0.224     1   
+3 MLM    -0.0812 0.213 0.228     1.02
 \end{verbatim}
 
 For the person-weighted estimand, the aggregation estimator and
@@ -10027,7 +10070,7 @@ the bias as \(\bar{T} - \theta\). Each replicate of \(T - \theta\) is an
 \emph{estimate} of the expected value of \(T - \theta\), and, in this
 case, we have \(R\) independent draws of \(T - \theta\) and can use
 simple sampling theory to get the standard error for the population mean
-of them: \begin{equation}\phantomsection\label{eq-MCSE-bias}{
+of them: \begin{equation}\protect\phantomsection\label{eq-MCSE-bias}{
 MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}},
 }\end{equation} where \(S_T\) is the sample standard deviation of \(T\)
 across the \(R\) replications of the simulation process (noting that
@@ -10043,7 +10086,7 @@ average performance then follows along the same lines as
 Equation~\ref{eq-MCSE-bias}. For example, the Mean Square Error (the
 square of RMSE) is simply the average of \(M = (T-\theta)^2\) and the
 MCSE of the MSE is then
-\begin{equation}\phantomsection\label{eq-MCSE-MSE}{ 
+\begin{equation}\protect\phantomsection\label{eq-MCSE-MSE}{ 
 MCSE( \widehat{MSE} ) = \sqrt{\frac{\Var(M)}{R}} = \sqrt{\frac{\Var\left((T-\theta)^2\right)}{R}}.
 }\end{equation} For quantifying the accuracy of an estimator, we have
 recommended using RMSE, or the square root of the MSE, as shown in
@@ -10066,7 +10109,7 @@ delta method approximation.\footnote{\citet{Oehlert1992note} provides a
   find the MCSE of \(RMSE\), we apply the delta method approximation to
   \(X = MSE\) with \(g(x) = \sqrt{x}\) and
   \(g'(x) =\frac{1}{2\sqrt{x}}\).} In the case of the RMSE,
-\begin{equation}\phantomsection\label{eq-MCSE-RMSE}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-RMSE}{
 MCSE( \widehat{RMSE} ) = \frac{1}{2 \times RMSE} \sqrt{\frac{Var((T-\theta)^2)}{R}}.
 }\end{equation} To actually approximate the MCSE, we plug in the
 estimated \(RMSE\) and the variance of the \(R\) values of
@@ -10078,10 +10121,10 @@ follow the above pattern because the sampling variance \(S_T^2\) of
 \(T\) is estimated across all the replicates, rather than simply being
 an average of \(R\) independent estimates. Statistical theory gives the
 standard error of a variance estimator as
-\begin{equation}\phantomsection\label{eq-MCSE-var}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-var}{
 MCSE\left(\widehat{\Var}(T)\right) = MCSE\left(S^2_T\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}},
 }\end{equation} where \(k_T\) is the standardized kurtosis of \(T\):
-\begin{equation}\phantomsection\label{eq-skewness-kurtosis}{
+\begin{equation}\protect\phantomsection\label{eq-skewness-kurtosis}{
 \begin{aligned}
 k_T &=  \frac{1}{S_T^4} \frac{1}{R}\sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
 \end{aligned}
@@ -10089,7 +10132,7 @@ k_T &=  \frac{1}{S_T^4} \frac{1}{R}\sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
 
 With the MCSE of the variance, we can use the same delta method
 approximation as above to get the MCSE of the standard error:
-\begin{equation}\phantomsection\label{eq-MCSE-SE}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-SE}{
 MCSE\left(S_T\right) \approx \frac{1}{2 S_T} MCSE( S^2_T ) = \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
 }\end{equation}
 
@@ -10099,7 +10142,7 @@ absolute terms. For measures that are calculated by dividing a raw
 measure by the known target parameter, the MCSE for the relative measure
 is simply the MCSE for the raw measure divided by the target parameter.
 For instance, the MCSE of relative bias \(\bar{T} / \theta\) is
-\begin{equation}\phantomsection\label{eq-MCSE-relative-bias}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-relative-bias}{
 MCSE\left( \frac{\bar{T}}{\theta} \right) = \frac{1}{\theta} MCSE(\bar{T}) = \frac{S_T}{\theta \sqrt{R}}.
 }\end{equation} MCSEs for relative variance and relative RMSE follow
 similarly.
@@ -10120,7 +10163,7 @@ We use their approach to compute a MCSE for \(M_T\), the sample median
 of \(T\). Let
 \(c = \left\lceil(R + 1) / 2 - 1.96 \times \sqrt{R/4}\right\rfloor\),
 where the inner expression is rounded to the nearest integer. Then
-\begin{equation}\phantomsection\label{eq-MCSE-median}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-median}{
 MCSE\left(M_T\right) = \frac{T_{(R + 1 - c)} - T_{(c)}}{2 \times 1.96}.
 }\end{equation} A Monte Carlo standard
 error\index{Monte Carlo standard error} for the median absolute
@@ -10129,7 +10172,7 @@ the order statistics of \(E_r = | T_r - \theta|\) in place of those for
 \(T_r\).
 
 For the trimmed mean bias with trimming proportion \(p\), a MCSE is
-\begin{equation}\phantomsection\label{eq-MCSE-trimmed-mean}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-trimmed-mean}{
 MCSE\left(\tilde{T}_{\{p\}}\right) = \sqrt{\frac{U_p}{R}},
 }\end{equation} where \[
 U_p = \frac{1}{(1 - 2p)R}\left( pR\left(T_{(pR)}  - \tilde{T}_{\{p\}}\right)^2 + pR\left(T_{((1-p)R + 1)}  - \tilde{T}_{\{p\}}\right)^2 + \sum_{r=pR + 1}^{(1 - p)R} \left(T_{(r)} - \tilde{T}_{\{p\}}\right)^2 \right) .
@@ -10150,7 +10193,8 @@ Performance measures for confidence intervals and hypothesis tests are
 simple compared to those we have described for point and variance
 estimators, and come directly from the theory of estimating the
 proportion in a population. First, the MCSE for the estimated rejection
-rate is \begin{equation}\phantomsection\label{eq-MCSE-rejection-rate}{
+rate is
+\begin{equation}\protect\phantomsection\label{eq-MCSE-rejection-rate}{
 MCSE(r_\alpha) = \sqrt{\frac{r_\alpha ( 1 - r_\alpha)}{R}}.
 }\end{equation} This MCSE uses the estimated rejection rate to
 approximate its Monte Carlo error. When evaluating the validity of a
@@ -10170,7 +10214,7 @@ rates and expected widths. MCSEs for the estimated coverage rate work
 similarly to those for rejection rates. If the coverage rate is expected
 to be in the neighborhood of the intended coverage level \(\beta\), then
 we can approximate the MCSE as
-\begin{equation}\phantomsection\label{eq-MCSE-coverage}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-coverage}{
 MCSE(\widehat{\text{Coverage}}(A,B)) = \sqrt{\frac{\beta(1 - \beta)}{R}}.
 }\end{equation} Alternately, Equation~\ref{eq-MCSE-coverage} could be
 computed using the estimated coverage rate
@@ -10178,7 +10222,7 @@ computed using the estimated coverage rate
 
 Finally, the expected confidence interval width is estimated as
 \(\bar{W}\), with MCSE
-\begin{equation}\phantomsection\label{eq-MCSE-width}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-width}{
 MCSE(\bar{W}) = \sqrt{\frac{S_W^2}{R}},
 }\end{equation} where \(S_W^2\) is the sample variance of
 \(W_1,...,W_R\), the widths of the confidence interval from each
@@ -10211,10 +10255,11 @@ The relative bias estimate, excluding replicate \(j\), would then be
 \(\bar{V}_{(j)} / S_{T(j)}^2\). Calculating all \(R\) versions of this
 relative bias estimate and taking the variance of these \(R\) versions
 yields a jackknife MCSE:
-\begin{equation}\phantomsection\label{eq-MCSE-relative-bias-V}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-relative-bias-V}{
 MCSE\left( \frac{ \bar{V}}{S_T^2} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(\frac{\bar{V}_{(j)}}{S_{T(j)}^2} - \frac{\bar{V}}{S_T^2}\right)^2}.
 }\end{equation} Similarly, a MCSE for the relative standard error of
-\(V\) is \begin{equation}\phantomsection\label{eq-MCSE-relative-var-V}{
+\(V\) is
+\begin{equation}\protect\phantomsection\label{eq-MCSE-relative-var-V}{
 MCSE\left( \frac{ S_V}{S_T^2} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(\frac{S_{V(j)}}{S_{T(j)}^2} - \frac{S_V}{S_T^2}\right)^2},
 }\end{equation} where \(S_{V(j)}\) is the sample variance of
 \(V_1,...,V_R\), omitting replicate \(j\).
@@ -10224,7 +10269,7 @@ RRMSE_{V} = \frac{1}{S_{T}^2}\sqrt{(\bar{V} - S_{T}^2)^2 + \frac{R - 1}{R} S_{V}
 \] and \[
 RRMSE_{V(j)} = \frac{1}{S_{T(j)}^2}\sqrt{(\bar{V}_{(j)} - S_{T(j)}^2)^2 + \frac{R - 1}{R} S_{V(j)}^2} .
 \] Then the jackknife MCSE for the estimated relative RMSE of \(V\) is
-\begin{equation}\phantomsection\label{eq-MCSE-relative-rmse-V}{
+\begin{equation}\protect\phantomsection\label{eq-MCSE-relative-rmse-V}{
 MCSE\left( RRMSE_{V} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(RRMSE_{V(j)} - RRMSE_{V}\right)^2}.
 }\end{equation}
 
@@ -10362,6 +10407,7 @@ measures change across iterations:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrrr@{}}
 \toprule\noalign{}
 measure & theta & avg & MCSE & CI\_l & CI\_u \\
@@ -10369,9 +10415,10 @@ measure & theta & avg & MCSE & CI\_l & CI\_u \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-cal\_agg & 1.127 & 1.131 & 0.054 & 1.019 & 1.235 \\
-rel\_imp\_var & 0.914 & 0.913 & 0.028 & 0.858 & 0.969 \\
+cal\_agg & 1.127 & 1.132 & 0.052 & 1.023 & 1.232 \\
+rel\_imp\_var & 0.914 & 0.914 & 0.025 & 0.863 & 0.965 \\
 \end{longtable}
+}
 
 Interpreting the confidence interval in the second row, Aggregation has
 a lower variance than linear regression, with the upper end of the
@@ -10403,14 +10450,15 @@ set of simulation runs on the Welch dataset:
 
 \begin{verbatim}
 # A tibble: 6 x 9
-     n1    n2 mean_diff method      est    var p_val lower_bound upper_bound
-  <dbl> <dbl>     <dbl> <chr>     <dbl>  <dbl> <dbl>       <dbl>       <dbl>
-1    50    50         0 t-test  0.0258  0.0954 0.934      -0.587       0.639
-2    50    50         0 Welch   0.0258  0.0954 0.934      -0.590       0.642
-3    50    50         0 t-test  0.00516 0.0848 0.986      -0.573       0.583
-4    50    50         0 Welch   0.00516 0.0848 0.986      -0.574       0.585
-5    50    50         0 t-test -0.0798  0.0818 0.781      -0.647       0.488
-6    50    50         0 Welch  -0.0798  0.0818 0.781      -0.649       0.490
+     n1    n2 mean_diff method      est    var p_val
+  <dbl> <dbl>     <dbl> <chr>     <dbl>  <dbl> <dbl>
+1    50    50         0 t-test  0.0258  0.0954 0.934
+2    50    50         0 Welch   0.0258  0.0954 0.934
+3    50    50         0 t-test  0.00516 0.0848 0.986
+4    50    50         0 Welch   0.00516 0.0848 0.986
+5    50    50         0 t-test -0.0798  0.0818 0.781
+6    50    50         0 Welch  -0.0798  0.0818 0.781
+# i 2 more variables: lower_bound <dbl>, upper_bound <dbl>
 \end{verbatim}
 
 We first assess the rejection rate for the traditional \(t\)-test based
@@ -10428,10 +10476,10 @@ of .01 and .05:
 \end{Shaded}
 
 \begin{verbatim}
-# A tibble: 1 x 5
-  K_rejection rej_rate_01 rej_rate_05 rej_rate_mcse_01 rej_rate_mcse_05
-        <int>       <dbl>       <dbl>            <dbl>            <dbl>
-1        1000       0.009       0.048          0.00299          0.00676
+  K_rejection rej_rate_01 rej_rate_05 rej_rate_mcse_01
+1        1000       0.009       0.048      0.002986469
+  rej_rate_mcse_05
+1      0.006759882
 \end{verbatim}
 
 The column labeled \texttt{K\_rejection} reports the number of
@@ -10506,10 +10554,10 @@ confidence intervals:
 \end{Shaded}
 
 \begin{verbatim}
-  rep         r         z        CI_lo     CI_hi
-1   1 0.3569367 0.3733710 -0.003824272 0.6354866
-2   2 0.5101523 0.5629356  0.183633427 0.7352824
-3   3 0.6631770 0.7984637  0.397998472 0.8260778
+  rep         r         z     CI_lo     CI_hi
+1   1 0.4808227 0.5240538 0.1458118 0.7169055
+2   2 0.5257464 0.5842484 0.2041442 0.7449201
+3   3 0.4743707 0.5156952 0.1376211 0.7128184
 \end{verbatim}
 
 It will be useful to have a function that evaluates the coverage and
@@ -10541,7 +10589,7 @@ This function makes it quite easy to evaluate the output of
 # A tibble: 1 x 5
   K_coverage coverage coverage_mcse width width_mcse
        <int>    <dbl>         <dbl> <dbl>      <dbl>
-1       1000    0.957       0.00641 0.604    0.00249
+1       1000    0.949       0.00696 0.601    0.00261
 \end{verbatim}
 
 \subsection{Quick Performance Calculations for our Cluster RCT
@@ -10574,6 +10622,7 @@ have:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrrrr@{}}
 \toprule\noalign{}
 method & bias & bias\_mcse & stddev & stddev\_mcse & rmse &
@@ -10586,6 +10635,7 @@ Agg & 0.000 & 0.007 & 0.214 & 0.005 & 0.214 & 0.006 \\
 LR & 0.082 & 0.007 & 0.224 & 0.005 & 0.238 & 0.006 \\
 MLM & 0.012 & 0.007 & 0.213 & 0.005 & 0.213 & 0.006 \\
 \end{longtable}
+}
 
 The MCSEs are small relative to the linear regression bias term and all
 of the SEs (\texttt{stddev}) and RMSEs. Results based on 1000
@@ -10615,6 +10665,7 @@ and MCSEs using the jackknife:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1014}}
   >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1884}}
@@ -10641,6 +10692,7 @@ Agg & 1.13 & 0.05 & 0.40 & 0.03 \\
 LR & 1.11 & 0.05 & 0.47 & 0.03 \\
 MLM & 1.12 & 0.05 & 0.40 & 0.03 \\
 \end{longtable}
+}
 
 We can use these calculations to create confidence intervals for the
 performance measures:
@@ -10655,6 +10707,7 @@ performance measures:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 method & rel\_bias\_var & rel\_bias\_var\_mcse & CI\_l & CI\_u \\
@@ -10666,11 +10719,12 @@ Agg & 1.13 & 0.05 & 1.02 & 1.23 \\
 LR & 1.11 & 0.05 & 1.00 & 1.21 \\
 MLM & 1.12 & 0.05 & 1.02 & 1.23 \\
 \end{longtable}
+}
 
 We get essentially the same results as what we found in
 Section~\ref{sec-bootstrapping-MCSEs} using bootstrapping.
 
-\section{Concluding thoughts}\label{concluding-thoughts}
+\section{Concluding thoughts}\label{concluding-thoughts-6}
 
 The performance of an estimator is not well captured by any single
 number. As we have seen, estimators have multiple properties, with bias
@@ -10772,7 +10826,7 @@ results]\protect\hypertarget{exr-Brown-Forsythe-performance}{}\label{exr-Brown-F
 ~
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Use the \texttt{generate\_ANOVA\_data} data-generating function for
   one-way heteroskedastic ANOVA (Section~\ref{sec-case-anova-DGP}) and
@@ -10880,7 +10934,7 @@ how poorly they perform.
 \end{Shaded}
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Combine your data-generating function and \texttt{three\_corrs()} into
   a simulation driver.
@@ -11190,18 +11244,18 @@ the raw results:
 
 \begin{verbatim}
 # A tibble: 100 x 2
-    ANOVA  Welch
-    <dbl>  <dbl>
- 1 0.312  0.145 
- 2 0.559  0.500 
- 3 0.646  0.627 
- 4 0.138  0.0775
- 5 0.741  0.598 
- 6 0.0604 0.176 
- 7 0.110  0.0553
- 8 0.471  0.453 
- 9 0.429  0.339 
-10 0.0734 0.0658
+     ANOVA    Welch
+     <dbl>    <dbl>
+ 1 0.0625  0.160   
+ 2 0.0337  0.139   
+ 3 0.125   0.0271  
+ 4 0.943   0.957   
+ 5 0.285   0.356   
+ 6 0.00527 0.0105  
+ 7 0.0114  0.000440
+ 8 0.451   0.493   
+ 9 0.147   0.176   
+10 0.0331  0.0667  
 # i 90 more rows
 \end{verbatim}
 
@@ -11215,10 +11269,10 @@ calculate power as so:
 \end{Shaded}
 
 \begin{verbatim}
-# A tibble: 1 x 5
-  K_rejection rej_rate_01 rej_rate_05 rej_rate_mcse_01 rej_rate_mcse_05
-        <int>       <dbl>       <dbl>            <dbl>            <dbl>
-1         100        0.04        0.14           0.0196           0.0347
+  K_rejection rej_rate_01 rej_rate_05 rej_rate_mcse_01
+1         100         0.1        0.23             0.03
+  rej_rate_mcse_05
+1       0.04208325
 \end{verbatim}
 
 We want power for both the Welch test and the conventional ANOVA \(F\)
@@ -11256,10 +11310,10 @@ We get back a nice tibble of results when we use it:
 # A tibble: 4 x 5
   test  K_rejection alpha rej_rate rej_rate_mcse
   <chr>       <int> <dbl>    <dbl>         <dbl>
-1 ANOVA         100  0.01     0.04        0.0196
-2 ANOVA         100  0.05     0.18        0.0384
-3 Welch         100  0.01     0.04        0.0196
-4 Welch         100  0.05     0.14        0.0347
+1 ANOVA         100  0.01     0.07        0.0255
+2 ANOVA         100  0.05     0.22        0.0414
+3 Welch         100  0.01     0.1         0.03  
+4 Welch         100  0.05     0.23        0.0421
 \end{verbatim}
 
 Our next step is to wrap all of the above into a single call. The
@@ -11289,10 +11343,10 @@ does. Witness!
 # A tibble: 4 x 5
   test  K_rejection alpha rej_rate rej_rate_mcse
   <chr>       <int> <dbl>    <dbl>         <dbl>
-1 ANOVA         100  0.01     0.11        0.0313
-2 ANOVA         100  0.05     0.25        0.0433
-3 Welch         100  0.01     0.11        0.0313
-4 Welch         100  0.05     0.31        0.0462
+1 ANOVA         100  0.01     0.06        0.0237
+2 ANOVA         100  0.05     0.24        0.0427
+3 Welch         100  0.01     0.07        0.0255
+4 Welch         100  0.05     0.28        0.0449
 \end{verbatim}
 
 Now we can apply our simulation driver to several different scenarios
@@ -11408,10 +11462,10 @@ we can pull it out as follows:
 # A tibble: 4 x 5
   test  K_rejection alpha rej_rate rej_rate_mcse
   <chr>       <int> <dbl>    <dbl>         <dbl>
-1 ANOVA         100  0.01     0.03        0.0171
-2 ANOVA         100  0.05     0.09        0.0286
-3 Welch         100  0.01     0.02        0.014 
-4 Welch         100  0.05     0.07        0.0255
+1 ANOVA         100  0.01     0.02        0.014 
+2 ANOVA         100  0.05     0.13        0.0336
+3 Welch         100  0.01     0           0     
+4 Welch         100  0.05     0.1         0.03  
 \end{verbatim}
 
 \subsection{Analyzing the results}\label{analyzing-the-results}
@@ -11432,16 +11486,16 @@ once for each row in the nested dataset:
 # A tibble: 44 x 6
    max_diff test  K_rejection alpha rej_rate rej_rate_mcse
       <dbl> <chr>       <int> <dbl>    <dbl>         <dbl>
- 1      0   ANOVA         100  0.01     0.01       0.00995
- 2      0   ANOVA         100  0.05     0.05       0.0218 
- 3      0   Welch         100  0.01     0.01       0.00995
- 4      0   Welch         100  0.05     0.05       0.0218 
- 5      0.2 ANOVA         100  0.01     0          0      
- 6      0.2 ANOVA         100  0.05     0.04       0.0196 
- 7      0.2 Welch         100  0.01     0          0      
- 8      0.2 Welch         100  0.05     0.06       0.0237 
- 9      0.4 ANOVA         100  0.01     0.03       0.0171 
-10      0.4 ANOVA         100  0.05     0.09       0.0286 
+ 1      0   ANOVA         100  0.01     0           0     
+ 2      0   ANOVA         100  0.05     0.04        0.0196
+ 3      0   Welch         100  0.01     0           0     
+ 4      0   Welch         100  0.05     0.05        0.0218
+ 5      0.2 ANOVA         100  0.01     0           0     
+ 6      0.2 ANOVA         100  0.05     0.07        0.0255
+ 7      0.2 Welch         100  0.01     0           0     
+ 8      0.2 Welch         100  0.05     0.03        0.0171
+ 9      0.4 ANOVA         100  0.01     0.02        0.014 
+10      0.4 ANOVA         100  0.05     0.13        0.0336
 # i 34 more rows
 \end{verbatim}
 
@@ -11577,10 +11631,10 @@ full experimental design:
 \begin{verbatim}
 Rows: 144
 Columns: 4
-$ N      <dbl> 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,~
-$ mu1    <dbl> 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 8, 8, 8, 8, ~
-$ lambda <dbl> 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0~
-$ rho    <dbl> 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.0, 0.1, 0.2, 0.3, 0.4~
+$ N      <dbl> 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,~
+$ mu1    <dbl> 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4~
+$ lambda <dbl> 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0~
+$ rho    <dbl> 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.0~
 \end{verbatim}
 
 We use \texttt{expand\_grid()} from the \texttt{tidyr} package to create
@@ -11933,6 +11987,7 @@ call to \texttt{evaluate\_by\_row()}:
 
 Here is a comparison of the three approaches:
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrr@{}}
 \toprule\noalign{}
 approach & n\_rows & Kb \\
@@ -11944,6 +11999,7 @@ inside & 144 & 43 \\
 outside & 144000 & 9000 \\
 nested & 144 & 4528 \\
 \end{longtable}
+}
 
 Storing just the results takes only a few kilobytes, but the raw results
 take several megabytes, a big difference. If we follow the outside
@@ -11972,19 +12028,20 @@ at once across the full unnested simulation results:
 \begin{verbatim}
 # A tibble: 144 x 9
 # Groups:   N, mu1, mu2 [18]
-       N   mu1   mu2   rho K_coverage coverage coverage_mcse width width_mcse
-   <dbl> <dbl> <dbl> <dbl>      <int>    <dbl>         <dbl> <dbl>      <dbl>
- 1    10     4     2   0         1000    0.945       0.00721 1.16     0.00410
- 2    10     4     2   0.1       1000    0.936       0.00774 1.15     0.00436
- 3    10     4     2   0.2       1000    0.956       0.00649 1.14     0.00491
- 4    10     4     2   0.3       1000    0.944       0.00727 1.10     0.00553
- 5    10     4     2   0.4       1000    0.946       0.00715 1.05     0.00661
- 6    10     4     2   0.5       1000    0.935       0.00780 0.976    0.00753
- 7    10     4     2   0.6       1000    0.95        0.00689 0.871    0.00819
- 8    10     4     2   0.7       1000    0.945       0.00721 0.765    0.00851
- 9    10     4     4   0         1000    0.946       0.00715 1.16     0.00411
-10    10     4     4   0.1       1000    0.944       0.00727 1.16     0.00423
+       N   mu1   mu2   rho K_coverage coverage coverage_mcse
+   <dbl> <dbl> <dbl> <dbl>      <int>    <dbl>         <dbl>
+ 1    10     4     2   0         1000    0.945       0.00721
+ 2    10     4     2   0.1       1000    0.936       0.00774
+ 3    10     4     2   0.2       1000    0.956       0.00649
+ 4    10     4     2   0.3       1000    0.944       0.00727
+ 5    10     4     2   0.4       1000    0.946       0.00715
+ 6    10     4     2   0.5       1000    0.935       0.00780
+ 7    10     4     2   0.6       1000    0.95        0.00689
+ 8    10     4     2   0.7       1000    0.945       0.00721
+ 9    10     4     4   0         1000    0.946       0.00715
+10    10     4     4   0.1       1000    0.944       0.00727
 # i 134 more rows
+# i 2 more variables: width <dbl>, width_mcse <dbl>
 \end{verbatim}
 
 If we want to use our full performance measure function
@@ -12043,19 +12100,20 @@ results for that context, with 1000 rows each.\footnote{Alternately, we
 \begin{verbatim}
 # A tibble: 144 x 9
 # Groups:   N, mu1, mu2, rho [144]
-       N   mu1   rho   mu2 K_coverage coverage coverage_mcse width width_mcse
-   <dbl> <dbl> <dbl> <dbl>      <int>    <dbl>         <dbl> <dbl>      <dbl>
- 1    10     4   0       2       1000    0.945       0.00721 1.16     0.00410
- 2    10     4   0.1     2       1000    0.936       0.00774 1.15     0.00436
- 3    10     4   0.2     2       1000    0.956       0.00649 1.14     0.00491
- 4    10     4   0.3     2       1000    0.944       0.00727 1.10     0.00553
- 5    10     4   0.4     2       1000    0.946       0.00715 1.05     0.00661
- 6    10     4   0.5     2       1000    0.935       0.00780 0.976    0.00753
- 7    10     4   0.6     2       1000    0.95        0.00689 0.871    0.00819
- 8    10     4   0.7     2       1000    0.945       0.00721 0.765    0.00851
- 9    10     4   0       4       1000    0.946       0.00715 1.16     0.00411
-10    10     4   0.1     4       1000    0.944       0.00727 1.16     0.00423
+       N   mu1   rho   mu2 K_coverage coverage coverage_mcse
+   <dbl> <dbl> <dbl> <dbl>      <int>    <dbl>         <dbl>
+ 1    10     4   0       2       1000    0.945       0.00721
+ 2    10     4   0.1     2       1000    0.936       0.00774
+ 3    10     4   0.2     2       1000    0.956       0.00649
+ 4    10     4   0.3     2       1000    0.944       0.00727
+ 5    10     4   0.4     2       1000    0.946       0.00715
+ 6    10     4   0.5     2       1000    0.935       0.00780
+ 7    10     4   0.6     2       1000    0.95        0.00689
+ 8    10     4   0.7     2       1000    0.945       0.00721
+ 9    10     4   0       4       1000    0.946       0.00715
+10    10     4   0.1     4       1000    0.944       0.00727
 # i 134 more rows
+# i 2 more variables: width <dbl>, width_mcse <dbl>
 \end{verbatim}
 
 We have built our final performance table \emph{after} running the
@@ -12072,7 +12130,7 @@ re-calculate performance measures can be very advantageous, and we tend
 to follow this outside strategy for any simulations involving more
 complex estimation procedures.
 
-\section{Summary}\label{summary}
+\section{Concluding thoughts}\label{concluding-thoughts-7}
 
 Multifactor simulations are simply a series of individual scenario
 simulations, where the set of scenarios are structured by systematically
@@ -12120,7 +12178,7 @@ number of groups, sample sizes, and degree of heteroskedasticity (see
 Table~\ref{tbl-BF-Scenarios}).
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Extend their work by building a multifactor simulation design to
   compare the power of the tests when \(G = 4\), for three or more
@@ -12181,7 +12239,7 @@ true standard error, and root mean squared
 error\index{performance measures!RMSE\index{performance measures!RMSE}}.
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Verify that \texttt{gen\_scaled\_t()} produces data with mean
   \texttt{mu} and standard deviation 1 for various \texttt{df0} values.
@@ -12235,7 +12293,7 @@ function for calculating the bias and RMSE of these
 measures.\index{example!bivariate Poisson}
 
 \begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\def\labelenumi{\alph{enumi})}
 \item
   Combine your data-generating function, \texttt{three\_corrs()}, and
   your performance calculation into a simulation driver.
@@ -12782,22 +12840,22 @@ this:
 \begin{verbatim}
 Rows: 810,000
 Columns: 16
-$ n_bar     <dbl> 320, 320, 320, 320, 320, 320, 320, 320, 320, 320, 320, 320, ~
-$ J         <dbl> 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, ~
-$ ATE       <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, ~
-$ size_coef <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, ~
-$ ICC       <dbl> 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, ~
-$ alpha     <dbl> 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, ~
-$ seed      <dbl> 103553, 103553, 103553, 103553, 103553, 103553, 103553, 1035~
-$ runID     <int> 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, ~
-$ method    <chr> "MLM", "LR", "Agg", "MLM", "LR", "Agg", "MLM", "LR", "Agg", ~
-$ ATE_hat   <dbl> -0.11701641, -0.27662276, -0.11673502, -0.63439989, -0.81227~
-$ SE_hat    <dbl> 0.5485042, 0.5980588, 0.6178521, 0.4906032, 0.5702499, 0.590~
-$ p_value   <dbl> 0.84473987, 0.68825974, 0.86220164, 0.28653778, 0.26571530, ~
-$ message   <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ~
-$ warning   <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ~
-$ error     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ~
-$ seconds   <dbl> 0.176337957, 0.086425066, 0.141067028, 0.025454998, 0.022375~
+$ n_bar     <dbl> 320, 320, 320, 320, 320, 320, 320, 320, ~
+$ J         <dbl> 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5~
+$ ATE       <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, ~
+$ size_coef <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, ~
+$ ICC       <dbl> 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, ~
+$ alpha     <dbl> 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, ~
+$ seed      <dbl> 103553, 103553, 103553, 103553, 103553, ~
+$ runID     <int> 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5~
+$ method    <chr> "MLM", "LR", "Agg", "MLM", "LR", "Agg", ~
+$ ATE_hat   <dbl> -0.11701641, -0.27662276, -0.11673502, -~
+$ SE_hat    <dbl> 0.5485042, 0.5980588, 0.6178521, 0.49060~
+$ p_value   <dbl> 0.84473987, 0.68825974, 0.86220164, 0.28~
+$ message   <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+$ warning   <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+$ error     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+$ seconds   <dbl> 0.176337957, 0.086425066, 0.141067028, 0~
 \end{verbatim}
 
 We have a lot of rows of data!
@@ -12858,21 +12916,21 @@ use the \texttt{simhelpers} package as so:
 \begin{verbatim}
 Rows: 810
 Columns: 15
-$ n_bar             <dbl> 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, ~
-$ J                 <dbl> 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5~
-$ ATE               <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.~
-$ size_coef         <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
-$ ICC               <dbl> 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2, 0.~
-$ alpha             <dbl> 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 0.8, 0.8, 0.8, 0.0, 0.~
-$ method            <chr> "Agg", "LR", "MLM", "Agg", "LR", "MLM", "Agg", "LR",~
-$ bias              <dbl> 0.0078528924, 0.0078528924, 0.0078528924, 0.00162449~
-$ bias_mcse         <dbl> 0.006512388, 0.006512388, 0.006512388, 0.006673788, ~
-$ SE                <dbl> 0.2059398, 0.2059398, 0.2059398, 0.2110437, 0.205382~
-$ SE_mcse           <dbl> 0.004380492, 0.004380492, 0.004380492, 0.004495061, ~
-$ rmse              <dbl> 0.2059865, 0.2059865, 0.2059865, 0.2109444, 0.205284~
-$ rmse_mcse         <dbl> 0.005468829, 0.005468829, 0.005468829, 0.005593494, ~
-$ rel_bias_var      <dbl> 0.9834635, 0.9834635, 1.2690179, 1.0454224, 1.037165~
-$ rel_bias_var_mcse <dbl> 0.05290317, 0.05290317, 0.05794197, 0.05122740, 0.05~
+$ n_bar             <dbl> 20, 20, 20, 20, 20, 20, 20, 20, ~
+$ J                 <dbl> 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,~
+$ ATE               <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.~
+$ size_coef         <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,~
+$ ICC               <dbl> 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.~
+$ alpha             <dbl> 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 0.~
+$ method            <chr> "Agg", "LR", "MLM", "Agg", "LR",~
+$ bias              <dbl> 0.0078528924, 0.0078528924, 0.00~
+$ bias_mcse         <dbl> 0.006512388, 0.006512388, 0.0065~
+$ SE                <dbl> 0.2059398, 0.2059398, 0.2059398,~
+$ SE_mcse           <dbl> 0.004380492, 0.004380492, 0.0043~
+$ rmse              <dbl> 0.2059865, 0.2059865, 0.2059865,~
+$ rmse_mcse         <dbl> 0.005468829, 0.005468829, 0.0054~
+$ rel_bias_var      <dbl> 0.9834635, 0.9834635, 1.2690179,~
+$ rel_bias_var_mcse <dbl> 0.05290317, 0.05290317, 0.057941~
 \end{verbatim}
 
 After we calculate our performance measures, we have 810 rows of results
@@ -13034,7 +13092,7 @@ reported in \citet{pustejovsky2014converting} used this strategy,
 setting \(R = 10^7 / N\) for simulations that examined sample sizes of
 \(N = 20, 40, 80\), and \(160\).
 
-\section{Summary}\label{summary-1}
+\section{Concluding thoughts}\label{concluding-thoughts-8}
 
 In this chapter, we have moved from isolated simulation scenarios to
 fully specified multifactor simulation designs. Full factorial designs
@@ -13274,6 +13332,8 @@ calculated the performance of each estimator relative to the median of
 all estimators considered. We can then ask, do some methods perform
 better than their peers on average across all scenarios considered?
 
+{
+
 \begin{longtable}[]{@{}lrrrrrrrr@{}}
 
 \caption{\label{tbl-ITE-performance}Relative performance measures of
@@ -13306,6 +13366,8 @@ BART T & -38 & 103 & 25 & 19 & 54 & 22 & 0.32 & 0.18 \\
 CDML & 9 & 71 & 31 & 20 & 99 & 46 & 0.24 & 0.20 \\
 
 \end{longtable}
+
+}
 
 Table~\ref{tbl-ITE-performance} gives an answer to this question: we
 evaluate each method along four metrics: relative bias, relative se,
@@ -13342,6 +13404,7 @@ tables. Their Table 2, for example, had four quadrants, each a distinct
 scenario. For example, the results for the scenario with misspecified
 outcome models and propensity score models looked like this:
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 method & bias & sd & rmse & mae \\
@@ -13366,6 +13429,7 @@ TML-S & -1.53 & 1.42 & 2.08 & 1.59 \\
 TML-S1 & -1.58 & 1.42 & 2.13 & 1.61 \\
 TML-S1m & -1.58 & 1.42 & 2.13 & 1.62 \\
 \end{longtable}
+}
 
 Reading the table involves scanning across many methods, some of which
 are variants of the same core type. And this is only a quarter of the
@@ -13937,6 +14001,8 @@ context. The magnitude of the effects is expressed as partial \(\eta^2\)
 effect sizes; Small, medium, and large effects are marked to make them
 jump out to the eye.
 
+{
+
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2400}}
   >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1600}}
@@ -13982,6 +14048,8 @@ H × IUCC & 0.024 S & 0.008 & 0.034 S & 0.137 M \\
 J × IUCC & 0.004 & 0.088 M & 0.013 S & 0.029 S \\
 
 \end{longtable}
+
+}
 
 \textbf{Note:} (S)mall = .01, (M)edium = .06, (L)arge = .14
 
@@ -14048,7 +14116,7 @@ of \(\rho\), cut-off thresholds, and cut-off types.}
 
 \end{figure}%
 
-\section{Reporting}\label{reporting}
+\section{Concluding thoughts}\label{concluding-thoughts-9}
 
 Just as with empirical data analysis, the analysis that you present in
 an outward-facing report will usually be only a summary of all of the
@@ -14313,6 +14381,7 @@ right facet for the Aggregation method:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}rrrrrrr@{}}
 \toprule\noalign{}
 n\_bar & J & size\_coef & ICC & alpha & bias & bias\_mcse \\
@@ -14336,6 +14405,7 @@ n\_bar & J & size\_coef & ICC & alpha & bias & bias\_mcse \\
 80 & 5 & 0 & 0.2 & 0.8 & 0.01 & 0.01 \\
 20 & 5 & 0 & 0.8 & 0.8 & 0.07 & 0.03 \\
 \end{longtable}
+}
 
 Our bias boxplot makes some trends clear. For example, we see that there
 is no bias, on average, for any method when the size coefficient is 0
@@ -15099,7 +15169,7 @@ essentially echos our standard error findings, as expected. There are
 mild differences due to differences in how the degrees of freedom are
 calculated, however.
 
-\section{Conclusions}\label{conclusions-1}
+\section{Concluding thoughts}\label{concluding-thoughts-10}
 
 Visualization is rarely a single plot; it is the process of iterating
 from messy, exploratory graphs to a small set of figures that
@@ -15152,16 +15222,17 @@ load and process them as follows:
 
 \begin{verbatim}
 # A tibble: 6 x 16
-  n_bar     J   ATE size_coef   ICC alpha   seed runID method ATE_hat SE_hat
-  <dbl> <dbl> <dbl>     <dbl> <dbl> <dbl>  <dbl> <int> <chr>    <dbl>  <dbl>
-1   320     5   0.2       0.2   0.8   0.5 103553     1 MLM     -0.117  0.549
-2   320     5   0.2       0.2   0.8   0.5 103553     1 LR      -0.277  0.598
-3   320     5   0.2       0.2   0.8   0.5 103553     1 Agg     -0.117  0.618
-4   320     5   0.2       0.2   0.8   0.5 103553     2 MLM     -0.634  0.491
-5   320     5   0.2       0.2   0.8   0.5 103553     2 LR      -0.812  0.570
-6   320     5   0.2       0.2   0.8   0.5 103553     2 Agg     -0.634  0.590
-# i 5 more variables: p_value <dbl>, message <dbl>, warning <dbl>, error <dbl>,
-#   seconds <dbl>
+  n_bar     J   ATE size_coef   ICC alpha   seed runID
+  <dbl> <dbl> <dbl>     <dbl> <dbl> <dbl>  <dbl> <int>
+1   320     5   0.2       0.2   0.8   0.5 103553     1
+2   320     5   0.2       0.2   0.8   0.5 103553     1
+3   320     5   0.2       0.2   0.8   0.5 103553     1
+4   320     5   0.2       0.2   0.8   0.5 103553     2
+5   320     5   0.2       0.2   0.8   0.5 103553     2
+6   320     5   0.2       0.2   0.8   0.5 103553     2
+# i 8 more variables: method <chr>, ATE_hat <dbl>,
+#   SE_hat <dbl>, p_value <dbl>, message <dbl>,
+#   warning <dbl>, error <dbl>, seconds <dbl>
 \end{verbatim}
 
 \begin{Shaded}
@@ -15192,12 +15263,15 @@ load and process them as follows:
 \end{Shaded}
 
 \begin{verbatim}
- [1] "n_bar"             "J"                 "ATE"              
- [4] "size_coef"         "ICC"               "alpha"            
- [7] "method"            "R"                 "bias"             
-[10] "bias_mcse"         "SE"                "SE_mcse"          
-[13] "RMSE"              "RMSE_mcse"         "rel_bias_var"     
-[16] "rel_bias_var_mcse" "power"             "ESE_hat"          
+ [1] "n_bar"             "J"                
+ [3] "ATE"               "size_coef"        
+ [5] "ICC"               "alpha"            
+ [7] "method"            "R"                
+ [9] "bias"              "bias_mcse"        
+[11] "SE"                "SE_mcse"          
+[13] "RMSE"              "RMSE_mcse"        
+[15] "rel_bias_var"      "rel_bias_var_mcse"
+[17] "power"             "ESE_hat"          
 [19] "SD_SE_hat"        
 \end{verbatim}
 
@@ -15313,6 +15387,7 @@ numeric values.
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 term & estimate & std.error & statistic & p.value \\
@@ -15330,6 +15405,7 @@ p1.C & 0.0008 & 0.0001 & 6.9747 & 0.0000 \\
 p1\^{}4 & -0.0001 & 0.0001 & -0.9581 & 0.3381 \\
 n & 0.0000 & 0.0000 & 20.3964 & 0.0000 \\
 \end{longtable}
+}
 
 The above printout gives main effects for each factor, averaged across
 the others. Because \texttt{p1} and \texttt{n} are ordered factors, the
@@ -15357,6 +15433,7 @@ analysis of variance model:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrrr@{}}
 \toprule\noalign{}
 & Df & Sum Sq & Mean Sq & F value & Pr(\textgreater F) \\
@@ -15381,6 +15458,7 @@ p1:fixed:n & 4 & 0.0005 & 0.0001 & 15.1 & 0.00000 \\
 rho:p1:fixed:n & 4 & 0.0002 & 0.0000 & 4.3 & 0.00167 \\
 Residuals & 4760 & 0.0414 & 0.0000 & NA & NA \\
 \end{longtable}
+}
 
 The advantage here is the multiple levels of our categorical factors get
 bundled together in our table of results, making a tidier display. Note
@@ -15539,6 +15617,7 @@ example, should be treated as continuous:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 term & estimate & std.error & statistic & p.value \\
@@ -15574,6 +15653,7 @@ alpha0.8:methodLR & 0.017 & 0.003 & 5.868 & 0.000 \\
 alpha0.5:methodMLM & 0.001 & 0.003 & 0.434 & 0.664 \\
 alpha0.8:methodMLM & 0.003 & 0.003 & 1.091 & 0.276 \\
 \end{longtable}
+}
 
 With even a modestly complex simulation, we can quickly generate a lot
 of regression coefficients, making our meta-regression somewhat hard to
@@ -15635,6 +15715,7 @@ level.
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lr@{}}
 \toprule\noalign{}
 term & lambda.1se \\
@@ -15643,9 +15724,11 @@ term & lambda.1se \\
 \bottomrule\noalign{}
 \endlastfoot
 (Intercept) & 0.003 \\
-size\_coef0.2 & 0.003 \\
-size\_coef0.2:alpha0.8 & 0.023 \\
+size\_coef0.2 & 0.004 \\
+size\_coef0.2:alpha0.5 & 0.000 \\
+size\_coef0.2:alpha0.8 & 0.024 \\
 \end{longtable}
+}
 
 Note we have 71 covariates due to the many, many interactions and the
 fact that our sample sizes, etc., are all factors, not continuous.
@@ -15711,28 +15794,26 @@ was unusual).
 
 | order|term                           |     LR|    MLM|   Agg|
 |-----:|:------------------------------|------:|------:|-----:|
-|     0|(Intercept)                    |  0.001|  0.001| 0.001|
-|     0|n_bar80                        | -0.002| -0.001|      |
+|     0|(Intercept)                    |  0.000|  0.001| 0.001|
+|     0|n_bar80                        | -0.001| -0.001|      |
 |     0|size_coef0.2                   |  0.001|  0.002|      |
-|     1|n_bar80:J80                    |  0.001|       |      |
+|     1|n_bar80:J80                    |  0.000|       |      |
 |     1|J20:alpha0.8                   |  0.002|       |      |
 |     1|size_coef0.2:ICCsc             |  0.001|       |      |
 |     1|size_coef0.2:alpha0.5          |  0.008|       |      |
 |     1|size_coef0.2:alpha0.8          |  0.026|  0.003|      |
-|     1|ICCsc:alpha0.5                 | -0.001| -0.001|      |
+|     1|ICCsc:alpha0.5                 |  0.000| -0.001|      |
 |     1|J20:ICCsc                      |       |  0.000|      |
-|     2|n_bar80:J80:size_coef0.2       |  0.001|       |      |
+|     2|n_bar80:J80:size_coef0.2       |  0.000|       |      |
 |     2|n_bar320:J20:ICCsc             | -0.001| -0.001|      |
-|     2|n_bar80:J20:alpha0.8           |  0.006|  0.006|      |
-|     2|n_bar80:size_coef0.2:ICCsc     |  0.000|  0.000|      |
-|     2|n_bar320:size_coef0.2:alpha0.5 |  0.005|  0.002|      |
-|     2|J20:size_coef0.2:alpha0.5      |  0.003|       |      |
+|     2|n_bar80:J20:alpha0.8           |  0.005|  0.006|      |
+|     2|n_bar320:size_coef0.2:alpha0.5 |  0.004|  0.002|      |
+|     2|J20:size_coef0.2:alpha0.5      |  0.002|       |      |
 |     2|J80:size_coef0.2:alpha0.5      |  0.002|       |      |
-|     2|J20:size_coef0.2:alpha0.8      |  0.009|       |      |
+|     2|J20:size_coef0.2:alpha0.8      |  0.008|       |      |
 |     2|J80:size_coef0.2:alpha0.8      |  0.010|       |      |
-|     2|J80:ICCsc:alpha0.5             |  0.000|       |      |
-|     2|size_coef0.2:ICCsc:alpha0.5    |  0.000|       |      |
 |     2|size_coef0.2:ICCsc:alpha0.8    |  0.000|       |      |
+|     2|n_bar80:size_coef0.2:ICCsc     |       |  0.000|      |
 |     2|n_bar80:ICCsc:alpha0.8         |       |  0.000|      |
 |     2|J80:size_coef0.2:zeroICC       |       |  0.002|      |
 |     2|J80:ICCsc:alpha0.8             |       |  0.000|      |
@@ -16053,6 +16134,7 @@ error:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrr@{}}
 \toprule\noalign{}
 grp & sd & ICC \\
@@ -16064,6 +16146,7 @@ dataID & 0.39 & 0.97 \\
 simID & 0.04 & 0.01 \\
 Residual & 0.06 & 0.02 \\
 \end{longtable}
+}
 
 The random variation for \texttt{simID} captures unexplained variation
 due to the interactions of the simulation factors. Relative to the
@@ -16108,6 +16191,7 @@ not just noise.
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 term & estimate & std.error & p.value & p\_fdr \\
@@ -16117,6 +16201,7 @@ term & estimate & std.error & p.value & p\_fdr \\
 \endlastfoot
 methodLR:alpha0.8:size\_coef0.2 & 0.04 & 0.005 & 0 & 0 \\
 \end{longtable}
+}
 
 We see what we have seen before: the LR method is notably biased when
 \texttt{size\_coef} is non-zero and \texttt{alpha} is high. We have
@@ -16149,6 +16234,7 @@ simulation factors by comparing the random effect variances:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrrr@{}}
 \toprule\noalign{}
 grp & sd.null & ICC.null & sd.full & ICC.full & var.red \\
@@ -16160,6 +16246,7 @@ dataID & 0.39 & 0.97 & 0.39 & 0.97 & 1.00 \\
 simID & 0.04 & 0.01 & 0.03 & 0.01 & 0.84 \\
 Residual & 0.06 & 0.02 & 0.06 & 0.02 & 0.98 \\
 \end{longtable}
+}
 
 The \texttt{var.red} column is how much variation is explained by our
 model of similation factors. Our model is explaining an estimated 16\%
@@ -16264,7 +16351,7 @@ being held to a higher standard, making the comparisons between
 estimators biased. Consider, for example, if the dropped datasets were
 fundamentally harder to evaluate.
 
-\section{Conclusions}\label{conclusions-2}
+\section{Concluding thoughts}\label{concluding-thoughts-11}
 
 Designed experiments in simulation are only as useful as the summaries
 you make of their output. In this chapter, we showed a few advanced ways
@@ -16288,305 +16375,6 @@ Overall, these tools give a way to go deeper into a set of simulation
 results. Often the findings generated by these tools would not be
 presented in the main text, but they can be important supporting detail,
 especially when placed in a supplement.
-
-\chapter{Case study: Comparing different
-estimators}\label{case-study-comparing-different-estimators}
-
-Pretend, for a moment, that we have ``invented'' the trimmed mean and
-want to demonstrate its utility. We might do this by showing how it
-performs in a variety of scenarios, comparing it to the mean and median.
-(In fact, you may have done this in Exercise~\ref{exr-trimmed-mean}.)
-This activity is analogous to what is often done in a simulation
-methodology paper: invent something, and then demonstrate its utility
-via simulation.
-
-In this chapter, we walk through how we might analyze the results from
-such a simulation. In our simulation, we have three factors: sample
-size, a degrees of freedom to control the thickness of the tails
-(thicker tails means higher chance of outliers), and a degree of skew
-(how much the tails tend to the right vs.~the left). For our
-data-generation function we use a scaled and skewed \(t\)-distribution
-parameterized so the standard deviation will always be 1 and the mean
-will always be 0, with parameters to control the skew and tail
-thickness. See the
-\href{case_study_code/trimmed_mean_simulation.R}{attached code file} for
-the simulation.
-
-Here are the results from our final multi-factor simulation (we ran 1000
-trials per scenario):
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{results }\OtherTok{\textless{}{-}} \FunctionTok{read\_rds}\NormalTok{( here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{( }\StringTok{"results/skewed\_t\_simulation.rds"}\NormalTok{ ) ) }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{seed )}
-\NormalTok{results}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-# A tibble: 144 x 7
-       n   df0  skew estimator  RMSE     bias    SE
-   <dbl> <dbl> <dbl> <chr>     <dbl>    <dbl> <dbl>
- 1    10     3     0 mean      0.323  0.00953 0.323
- 2    10     3     0 median    0.246  0.00471 0.246
- 3    10     3     0 trim.mean 0.246  0.00678 0.247
- 4    10     3    10 mean      0.333  0.0138  0.333
- 5    10     3    10 median    0.303 -0.210   0.218
- 6    10     3    10 trim.mean 0.246 -0.119   0.215
- 7    10     5     0 mean      0.320 -0.00530 0.320
- 8    10     5     0 median    0.304 -0.00734 0.304
- 9    10     5     0 trim.mean 0.290 -0.00377 0.290
-10    10     5    10 mean      0.327  0.00506 0.327
-# i 134 more rows
-\end{verbatim}
-
-\section{Investigating precision}\label{investigating-precision}
-
-Our first question is how sample size impacts our different estimators'
-precision. We plot:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{ns }\OtherTok{\textless{}{-}} \FunctionTok{unique}\NormalTok{( results}\SpecialCharTok{$}\NormalTok{n )}
-
-\FunctionTok{ggplot}\NormalTok{(results) }\SpecialCharTok{+} 
-  \FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{n, }\AttributeTok{y=}\NormalTok{SE, }\AttributeTok{col=}\NormalTok{estimator) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( skew }\SpecialCharTok{\textasciitilde{}}\NormalTok{ df0 , }\AttributeTok{labeller =} \StringTok{"label\_both"}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{scale\_x\_log10}\NormalTok{( }\AttributeTok{breaks=}\NormalTok{ns ) }\SpecialCharTok{+} 
-  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{center}
-\includegraphics[width=0.75\linewidth,height=\textheight,keepaspectratio]{077-case-study-comparing-estimators_files/figure-pdf/unnamed-chunk-3-1.pdf}
-\end{center}
-
-Our plot doesn't show differences clearly because all the SEs goes to
-zero as \(n\) increases. One move when we see strong trends like this is
-to log our outcome or otherwise re-scale the variables. Using log-10
-scales for both axes makes it clear that relative differences in
-precision are nearly constant across sample sizes.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{( results ) }\SpecialCharTok{+}
-  \FunctionTok{aes}\NormalTok{( }\AttributeTok{x=}\NormalTok{n, }\AttributeTok{y=}\NormalTok{SE, }\AttributeTok{col=}\NormalTok{estimator ) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( skew }\SpecialCharTok{\textasciitilde{}}\NormalTok{ df0 , }\AttributeTok{labeller =} \StringTok{"label\_both"}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{scale\_x\_log10}\NormalTok{( }\AttributeTok{breaks=}\NormalTok{ns ) }\SpecialCharTok{+}
-  \FunctionTok{scale\_y\_log10}\NormalTok{() }\SpecialCharTok{+} 
-  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{center}
-\includegraphics[width=0.75\linewidth,height=\textheight,keepaspectratio]{077-case-study-comparing-estimators_files/figure-pdf/unnamed-chunk-4-1.pdf}
-\end{center}
-
-One step better would be to re-scale based on our knowledge of standard
-errors. If we scale by the square root of sample size, we should get
-horizontal lines. Here are our results:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{results }\OtherTok{\textless{}{-}} \FunctionTok{mutate}\NormalTok{( results, }\AttributeTok{scaleSE =}\NormalTok{ SE }\SpecialCharTok{*} \FunctionTok{sqrt}\NormalTok{(n) )}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{ggplot}\NormalTok{( results ) }\SpecialCharTok{+}  
-  \FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{n, }\AttributeTok{y=}\NormalTok{scaleSE, }\AttributeTok{col=}\NormalTok{estimator, }\AttributeTok{pch=}\NormalTok{estimator) }\SpecialCharTok{+}
-  \FunctionTok{facet\_grid}\NormalTok{( skew }\SpecialCharTok{\textasciitilde{}}\NormalTok{ df0 , }\AttributeTok{labeller =} \StringTok{"label\_both"}\NormalTok{ ) }\SpecialCharTok{+}
-  \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+}
-  \FunctionTok{scale\_x\_log10}\NormalTok{( }\AttributeTok{breaks=}\NormalTok{ns ) }\SpecialCharTok{+} 
-  \FunctionTok{scale\_color\_viridis\_d}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{center}
-\includegraphics[width=0.75\linewidth,height=\textheight,keepaspectratio]{077-case-study-comparing-estimators_files/figure-pdf/unnamed-chunk-6-1.pdf}
-\end{center}
-
-We now clearly see the trends. Overall, the scaled error of the mean is
-stable across the different distributions. The trimmed mean is
-advantageous when the degrees of freedom are small (note the yellow line
-is far below the dark line on the left-most facet): we are cropping
-outliers that destabilize our estimate, which leads to great wins. As
-the distribution grows more normal (i.e., as the degrees of freedom
-increases), this is no longer an advantage and the trimmed mean gets
-closer to the mean in terms of performance. We might think we should be
-penalized by having dropped 10\% of our data, making the standard errors
-slightly larger: if this were the case, then the effect is not large as
-the MCSE swamps it (the trimmed mean and mean lines are basically
-overlapping for df of 15 and larger).
-
-The median, by contrast, is not able to take advantage of the nuances of
-the individual observations in the data because it is entirely
-determined by the middle value. When outliers cause real concern, this
-cost is minimal. When outliers are not a concern, the median is just
-worse.
-
-Overall, we see for precision, the trimmed mean seems an excellent
-choice: in the presence of outliers it is far more stable than the mean,
-and when there are no outliers the cost of using it is small.
-
-Considering the lessons for how we analyze simulation results, our final
-figure also nicely illustrates how visual displays of simulation results
-can tell very clear stories. Eschew complicated tables with lots of
-numbers.
-
-\section{Bias-variance tradeoffs}\label{bias-variance-tradeoffs}
-
-We just looked at the precision of our three estimators, but we did not
-take into account bias. In our data generating processes, the median is
-not the same as the mean. To see this more clearly, we can generate
-large datasets for each value of our simulation parameters, then compare
-the mean and median:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{source}\NormalTok{( }\StringTok{"case\_study\_code/trimmed\_mean\_simulation.R"}\NormalTok{ )}
-
-\NormalTok{vals }\OtherTok{\textless{}{-}} \FunctionTok{expand\_grid}\NormalTok{( }
-  \AttributeTok{df0 =} \FunctionTok{unique}\NormalTok{( results}\SpecialCharTok{$}\NormalTok{df0 ),}
-  \AttributeTok{skew =} \FunctionTok{unique}\NormalTok{( results}\SpecialCharTok{$}\NormalTok{skew ) }
-\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{mutate}\NormalTok{(}
-    \AttributeTok{n =} \FloatTok{1e6}
-\NormalTok{  )}
-
-\NormalTok{res }\OtherTok{\textless{}{-}}
-\NormalTok{  vals }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{mutate}\NormalTok{(}
-    \AttributeTok{data =} \FunctionTok{pmap}\NormalTok{(., gen.data),}
-    \FunctionTok{map\_df}\NormalTok{(data, }\SpecialCharTok{\textasciitilde{}} \FunctionTok{tibble}\NormalTok{(}\AttributeTok{mean =} \FunctionTok{mean}\NormalTok{(.x), }\AttributeTok{median =} \FunctionTok{median}\NormalTok{(.x), }\AttributeTok{sd =} \FunctionTok{sd}\NormalTok{(.x)))}
-\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{data)}
-
-\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{( res, }\AttributeTok{digits=}\DecValTok{2}\NormalTok{ )}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{longtable}[]{@{}rrrrrr@{}}
-\toprule\noalign{}
-df0 & skew & n & mean & median & sd \\
-\midrule\noalign{}
-\endhead
-\bottomrule\noalign{}
-\endlastfoot
-3 & 0 & 1e+06 & 0 & 0.00 & 0.99 \\
-3 & 10 & 1e+06 & 0 & -0.25 & 1.00 \\
-5 & 0 & 1e+06 & 0 & 0.00 & 1.00 \\
-5 & 10 & 1e+06 & 0 & -0.25 & 0.99 \\
-15 & 0 & 1e+06 & 0 & 0.00 & 1.00 \\
-15 & 10 & 1e+06 & 0 & -0.22 & 1.00 \\
-30 & 0 & 1e+06 & 0 & 0.00 & 1.00 \\
-30 & 10 & 1e+06 & 0 & -0.21 & 1.00 \\
-\end{longtable}
-
-For large skew, the median is not the same as the mean. If our goal is
-to estimate the mean, then our median estimator will likewise be
-systematically off. The trimmed mean may also suffer: it will trim off
-extreme right-tail values, but there are no extreme left-tail values to
-trim, creating imbalance. However, if the trimmed estimators are much
-more stable than the mean estimator, we might still prefer to use them.
-
-Before we just looked at the SE. But we actually want to know the
-standard error, bias, and overall root mean squared error
-(RMSE\index{performance measures!RMSE}). Can we plot all these on a
-single plot? Yes we can! Following Section~\ref{sec-bias-se-rmse-plot},
-we can make a plot that shows all three measures of estimator
-performance by pivoting our data longer and then faceting by measure.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{res2 }\OtherTok{\textless{}{-}} 
-\NormalTok{  results }\SpecialCharTok{\%\textgreater{}\%}
-  \FunctionTok{pivot\_longer}\NormalTok{( }
-    \AttributeTok{cols =} \FunctionTok{c}\NormalTok{( RMSE, bias, SE ), }
-    \AttributeTok{names\_to =} \StringTok{"Measure"}\NormalTok{,}
-    \AttributeTok{values\_to =} \StringTok{"value"} 
-\NormalTok{  ) }\SpecialCharTok{\%\textgreater{}\%} 
-  \FunctionTok{mutate}\NormalTok{(}
-    \AttributeTok{Measure =} \FunctionTok{factor}\NormalTok{( Measure, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"bias"}\NormalTok{,}\StringTok{"SE"}\NormalTok{,}\StringTok{"RMSE"}\NormalTok{))}
-\NormalTok{  )}
-\end{Highlighting}
-\end{Shaded}
-
-And then we plot, making a facet for each outcome of interest. We focus
-on how these trade-offs play out when \texttt{df0\ =\ 3}, where we are
-seeing the largest benefits from trimming in our prior analysis. We can
-use lines to show the trends, which is a bit clearer:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{ns }\OtherTok{=} \FunctionTok{unique}\NormalTok{( res2}\SpecialCharTok{$}\NormalTok{n )}
-\FunctionTok{ggplot}\NormalTok{( }\FunctionTok{filter}\NormalTok{( res2, df0 }\SpecialCharTok{==} \DecValTok{3}\NormalTok{ ), }
-        \FunctionTok{aes}\NormalTok{(}\AttributeTok{x=}\NormalTok{n, }\AttributeTok{y=}\NormalTok{value, }\AttributeTok{col=}\NormalTok{estimator ) ) }\SpecialCharTok{+}
-    \FunctionTok{facet\_grid}\NormalTok{( skew }\SpecialCharTok{\textasciitilde{}}\NormalTok{ Measure ) }\SpecialCharTok{+}
-    \FunctionTok{geom\_hline}\NormalTok{( }\AttributeTok{yintercept=}\DecValTok{0}\NormalTok{, }\AttributeTok{col=}\StringTok{"darkgrey"}\NormalTok{ ) }\SpecialCharTok{+}
-    \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+}
-    \FunctionTok{scale\_x\_log10}\NormalTok{( }\AttributeTok{breaks=}\NormalTok{ns ) }\SpecialCharTok{+}
-    \FunctionTok{labs}\NormalTok{( }\AttributeTok{y=}\StringTok{""}\NormalTok{ ) }\SpecialCharTok{+} 
-    \FunctionTok{scale\_color\_viridis\_d}\NormalTok{()}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{center}
-\includegraphics[width=0.75\linewidth,height=\textheight,keepaspectratio]{077-case-study-comparing-estimators_files/figure-pdf/unnamed-chunk-8-1.pdf}
-\end{center}
-
-We could also aggregate without losing too much information.
-
-The \emph{Bias-SE-RMSE} plot shows how different estimators trade
-offdifferent biases and different uncertainties. The bias is negative
-for our trimmed estimators because we are losing the big outliers above
-and so are getting answers that are too low.
-
-The RMSE captures the overall trade-off in terms of what estimator gives
-the lowest overall \emph{error}. For this distribution, the mean wins as
-the sample size increases because the bias basically stays the same and
-the SE drops. But for smaller samples the trimming is superior. The
-median (essentially trimming 50\% above and below) is overkill and has
-too much negative bias.
-
-From a simulation study point of view, notice how we are looking at
-three different qualities of our estimators. Some people really care
-about bias, some care about RMSE. By presenting all results we are
-transparent about how the different estimators operate.
-
-Next steps would be to also examine the associated estimated standard
-errors for the estimators, seeing if these estimates of estimator
-uncertainty are good or poor. This leads to investigation of coverage
-rates and similar.
-
-\section*{Exercises}\label{exercises-11}
-\addcontentsline{toc}{section}{Exercises}
-
-\markright{Exercises}
-
-\begin{exercise}[Examine the role of
-\texttt{df0}]\protect\hypertarget{exr-df0}{}\label{exr-df0}
-
-How much do your results change when \texttt{df0} is larger? Come up
-with a visualization that shows the impact, if any, of \texttt{df0}.
-
-\end{exercise}
-
-\begin{exercise}[Bundle and Aggregate the Bias-SE-RMSE
-plot]\protect\hypertarget{exr-bias-SE-rmse}{}\label{exr-bias-SE-rmse}
-
-The Bias-SE-RMSE plot above is only for \texttt{df0\ =\ 3}. First make a
-version that bundles across \texttt{df0} values (see
-Section~\ref{sec-bundling}). How many scenarios are in each boxplot?
-
-Now make a version that aggregates across \texttt{df0} values (see
-Section~\ref{sec-aggregation}). What is lost, if anything, by this
-aggregation?
-
-\end{exercise}
 
 \chapter{Simulations as evidence}\label{simulations-as-evidence}
 
@@ -16916,6 +16704,7 @@ To illustrate, we will use a (fake) dataset with four covariates, X1,
 X2, X3, and X4, and an outcome, Y. Here are a few rows of this
 ``empirical'' data that we are trying to match:
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}rrrrr@{}}
 \toprule\noalign{}
 X1 & X2 & X3 & X4 & Y \\
@@ -16923,12 +16712,13 @@ X1 & X2 & X3 & X4 & Y \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-0 & 1 & 4.36 & -1.06 & 216.05 \\
--1 & 1 & 1.92 & 1.16 & 0.30 \\
--1 & 1 & 1.79 & -0.70 & 0.10 \\
-9 & 0 & 6.80 & 2.88 & 1677.49 \\
-6 & 1 & 5.23 & 4.19 & 970.50 \\
+5 & 1 & 7.35 & 1.96 & 1746.66 \\
+3 & 1 & 3.15 & 2.33 & 146.33 \\
+3 & 1 & 1.01 & 1.86 & 80.72 \\
+2 & 1 & 5.03 & 1.11 & 550.00 \\
+3 & 1 & 2.15 & 2.84 & 142.64 \\
 \end{longtable}
+}
 
 Our outcome in this case is a bit funky:
 
@@ -16947,11 +16737,11 @@ Here are the pairwise correlations on the raw values:
 
 \begin{verbatim}
       X1    X2   X3    X4    Y
-X1  1.00 -0.22 0.33  0.82 0.54
-X2 -0.22  1.00 0.21 -0.16 0.18
-X3  0.33  0.21 1.00  0.26 0.66
-X4  0.82 -0.16 0.26  1.00 0.43
-Y   0.54  0.18 0.66  0.43 1.00
+X1  1.00 -0.26 0.36  0.81 0.53
+X2 -0.26  1.00 0.19 -0.21 0.17
+X3  0.36  0.19 1.00  0.28 0.67
+X4  0.81 -0.21 0.28  1.00 0.43
+Y   0.53  0.17 0.67  0.43 1.00
 \end{verbatim}
 
 We want to generate synthetic data that captures the correlation
@@ -17011,6 +16801,7 @@ structural aspects, not the residual noise:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}rrr@{}}
 \toprule\noalign{}
 sd\_Yhat & sd\_Y & cor \\
@@ -17018,8 +16809,9 @@ sd\_Yhat & sd\_Y & cor \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-321.8 & 466.3 & 0.9 \\
+324.9 & 467.3 & 0.9 \\
 \end{longtable}
+}
 
 Our synthetic \(Y\) values will need to be ``noised up'' so they look
 more natural. We also want them to match the empirical distribution of
@@ -17091,7 +16883,7 @@ how coupled the predicted and actual are:
 # A tibble: 1 x 3
     rho  sd_Y sd_Yhat
   <dbl> <dbl>   <dbl>
-1 0.777 1.000   1.000
+1 0.764 1.000   1.000
 \end{verbatim}
 
 \subsection{Step 3. Get some new Xs}\label{step-3.-get-some-new-xs}
@@ -17120,18 +16912,18 @@ original fake data. It looks like so:
 
 \begin{verbatim}
 # A tibble: 3,000 x 5
-      X1    X2    X3      X4    trueY
-   <dbl> <dbl> <dbl>   <dbl>    <dbl>
- 1    -1     0 0.739  1.85     1.95  
- 2     0     1 1.80  -0.0604   2.85  
- 3     2     1 3.67   2.26    31.2   
- 4     2     1 2.75   1.53   182.    
- 5    -1     1 3.05  -1.02     0.0387
- 6    -1     1 3.97   1.31    33.7   
- 7     1     1 1.21  -0.931   11.2   
- 8     4     1 2.42   1.02   246.    
- 9     3     1 4.11   2.12   200.    
-10    -2     1 2.42  -0.984   38.3   
+      X1    X2    X3    X4     trueY
+   <dbl> <dbl> <dbl> <dbl>     <dbl>
+ 1     3     1  3.16 0.537  282.    
+ 2     1     1  2.22 1.17    51.1   
+ 3     3     1  1.71 3.08     0.0188
+ 4     3     1  5.15 0.708  550     
+ 5     0     1  5.26 0.575  218.    
+ 6     6     0  4.28 3.15   550     
+ 7     6     1  5.18 0.290 1544.    
+ 8     8     0  5.57 5.27   901.    
+ 9     5     1  7.31 4.32  1747.    
+10    -1     1  2.48 0.145    3.40  
 # i 2,990 more rows
 \end{verbatim}
 
@@ -17238,6 +17030,7 @@ We further check our process by looking at how closely the correlations
 of our new Y with the Xs match the correlations of the true Y and the
 Xs:
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrr@{}}
 \toprule\noalign{}
 Variable & Y & trueY \\
@@ -17245,11 +17038,12 @@ Variable & Y & trueY \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-X1 & 0.43 & 0.51 \\
-X2 & 0.16 & 0.19 \\
-X3 & 0.48 & 0.65 \\
-X4 & 0.38 & 0.40 \\
+X1 & 0.45 & 0.52 \\
+X2 & 0.17 & 0.19 \\
+X3 & 0.50 & 0.67 \\
+X4 & 0.40 & 0.42 \\
 \end{longtable}
+}
 
 Our new Y roughly looks like the true Y, with respect to the correlation
 with the Xs. We gave our copula approach a hard test here--simpler
@@ -17695,7 +17489,7 @@ surprisingly tricky as the estimated performance measures of different
 methods will be correlated; see
 Section~\ref{sec-multilevel-meta-regression} for further discussion).
 
-\section{Concluding Thoughts}\label{concluding-thoughts-1}
+\section{Concluding thoughts}\label{concluding-thoughts-12}
 
 For a methods paper, simulations should generally serve at least three
 purposes: verifying that the theory is correct in clean conditions,
@@ -18393,7 +18187,7 @@ file:
 Now we can simply load that file as we have for other simulations
 previously.
 
-\section{Summary}\label{summary-2}
+\section{Concluding thoughts}\label{concluding-thoughts-13}
 
 Few particularly love the project-management aspect of doing
 simulations, but it is an important part of the process. Keeping things
@@ -18736,7 +18530,7 @@ error because R recycles the standard deviation parameter:
 \end{Shaded}
 
 \begin{verbatim}
-[1]  101  327 4659  401
+[1]    98   134 -4755   400
 \end{verbatim}
 
 This sort of behavior could produce errors, and it is pernicious because
@@ -18943,7 +18737,7 @@ that tells us what went wrong, and where things broke:
 \end{Shaded}
 
 \begin{verbatim}
--- Failure: my_DGP produces data with expected features. -----------------------
+-- Failure: my_DGP produces data with expected features. ---
 coef(M)[[2]] not equal to 0.5.
 1/1 mismatches
 [1] 0.196 - 0.5 == -0.304
@@ -18986,17 +18780,17 @@ run them all at once:
 [ FAIL 1 | WARN 1 | SKIP 0 | PASS 6 ]
 [ FAIL 1 | WARN 1 | SKIP 0 | PASS 7 ]
 
--- Warning ('demo_test_file.R:35:3'): my_DGP works as expected (test 2) --------
+-- Warning ('demo_test_file.R:35:3'): my_DGP works as expected (test 2) --
 NAs produced
 Backtrace:
     x
  1. +-my_DGP(10000, 2, -2) at demo_test_file.R:35:3
  2. | \-tibble::tibble(...) at demo_test_file.R:7:3
- 3. |   \-tibble:::tibble_quos(xs, .rows, .name_repair) at tibble/R/tibble.R:165:3
- 4. |     \-rlang::eval_tidy(xs[[j]], mask) at tibble/R/tibble.R:231:5
+ 3. |   \-tibble:::tibble_quos(xs, .rows, .name_repair)
+ 4. |     \-rlang::eval_tidy(xs[[j]], mask)
  5. \-stats::rnorm(N, sd = 1 - beta^2)
 
--- Failure ('demo_test_file.R:39:3'): my_DGP works as expected (test 2) --------
+-- Failure ('demo_test_file.R:39:3'): my_DGP works as expected (test 2) --
 var(dta$Y) not equal to 1.
 1/1 mismatches
 [1] 0.792 - 1 == -0.208
@@ -19039,6 +18833,190 @@ something that someone else was counting on! Furthermore, you can use
 the test code as a quick reference for how your functions should be used
 and what their expected output should look like. For any reasonably
 complex project, having test code can be of enormous benefit.
+
+\section{Concluding thoughts}\label{concluding-thoughts-14}
+
+Coding often comes down to debugging and testing. Debugging is usually
+painful, and no one wants to write the code to test things. Happily,
+these days, agenic AI can do a lot of this work for us. Since this
+landscape is changing so quickly, we will not write much about this
+beyond stating two points. First, these tools can substantially lower
+the barrier to using the coding practices advocated for in this chapter.
+Second, debugging code and walking through it is a wonderful way to help
+yourself think through asking what you are asking the computer to do. Do
+not outsource this reflection entirely to AI; the time spent debugging
+can often be time spent reasoning about the tension between simulation
+you are actually writing vs.~the simulation you are trying to write.
+
+\section*{Exercises}\label{exercises-11}
+\addcontentsline{toc}{section}{Exercises}
+
+\markright{Exercises}
+
+\begin{exercise}[Debugging with \texttt{print()} and
+\texttt{cat()}]\protect\hypertarget{exr-debug-print-cat}{}\label{exr-debug-print-cat}
+
+The function below is meant to summarize the performance of an
+estimator: given a vector of estimates and the true parameter value, it
+should return the bias and the root mean squared error (RMSE).
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{summarize\_performance }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( estimates, truth ) \{}
+\NormalTok{  errors }\OtherTok{\textless{}{-}}\NormalTok{ estimates }\SpecialCharTok{{-}}\NormalTok{ truth}
+\NormalTok{  bias }\OtherTok{\textless{}{-}} \FunctionTok{mean}\NormalTok{( errors )}
+\NormalTok{  rmse }\OtherTok{\textless{}{-}} \FunctionTok{sqrt}\NormalTok{( }\FunctionTok{mean}\NormalTok{( errors )}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{ )}
+  \FunctionTok{tibble}\NormalTok{( }\AttributeTok{bias =}\NormalTok{ bias, }\AttributeTok{rmse =}\NormalTok{ rmse )}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+If you call this function on a vector of estimates, you will notice that
+\texttt{bias} and \texttt{rmse} always come out identical---which should
+strike you as suspicious, since RMSE and bias measure different things
+and are essentially never equal in practice.
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\item
+  Add \texttt{print()} or \texttt{cat()} statements inside
+  \texttt{summarize\_performance()} to display the value of
+  \texttt{errors} and each intermediate calculation. Use these printouts
+  to figure out exactly which line is wrong.
+\item
+  Fix the function so that it correctly calculates the RMSE, and confirm
+  using a small example (e.g., \texttt{estimates\ =\ c(1,\ 2,\ 3,\ 4)}
+  and \texttt{truth\ =\ 2}) that \texttt{bias} and \texttt{rmse} are no
+  longer the same.
+\item
+  Once you are confident the function works, remove or comment out the
+  \texttt{print()}/\texttt{cat()} statements you added. Why is it good
+  practice to do this?
+\end{enumerate}
+
+\end{exercise}
+
+\begin{exercise}[Debugging with \texttt{debug()} or
+\texttt{browser()}]\protect\hypertarget{exr-debug-browser-trimmed-mean}{}\label{exr-debug-browser-trimmed-mean}
+
+Consider the following function, which is supposed to calculate a
+trimmed mean by dropping the smallest and largest \texttt{trim}
+proportion of values before averaging (compare to the trimmed-mean
+estimator from Exercise~\ref{exr-trimmed-mean}):
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{trimmed\_mean }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{( x, }\AttributeTok{trim =} \FloatTok{0.1}\NormalTok{ ) \{}
+\NormalTok{  n }\OtherTok{\textless{}{-}} \FunctionTok{length}\NormalTok{(x)}
+\NormalTok{  k }\OtherTok{\textless{}{-}} \FunctionTok{floor}\NormalTok{( n }\SpecialCharTok{*}\NormalTok{ trim )}
+\NormalTok{  x\_sorted }\OtherTok{\textless{}{-}} \FunctionTok{sort}\NormalTok{(x)}
+\NormalTok{  x\_sorted[ (k}\SpecialCharTok{+}\DecValTok{1}\NormalTok{)}\SpecialCharTok{:}\NormalTok{n ] }\SpecialCharTok{|\textgreater{}} \FunctionTok{mean}\NormalTok{()}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+Try calling \texttt{trimmed\_mean(\ 1:10,\ trim\ =\ 0.2\ )}. A 20\%
+trimmed mean of the integers 1 through 10 should drop the two smallest
+values (1, 2) \emph{and} the two largest values (9, 10), leaving
+\texttt{mean(3:8)\ =\ 5.5}. Do you get this answer?
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\item
+  Use \texttt{debug()} (or insert a \texttt{browser()} call at the top
+  of the function) to step through
+  \texttt{trimmed\_mean(1:10,\ trim\ =\ 0.2)} line by line. Inspect
+  \texttt{n}, \texttt{k}, and \texttt{x\_sorted} at each step to figure
+  out exactly what the function is doing wrong.
+\item
+  Fix the function so that it trims \texttt{k} values from \emph{both}
+  ends of \texttt{x\_sorted}, and confirm that
+  \texttt{trimmed\_mean(1:10,\ trim\ =\ 0.2)} now returns \texttt{5.5}.
+\item
+  What does your fixed function return if \texttt{trim} is large enough
+  that \texttt{2\ *\ k\ \textgreater{}=\ n}? Why does it do this? Step
+  through your code to discover what is happening. Is this a sensible
+  result? If not, what might you add to the function to guard against
+  this (see Section~\ref{sec-about-stopifnot})?
+\end{enumerate}
+
+\end{exercise}
+
+\begin{exercise}[Assertions for the ANOVA data-generating
+process]\protect\hypertarget{exr-debug-assertions-ANOVA}{}\label{exr-debug-assertions-ANOVA}
+
+Recall the \texttt{generate\_ANOVA\_data()} function from
+Section~\ref{sec-case-anova-DGP}, which takes vectors \texttt{mu},
+\texttt{sigma\_sq}, and \texttt{sample\_size} (one entry per group) and
+simulates data for a heteroskedastic ANOVA scenario. As written, the
+function has no assertions, so it will happily run---and silently
+produce nonsensical output---if it is given badly mismatched or invalid
+inputs.
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\item
+  What happens if you called the function with, say, \texttt{mu} of
+  length 3 and \texttt{sample\_size} of length 4? Do you get an error, a
+  warning, or silently wrong data? Contrast this with the
+  \texttt{make\_groups()} example earlier in this chapter, where a
+  similar length mismatch between \texttt{means} and \texttt{sds} is
+  silently recycled without any error at all. Why do these two functions
+  behave so differently when given mismatched-length inputs?
+\item
+  Add \texttt{stopifnot()} statements to the top of
+  \texttt{generate\_ANOVA\_data()} to check that \texttt{mu},
+  \texttt{sigma\_sq}, and \texttt{sample\_size} are all the same length,
+  that every element of \texttt{sigma\_sq} is strictly positive, and
+  that every element of \texttt{sample\_size} is a positive whole
+  number.
+\item
+  Demonstrate that each of your assertions is triggered by an
+  appropriately bad set of inputs (e.g., a \texttt{sigma\_sq} with a
+  negative entry, or a \texttt{mu} vector that is shorter than
+  \texttt{sample\_size}).
+\item
+  Write a unit test to ensure you get errors for all of these cases,
+  using the \texttt{expect\_error()} feature of the \texttt{testthat}
+  package.
+\end{enumerate}
+
+\end{exercise}
+
+\begin{exercise}[Unit testing
+\texttt{r\_and\_z()}]\protect\hypertarget{exr-debug-unit-tests-r-and-z}{}\label{exr-debug-unit-tests-r-and-z}
+
+Recall the \texttt{r\_and\_z()} function from
+Section~\ref{sec-about-browser-debugging}, which computes a Pearson
+correlation, its Fisher-\(z\) transformation, and a confidence interval
+from a bivariate dataset.
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\item
+  Write a \texttt{test\_that()} block with \texttt{expect\_*()} calls
+  verifying that, for a dataset generated by
+  \texttt{r\_bivariate\_Poisson()}, \texttt{r\_and\_z()} returns a data
+  frame with columns \texttt{r}, \texttt{z}, \texttt{CI\_lo}, and
+  \texttt{CI\_hi}, and that \texttt{r} always falls between \(-1\) and
+  \(1\) and lies inside the reported confidence interval.
+\item
+  Now write a test for what happens when \texttt{r\_and\_z()} is called
+  on a dataset with only 3 rows. Does the function produce an error, a
+  warning, or a silently strange result?
+\item
+  Based on what you found in part (b), would it be more appropriate to
+  add a \texttt{stopifnot()} assertion to \texttt{r\_and\_z()}, or to
+  leave the behavior as is and simply document it? Justify your answer.
+\end{enumerate}
+
+\end{exercise}
+
+\begin{exercise}[]\protect\hypertarget{exr-debug-ai-bug-hunt}{}\label{exr-debug-ai-bug-hunt}
+
+~
+
+--\textgreater{}
 
 \chapter{Parallel Processing}\label{sec-parallel-processing}
 
@@ -19115,7 +19093,7 @@ To assess how many cores you have on your computer, you can use the
 \end{Shaded}
 
 \begin{verbatim}
-[1] 12
+[1] 8
 \end{verbatim}
 
 Normally, unless you tell it to do otherwise, \textbf{\emph{R only uses
@@ -19227,12 +19205,11 @@ In general, a ``cluster'' is a system of computers that are connected up
 to form a large distributed network that many different people can use
 to do large computational tasks (e.g., simulations!). These clusters
 will have some overlaying coordinating programs that you, the user, will
-interact with to set up a ``job,'' or set of jobs, which is a set of
-tasks you want some number of the computers on the cluster to do for you
-in tandum.
+interact with to set up a ``job,'' or set of jobs, which are the tasks
+you want the computers to do for you.
 
-These coordinating programs will differ, depending on what cluster you
-are using, but have some similarities that bear mention. For running
+The coordinating programs will differ, depending on what cluster you are
+using, but have some similarities that bear mention. For running
 simulations, you only need the smallest amount of knowledge about how to
 engage with these systems because you do not need all the individual
 computers working on your project communicating with each other (which
@@ -19247,34 +19224,44 @@ easiest way to think about this is as an R console, but in a different
 language that the entire computer speaks. A command line interface is
 designed to do things such as find files with a specific name, or copy
 entire directories, or, importantly, start different programs. One place
-you may have used a command line inteface is when working with Git:
+you may have used a command line interface is when working with Git:
 anything fancy with Git is often done via command-line. People will talk
 about a ``shell'' (a generic term for this computer interface) or
-``bash'' or ``csh.'' You can get access to a shell from within RStudio
-by clicking on the ``Terminal'' tab. Try it, if you have never done
-anything like this before, and type (the ``\textgreater{}'' is not part
-of what you type):
+``bash'' or ``csh'' (which are specific versions of this interface). You
+can get access to a shell from within RStudio by clicking on the
+``Terminal'' tab. Try it, if you have never done anything like this
+before, and type (the ``\textgreater{}'' is not part of what you type):
 
 \begin{verbatim}
 > ls
 \end{verbatim}
 
-It should list some file names. Note this command does \emph{not} have
-the parenthesis after the command, like in R or most other programming
-languages. The syntax of a shell is usually mystifying and brutal: it is
-best to just steal scripts from the internet or some generative AI and
-try not to think about it too much, unless you want to think about it a
-lot.
+You should see a list of file names. In your computer system, files are
+stored in a directory structure, and when you open a terminal, you are
+somewhere in that structure. To find out where, you can type
+
+\begin{verbatim}
+> pwd
+\end{verbatim}
+
+for ``Print Working Directory''. This will list the directory holding
+all the files you just saw via the \texttt{ls} command.
+
+For a shell, commands do \emph{not} have parenthesis after the command,
+like in R or most other programming languages. The syntax of a shell is
+usually mystifying and brutal: it is best to just steal scripts from the
+internet or some generative AI and try not to think about it too much,
+unless you want to think about it a lot.
 
 Importantly for us, from the command line interface you can start an R
 program, telling it to start up and run a script for you. This way of
-running R is noninteractive: you say ``go do this thing,'' and R starts
+running R is non-interactive: you say ``go do this thing,'' and R starts
 up, goes and does it, and then quits. Any output R generates on the way
-will be saved in a file, and any files you save along the way will also
-be at your disposal once R has completed.
+will be saved in a file, and any files your script saves along the way
+will also be at your disposal once R has completed.
 
-To see this in action make the following script in a file called
-``dumb\_job.R'':
+To see command-line R in action make the following script in a file
+called ``dumb\_job.R'':
 
 \begin{verbatim}
 library( tidyverse )
@@ -19289,22 +19276,15 @@ cat( "Finished\n" )
 
 After you save, open the terminal and type \texttt{ls} to list the
 files, as above. Do you see your \texttt{dumb\_job.R} file? If not, your
-terminal session is in the wrong directory. In your computer system,
-files are stored in a directory structure, and when you open a terminal,
-you are somewhere in that structure.
+terminal session is in the wrong directory. Look at the \texttt{pwd}
+command to find out where R thinks it is, and then save your dumb job
+file to wherever that is.
 
-To find out where, you can type
-
-\begin{verbatim}
-> pwd
-\end{verbatim}
-
-for ``Print Working Directory''. Save your dumb job file to wherever the
-above says. You can also change directories using \texttt{cd}, e.g.,
+Alternatively, you can change directories using \texttt{cd}, e.g.,
 \texttt{cd\ \textasciitilde{}/Desktop/temp} means ``change directory to
 the temp folder inside Desktop inside my home directory'' (the
 \texttt{\textasciitilde{}} is shorthand for home directory). One more
-useful commands is \texttt{cd\ ..} (go up to the parent directory).
+useful commands is \texttt{cd\ ..} (change to the parent directory).
 
 Once you are in the directory with your file, type:
 
@@ -19314,21 +19294,23 @@ Once you are in the directory with your file, type:
 
 The above command says ``Run R'' (the first part) in batch mode (the
 ``CMD BATCH'' part), meaning source the \texttt{dumb\_job.R} script as
-soon as R starts, saving all console output in the file
-\texttt{R\_output.txt} (it will be saved in the current directory where
-you run the program), and where you do not save the workspace when
-finished.
+soon as R starts, and save all console output in the file
+\texttt{R\_output.txt} (the file will be saved in the current directory
+where you run the program). The \texttt{-\/-no-save} means do not save
+the R workspace when finished.
 
-This command should take about a minute to complete, because our script
+Your command should take about a minute to complete, because our script
 sleeps a lot (the sleep represents your script doing a lot of work, like
 a real simulation would do). Once the command completes (you will see
 your ``\textgreater{}'' prompt come back), verify that you have the
 \texttt{R\_output.txt} and the data file \texttt{sim\_results.csv} by
-typing \texttt{ls}. If you open up your Finder or Microsoft equivilent,
-you can actually see the \texttt{R\_output.txt} file appear half-way
-through, while your job is running. If you open it, you will see the
-usual header of R loading up, the ``Making numbers'' comment, and so
-forth. R is saving all the output as it works through your script.
+typing \texttt{ls}.
+
+While the job is running, if you open up your Finder or Microsoft
+equivalent, you can actually see the \texttt{R\_output.txt} file appear
+half-way through. If you open it, you will see the usual header of R
+loading up, the ``Making numbers'' comment, and so forth. R is saving
+all the output as it works through your script.
 
 Running R in this fashion is the key element to a basic way of setting
 up a massive job on the cluster: you launch a bunch of R programs that
@@ -19343,10 +19325,8 @@ script. What happens when you run it in batch mode?
 \subsection{Task dispatchers and command line
 scripts}\label{task-dispatchers-and-command-line-scripts}
 
-In the above, you can run a command on the command-line, but the command
-line interface will pause while it runs. As you saw, when you hit return
-with the above R command, the program just sat there for a minute before
-you got your command-line prompt back, due to the sleep.
+In the above, when you run a command on the command-line, it pauses
+until the command is complete.
 
 When you properly run a big job (program) on a cluster, it does not
 quite work that way. You will instead set a program to run, but tell the
@@ -19360,14 +19340,16 @@ to a request from you to some sort of managerial process (a dispatcher)
 that takes requests and assigns some computer, somewhere, to do them.
 For a sense of this process, imagine a dispatcher at a taxi company. You
 call up, ask for a ride, and the dispatcher sends you a taxi to do it.
-The dispatcher is just fielding requests, assinging them to taxis.
+The dispatcher is just fielding requests, not doing them.
 
-One dispatcher on some clusters is called \texttt{slurm} (which may or
-may not be on the cluster you are attempting to use; this is where a lot
-of this information gets very cluster-specific).
+One dispatcher on some clusters is called \texttt{slurm}\index{slurm}
+(which may or may not be on the cluster you are attempting to use; this
+is where a lot of this information gets very cluster-specific).
 
-You first set up a script that describes the job to be run. It is like a
-work request. These scripts are plain text files, such as this example
+For slurm, you first set up a script that describes the job to be run.
+It is like a work request, and then you can request a worker to do the
+request via a slurm command called \texttt{sbatch}\index{sbatch}. These
+scripts are plain text files, such as this example
 (\texttt{sbatch\_runScript.txt}):
 
 \begin{verbatim}
@@ -19410,14 +19392,14 @@ module load R
 export R_LIBS_USER=$HOME/apps/R:$R_LIBS_USER
 
 # Run R script; write output to indexed log file
-R CMD BATCH estimator_performance_simulation.R \
+R CMD BATCH simulation_script.R \
                  logs/R_output_${INDEX_VAR}.txt \
                  --no-save --no-restore
 \end{verbatim}
 
 This file starts by setting a bunch of variables that describe how
-sbatch should handle the request. It then has a series of commands that
-gets the computer environment ready. Finally, it has the
+\texttt{sbatch} should handle the request. It then has a series of
+commands that gets the computer environment ready. Finally, it has the
 \texttt{R\ CMD\ BATCH} command that does the work you want.
 
 These scripts can be quite confusing to understand. There are so many
@@ -19439,94 +19421,22 @@ You do this, and it will \emph{not} sit there and wait for the job to be
 done. The \texttt{sbatch} command will instead send the job off to some
 computer which will do the work in the background.
 
-Interestingly, your R script could, at this point, do the ``one
-computer'' parallel type code listed above and use
-\texttt{future\_pmap()} or similar. Note the script above asks for 32
-cores; your single job could then have 32 cores all working away on
-their individual pieces of the simulation, as before. You would have a
-32-fold speedup, in this case.
+Interestingly, your R script \texttt{simulation\_script.R} could, at
+this point, do the ``one computer'' parallel type code listed above and
+use \texttt{future\_pmap()} or similar. Note the sbatch script above
+asks for 32 cores; your single job could then have 32 cores all working
+away on their individual pieces of the simulation, as before. You would
+have about a 32-fold speedup, in this case.
 
-This is the core element to having your simulation run on a cluster. The
-next step is to do this \emph{a lot}, sending off a bunch of these jobs
-to different computers.
-
-\subsection{Moving files to and from a
-cluster}\label{moving-files-to-and-from-a-cluster}
-
-One of the larger issues with working on a cluster is you will need to
-get all your code \emph{to} the cluster and get all of your results
-\emph{back}. One approach for getting the code to the cluster is to use
-GitHub. Make a project, and then check out the project on the cluster.
-This has the advantage of making it easier to develop your code on your
-local computer, where you can easily run your RStudio or other IDE. It
-also has the advantage of allowing you to record which GitHub version of
-code you ran, so you can know exactly which code produced which results.
-
-For getting your results off the cluster it is not recommended to use
-GitHub as total of all of your results may take many gigabytes of space.
-They are also not really in the spirit of a verson control system.
-Instead, use a scp client such as FileZilla to transfer files back to
-your personal computer.
-
-Overall, download your simulation results outside of Git, and keep your
-code in Git, is a good rule of thumb.
-
-\subsection{Checking on a job}\label{checking-on-a-job}
-
-Once your job is working on the cluster, it will keep at it until it
-finishes (or crashes, or is terminated for taking up too much memory or
-time). As it chugs away, there will be different ways to check on it.
-For example, you can, from the console, list the jobs you have running
-to see what is happening:
-
-\begin{verbatim}
-sacct -u lmiratrix
-\end{verbatim}
-
-except, of course, ``\texttt{lmiratrix}'' would be changed to whatever
-your username is. This will list if your file is running, pending, timed
-out, etc. If it's pending, that usually means that someone else is
-hogging up space on the cluster and your job request is in a queue
-waiting to be assigned.
-
-The \texttt{sacct} command is customizable, e.g.,
-
-\begin{verbatim}
-sacct -u lmiratrix --format=JobID,JobName%30,State
-\end{verbatim}
-
-will not truncate your job names, so you can find them more easily.
-
-You can check on a specific job, if you know the ID:
-
-\begin{verbatim}
-squeue -j JOBID
-\end{verbatim}
-
-Something that's fun is you can check who's running files on the stats
-server by typing:
-
-\begin{verbatim}
-showq-slurm -p stats -o
-\end{verbatim}
-
-You can also look at the log files
-
-\begin{verbatim}
-tail my_log_file.log
-\end{verbatim}
-
-to see if it is logging information as it is working.
-
-The email arguments, above, cause the system to email you before and
-after the job is complete. The email notifications you can choose are
-\texttt{BEGIN}, \texttt{END}, \texttt{FAIL}, and \texttt{ALL};
-\texttt{ALL} is generally good. What is a few more emails?
+Using this \texttt{sbatch} command to request a computer to do a task is
+the core element to having your simulation run on a cluster. The next
+step is to do this \emph{a lot}, sending off a bunch of these jobs to
+different computers.
 
 \subsection{Running lots of jobs on a
 cluster}\label{running-lots-of-jobs-on-a-cluster}
 
-We have seen how to fire off a job (possibly a big job) that can run
+We have seen how to fire off a job (possibly a big job) that could run
 over days or weeks to give you your results. There is one more piece
 that can allow you to use even more computing resources to do things
 even faster, which is to do a whole bunch of job requests like the
@@ -19546,24 +19456,13 @@ spaces to get your work done. Especially since simulation is so
 independent (just doing the same thing over and over) there is rarely
 any need for one giant process that has to do everything.
 
-To make multiple, related, requests, we create a for-loop in the
-Terminal to make a whole series sbatch requests. Then, each sbatch
-request will do one part of the overall simulation. We can write this
-program in the shell, just like you can write R scripts in R. A shell
-scripts does a bunch of shell commands for you, and can even have
-variables and loops and all of that fun stuff.
+To make multiple, related, requests, we create a program in the shell
+that makes a whole series of sbatch requests, with each request
+responsible for one part of the overall simulation. We write this
+program in the shell, just like we write R scripts in R.
 
 For example, the following \texttt{run\_full\_simulation.sh} is a script
-that fires off a bunch of jobs for a simulation. Note that it makes a
-variable \texttt{INDEX\_VAR}, and sets up a loop so it can run 500 tasks
-indexed 1 through 500.
-
-The first \texttt{export} line adds a collection of R libraries to the
-path stored in \texttt{R\_LIBS\_USER} (a ``path'' is a list of places
-where R will look for libraries). The next line sets up a for loop: it
-will run the indented code once for each number from 1 to 500. The
-script also specifies where to put log files and names each job with the
-index so you can know who is generating what file.
+that fires off a bunch of jobs for a simulation:
 
 \begin{verbatim}
 export R_LIBS_USER=$HOME/apps/R:$R_LIBS_USER
@@ -19586,13 +19485,23 @@ for INDEX_VAR in $(seq 1 500); do
 done
 \end{verbatim}
 
-One question is then how do the different processes know what part of
-the simulation they should be working on? E.g., each worker needs to
-have its own seed so it does not do exactly the same simulation as a
-different worker! The workers also need their own filenames so they save
-things in their own files. The key is the \texttt{export\ INDEX\_VAR}
-line: this puts a variable in the environment that will be set to a
-specific number. Inside your R script, you can get that index like so:
+The first \texttt{export} line adds a collection of R libraries to the
+path stored in \texttt{R\_LIBS\_USER} (a ``path'' is a list of places
+where R will look for libraries). The next line sets up a loop: it will
+run the indented code once for each number from 1 to 500. In the loop we
+export the \texttt{INDEX\_VAR} variable, so each task can know what part
+of the simulation it is responsible for. The script also specifies where
+to put log files and names each job with the index so you can know which
+job generated which file.
+
+One question is then how to have the different processes read
+\texttt{INDEX\_VAR} so they know what part of the simulation they should
+be working on. E.g., each worker needs to have its own seed so it does
+not do exactly the same simulation as a different worker! The workers
+also need their own filenames so they save things in their own files.
+The key is the \texttt{export\ INDEX\_VAR} line: this puts a variable in
+the environment that will be set to a specific number. Then, inside your
+R script, the index is read like so:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -19600,8 +19509,8 @@ specific number. Inside your R script, you can get that index like so:
 \end{Highlighting}
 \end{Shaded}
 
-You can then use the index to make unique filenames when you save your
-results, so each process has its own filename:
+The script can then use \texttt{index} to make unique filenames and
+seeds. For example:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -19609,7 +19518,7 @@ results, so each process has its own filename:
 \end{Highlighting}
 \end{Shaded}
 
-You can also modify your seed such as with:
+and
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -19623,9 +19532,9 @@ we have seen before), each script will have unique seeds not shared by
 any other script (assuming you have fewer than 1000 separate job
 requests).
 
-This still doesn't exactly answer how to have each worker know what to
-work on. Conider the case of our multifactor experiment, where we have a
-large combination of simulation trials we want to run.
+So far we have not fully specified how to have each worker know what to
+work on. Consider the case of a multifactor experiment, where we have a
+large set of simulation scenarios we want to run.
 
 There are two approaches one might use here. One simple approach is the
 following: generate all the factors with \texttt{expand\_grid()} as
@@ -19662,40 +19571,99 @@ results later. E.g.,
 \end{Shaded}
 
 and then do your usual \texttt{pmap} call with \texttt{R\ =\ 10} (or
-some other small number of replicates.)
+some other small number of replicates.) Now if you want 1000 total
+replicates for each scenario, you would have 100 workers, each doing 10
+replicates of each scenario.
 
 For saving files and then loading and combining them for analysis, see
 Section~\ref{sec-saving-files}.
 
-\subsection{Resources for Harvard's
-Odyssey}\label{resources-for-harvards-odyssey}
+\subsection{Moving files to and from a
+cluster}\label{moving-files-to-and-from-a-cluster}
 
-The above guidiance is tailored for Harvard' computing environment,
-primarily. For that environment in particular, there are many additional
-resources such as:
+One annoying issue with working on a cluster is you will need to get all
+your code \emph{to} the cluster and get all of your results \emph{back}.
+One approach for getting the code to the cluster is to use
+GitHub.\index{GitHub} Make a project, and then check out the project on
+the cluster. This has the advantage of making it easier to develop your
+code on your local computer, where you can easily run RStudio or another
+IDE. GitHub also has the advantage of allowing you to record which
+version of the code you ran, so you can know exactly which code produced
+which results.
 
-\begin{itemize}
-\tightlist
-\item
-  Odyssey Guide:
-  https://rc.fas.harvard.edu/resources/odyssey-quickstart-guide/
-\item
-  R on Odyssey:
-  https://rc.fas.harvard.edu/resources/documentation/software/r/
-\end{itemize}
+For getting your results off the cluster it is \emph{not} recommended to
+use GitHub as your full results may take many gigabytes of space. They
+are also not really in the spirit of a version control system. Instead,
+use a scp (secure copy) client such as FileZilla to transfer files back
+to your personal computer.
 
-For installing R packages so they are seen by the scripts run by sbatch,
-see
-(https://www.rc.fas.harvard.edu/resources/documentation/software-on-odyssey/r/)
+Overall, keeping your code in Git and downloading your simulation
+results outside of Git is a good rule of thumb.
 
-Other clusters should have similar documents giving needed guidance for
-their specific contexts.
+\subsection{Checking on a job}\label{checking-on-a-job}
 
-\section{Acknowledgements}\label{acknowledgements-1}
+Once your jobs are dispatched, the cluster will keep at it until they
+finish (or crash, or are terminated for taking up too much memory or
+time). As your jobs chug away, there will be different ways to check on
+them. For example, you can, from the console, list the jobs you have
+running to see what is happening:
 
-Some of the above material is based on tutorials built by Kristen Hunter
-and Zach Branson, past doctoral students of Harvard's statistics
-department.
+\begin{verbatim}
+sacct -u lmiratrix
+\end{verbatim}
+
+except, of course, ``\texttt{lmiratrix}'' would be changed to whatever
+your username is. The \texttt{sacct} command lists if your file is
+running, pending, timed out, etc. If your job is pending, your job
+request is in a queue waiting to be assigned because the dispatcher has
+not found a free worker of sufficient size to do it yet.
+
+The \texttt{sacct} command is customizable, e.g.,
+
+\begin{verbatim}
+sacct -u lmiratrix --format=JobID,JobName%30,State
+\end{verbatim}
+
+will not truncate your job names, so you can find them more easily.
+
+You can check on a specific job, if you know the ID:
+
+\begin{verbatim}
+squeue -j JOBID
+\end{verbatim}
+
+Another way to check on jobs is to look at the log files to see if the
+job is logging information as it is working:
+
+\begin{verbatim}
+tail my_log_file.log
+\end{verbatim}
+
+Finally, in the original sbatch script, you can set up email
+notifications to be sent to you when the job starts, ends, and/or fails.
+The email notifications you can choose are \texttt{BEGIN}, \texttt{END},
+\texttt{FAIL}, and \texttt{ALL}; \texttt{ALL} is generally good. What is
+a few more emails?
+
+\section{Concluding thoughts}\label{concluding-thoughts-15}
+
+Simulation lends itself naturally to parallel processing, because a
+simulation inherently is doing the same thing over and over. You can do
+parallel processing on your laptop, which can give very easy speed ups
+with minimal effort. If you want even more speed up, you need to turn to
+cloud computing or cluster computing, where you launch a simulation
+across many different computers. There are a variety of ways to do this,
+but the core workflow is going to be the same: have the different
+processes save their piece of the simulation results, and then assemble
+all of the results at the end.
+
+When getting used to a new system for doing parallel processing, we
+recommend finding existing code and modifying it to suit your needs.
+With modular programming, this should be straightforward.
+
+\textbf{Acknowledgements:} Some of the above material is based on
+tutorials built by Kristen Hunter and Zach Branson, past doctoral
+students of Harvard's statistics department.
 
 \part{Complex Data Structures}
 
@@ -19715,19 +19683,50 @@ analysis\index{power analysis} is, using simulation or otherwise. A
 power analysis simulation should, in other words, be a calibrated
 simulation\index{calibrated simulation}.
 
-Simulation has benefits over using power calculators for two reasons.
-First, it is easy to take into account special circumstances we might
-want to account for such as missing values or non-normal distributions.
-Second, it is easy to assess non-standard approaches to evaluation that
-we might not be able to find in an off-the-shelf power calculator. In
-particular, we can compare different proposals for how we would analyze
-our data, to see which ones are most powerful (and also verify that they
-are not biased or otherwise broken).
+Simulation has benefits over using power calculators for several
+reasons. First, it is easy to take into account special circumstances we
+might want to account for such as missing values or non-normal
+distributions. Second, it is easy to assess non-standard approaches to
+evaluation that we might not be able to find in an off-the-shelf power
+calculator. In particular, we can compare different proposals for how we
+would analyze our data, to see which ones are most powerful (and also
+verify that they are not biased or otherwise broken).
 
-We illustrate these ideas with a case study. In this example, we are
-planning a school-level intervention to reduce rates of discipline via
-an intervention on both teachers and students that targets
-socio-emotional skills.
+For example, when estimating power in multi-site, block- or
+cluster-randomized trials, the formulas implemented in available
+software assume that sites are of equal size and that outcome
+distributions are unrelated to the size of each site. Small deviations
+from these assumptions are unlikely to change the results, but in
+practice, researchers may face situations where sites vary quite widely
+in size or where site-level outcomes are related to site size.
+Simulation can estimate power in this case.
+
+Power can handle complex scenarios. Available software such as
+\href{https://www.causalevaluation.org/power-analysis.html}{PowerUp!}
+allows investigators to build in assumptions about anticipated rates of
+attrition in cluster-randomized trials, under the assumption that
+attrition is completely at random and unrelated to anything. However,
+researchers might anticipate that, in practice, attrition will be
+related to baseline characteristics. Simulation can be used to assess
+how this might affect the power of a planned study.
+
+As a further example, while there are some closed-form expressions for
+power to test mediational relations (i.e., indirect and direct effects)
+in a variety of different experimental designs, and these formulas are
+now available in
+\href{https://www.causalevaluation.org/power-analysis.html}{PowerUp!},
+they can be hard to find and use. These formulae involve a large number
+of parameters (including some where it may be difficult to develop
+credible assumptions) and they apply only to a specific analytic model
+for the mediating relationships. Researchers planning a study to
+investigate mediation might therefore find it useful to generate
+realistic data structures and conduct power analysis via simulation
+directly.
+
+We illustrate the idea of simmulation for power analysis with a case
+study. In this example, we are planning a school-level intervention to
+reduce rates of discipline via an intervention on both teachers and
+students that targets socio-emotional skills.
 
 We are planning a planned randomized controlled trial
 (RCT),\index{randomized controlled trial} where we will treat entire
@@ -19872,13 +19871,14 @@ We test our function, hypothesizing the treatment reduces discipline by
 
 \begin{verbatim}
 # A tibble: 200 x 7
-     ID     Z pdisc_2015 pdisc_2016 pdisc_2017 pdisc_2018 pdisc_2019
-  <int> <dbl>      <dbl>      <dbl>      <dbl>      <dbl>      <dbl>
-1     1     0     0.0243     0.117      0.0467    0.0239     0.00692
-2     2     0     0.0581     0.0573     0.0296    0.0323     0.0102 
-3     3     0     0.0813     0.0839     0.0912    0.0503     0.0184 
-4     4     1     0.0195     0.0465     0.0628    0.00881    0.0120 
+     ID     Z pdisc_2015 pdisc_2016 pdisc_2017 pdisc_2018
+  <int> <dbl>      <dbl>      <dbl>      <dbl>      <dbl>
+1     1     0     0.0227     0.0610     0.0440     0.0489
+2     2     0     0.0586     0.0626     0.0299     0.0293
+3     3     0     0.0803     0.0752     0.0903     0.0567
+4     4     1     0.0185     0.0279     0.0599     0.0154
 # i 196 more rows
+# i 1 more variable: pdisc_2019 <dbl>
 \end{verbatim}
 
 We can group each treatment arm and look at discipline over the years
@@ -19973,13 +19973,13 @@ on a single dataset:
 # A tibble: 7 x 5
   model         estimate std.error statistic p.value
   <chr>            <dbl>     <dbl>     <dbl>   <dbl>
-1 FE             -1.00      0.300      -3.35 0.00241
-2 log            -0.931     0.385      -2.42 0.0942 
-3 log_twopost    -0.726     0.307      -2.37 0.0986 
-4 ratio          -0.831     0.371      -2.24 0.0664 
-5 ratio_twopost  -0.542     0.280      -1.93 0.101  
-6 raw            -1.21      0.592      -2.05 0.0863 
-7 simple         -0.0494    0.0411     -1.20 0.315  
+1 FE             -0.652     0.307     -2.12   0.0429
+2 log            -0.329     0.401     -0.821  0.472 
+3 log_twopost    -0.576     0.383     -1.50   0.230 
+4 ratio          -0.145     0.140     -1.03   0.341 
+5 ratio_twopost  -0.185     0.146     -1.27   0.252 
+6 raw            -0.718     0.634     -1.13   0.301 
+7 simple         -0.0118    0.0128    -0.927  0.422 
 \end{verbatim}
 
 We have a nice set of estimates, one for each model.
@@ -20052,18 +20052,18 @@ For evaluation, we load our saved results and calculate rejection rates
 \begin{verbatim}
 # A tibble: 378 x 8
 # Groups:   n_c, n_t, tx [54]
-     n_c   n_t    tx model           E_est     SE E_SE_hat   pow
-   <dbl> <dbl> <dbl> <chr>           <dbl>  <dbl>    <dbl> <dbl>
- 1     4     4  0.5  FE            -0.684  0.318    0.278  0.739
- 2     4     4  0.5  log           -0.664  0.467    0.438  0.356
- 3     4     4  0.5  log_twopost   -0.659  0.433    0.390  0.38 
- 4     4     4  0.5  ratio         -0.363  0.214    0.198  0.46 
- 5     4     4  0.5  ratio_twopost -0.285  0.152    0.138  0.552
- 6     4     4  0.5  raw           -0.660  0.527    0.505  0.295
- 7     4     4  0.5  simple        -0.0189 0.0207   0.0155 0.268
- 8     4     4  0.75 FE            -0.294  0.319    0.276  0.299
- 9     4     4  0.75 log           -0.276  0.481    0.432  0.15 
-10     4     4  0.75 log_twopost   -0.279  0.425    0.377  0.153
+     n_c   n_t    tx model       E_est     SE E_SE_hat   pow
+   <dbl> <dbl> <dbl> <chr>       <dbl>  <dbl>    <dbl> <dbl>
+ 1     4     4  0.5  FE        -0.684  0.318    0.278  0.739
+ 2     4     4  0.5  log       -0.664  0.467    0.438  0.356
+ 3     4     4  0.5  log_twop~ -0.659  0.433    0.390  0.38 
+ 4     4     4  0.5  ratio     -0.363  0.214    0.198  0.46 
+ 5     4     4  0.5  ratio_tw~ -0.285  0.152    0.138  0.552
+ 6     4     4  0.5  raw       -0.660  0.527    0.505  0.295
+ 7     4     4  0.5  simple    -0.0189 0.0207   0.0155 0.268
+ 8     4     4  0.75 FE        -0.294  0.319    0.276  0.299
+ 9     4     4  0.75 log       -0.276  0.481    0.432  0.15 
+10     4     4  0.75 log_twop~ -0.279  0.425    0.377  0.153
 # i 368 more rows
 \end{verbatim}
 
@@ -20090,6 +20090,7 @@ treatment effect across our simulation scenarios, for each method:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrr@{}}
 \toprule\noalign{}
 model & 0.5 & 0.75 & 1 \\
@@ -20105,6 +20106,7 @@ ratio & -0.37 & -0.19 & 0.00 \\
 ratio\_twopost & -0.29 & -0.15 & 0.00 \\
 simple & -0.02 & -0.01 & 0.00 \\
 \end{longtable}
+}
 
 For no treatment effect, we are generally seeing no estimated
 effect---this is good, suggesting that they are unbiased under the null
@@ -20453,7 +20455,7 @@ We can check our ICC:
 
 At least this is close to the listed 0.10. More testing is needed.
 
-\section{Concluding Thoughts}\label{concluding-thoughts-2}
+\section{Concluding thoughts}\label{concluding-thoughts-16}
 
 Power analysis simulations are simply simulations with the chance of
 rejecting the null as the primary performance measure of interest. The
@@ -21157,7 +21159,7 @@ amount of treatment effect. We can, for example, scale \(\hat{\tau}(X)\)
 by some factor to increase or decrease the size of the treatment effects
 in our imputed dataset.
 
-\section{Concluding Thoughts}\label{concluding-thoughts-3}
+\section{Concluding thoughts}\label{concluding-thoughts-17}
 
 Potential outcomes are a way of thinking about causal inference where we
 fully specify characteristics of the data, and then define estimands as
@@ -21224,7 +21226,7 @@ replicate will produce a vector of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 1.000000 0.000000 1.333333 1.000000 1.666667
+[1] 0.6666667 2.0000000 1.3333333 0.6666667 1.0000000
 \end{verbatim}
 
 If you do not simplify, you then will need to massage your results:
@@ -21245,13 +21247,13 @@ If you do not simplify, you then will need to massage your results:
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1     1     1
+1 0.667 0.577
 
 [[2]]
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1  1.33  1.15
+1  1.67  1.53
 \end{verbatim}
 
 In particular, you will probably stack all your tibbles to make one
@@ -21268,8 +21270,8 @@ large dataset:
 # A tibble: 2 x 2
    mean    sd
   <dbl> <dbl>
-1  1     1   
-2  1.33  1.15
+1 0.667 0.577
+2 1.67  1.53 
 \end{verbatim}
 
 Note that you give replicate a full piece of code that would run on its
@@ -21313,13 +21315,13 @@ thus can call a function repeatedly, but with a shifting set of inputs.
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1   0.5 0.707
+1     1     0
 
 [[2]]
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1   1.4 0.894
+1   0.8 0.837
 \end{verbatim}
 
 You again would want to stack your results:
@@ -21334,8 +21336,8 @@ You again would want to stack your results:
 # A tibble: 2 x 2
    mean    sd
   <dbl> <dbl>
-1   0.5 0.707
-2   1.4 0.894
+1   1   0    
+2   0.8 0.837
 \end{verbatim}
 
 We have a small issue here, however, which is we lost what we
@@ -21365,8 +21367,8 @@ column when you stack:
 # A tibble: 2 x 3
   n      mean    sd
   <chr> <dbl> <dbl>
-1 2       0.5 0.707
-2 5       0.8 0.837
+1 2       2.5 0.707
+2 5       0.4 0.548
 \end{verbatim}
 
 An advantage here is if you are returning multiple rows (e.g., one row
@@ -21400,9 +21402,9 @@ can. E.g.,
 # A tibble: 3 x 2
    mean    sd
   <dbl> <dbl>
-1 0.667 0.577
-2 1.33  0.577
-3 0.667 0.577
+1  1.33 1.15 
+2  2.33 0.577
+3  1    1    
 \end{verbatim}
 
 The weird ``(.)'' is a shorthand for a function that takes one argument
@@ -21423,8 +21425,8 @@ manipulate on the fly:
 # A tibble: 2 x 2
    mean    sd
   <dbl> <dbl>
-1  0     0   
-2  1.44  1.16
+1  1    0.816
+2  0.96 0.841
 \end{verbatim}
 
 Anonymous functions, as these are called, can be useful to connect your
@@ -21527,11 +21529,11 @@ happens:
 
 \begin{verbatim}
    B          Y0       Y1
-1 B1  2.37704292 6.346686
-2 B1 -0.85835784 4.351250
-3 B1  1.38078526 6.688088
-4 B2 -0.05468276 4.357641
-5 B2 -0.77437446 4.464947
+1 B1  2.45641748 6.380692
+2 B1  0.97035874 4.318393
+3 B1 -1.02657399 3.505888
+4 B2  0.05655572 4.913432
+5 B2 -3.77151134 2.038863
 \end{verbatim}
 
 Nice! We see that we have a block ID and the control and treatment
@@ -21588,7 +21590,7 @@ to run that expression. For example:
 
 \begin{verbatim}
    user  system elapsed 
-   0.03    0.00    0.09 
+  0.028   0.000   0.028 
 \end{verbatim}
 
 Elapsed time is how much time actually passed. The user time is how much
@@ -21608,7 +21610,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-[1] -0.001046135
+[1] -0.0004254683
 \end{verbatim}
 
 \begin{Shaded}
@@ -21618,7 +21620,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.9988499
+[1] 0.9993802
 \end{verbatim}
 
 \begin{Shaded}
@@ -21630,7 +21632,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-Time difference of 0.08607793 secs
+Time difference of 0.03541398 secs
 \end{verbatim}
 
 This can be useful, but be careful, as the time is stored along with the
@@ -21655,7 +21657,7 @@ mark the start and end of a block of code.
 \end{Shaded}
 
 \begin{verbatim}
-Generating data: 0.1 sec elapsed
+Generating data: 0.03 sec elapsed
 \end{verbatim}
 
 It is basically like \texttt{Sys.time()} but it has a few more features,
@@ -21690,9 +21692,9 @@ Section~\ref{sec-case-cluster}:\index{example!cluster randomized trial}
 # A tibble: 3 x 6
   expression      min   median `itr/sec` mem_alloc `gc/sec`
   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-1 MLM         259.7ms  259.7ms      3.85   31.55MB     3.85
-2 OLS         250.8ms  254.3ms      3.93    3.31MB     0   
-3 agg          20.9ms   25.7ms     34.7     3.05MB     0   
+1 MLM         86.06ms  86.07ms      11.6   30.07MB    23.2 
+2 OLS         45.57ms  48.02ms      20.9    3.31MB     2.09
+3 agg          3.35ms   3.58ms     269.     2.39MB    11.0 
 \end{verbatim}
 
 You can even get a viz of how long everything took:
@@ -21870,6 +21872,7 @@ between our version and R's version, we benchmark:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 expression & min & median & itr/sec & speed\_up \\
@@ -21877,11 +21880,12 @@ expression & min & median & itr/sec & speed\_up \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Rfunction & 1.53ms & 2.53ms & 338.12 & 1.00 \\
-direct & 632.7us & 1.62ms & 447.02 & 1.56 \\
+Rfunction & 234us & 250us & 3878.71 & 1.00 \\
+direct & 101us & 105us & 9200.56 & 2.38 \\
 \end{longtable}
+}
 
-The direct function is 1.6 times faster than the built-in R function.
+The direct function is 2.4 times faster than the built-in R function.
 
 This result is not unusual. Built-in R functions usually include lots of
 checks and error-handling, which take time to compute. These checks are
@@ -21934,22 +21938,22 @@ $group
  [1] 1 1 1 2 2 2 2 2 2 3 3 4 4 4 4
 
 $x_mat
-            [,1]       [,2]      [,3]      [,4]
- [1,]  3.1994182  0.8620282 0.6581723 2.8622460
- [2,]  1.1126565  0.3987126 4.0732194 0.4035653
- [3,]  0.6969412  1.3877676 1.7358053 1.4618758
- [4,] -0.8626382  4.7729727 3.7440839 1.5672299
- [5,]  3.1885060  0.9704977 2.6599867 3.6673890
- [6,]  0.6523498  4.0261178 2.4913593 1.5146073
- [7,]  1.4119695  2.6000847 1.7895138 3.1486270
- [8,]  2.4892591 -0.2004149 0.2538251 1.1521721
- [9,]  2.7279709  2.2638323 5.2320029 0.4528553
-[10,]  2.3404013  8.2961686 9.6193036 5.1360324
-[11,]  1.8664911  3.6478707 5.4787051 2.8543460
-[12,]  4.7847563  5.6723330 5.8462421 6.2676628
-[13,]  6.1445686  5.5987020 6.8645757 6.4798128
-[14,]  6.1516771  5.9545727 7.1106161 6.3959446
-[15,]  6.7456237  4.5878815 5.4720087 5.9320720
+            [,1]      [,2]       [,3]       [,4]
+ [1,] 2.75320697 2.6620513  3.8708221 -0.2975760
+ [2,] 2.83814590 0.8265951  0.3288389  2.3081959
+ [3,] 0.08168516 1.5135519  0.2766473 -1.1472041
+ [4,] 1.93556867 1.8742156 -1.7783249  1.4239134
+ [5,] 5.26950501 2.9271162  0.7938843 -0.6429541
+ [6,] 2.77276124 2.5502105  0.9732238  2.1606094
+ [7,] 1.29791092 2.4600978  2.4370774  1.9205261
+ [8,] 1.81699365 2.7129050  0.5758610  1.4262934
+ [9,] 1.53889463 2.5041695  0.9549318  2.1231245
+[10,] 5.45312342 4.2725114  3.7007661  3.4134755
+[11,] 7.49426878 5.3558526  3.2105426  5.3308587
+[12,] 6.51856898 4.5493367  4.6084924  7.4389143
+[13,] 5.13806826 5.4591983  7.2995147  4.7191166
+[14,] 7.81664545 3.9325509  5.6682999  6.7052077
+[15,] 5.18959893 5.9126883  4.7979209  6.3308590
 \end{verbatim}
 
 This approach is a bit more computationally efficient because the setup
@@ -22017,10 +22021,10 @@ We just packaged the code from above:
 
 \begin{verbatim}
 $x_bar
-[1] 1.695471 1.375370 3.047038 5.848759
+[1] 2.038210 3.075014 5.644088 6.777937
 
 $s_sq
-[1] 0.6373565 1.1211733 2.5182505 0.4341075
+[1] 0.09279010 1.70819172 0.06648137 0.87861112
 
 $n
 [1] 3 6 2 4
@@ -22050,7 +22054,7 @@ this function:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.000142183
+[1] 0.0002029906
 \end{verbatim}
 
 \begin{Shaded}
@@ -22077,7 +22081,7 @@ this function:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.009351327
+[1] 0.0001409898
 \end{verbatim}
 
 The results are the same as before.
@@ -22182,9 +22186,9 @@ as so:
 
 \begin{verbatim}
 # A tibble: 1 x 2
-      ANOVA    Welch
-      <dbl>    <dbl>
-1 0.0000113 0.000120
+    ANOVA  Welch
+    <dbl>  <dbl>
+1 0.00160 0.0191
 \end{verbatim}
 
 The reason this is important is we are now doing our group aggregation
@@ -22203,6 +22207,7 @@ only once, rather than once per method. We benchmark to see our speedup:
 \end{Highlighting}
 \end{Shaded}
 
+{\def\LTcaptype{none} % do not increment counter
 \begin{longtable}[]{@{}lrrrr@{}}
 \toprule\noalign{}
 expression & min & median & itr/sec & speed\_up \\
@@ -22210,9 +22215,10 @@ expression & min & median & itr/sec & speed\_up \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-original & 3.72ms & 6.47ms & 145.63 & 1.00 \\
-one\_agg & 2.49ms & 4.77ms & 197.85 & 1.36 \\
+original & 670us & 700us & 1369.77 & 1.0 \\
+one\_agg & 558us & 582us & 1684.32 & 1.2 \\
 \end{longtable}
+}
 
 Our improvement is fairly modest.
 
@@ -22238,6 +22244,8 @@ bugs into your simulation workflow) and time consuming for you (thinking
 through and writing all the fancy code is time you are not doing
 something else). But it sure can be satisfying to spend an extra weekend
 hacking away at this sort of thing!
+
+\end{exercise}
 
 
 
