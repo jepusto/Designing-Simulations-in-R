@@ -104,7 +104,13 @@ This is the classic table you might see in a paper: the table is structured as g
 The table makes clear that the rejection rates are often well above 10% and that the rates are all far too high when there are few treatment units.
 Because of the ordering of rows, it is somewhat more difficult to see how the number of control units impacts the rate, and understanding the joint relationship between number of treatment and number of control requires extra thinking.
 
-```{r fig-rejection-interaction-plot, echo=FALSE, fig.width=6, fig.height=3, out.width="100%", fig.cap = "Rejection rates for a two-sample t-test assuming unequal variances."}
+```{r}
+#| label: fig-rejection-interaction-plot
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 6
+#| fig-height: 3
+#| fig-cap: "Rejection rates for a two-sample t-test assuming unequal variances."
 
 nlevels = n_distinct( exp.res.rej$nT )
 ggplot( exp.res.rej ) +
@@ -216,7 +222,6 @@ Their Table 2, for example, had four quadrants, each a distinct scenario.
 For example, the results for the scenario with misspecified outcome models and propensity score models looked like this:
 
 ```{r, include=FALSE}
-library(tidyverse)
 
 df <- read_csv(here::here("data/zhou_table2.csv")) %>%
   pivot_longer(cols = -c(scenario, method), names_to = "measure", values_to = "value")
@@ -244,12 +249,20 @@ Reading the table involves scanning across many methods, some of which are varia
 And this is only a quarter of the data---there are three other scenarios with results like these on the same table!
 
 The table does provide all the information, but instead we can use a visualization.
-For our visualization we group methods by main type, and truncate outliers to put more focus on central tendencies.
-Below we plot the full Table 2 in this way, as one example.
-Our table corresponds to the second row in the plot; the other rows are the tables not shown (but see the paper itself).
+For visualization purposes, we group methods by main type, and truncate any outliers to put more focus on central tendencies.
+@fig-four-performance-measures plots the full Table 2 in this way.
+The table corresponds to the second row in the plot; the other rows are the tables not shown (but see the paper itself).
 The outliers are circled to make their truncation clear.
 
-```{r, out.width="100%", fig.width = 7, echo=FALSE}
+```{r}
+#| label: fig-four-performance-measures
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 6.5
+#| fig-cap: "Performance of selected causal effect estimators in simulations by Zhou et al. (2015)."
+
+
 df3 <- df %>%
   group_by(measure, scenario) %>%
   mutate(cap_lo = -15,
@@ -260,33 +273,46 @@ df3 <- df %>%
 
 df3$variant[ df$variant == "." & df$main_method %in% c( "TML", "WR", "AIPW") ] = "vanilla"
 
-ggplot(df3, aes(x = main_method, y = plot_value, col = variant, pch = variant)) +
+ggplot(df3) +
+  aes(x = main_method, y = plot_value, col = variant, pch = variant) + 
   geom_point(size = 2) +
-  geom_point(data = filter(df3, outlier), aes(x = main_method, y = plot_value),
-             shape = 1, size = 4, col = "red", show.legend = FALSE) +
-  geom_text(data = filter(df3, outlier),
-            aes(x = main_method, y = plot_value, label = round(value, 1)),
-            vjust = -1, size = 3, col = "red") +
+  geom_point(
+    data = filter(df3, outlier), 
+    aes(x = main_method, y = plot_value),
+    shape = 1, size = 4, col = "red", 
+    show.legend = FALSE
+  ) +
+  geom_text(
+    data = filter(df3, outlier),
+    aes(x = main_method, y = plot_value, label = round(value, 1)),
+    vjust = -1, size = 3, col = "red"
+  ) +
   facet_grid(scenario ~ measure) +
   geom_hline(yintercept = 0) +
   theme_bw() +
   scale_y_continuous(expand = expansion(mult = 0.15)) +
   scale_x_discrete(expand = expansion(add = 1))+
   coord_flip(clip = "off") +
-  theme(plot.margin = margin(20, 40, 20, 20)) +
+  theme(
+    plot.margin = margin(20, 40, 20, 20),
+    legend.position = "top"
+  ) +
   scale_color_manual(
     values = c(`.` = "black", `vanilla` = "black", `S` = "blue", `S1` = "red", `S1m` = "green"),
     breaks = c("vanilla", "S", "S1", "S1m")
   ) +
-scale_shape_manual(
-  values = c(`.` = 16, `vanilla` = 6, `S` = 2, `S1` = 3, `S1m` = 4),
-  breaks = c("vanilla", "S", "S1", "S1m")
-  
-) + labs( x = "", y = "", caption = "Outliers circled and truncated" )
+  scale_shape_manual(
+    values = c(`.` = 16, `vanilla` = 6, `S` = 2, `S1` = 3, `S1m` = 4),
+    breaks = c("vanilla", "S", "S1", "S1m")
+  ) + 
+  labs( 
+    x = "", 
+    y = "", 
+    caption = "Outliers circled and truncated"
+  )
 ```
-Our plot makes the overall story more clear: the variants within method are generally the same, except for the TML estimator under the "neither" scenario.
+@fig-four-performance-measures makes the overall story clearer: the variants within method are generally the same, except for the TML estimator under the "neither" scenario.
 Many of the estimators have very similar performances to each other across the scenarios considered, but IPW approaches can be biased and more unstable.
-
 
 
 ## Visualization
@@ -300,10 +326,17 @@ In @sec-building-good-visualization, we present a more detailed look at the proc
 In @sec-ITE-table-example, we used a table to summarize the performance of a range of different methods of assessing individual-level variation in treatment effects.
 The table provided a compact high-level summary, but it could be improved by turning it into a visualization. 
 
-```{r fig-MLIV-bar-chart, echo=FALSE, warning=FALSE, fig.height=7, fig.width = 7, fig.cap = "Average relative performance of individual treatment effect estimators."}
+```{r}
+#| label: fig-MLIV-bar-chart
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 7
+#| fig-cap: "Average relative performance of individual treatment effect estimators."
 
 # order the model by RMSE
-overall_performance_table <- overall_performance_table %>%
+overall_performance_table <- 
+  overall_performance_table %>%
   mutate( model = factor(model, levels = model ),
           R2 = R2 * 100 )
           
@@ -330,7 +363,13 @@ The Figure makes it easier to visually assess the extent to which the estimators
 However, this plot does not have any representation of the degree of variation across scenarios because the bars only represent the _average_ performance across scenarios.
 We can elaborate this plot by using boxplots that summarize the distribution of performance measures across all scenarios examined.
 
-```{r fig-MLIV-box-chart, echo=FALSE, fig.height=7, fig.width = 7, fig.cap = "Relative performance of individual treatment effect estimators across all simulation scenarios."}
+```{r}
+#| label: fig-MLIV-box-chart
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 7
+#| fig-cap: "Relative performance of individual treatment effect estimators across all simulation scenarios."
 
 df_BSR_long <- 
   df_rel %>%
@@ -403,7 +442,13 @@ Pick your plot based on whether it is clearly communicating the message you are 
 Typical SCDs involve quite short time series with closely spaced repeated measurements, so there is concern about whether auto-correlation in the outcome measurements affects estimation of effect sizes.
 @Chen2024multilevel reported some small simulations that examined the bias of different effect size estimators, including the log response ratio, under a data-generating process involving Poisson-distributed outcomes with a first-order auto-regression structure.
 
-```{r fig-LRR-bias, echo = FALSE, fig.width=8, fig.height=4, out.width="100%", fig.cap= "Bias of the LRR1 estimator of the log response ratio under a Poisson AR(1) model with baseline mean of $\\mu_A = 10$, for varying log response ratio parameters, auto-correlation, and series length."}
+```{r}
+#| label: fig-LRR-bias
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 8
+#| fig-height: 4
+#| fig-cap: "Bias of the LRR1 estimator of the log response ratio under a Poisson AR(1) model with baseline mean of $\\mu_A = 10$, for varying log response ratio parameters, auto-correlation, and series length."
 
 Chen_LRR <- 
   readRDS(here::here("data","Chen-2024-LRR-sims.rds")) %>%
@@ -417,7 +462,6 @@ ggplot( Chen_LRR ) +
   facet_wrap( ~ m_lab ) +
   scale_x_continuous(breaks = seq(-1.6, 1.6, 0.8)) + 
   geom_hline( yintercept = 0 ) +
-  # geom_point() + geom_line() + 
   geom_smooth(method = "loess", formula = y ~ x, se = FALSE) + 
   labs( 
     x = "True Log Response Ratio", 
@@ -453,7 +497,14 @@ We use line type to represent the sample size, which makes it apparent that the 
 Finally, facetted plots are used to represent the remaining factors of cut-off type and cut-off percentile.
 All of the factors---and thousands of distinct simulation scenarios---are visible in a single plot.
 
-```{r fig-biserial-correlation, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "Bias of the biserial correlation estimate in an extreme groups design, for varying sample sizes, cut-off thresholds, and cut-off types. Source: Pustejovsky (2014)."}
+```{r}
+#| label: fig-biserial-correlation
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 10
+#| fig-height: 5
+#| fig-cap: "Bias of the biserial correlation estimate in an extreme groups design, for varying sample sizes, cut-off thresholds, and cut-off types. Source: Pustejovsky (2014)."
+
 load("data/d2r results.rData")
 
 r_F <- 
@@ -494,7 +545,7 @@ Tufte likes many small multiples, in part, because the technique can be used to 
 In this four-factor design, the small multiple plot lets us fully represent a performance measure across all combinations of the factors.
 
 
-### Robust Hypothesis Testing for Meta-regression {#sec-CRVE-F-tests}
+### Robust hypothesis testing for meta-regression {#sec-CRVE-F-tests}
 \index{example!meta-regression}
 
 In our next example, drawn from @tipton2015small, we explore Type-I error rates of small-sample corrected F-tests based on cluster-robust variance estimation in meta-regression models.
@@ -508,7 +559,15 @@ This was another complex experimental design, which involved varying several fac
 
 The Type I error rates of all five tests are depicted in @fig-CRVE-Ftests.
 
-```{r fig-CRVE-Ftests, echo=FALSE, fig.height=7, fig.width=9, out.width = "100%", fig.cap = "Type-I error rates of selected hypothesis testing procedures for meta-regression models with cluster-robust variance estimation. Source: Tipton and Pustejovsky (2015)."}
+```{r}
+#| label: fig-CRVE-Ftests
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 9
+#| fig-height: 7
+#| fig-cap: "Type-I error rates of selected hypothesis testing procedures for meta-regression models with cluster-robust variance estimation. Source: Tipton and Pustejovsky (2015)."
+
+
 load("data/RVE_simulation.Rdata")
 
 results <- 
@@ -649,7 +708,14 @@ We _wrap_ the small multiples by sample size, so that the overall figure design 
 Within each panel, results for the original MLE and the penalized MLE are arranged size-by-side to facilitate comparison between methods.
 
 
-```{r fig-MTS-coverage, echo=FALSE, fig.height=10, fig.width = 9, fig.cap = "Coverage of bootstrap confidence intervals for maximum likelihood estimator and penalized maximum likelihood estimator of prevalence based on momentary time sampling data."}
+```{r}
+#| label: fig-MTS-coverage
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 10
+#| fig-height: 9
+#| fig-cap: "Coverage of bootstrap confidence intervals for maximum likelihood estimator and penalized maximum likelihood estimator of prevalence based on momentary time sampling data."
+
 
 coverage_colors <- c("0-92.5%" = "red", "92.5-94%" = "yellow" , "94-96%" = "green", "96-97.5%" = "blue", "97.5-100%" = "purple")
 
@@ -725,7 +791,13 @@ Within a panel, the horizontal and vertical axes correspond to the RMSE of the u
 Each point represents the performance of the estimators under a single simulation scenario; the color of the point corresponds to the selection weight used to generate the data.
 A dashed line at $y = x$ indicates the point where both versions have equal accuracy.
 
-```{r fig-head-to-head-RMSE, echo = FALSE, fig.width=8, fig.height=6, out.width="100%", fig.cap= "Comparison of the RMSE of multivariate working models versus the RMSE of univariate counterparts under a one-step selection process for $k = 30$ studies and $\\bar{\\rho} = 0.4$."}
+```{r}
+#| label: fig-head-to-head-RMSE
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 8
+#| fig-height: 6
+#| fig-cap: "Comparison of the RMSE of multivariate working models versus the RMSE of univariate counterparts under a one-step selection process for $k = 30$ studies and $\\bar{\\rho} = 0.4$."
 
 selection_sims <- readRDS(here::here("data","Chen-2025-selection-sims.rds"))
 
@@ -768,7 +840,13 @@ Furthermore, the performance advantage of the multivariate estimators seems to b
 However, the figure is still limited to a subset of conditions because depicting every sample size and every setting for $\bar\rho$ would make it too noisy to see these trends.
 A further drawback of this layout is that it is difficult to see the relationship for scenarios where both versions of an estimator have relatively low RMSE; instead, the eye tends to be drawn to outliers (such as the red dots with the highest values of RMSE).
 
-```{r fig-RMSE-ratio, echo = FALSE, fig.width=8, fig.height=6, out.width="100%", fig.cap= "Ratio of RMSE of multivariate working models to the RMSE of univariate counterparts under a one-step selection process for $k = 30$ studies and $\\bar{\\rho} = 0.4$."}
+```{r}
+#| label: fig-RMSE-ratio
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 8
+#| fig-height: 6
+#| fig-cap: "Ratio of RMSE of multivariate working models to the RMSE of univariate counterparts under a one-step selection process for $k = 30$ studies and $\\bar{\\rho} = 0.4$."
 
 selection_sims_wide %>%
   filter(
@@ -906,7 +984,13 @@ Because the model reduces the dimension of the simulation's design, relying on i
 For instance, we used the model to motivate construction of @fig-biserial-beta-summary, which shows how $\beta_{pqr}$ varies for different cut-off values, cut-off types, and correlation parameters.
 The results presented are aggregated across the sample size factor because we have fully accounted for how it affects bias.
 
-```{r fig-biserial-beta-summary, echo=FALSE, message=FALSE, fig.width = 7, fig.height = 3, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+```{r}
+#| label: fig-biserial-beta-summary
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+#| fig-cap: "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."
 
 r_F_bias_factor <- 
   r_F %>%
