@@ -122,17 +122,20 @@ Before we get too excited about this surprising result, we add MCSEs to our plot
 
 ```{r}
 #| code-fold: show
-#| echo: !expr knitr::is_html_output()
 
-ggplot( sres_sub, aes( as.factor(J), bias, 
-                       col=method, pch=method, group=method ) ) +
+ggplot( sres_sub ) +
+  aes( as.factor(J), bias, col=method, pch=method, group=method ) + 
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
   geom_point( position = position_dodge( width=0.3) ) +
   geom_line(position = position_dodge( width=0.3)) +
-  geom_errorbar( aes( ymin = bias - 1.96*bias_mcse,
-                      ymax = bias + 1.96*bias_mcse ),
-                 position = position_dodge( width=0.3),
-                 width = 0 ) +
+  geom_errorbar( 
+    aes( 
+      ymin = bias - 1.96*bias_mcse,
+      ymax = bias + 1.96*bias_mcse 
+    ),
+    position = position_dodge( width=0.3),
+    width = 0 
+  ) +
   geom_hline( yintercept = 0 ) +
   theme_minimal() 
 ```
@@ -143,19 +146,24 @@ We next subset our overall results again to check all the scenarios with `alpha 
 We can still plot all our data, as for that subset of scenarios we still only have three factors, `ICC`, `J_bar`, and `n_bar`, left to plot (we omit the code as it is similar to above).
 
 ```{r}
-#| echo: false
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
 
 null_sub <- sres %>%
   dplyr::filter( alpha == 0, size_coef == 0 )
-ggplot( null_sub, aes( ICC, bias, 
-                       col=method, pch=method, group=method ) ) +
+ggplot( null_sub ) +
+  aes( ICC, bias, col=method, pch=method, group=method ) + 
   facet_grid( J ~ n_bar, labeller = label_both ) +
   geom_point( position = position_dodge( width=0.03) ) +
   geom_line( position = position_dodge( width=0.03) ) +
-  geom_errorbar( aes( ymin = bias - 1.96*bias_mcse,
-                      ymax = bias + 1.96*bias_mcse ),
-                 position = position_dodge( width=0.03),
-                 width = 0 ) +
+  geom_errorbar( 
+    aes( 
+      ymin = bias - 1.96*bias_mcse,
+      ymax = bias + 1.96*bias_mcse 
+    ),
+    position = position_dodge( width=0.03),
+    width = 0 
+  ) +
   geom_hline( yintercept = 0 ) +
   theme_minimal() 
 ```
@@ -195,6 +203,8 @@ To illustrate bundling, we replicate our small subset figure from above, but ins
 We put the boxes for the three methods side-by-side to directly compare them:
 
 ```{r clusterRCT_plot_bias_v1}
+#| code-fold: show
+
 ggplot( sres, aes( as.factor(J), bias, col=method, 
                    group=paste0(method, J) ) ) +
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
@@ -224,12 +234,14 @@ All of our simulation trials are represented in this plot.
 Each box is a collection of trials. E.g., for `J = 5`, `size_coef = 0`, and `alpha = 0.8` each of the three boxes contains 15 scenarios representing the varying ICC and cluster size.
 Here are the 15 results in the `J = 5` box in the top right facet for the Aggregation method:
 ```{r}
-filter( sres, 
-        J == 5, 
-        size_coef == 0,
-        alpha == 0.8, 
-        method=="Agg" ) %>%
-  dplyr::select( n_bar, J, size_coef, ICC, alpha, bias, bias_mcse ) %>%
+sres %>%
+  filter(
+    J == 5, 
+    size_coef == 0,
+    alpha == 0.8, 
+    method=="Agg" 
+  ) %>%
+  select( n_bar, J, size_coef, ICC, alpha, bias, bias_mcse ) %>%
   arrange( bias ) %>%
   knitr::kable( digits = 2 )
 ```
@@ -246,8 +258,14 @@ We could try bundling along different aspects to see if either of the remaining 
 Here we try bundling cluster size and number of clusters (we again omit the code).
 
 ```{r clusterRCT_plot_bias_v2, echo=FALSE}
-ggplot( sres, aes( as.factor(alpha), bias, col=method, 
-                   group=paste0(method, alpha) ) ) +
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+
+ggplot( sres ) +
+  aes( 
+    as.factor(alpha), bias, col=method, 
+    group=paste0(method, alpha) 
+  ) + 
   facet_grid( size_coef ~ ICC, labeller = label_both ) +
   geom_boxplot( width=0.7, fill="grey", outlier.size=0.5 ) +
   geom_hline( yintercept = 0 ) +
@@ -268,6 +286,9 @@ One might wonder, with only few trials per box, whether we should instead look a
 Unfortunately, that gets a bit cluttered:
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+
 ggplot( sres, aes( as.factor(alpha), bias, col= method, 
                    group=paste0(alpha,ICC,method) ) ) +
   facet_grid( size_coef ~ ICC, labeller = label_both ) +
@@ -313,6 +334,9 @@ We now have a single bias estimate for each combination of size_coef, J, and alp
 We can then plot, using many small multiples:
 
 ```{r agg_bias_plot_clusterRCT}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+
 ggplot( ssres, aes( as.factor(J), bias, col=method, group=method ) ) +
   facet_grid( size_coef ~  alpha, labeller = label_both ) +
   geom_point( alpha=0.75 ) + 
@@ -333,7 +357,11 @@ We can continue to explore by changing our $x$-axis, e.g., to ICC.
 More broadly, with many levels of a factor, as we have with ICC, we can let ggplot aggregate directly by taking advantage of `geom_smooth()`.
 This leads to the following:
 
-```{r, echo=FALSE, message=FALSE}
+```{r}
+#| code-fold: true
+#| message: false
+#| echo: !expr knitr::is_html_output()
+
 ggplot( sres, aes( ICC, bias, col=method,
                  group=interaction(method,alpha) ) ) +
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
@@ -390,7 +418,11 @@ Uncertainty (standard errors) is another primary performance criterion of intere
 As an initial exploration, we plot the standard error estimates from our Cluster RCT simulation, using smoothed lines to visualize trends. We use `ggplot`'s `geom_smooth` to aggregate over `size_coef` and `alpha`, which we leave out of the plot.
 We include individual data points to visualize variation around the smoothed estimates:
 
-```{r, message=FALSE}
+```{r}
+#| code-fold: true
+#| message: false
+#| echo: !expr knitr::is_html_output()
+
 ggplot( sres, aes( ICC, SE, col=method ) ) +
   facet_grid( n_bar ~  J, labeller = label_both ) +
   geom_jitter( height = 0, width = 0.05, alpha=0.5 ) +
@@ -412,7 +444,13 @@ In other words, even though SE changes across scenarios, it’s difficult to tel
 We can also view the same information by bundling over the left-out dimensions.
 We add `n_bar` to our bundles, instead of faceting by it, because maybe it does not matter that much:
 ```{r}
-ggplot( sres, aes( ICC, SE, col=method, group=paste0( ICC, method ) ) ) +
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+
+ggplot( sres ) +
+  aes( ICC, SE, col=method, group=paste0( ICC, method ) ) + 
   facet_grid( . ~  J, labeller = label_both ) +
   geom_boxplot( width = 0.2, coef = Inf) + 
   scale_x_continuous( breaks = unique( sres$ICC)) +
@@ -449,7 +487,12 @@ ssres <-
 We can then treat `SE.scale` as a measure like any other.
 Here we bundle, showing how relative SE changes by J, `n_bar` and ICC:
 
-```{r, out.width="100%"}
+```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 5
+
 ggplot( ssres, aes( ICC, SE.scale, col=method,
                     group = interaction(ICC, method) ) ) +
   facet_grid( n_bar ~  J, labeller = label_both ) +
@@ -469,6 +512,11 @@ This suggests we should bundle the `n_bar` to get a cleaner view of the main pat
 We finally can drop the `LR` results entirely, as it is the reference method and always has a relative SE of 1.
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 4
+
 ssres %>% 
   filter( method != "LR" ) %>%
   ggplot( aes( ICC, SE.scale, col=method, 
@@ -494,6 +542,11 @@ To clarify the main patterns, we then aggregate our SE.scale across the bundled 
 We have aggregated out sample sizes, and we go further and remove `size_coef` since it does not seem to matter much, given the above plot:
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+
 s2 <- 
   ssres %>% 
   group_by( ICC, alpha, method ) %>%
@@ -524,6 +577,11 @@ To illustrate, we subset to our scenarios where there is real bias for both LR a
 We also subset to our middle values of `n_bar = 80` and our large `J=80`, where uncertainty is small and thus the relative role of bias may be large.
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 5
+
 bsr <- sres %>%
   filter( n_bar == 80, J==80, ICC == 0 )
 
@@ -581,7 +639,12 @@ A good first question is whether they are _calibrated_ (about the right size on 
 When assessing estimated standard errors it is very important to see if they are _reliably_ the right size across the scenarios, making bundling an especially important tool here.
 We first see if the average estimated SE, relative to the true SE, is usually around 1 across all scenarios:
 
-```{r, out.width="100%"}
+```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+
 sres <- sres %>%
   mutate( inflate = ESE_hat / SE  ) 
 
@@ -607,6 +670,11 @@ The `simhelpers` `calc_relative_var()` method gives mcses for relative bias of a
 We thus square our estimated SEs to get variance estimates, and then use that function to see if the relative variance estimates are biased:
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 4
+
 se_res <- res %>%
   group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
   summarize( calc_relative_var( estimates = ATE_hat,
@@ -637,6 +705,11 @@ We do this by calculating the standard deviation of the estimated standard error
 This is related to the coefficient of variation of `SE_hat`.
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+
 sres <- mutate( sres,
                SD_SE_hat_rat = SD_SE_hat / SE )
 
@@ -664,6 +737,11 @@ We can instead try using the degree of freedom calculations we saw in @sec-perfo
 We plug in $\widehat{df} = \frac{2 \bar{V}^2}{S_V^2}$ for each scenario and plot:
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+
 sres <- mutate( sres,
                df_hat = 2 * ( ESE_hat^4 ) / ( SD_SE_hat^4 ) )
 ggplot( sres, 
@@ -710,6 +788,11 @@ We then look at those simulations with a relationship of site size and impact.
 We subset to `n_bar = 80`, `size_coef = 0.2` and `alpha = 0.5` to simplify for our initial plot:
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 3
+
 c_sub <- covres %>%
   dplyr::filter( size_coef != 0, n_bar == 80, alpha == 0.5 )
 
@@ -731,6 +814,11 @@ We might then want to see if these results are general across the other simulati
 For confidence interval width, we can calculate the average width relative to the width of LR across all scenarios:
 
 ```{r}
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
+#| fig-width: 7
+#| fig-height: 5
+
 covres <- covres %>%
   group_by( n_bar, J, ICC, alpha, size_coef ) %>%
   mutate( width_rel = width / width[method=="LR"] ) %>%
