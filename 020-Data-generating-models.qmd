@@ -4,7 +4,7 @@
 ```{r}
 #| file: "code/global-setup.R"
 #| label: global-setup
-#| include: false 
+#| include: false
 ```
 
 As we saw in @sec-simulation-structure, the first step of a simulation is creating artificial data based on some process where we know (and can control) the truth. 
@@ -108,11 +108,13 @@ In designing and discussing DGPs, it is helpful to draw distinctions between the
 * __Structural features__ are quantities, such as the per-group sample sizes in the one-way ANOVA example, that describe the structure of a dataset but do not enter directly into the focal statistical model.
     When analyzing real data, we usually take the structural features as they come, but when simulating data, we will need to make choices about the structural features.
     For instance, in the HLM example involving students nested within schools, the number of students in each school is a structural feature. 
-    To simulate data based on HLM, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data. 
+    To simulate data based on HLM, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data.
+    
 * __Covariates__ are variables in a dataset that we typically take as given when analyzing real data. 
     For instance, in the one-way ANOVA example, the group assignments of each observation is a covariate.
     In the HLM example, covariates would include the treatment indicators $Z_1,...,Z_J$. In a more elaborate version of the HLM, they might also include variables such as student demographic information, measures of past academic performance, or school-level characteristics such as the school's geographic region or treatment assignment. 
     When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that students' past academic performance is normally distributed).
+    
 * __Outcomes and endogenous quantities__ are the variables whose distribution is described by the focal statistical model.
     In the one-way ANOVA example, the outcome variable consists of the measurements $X_{ig}$ for $i = 1,...,n_g$ and $g = 1,...,G$.
     In the bivariate Poisson model, the outcomes consist of the component variables $Z_1,Z_2,Z_3$ and the observed counts $C_1,C_2$ because all of these quantities follow distributions that are specified as part of the focal model.
@@ -138,6 +140,7 @@ We think of these parameters as falling into one of three categories: focal, aux
 
 * __Focal__ parameters are the quantities that we care about and seek to estimate in real data analysis. 
     These are typically parts of the focal statistical model, such as the population means $\mu_1,...,\mu_G$ in the one-way ANOVA model, the correlation between counts $\rho$ in the bivariate Poisson model, or the treatment effect $\gamma_{1}$ in the HLM example.
+    
 * __Auxiliary__ parameters are the other quantities that go into the focal statistical model or some other part of the DGP, which we might not be substantively interested in when analyzing real data but which nonetheless affect the analysis. 
     For instance, in the one-way ANOVA model, we would consider the population variances $\sigma_1^2,...,\sigma_G^2$ to be auxiliary if we are not interested in investigating how they vary from group to group. 
     In the bivariate Poisson model we might consider the average counts $\mu_1$ and $\mu_2$ to be auxiliary parameters. 
@@ -204,12 +207,14 @@ In the one-way ANOVA example, it would be conventional to visualize the data wit
 For exploratory graphics, we prefer plots that include representations of the raw data points, not just summary statistics.
 The figure below uses a density ridge-plot, filled in with points for each observation in each group.
 The plot is based on a simulated dataset with 50 observations in each of five groups.
-```{r ANOVA-bee-swarm}
-#| fig.width: 6
-#| fig.height: 4
-#| echo: false
+```{r}
+#| label: fig-ANOVA-density-ridges
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
 #| message: false
-#| fig.cap: "Densities of five heteroskedastic groups for the one-way ANOVA example."
+#| fig-cap: "Densities of five heteroskedastic groups for the one-way ANOVA example."
+#| fig-width: 6
+#| fig-height: 4
 
 library(ggridges)
 
@@ -231,12 +236,14 @@ ggplot(ANOVA_dat) +
 
 Here is a plot of 30 observations from the bivariate Poisson distribution with means $\mu_1 = 10, \mu_2 = 7$ and correlation $\rho = .65$ (points are jittered slightly to avoid over-plotting):\index{example!bivariate Poisson}
 
-```{r fig-bivariate-Poisson-scatter}
-#| echo: false
+```{r}
+#| label: fig-bivariate-Poisson-scatter
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
 #| message: false
-#| fig.cap: "$N = 30$ observations from the bivariate Poisson distribution with $\\mu_1 = 10, \\mu_2 = 7, \\rho = .65$."
-#| fig.width: 6
-#| fig.height: 4
+#| fig-cap: "$N = 30$ observations from the bivariate Poisson distribution with $\\mu_1 = 10, \\mu_2 = 7, \\rho = .65$."
+#| fig-width: 6
+#| fig-height: 4
 
 set.seed( 40440 )
 bvp_dat <- r_bivariate_Poisson(
@@ -296,10 +303,17 @@ It seems we are recovering our parameters.
 
 We can also make some diagnostic plots to assess whether we have normal data (using QQ plots, where we expect a straight line if the data are normal):
 ```{r}
+#| label: fig-heteroskedastic-qq-plot
+#| code-fold: show
+#| fig-width: 5
+#| fig-height: 4
+#| fig-cap: "QQ plot of simulated data from each of four groups"
+
 ggplot( check_data ) +
   aes( sample = x, color = group ) + 
   facet_wrap( ~ group ) +
-  stat_qq() + stat_qq_line()
+  stat_qq() + stat_qq_line() + 
+  theme(legend.position = "none")
 ```
 This diagnostic looks good too.
 Here, these checks may seem a bit silly, but most bugs are silly---at least once you find them!
@@ -683,11 +697,15 @@ test_scores <- r_3PL_IRT(N = 10000, M = 12)
 ```
 
 Having written a function for the 3-parameter logistic IRT model makes it easy to explore properties of the model.
-For instance, we can easily visualize the distribution of the total scores on the test:
+For instance, we can visualize the distribution of the total scores on the test:
 ```{r}
-#| fig.width: 6
-#| fig.height: 3
+#| code-fold: true
+#| echo: !expr knitr::is_html_output()
 #| warning: FALSE
+#| message: false
+#| fig-width: 6
+#| fig-height: 3
+
 ggplot(test_scores, aes(total)) + 
   geom_bar() + 
   scale_x_continuous(limits = c(0,12.5), breaks = seq(0,12,2))
