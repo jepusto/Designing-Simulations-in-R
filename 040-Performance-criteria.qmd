@@ -221,31 +221,44 @@ We calculate performance measures to address the following questions:
 - Does it predict well? (RMSE)
  
 Let us see how the three estimators compare on these measures.
+We first calculate the measures all at once, with results on Table @tbl-cluster-bias, and then dive into interpretation.
+
+```{r}
+#| label: tbl-cluster-bias
+#| tbl-cap: "Bias, standard error, and RMSE across methods in the clustered randomized trial simulations."
+#| echo: false
+
+ATE <- 0.30
+
+ClusterRCT_runs %>% 
+  group_by(method) %>%
+  summarise(
+    mean_ATE_hat = mean(ATE_hat),
+    bias = mean(ATE_hat) - ATE,
+    SE = sd(ATE_hat),
+    RMSE = sqrt(mean((ATE_hat - ATE)^2))
+  ) %>%
+  mutate(
+    per_SE = SE / SE[method == "LR"],
+    per_RMSE = RMSE / RMSE[method == "LR"]
+  ) %>%
+  knitr::kable(digits = 3)
+```
+
 
 #### Are the estimators biased? {-}
 
 Bias is defined with respect to a target estimand.
-Here we assess whether our estimates are systematically different from the $\gamma_1$ parameter, which we defined in standardized units by setting the standard deviation of the student-level distribution of the outcome equal to one (see Section@sec-DGP-standardization).
+Here we assess whether our estimates are systematically different from the $\gamma_1$ parameter, which we defined in standardized units by setting the standard deviation of the student-level distribution of the outcome equal to one (see Section @sec-DGP-standardization).
 In our simulation, we generated data with a school-level ATE parameter of $\gamma_1 = 0.30$ SDs.
 
-```{r cluster-bias}
-ATE <- 0.30
-
-ClusterRCT_runs %>% 
-  group_by( method ) %>%
-  summarise( 
-    mean_ATE_hat = mean( ATE_hat ),
-    bias = mean( ATE_hat ) - ATE
-  )
-```
-
-There is no indication of major bias for aggregation or multi-level modeling.
+Table @tbl-cluster-bias shows no indication of major bias for aggregation or multi-level modeling.
 Linear regression, with a bias of about 0.12 SDs, appears much more biased than the other estimators.
 This is because the linear regression is targeting the person-level average treatment effect.
 Our data-generating process makes larger sites have larger effects, so the person-level average effect is going to be higher because those larger sites count more in the overall average.
 In contrast, our estimand is the school-level average treatment effect, or the simple average of each school's true impact, which we have set to 0.30.
 The aggregation and multi-level modeling methods target this school-level average effect.
-If we had instead decided that the target estimand should be the person-level average effect, then we would find that linear regression is unbiased whereas aggregation and multi-level modeling are biased. 
+If we had instead decided that the target estimand should be the person-level average effect, then we would find that linear regression is unbiased whereas aggregation and multi-level modeling are biased; see Section @sec-implicit-estimands, below, to see how this plays out.
 It is crucial to think carefully about the appropriate target parameter and to assess performance with respect to a well-justified and clearly articulated target.
 
 #### Which method has the smallest standard error? {-}
@@ -254,17 +267,7 @@ The standard error measures the degree of variability in a point estimator.
 It reflects how stable an estimator is across replications of the data-generating process.
 We estimate the standard error for each estimator by taking the standard deviation of its set of estimates.
 For purposes of interpretation, it is useful to compare the standard errors to a benchmark estimator.
-Here, we treat the linear regression estimator as the benchmark and compute the magnitude of the SEs of each method _relative_ to the SE of the linear regression estimator:
-
-```{r}
-true_SE <- 
-  ClusterRCT_runs %>% 
-  group_by( method ) %>%
-  summarise( SE = sd( ATE_hat ) ) %>%
-  mutate( per_SE = SE / SE[method=="LR"] )
-
-true_SE
-```
+In making Table @tbl-cluster-bias, we treated the linear regression estimator as the benchmark and computed the magnitude of the SEs of each method _relative_ to the SE of the linear regression estimator.
 
 For this particular DGP, aggregation and multi-level modeling have SEs about 4 to 5% smaller than linear regression, meaning these estimates tend to be a bit less variable across the different datasets.
 We could therefore say aggregation and multi-level modeling are preferable to linear regression, for this context, because they are more precise.
@@ -273,24 +276,8 @@ In a real data analysis, these standard errors are what we would be trying to ap
 #### Which method has the smallest Root Mean Squared Error? {-}
 
 So far linear regression is not doing well: it has more bias and a larger standard error than the other two estimators.
-We can assess overall accuracy by combining these two quantities with the RMSE:
+We assess overall accuracy by combining these two quantities with the RMSE, which takes both bias and variance into account.
 
-```{r}
-ClusterRCT_runs %>% 
-  group_by( method ) %>%
-  summarise( 
-    bias = mean( ATE_hat - ATE ),
-    SE = sd( ATE_hat ),
-    RMSE = sqrt( mean( (ATE_hat - ATE)^2 ) )
-  ) %>%
-  mutate( 
-    per_RMSE = RMSE / RMSE[method=="LR"]
-  )
-
-```
-We also included SE and bias for ease of reference.
-
-RMSE takes both bias and variance into account.
 For aggregation and multi-level modeling, the RMSE is the same as the standard error, which makes sense because these estimators are not biased.
 For linear regression, the combination of bias plus increased variability yields a higher RMSE, with the standard error dominating the bias term (note how RMSE and SE are more similar than RMSE and bias).
 <!--The difference between the estimators are pronounced because RMSE is the square root of the _squared_ bias and _squared_ standard error.-->
@@ -520,6 +507,7 @@ Even with more complex methods, the degrees of freedom are interpretable: higher
 Returning to the cluster RCT example, we will assess whether our estimated SEs are calibrated by comparing the average _estimated_ (squared) standard error to the true sampling variance.
 Our standard errors are _inflated_ if they are systematically larger than they should be, across the simulation runs.
 We will also look at how stable our variance estimates are by comparing their standard deviation to the true sampling variance and by computing the Satterthwaite degrees of freedom.
+See Table @tbl-cluster-se-performance for the output of the following calculations:
 
 ```{r calculate-cluster-RCT-performance}
 SE_performance <- 
@@ -534,13 +522,18 @@ SE_performance <-
     rel_SE_V = S_V / SE_sq,
     df = 2 * mean( V )^2 / var( V )
   )
+```
+
+```{r}
+#| label: tbl-cluster-se-performance
+#| echo: false
 
 SE_performance %>%
   knitr::kable( digits = c(0,3,3,2,3,2,1),
                 caption = "Performance of the variance estimators for cluster RCT simulation" )
 ```
 
-The variance estimators all appear to be a bit conservative on average, with relative bias (calibration) of around `r round(mean(SE_performance$calib), 2)`, or about `r round(100 * mean(SE_performance$calib)) - 100`% higher than the true sampling variance.
+Table @tbl-cluster-se-performance shows the variance estimators all appear to be a bit conservative on average, with relative bias (calibration) of around `r round(mean(SE_performance$calib), 2)`, or about `r round(100 * mean(SE_performance$calib)) - 100`% higher than the true sampling variance.
 The column labelled `rel_SE_V` reports how variable the variance estimators are relative to the true sampling variances of the estimators.
 The column labelled `df` reports the Satterthwaite degrees of freedom of each variance estimator.
 Both of these measures indicate that the linear regression variance estimator is less stable than the other methods, with around `r round(diff(SE_performance$df[2:1]))` fewer degrees of freedom.
@@ -764,14 +757,17 @@ runs_val <- run_CRT_sim( reps = 1000,
 ```
 
 Assessing validity involves repeating the exact same rejection rate calculations as we did for power.
-We also estimate the bias of the point estimator, since bias can affect the validity of a testing procedure:
-```{r demo-calc-validity}
+We also estimate the bias of the point estimator, since bias can affect the validity of a testing procedure.
+Results are as follows:
+
+```{r demo-calc-validity, echo=FALSE}
 runs_val %>% 
   group_by( method ) %>%
   summarise( 
     bias = mean(ATE_hat),
     power = mean( p_value <= 0.05 ) 
-  )
+  ) %>%
+  knitr::kable( digits = 3 )
 ```
 
 The aggregation and multi-level modeling approaches both seem to reject a bit below 0.05, at 0.04, while LR is here at 0.10.
