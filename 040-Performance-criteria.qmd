@@ -4,18 +4,22 @@ include-before-body: html/mathjax-preamble.html
 
 # Performance measures {#sec-performance-measures}
 
-```{r setup, include = FALSE}
-library(tidyverse)
-library(simhelpers)
-conflicted::conflicts_prefer(dplyr::select)
-conflicted::conflicts_prefer(dplyr::filter)
-options(list(dplyr.summarise.inform = FALSE))
+```{r}
+#| file: "code/global-setup.R"
+#| label: global-setup
+#| include: false 
+```
+
+```{r}
+#| label: local-setup
+#| include: false 
 
 source("case_study_code/r_bivariate_Poisson.R")
 source("case_study_code/r_and_z.R")
 source("case_study_code/gen_cluster_RCT.R")
 
-ClusterRCT_runs <- readRDS("results/cluster_RCT_simulation.rds") %>%
+ClusterRCT_runs <- 
+  readRDS("results/cluster_RCT_simulation.rds") %>%
   mutate(
     runID = rep(1:1000, each = 3),
     method_L = case_match(method, 
@@ -24,7 +28,6 @@ ClusterRCT_runs <- readRDS("results/cluster_RCT_simulation.rds") %>%
                         "MLM" ~ "Multilevel model"),
     runID = rep(1:1000, each = 3L)
   )
-
 ```
 
 Once we run a simulation, we end up with a pile of results to sort through. 
@@ -43,13 +46,14 @@ ClusterRCT_runs %>%
              R = n() )
 ```
 
-```{r fig-CRT-ATE-hist}
-#| fig.width: 8
-#| fig.height: 3
-#| out.width: "100%"
+```{r}
+#| label: fig-CRT-ATE-hist
+#| fig-cap: "Sampling distribution of average treatment effect estimates from a cluster-randomized trial with a true average treatment effect of 0.3 (dashed line)."
+#| fig-width: 8
+#| fig-height: 3
+#| out-width: "100%"
 #| echo: false
 #| message: false
-#| fig.cap: "Sampling distribution of average treatment effect estimates from a cluster-randomized trial with a true average treatment effect of 0.3 (dashed line)."
 
 cluster_RCT_mean <- 
   ClusterRCT_runs %>%
@@ -841,12 +845,13 @@ On the other hand, if changing $\theta$ would lead to proportionate changes in t
 This is what is shown at right of @fig-absolute-relative.
 We usually expect this type of pattern to occur for scale parameters, such as standard deviations or standard errors (as we considered in @sec-measures-for-variance-estimators). 
 
-```{r fig-absolute-relative}
-#| fig.width: 8
-#| fig.height: 3
+```{r}
+#| label: fig-absolute-relative
+#| fig-width: 6
+#| fig-height: 3
 #| echo: false
 #| message: false
-#| fig.cap: "Hypothetical relationships between bias and a target parameter $\\theta$. In Scenario A, bias is unrelated to $\\theta$ and absolute bias is a more appropriate measure. In Scenario B, bias is proportional to $\\theta$ and relative bias is a more appropriate measure."
+#| fig-cap: "Hypothetical relationships between bias and a target parameter $\\theta$. In Scenario A, bias is unrelated to $\\theta$ and absolute bias is a more appropriate measure. In Scenario B, bias is proportional to $\\theta$ and relative bias is a more appropriate measure."
 
 
 theta <- seq(0, 0.8, 0.2)
@@ -1237,7 +1242,7 @@ print( runW, n = 4 )
 We now can simply bootstrap the rows, as so:
 
 ```{r, cache=TRUE}
-rps <- repeat_and_stack( 1000, {
+rps <- simhelpers::repeat_and_stack( 1000, {
   run_star = sample_n( runW, size = nrow(runW), replace = TRUE )
   tibble( 
     cal_agg = mean( run_star$S_Agg^2 ) / var( run_star$A_Agg ),
