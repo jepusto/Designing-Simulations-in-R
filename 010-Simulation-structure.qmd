@@ -7,9 +7,13 @@
 #| include: false 
 ```
 
-Monte Carlo\index{Monte Carlo simulation} simulation is a very flexible tool that researchers use to study a vast array of different models and topics. Within the realm of methodological research, most simulations share a common structure, nearly always involving the same set of steps or component pieces. In learning to design your own simulations, it is very useful to recognize the core components that most simulation studies share. Identifying these components will help you to organize your work and structure the coding tasks involved in writing a simulation.
+Monte Carlo\index{Monte Carlo simulation} simulation is a very flexible tool that researchers use to study a vast array of different models and topics. Within the realm of methodological research, most simulations share a common structure, nearly always involving the same set of steps or component pieces. In learning to design your own simulations, it is very useful to recognize these core components.
+Identifying these components will help you to organize your work and structure the coding tasks involved in writing a simulation.
 
-In this chapter, we outline the component structure of a methodological simulation study, highlighting the four steps involved in a simulation of a single scenario and the three additional steps involved in multifactor simulations. We then describe a strategy for implementing simulations that mirrors the same component structure, where each step in the simulation is represented by a separate function or object. We call this strategy ***tidy, modular simulation***. Finally, we show how the tidy, modular simulation strategy informs the structure and organization of code for a simulation study, walking through basic code skeletons (cf. @sec-function-skeletons) for each of the steps in a single-scenario simulation.
+In this chapter, we outline the component structure of a methodological simulation study, highlighting the four steps involved in a simulation of a single scenario and the three additional steps involved in multifactor simulations.
+We then describe a strategy for implementing simulations that mirrors the same component structure, where each step in the simulation is represented by a separate function or object.
+We call this strategy ***tidy, modular simulation***.
+Finally, we show how the tidy, modular simulation strategy informs the structure and organization of the code itself by walking through basic code skeletons (cf. @sec-function-skeletons) for each of the steps.
 
 ## General structure of a simulation
 
@@ -17,26 +21,28 @@ The four main steps involved in a simulation study, introduced in @sec-introduct
 
 ::: {#tbl-simulation tbl-colwidths="[10,15,75]"}
 
-|   | Step | Description |
+| Step  |  | Description |
 |---------------|------------------------------|:---------------------------|
+|   | _Single Scenario_ | |
 | 1 | **Generate** | Generate a sample of artificial data based on a specific statistical model or data-generating process. |
 | 2 | **Analyze** | Apply one or more data-analysis procedures, estimators, or workflows to the artificial data. |
 | 3 | **Repeat** | Repeat steps (1) & (2) $R$ times, recording $R$ sets of results. |
 | 4 | **Summarize** | Assess the performance of the procedure across the $R$ replications. |
+|   | _Multiple Scenarios_ | |
 | 5 | **Design** | Specify a set of conditions to examine |
 | 6 | **Execute** | Run the simulation for each condition in the design. |
 | 7 | **Synthesize** | Compare performance across conditions. |
 
-: Steps in the Simulation Process 
+: Steps in the Simulation Process
 
 :::
 
 In the simple $t$-test example presented in @sec-t-test-simulation, we put each of these steps into action with R code:
 
-- We used the geometric distribution as a data-generating process;
-- We used the confidence interval from a one-sample $t$-test as the data-analysis procedure;
-- We repeatedly simulated the confidence intervals with R's `replicate()` function; and
-- We summarized the results by estimating the fraction of the intervals that covered the population mean.
+1. We used the geometric distribution as a data-generating process;
+2. We used the confidence interval from a one-sample $t$-test as the data-analysis procedure;
+3. We repeatedly simulated the confidence intervals with R's `replicate()` function; and
+4. We summarized the results by estimating the fraction of the intervals that covered the population mean.
 
 We also saw that it was helpful to wrap all of these steps up into a single function, so that we could run the simulation across multiple sample sizes.
 
@@ -52,10 +58,11 @@ Just as with the first four steps, it is useful to recognize these further steps
 
 It is apparent from @tbl-simulation that writing a simulation in R involves a large space of possibilities and will requiring making a bunch of decisions. Considering the number of choices to be made, it is critical to stay organized and to approach the process systematically. Recognizing the components of a simulation is the starting point. Next is to see how to translate the components into R code.
 
-In our own methodological work, we have found it very useful to always follow the same approach to writing code for a simulation. We call this approach *tidy, modular simulation*. It involves two simple principles:
+In our own methodological work, we have found it very useful to always follow the same approach to writing code for a simulation.
+We call this *tidy, modular simulation* and it involves two simple principles:
 
-1.  Implement each component of a simulation as a distinct function or object.
-2.  Store all results in rectangular data sets.
+1.  Implement each component of a simulation as a distinct function or object. (Modular programming.)
+2.  Store all results in rectangular data sets. (Tidy data.)
 
 Writing separate functions for each component step of a simulation has several benefits. The first is the practical benefit of turning the coding process from a monolithic (and potentially daunting) activity into a set of smaller, discrete tasks. This lets us focus on one task at a time and makes it easier to see progress. Second, following this principle makes for code that is easier to read, test, and debug. Rather than having to scan through an entire code file to understand how the data analysis procedure is implemented, we can quickly identify the function that implements it, then focus on understanding the workings of that function. Likewise, if another researcher wanted to test out the data analysis procedure on a dataset of their own, they could do so by running the corresponding function rather than having to dissect an entire script. Third, writing separate code for each component makes it possible to tweak the code or swap out pieces of the simulation, such as by adding additional estimation methods or trying out a data-generating process involving different distributional assumptions. We already saw this in @sec-t-test-simulation, where we modified our initial data-generating process to use a geometric distribution rather than a normal distribution. In short, following the first principle makes for simpler, more robust code that is easier to navigate, easier to test, and easier to extend.
 
@@ -65,9 +72,10 @@ The second principle of tidy, modular simulation is to store all results in rect
 
 ## Skeleton of a simulation study
 
-The principles of tidy simulation imply that code for a simulation study should usually follow the same broad outline and organization of @tbl-simulation, with custom functions for each step in process. We will describe the outlines of simulation code using function skeletons to illustrate the inputs and outputs of each component. These skeletons skip over all the specific details, so that we can see the structure more clearly. We will first examine the structure of the code for simulating one specific scenario, then consider how to extend the code to systematically explore a variety of scenarios, as in a multifactor simulation.
+The code for a simulation study should usually follow the same broad outline and organization of @tbl-simulation, with custom functions for each step.
+We next describe the outlines of simulation code using function skeletons to illustrate the inputs and outputs of each component. These skeletons skip over all the specific details, so that we can see the structure more clearly. We will first examine the structure of the code for simulating one specific scenario, then consider how to extend the code to systematically explore a variety of scenarios, as in a multifactor simulation.
 
-In code skeletons, the structure of the first four steps in a simulation looks like this:
+The structure of the first four steps in a simulation is as follows:
 
 ```{r, echo = TRUE, eval = FALSE}
 
@@ -82,18 +90,19 @@ generate_data <- function( model_params ) {
 
 analyze <- function( data ) {
   # stuff
-  return(one_result)
+  return( result )
 }
 
 # Repeat
 
-one_run <- function( model_params ) {
+one_iteration <- function( model_params ) {
   dat <- generate_data( model_params )
-  one_result <- analyze(dat)
-  return(one_result)
+  one_result <- analyze( dat )
+  return( one_result )
 }
 
-results <- replicate(R, one_run( params ))
+results <- replicate(R, one_iteration( params ), simplify=FALSE) %>%
+    purrr::list_rbind(results_list)
 
 # Summarize (calculate performance measures)
 
@@ -105,9 +114,12 @@ assess_performance <- function( results, model_params ) {
 assess_performance(results, model_params)
 ```
 
-The code above shows the full skeleton of a simulation. It involves four functions, where the outputs of one function get used as inputs in subsequent functions. We will now look at the inputs and outputs of each function to see how they align with the four steps in the simulation process. Subsequent chapters examine each piece in much greater detail---putting meat on the bones of each function skeleton, to torture our metaphor---and discuss specific statistical issues and programming techniques that are useful for designing each component.
+The code above shows the full skeleton of a simulation for a single scenario.
+It involves four functions, where the outputs of earlier functions get used as inputs in subsequent functions.
 
-Besides illustrating the skeletal framework of a simulation, readers might find it useful to use it as a template from which to start writing their own code. The `simhelpers` package\index{package!simhelpers} includes the function `create_skeleton()`,\index{create\_skeleton()} which will open a new R script that contains a template for a simulation study, with sections corresponding to each component:
+We will now look at the inputs and outputs of each function to see how they align with the four steps in the simulation process. Subsequent chapters examine each piece in much greater detail---putting meat on the bones of each function skeleton, to torture our metaphor---and discuss specific statistical issues and programming techniques that are useful for designing each component.
+
+Besides illustrating the skeletal framework of a simulation, readers might find it useful to use it as a template from which to start writing their own code. The `simhelpers` package\index{package!simhelpers} includes the function `create_skeleton()`,\index{create\_skeleton()} which will open a new R script that contains a template similar to the above:
 
 ```{r eval=FALSE}
 simhelpers::create_skeleton()
@@ -152,36 +164,33 @@ A well-written estimation method should, in principle, work not only on a simula
 The third step in a simulation is to repeatedly evaluate the data-generating process and data analysis procedure. In practice, this amounts to repeatedly calling `generate_data()` and then calling `analyze()` on the result. Here is the skeleton from our simulation template:
 
 ```{r, eval=FALSE}
-one_run <- function( model_params ) {
+one_iteration <- function( model_params ) {
   dat <- generate_data( model_params )
-  one_result <- analyze(dat)
-  return(one_result)
+  one_result <- analyze( dat )
+  return( one_result )
 }
 
-results <- simhelpers::repeat_and_stack(R, one_run( params ))
+results <- replicate(R, one_iteration( params ), simplify=FALSE) %>%
+     purrr::list_rbind(results_list)
 ```
 
-We first create a helper function called `one_run()`, which takes `model_params` as input. Inside the body of the function, we call the `generate_data()` function to simulate a hypothetical dataset. We pass this dataset to `analyze()` and return a small dataset containing the results of the data-analysis procedure. The `one_run()` method is like a coordinator or dispatcher of the system: it generates the data, calls all the evaluation methods we want to call, combines all the results, and hands them back for recording. Making a helper method such as `one_run()` can be useful because it facilitates debugging.
+We first create a helper function called `one_iteration()`, which takes `model_params` as input. Inside the body of the function, we call the `generate_data()` function to simulate a hypothetical dataset.
+We pass this dataset to `analyze()` and return a small dataset containing the results of the data-analysis procedure.
+The `one_iteration()` method is like a coordinator or dispatcher of the system: it generates the data, calls all the evaluation methods we want to call, combines all the results, and hands them back for recording.
+Making a helper method such as `one_iteration()` can be useful because it facilitates debugging.
 
-Once we have the `one_run()` helper function, we need a way to call it repeatedly. As with many things in R, there are a variety of different ways to do something over and over. In the above skeleton, we use the `repeat_and_stack()` function from `simhelpers`.[^010-simulation-structure-2] In the first argument, we specify the number of times to repeat the process. In the second argument, we specify an expression that evaluates `one_run()` for specified values of the model parameters stored in `params`. The `repeat_and_stack()` function then evaluates the expression repeatedly, `R` times in all, and then stacks up all of the replications into a big dataset, with one or more rows per replication.[^010-simulation-structure-3]
+Once we have the `one_iteration()` helper function, we need a way to call it repeatedly.
+As with many things in R, there are a variety of different ways to do something over and over; in Appendix @sec-more-repeating-oneself we walk through several options, and later in the book we will use a different, arguably cleaner, approach that uses our `simhelpers` package.
+In the above skeleton, we use the base R `replicate()` function.
+In the first argument, we specify the number of times to repeat the process.
+In the second argument, we specify an expression that evaluates `one_iteration()` for specified values of the model parameters stored in `params`.
+The `simplify=FALSE` is an annoying bit to stop `replicate()` from "helpfully" reformatting how the data are stored.
+The `replicate()` function will evaluates the given expression repeatedly, `R` times in all, and return an R list of what it gets back.
+We pipe that list to `bind_rows()` to stack up all of the replications into a big dataset, with one or more rows per replication.
+Importantly, `one_iteration()` needs to return a small data frame for the `bind_rows()` to work; if `one_iteration()` is returning something else (e.g., a single number), then you might set `simplify=TRUE` and skip the `bind_rows()`.
 
-[^010-simulation-structure-2]: In the example from @sec-t-test-simulation, we used the `replicate()` function from base R to repeat the process of generating and analyzing data. This function is a fine alternative to the `repeat_and_stack()` approach demonstrated in the skeleton. The only drawback is that it requires some further work to combine the results across replications. Here is a different version of the skeleton, which uses `replicate()` instead of `repeat_and_stack()`:
 
-    ```{r, eval=FALSE}
-    results_list <- replicate(n = R, expr = {
-      dat <- generate_data( params )
-      one_result <- analyze(dat)
-      return(one_result)
-    }, simplify = FALSE)
-
-    results <- purrr::list_rbind(results_list)
-    ```
-
-    This version of the skeleton does not create a `one_run()` helper function, but instead puts the code from the body of `one_run()` directly into the `expr` argument of `replicate()`. To learn about other ways of repeatedly evaluating the simulation process, see Appendix @sec-repeating-oneself.
-
-[^010-simulation-structure-3]: If you would prefer the output as a list rather than a stacked dataset, set `repeat_and_stack()`'s optional argument `stack = FALSE`.
-
-We go into further detail about how to approach running the simulation process in @sec-running-the-simulation-process. Among other things, we will illustrate how to use the `bundle_sim()` function from the `simhelpers` package to automate the process of coding this step, thereby avoiding the need to write a `one_run()` helper function.\index{bundle\_sim()}\index{package!simhelpers}
+We go into further detail about how to approach running the simulation process in @sec-running-the-simulation-process. Among other things, we will illustrate how to use the `bundle_sim()` function from the `simhelpers` package to automate the process of coding this step.\index{bundle\_sim()}\index{package!simhelpers}
 
 ### Performance summaries
 
@@ -202,7 +211,7 @@ Performance measures are the metrics or criteria used to assess the performance 
 
 ### Concluding thoughts
 
-Thus far, we have sketched out the structure of a modular, tidy simulation for a single context.\index{tidy design} In our $t$-test case study, for example, we might ask how well the $t$-test works when we have $n=100$ units and the observations follow geometric distribution. However, we rarely want to examine a method only in a single context. Typically, we want to explore how well a procedure works across a range of different contexts. If we choose conditions in a structured and thoughtful manner, we will be able to examine broad trends and potentially make more general claims about the behaviors of the data-analysis procedures under investigation. Thus, it is helpful to think of simulations as akin to a designed experiment: in seeking to understand the properties of one or more procedures, we test them under a variety of different scenarios to see how they perform, then seek to identify more general patterns that hold beyond the specific scenarios examined. This is the heart of simulation for methodological evaluation.
+Thus far, we have sketched out the structure of a modular, tidy simulation for a single context.\index{tidy design} In our $t$-test case study, for example, we might ask how well the $t$-test works when we have $n=100$ units and the observations follow geometric distribution. However, we rarely want to examine a method only in a single context. Typically, we want to explore how well a procedure works across a range of contexts. If we choose conditions in a structured and thoughtful manner, we will be able to examine broad trends and potentially make more general claims about the behaviors of the data-analysis procedures under investigation. Thus, it is helpful to think of simulations as akin to a designed experiment: in seeking to understand the properties of one or more procedures, we test them under a variety of different scenarios to see how they perform, then seek to identify more general patterns that hold beyond the specific scenarios examined. This is the heart of simulation for methodological evaluation.
 
 When we combine the elements in this chapter we can build a core building block of a single simulation scenario.
 In particular, we will take the code developed for simulating a single context and bundle it into a function that can be evaluated for any and all scenarios of interest. 
