@@ -843,6 +843,7 @@ We usually expect this type of pattern to occur for scale parameters, such as st
 ```{r fig-absolute-relative}
 #| fig.width: 8
 #| fig.height: 3
+#| out.width: "100%"
 #| echo: false
 #| message: false
 #| fig.cap: "Hypothetical relationships between bias and a target parameter $\\theta$. In Scenario A, bias is unrelated to $\\theta$ and absolute bias is a more appropriate measure. In Scenario B, bias is proportional to $\\theta$ and relative bias is a more appropriate measure."
@@ -1024,14 +1025,14 @@ If no closed-form expressions are available, we can still estimate MCSEs using t
 
 For the performances measures that we have described for evaluating point estimators, Monte Carlo standard errors can be calculated using conventional formulas.[^estimated-MCSEs]
 When we run a simulation, we end up with $R$ replicates of a point estimator $T$ of a target parameter $\theta$.
-A performance measure of $T$ (e.g., bias, RMSE, or SE) is a summary across these $R$ replicates.
+A performance measure of $T$ (e.g., bias, RMSE, or SE) is a summary across these $R$ replicates, approximating what we would get if we did $R=\infty$ replications.
 
 
 [^estimated-MCSEs]: To be precise, the formulas that we give are _estimators_ for the Monte Carlo standard errors of the performance measure estimators. Our presentation does not emphasize this point because the performance measures will usually be estimated using a large number of replications from an independent and identically distributed process, so the distinction between true and estimated Monte Carlo standard errors will not be consequential. One could write $MCSE$ and $\widehat{MCSE}$ to distinguish between the two, but we avoid this notation for simplicity.
 
 
-For example, the bias of $T$ is $\E(T - \theta)$, which is the expected value of $T$ minus the true parameter value, and we estimate the bias as $\bar{T} - \theta$.
-Each replicate of $T - \theta$ is an _estimate_ of the expected value of $T - \theta$, and, in this case, we have $R$ independent draws of $T - \theta$ and can use simple sampling theory to get the standard error for the population mean of them:
+For example, the true bias of $T$ is $\E(T - \theta)$, which is the expected value of $T$ minus the true parameter value, and we estimate the bias as $\bar{T} - \theta$.
+Each replicate of $T - \theta$ is an _estimate_ of the expected value of $T - \theta$, and, in this case, we have $R$ independent draws of $T - \theta$ and can use simple sampling theory to get the estimated standard error for the population mean of them:
 $$
 MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}},
 $$ {#eq-MCSE-bias}
@@ -1041,45 +1042,69 @@ where $S_T$ is the sample standard deviation of $T$ across the $R$ replications 
 This approach is readily extended to estimators of other performance measures. 
 If we have a performance measure $M$ for each replicate in a simulation, we can estimate average performance as the average of the sample of $R$ performances, $\bar{M}$.
 The standard error for average performance then follows along the same lines as @eq-MCSE-bias.
-For example, the Mean Square Error (the square of RMSE) is simply the average of $M = (T-\theta)^2$ and the MCSE of the MSE is then
+For example, the Mean Square Error (the square of RMSE) is simply the average of $M = (T-\theta)^2$ and the estimated MCSE of the MSE is then
 $$ 
 MCSE( \widehat{MSE} ) = \sqrt{\frac{\Var(M)}{R}} = \sqrt{\frac{\Var\left((T-\theta)^2\right)}{R}}.
 $$ {#eq-MCSE-MSE}
-For quantifying the accuracy of an estimator, we have recommended using RMSE, or the square root of the MSE, as shown in @eq-rmse-estimator.
-To get the MCSE for RMSE, we can use a delta method approximation.[^delta-method]
-In the case of the RMSE, 
+where $\Var\left((T-\theta)^2\right)$ is the sampling variance of the $R$ $M=(T-\theta)^2$ values.
+For quantifying the accuracy of an estimator, we recommend using RMSE, or the square root of the MSE, as shown in @eq-rmse-estimator.
+To get the MCSE for the RMSE, we can use a delta method approximation.[^delta-method]:
 $$
 MCSE( \widehat{RMSE} ) = \frac{1}{2 \times RMSE} \sqrt{\frac{Var((T-\theta)^2)}{R}}.
 $$ {#eq-MCSE-RMSE}
-To actually approximate the MCSE, we plug in the estimated $RMSE$ and the variance of the $R$ values of $(T-\theta)^2$.
 The delta method approach can be applied to many other quantities of interest as well.
 
 [^delta-method]: @Oehlert1992note provides a friendly introduction to the delta method, or see @pustejovsky2018deltamethod.
 The delta method approximation says (with some conditions), that if we assume $X \sim N\left( \phi, \sigma_X^2 \right)$, then we can approximate the distribution of $g(X)$ for some continuous function $g(\cdot)$ as
 $$ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2 \times \sigma_X^2 \right),$$
 where $g'(\phi)$ is the derivative of $g(\cdot)$ evaluated at $\phi$.
-In practice, $\phi$ is an unknown parameter, but we can estimate the variance of $g(X)$ by substituting $X$ in place of $\phi$. Thus, an approximate estimator of the variance of $g(X)$ is $g'(X)^2 \times \hat\sigma_X^2$, and an approximate SE for $g(X)$ is 
+In practice, $\phi$ is an unknown parameter, but we can estimate the variance of $g(X)$ by substituting $X$ in place of $\phi$. Thus, an approximation of the variance of $g(X)$ is $g'(X)^2 \times \sigma_X^2$. If $g(X)$ is an estimator, this means an approximate SE for $g(X)$ is 
 $$ SE( g(X) ) \approx \left| g'(\mu_X) \right|  \times SE(X).$$
-To find the MCSE of $RMSE$, we apply the delta method approximation to $X = MSE$ with $g(x) = \sqrt{x}$ and $g'(x) =\frac{1}{2\sqrt{x}}$.
+To find the MCSE of $RMSE$, then, simply apply this delta method approximation to $X = MSE$ with $g(x) = \sqrt{x}$ and $g'(x) =\frac{1}{2\sqrt{x}}$.
 
 
 The MCSE for the true standard error $S_T$ of $T$ does not directly follow the above pattern because the sampling variance $S_T^2$ of $T$ is estimated across all the replicates, rather than simply being an average of $R$ independent estimates.
-Statistical theory gives the standard error of a variance estimator as 
+Statistical theory gives an estimated standard error of a variance estimator as 
 $$
 MCSE\left(\widehat{\Var}(T)\right) = MCSE\left(S^2_T\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}},
 $$ {#eq-MCSE-var}
-where $k_T$ is the standardized kurtosis of $T$:
+where $k_T$ is the sample standardized kurtosis of $T$:
 $$
 \begin{aligned}
 k_T &=  \frac{1}{S_T^4} \frac{1}{R}\sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
 \end{aligned}
 $$ {#eq-skewness-kurtosis}
+For a distribution, kurtosis would be $\kappa_T = E[ (T-E[T])^4 ]/\sigma^4$.
+The kurtosis is a fourth moment (mean is first, variance is second, skew is third), and measures, in effect, the thickness of the tails of a distribution.
+The standardized kurtosis is a unitless quantity (note the scaling of $1/\sigma^4$); for a normal distribution $\kappa$ equals 3.
 
-With the MCSE of the variance, we can use the same delta method approximation as above to get the MCSE of the standard error:
+To get the MCSE of the standard error, use the delta method on the variance to get:
 $$
 MCSE\left(S_T\right) \approx \frac{1}{2 S_T} MCSE( S^2_T ) = \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
 $$ {#eq-MCSE-SE}
 
+### Connecting bias, RMSE, and SE {#sec-MCSE-for-points}
+
+$S_T$ is the sample standard deviation of $T$, which is, by definition, the true standard error of $T$.
+The true MCSE of bias is of the form $\sigma / \sqrt{R}$, where $\sigma^2 = \Var(T)$ and thus $\sigma = SE(T)$.
+The MCSE of the standard error is of the form $c \sigma / \sqrt{R}$, where $c = \sqrt{\kappa - 1}/2$ is a constant depending on the distribution of $T$.
+For example, if $T$ is normally distributed, $\kappa = 3$ and $c = 1/\sqrt{2} \approx 0.70$.
+
+For the RMSE, we have a true MCSE of 
+$$
+MCSE( \widehat{RMSE} ) = \frac{\sqrt{Var((T-\theta)^2)}}{2 \sigma \sqrt{\sigma^2 + b^2}} \times \frac{\sigma}{\sqrt{R}} 
+$$
+where the ugly first term is again going to be a constant $c$ depending on the distribution of $T$ (here $b$ is the bias, i.e. $E[T]-\theta$).
+For example, if $T$ is normal around $\theta$, $c$ collapses to $1/\sqrt{2}$ (coinciding with the SE, since there is no bias).
+If $T$ is normal but shifted by bias $b$ that is equal to the standard error (this would be a very big bias), we get a constant of $\sqrt{3}/2$.
+It turns out this constant can not be bigger than 1 unless $T$ is substantially skewed (see exercises).
+
+Taking the totality of the above, a reasonable, usually conservative, rule of thumb is the MCSE for a typical performance estimate of a point estimator can be taken as $\sigma / \sqrt{R}$ (the one for bias).
+This can be used to quickly get a sense of how precise a simulation will be.
+For example, the MCSE for $R=1000$ is going to be about 3% of the true variability of $T$, $\sigma$, for bias, SE, and RMSE. For $R=100$, it is 10%.
+
+
+### Relative performance measures
 @sec-relative-performance discussed circumstances where we might prefer to calculate performance measures in relative rather than absolute terms. 
 For measures that are calculated by dividing a raw measure by the known target parameter, the MCSE for the relative measure is simply the MCSE for the raw measure divided by the target parameter. 
 For instance, the MCSE of relative bias $\bar{T} / \theta$ is 
@@ -1292,7 +1317,7 @@ welch <-
 ```
 
 ```{r}
-head(welch)
+str(welch)
 ```
 
 We first assess the rejection rate for the traditional $t$-test based on the subset of simulation results with sample sizes of $n_1 = n_2 = 50$ and a mean difference of 0, using $\alpha$ levels of .01 and .05:
@@ -1364,7 +1389,7 @@ evaluate_CIs(bvp_CIs, rho = 0.4)
 
 In @sec-clusterRCTperformance, we computed performance measures for three point estimators of the school-level average treatment effect in a cluster RCT.
 We next carry out the same calculations using the `calc_absolute()` function from `simhelpers`, which also provides MCSEs. 
-Examining the MCSEs is useful to ensure that 1000 replications of the simulation is suffiicent to provide reasonably precise estimates of the performance measures. 
+Examining the MCSEs is useful to ensure that our choice of 1000 replications of the simulation is sufficient to provide reasonably precise estimates of the performance measures. 
 We have:
 
 ```{r cluster-MCSE-calculation}
@@ -1433,7 +1458,9 @@ By looking at different performance measures change across scenario, we can begi
 
 <!-- JEP: Expand to include all of the performance measures, not just those for point estimators? -->
 <!-- LWM: Or do we need this table at all?  It doesn't format nicely in the PDF. We could improve by dropping the MCSE citation column or tweaking latex perhaps. -->
+<!-- LWM: I commented it out, but we can put back. -->
 
+<!--
 : Performance measures for evaluating point estimators {#tbl-performance-measure-summary}
 
 | Criterion               | Definition                                              | Estimator            | Monte Carlo Standard Error |
@@ -1448,6 +1475,7 @@ By looking at different performance measures change across scenario, we can begi
 | Relative bias           | $\E(T) / \theta$                                        | $\bar{T} / \theta$   | @eq-MCSE-relative-bias     |
 | Relative median bias    | $\M(T) / \theta$                                        | $m_T / \theta$       | @eq-MCSE-relative-bias     |
 | Relative RMSE           | $\sqrt{\E\left[\left(T - \theta\right)^2\right]} / \theta$ | $\frac{\sqrt{\left(\bar{T} - \theta\right)^2 + \frac{R - 1}{R}S_T^2}}{\theta}$ | @eq-MCSE-relative-bias |
+-->
 
 <!-- * Bias and median bias are measures of whether the estimator is systematically higher or lower than the target parameter.  -->
 <!-- * Variance is a measure of the __precision__ of the estimator---that is, how far it deviates _from its average_.  We might look at the square root of this, to assess the precision in the units of the original measure. This is the true SE of the estimator. -->
@@ -1607,6 +1635,27 @@ Check your results against the results from `calc_absolute()` in the `simhelpers
 Continuing from @exr-jackknife-MCSE, compute the ratio of the RMSE of each estimator to the RMSE of the linear regression estimator. Use the jackknife technique to compute a MCSE for these RMSE ratios.
 
 :::
+
+
+::: {#exr-kurtosis-derivation}
+
+### Calculate simplifications of the MCSEs
+
+When calculating the monte-carlo standard error of the RMSE, we assumed $T \sim N( \theta, \sigma^2 )$ and then stated that $Var[ (T-\theta)^2 ] = 2\sigma^2$.
+
+a) Derive this expression.
+
+b) Now assume $T \sim N( \theta + b, \sigma^2 )$, i.e., that $T$ has a bias. What does $Var[ (T-\theta)^2 ]$ equal now?
+
+c) Using (b), simplify the expression for the MCSE of the RMSE in terms of kurtosis, variance, and bias parameters.
+
+d) Expand $Var[ (T-\theta)^2 ]$ for any $T$ with defined moments up to the fourth moment. Show that the MCSE of $c \times S_T / \sqrt{R}$ can only have a scaling constant larger than 1 if there is substantial skew in $T$.
+
+
+
+:::
+
+
 
 ::: {#exr-cluster-RCT-SPATE}
 

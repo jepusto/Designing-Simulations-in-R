@@ -76,27 +76,29 @@ In particular, look at the core research questions, and try to identify which fa
 For many of the factors, you may eventually select a single level, if you do not think the factor matters for the questions you are considering.
 
 Often, your DGP will be a parametric model.
-In principle, each parameter could then be taken as a factor, but this can create some difficulties.
+In principle, each parameter of the model could be taken as a factor, but this can create some difficulties.
 In particular, the factors represented by the parameters can feel quite interdependent in terms of the effects they have on the resulting data.
-For example, if you had a linear model for your DGP, with $Y = a + bX + \epsilon$, with $\epsilon \sim N(0, \sigma^2)$, then if you identify $b$ as a factor, increasing it would both increase the $R^2$ of $X$ and also increase the variation of $Y$.
+
+For example, say you had a linear model for your DGP, with $Y = a + bX + \epsilon$, with $\epsilon \sim N(0, \sigma^2)$.
+In this case, considering $b$ as a factor, increasing it would both increase the $R^2$ of $X$ and also increase the overall variation of $Y$.
 Instead we might want to separately manipulate the $R^2$ and the variance of $Y$ by using a different parameterization of the DGP, such as by using the $R^2$ and the variance of $Y$ as initial parameters that we then translate to values of $b$ and $\sigma^2$.
-See @sec-DGP-standardization.
+See @sec-DGP-standardization for some ideas on how to do this.
 
 More straightforward as factors are the design parameters, e.g., sample sizes.
 You should still list these, and think about why you would want to vary them.
 For example, sample size is often varied because the simulation is partly for identifying when an asymptotic behavior kicks in, and for understanding what happens before that point.
 
-If possible, write the data generation code with all the factors as arguments, so that you can easily vary them in your simulation design if you choose to later on.
+If possible, write the data generation code with all the factors as arguments to your DGP function, so that you can easily vary them in your simulation design if you choose to later on.
 That said, it is also helpful to specify default values for factors, so you can ignore them if you decide they are not important enough to vary.
 
-You will end up with too many factors to vary, so you will then need to select a subset of them to include in your simulation design.
+Following the above principles will, almost certainly, result in too many factors to vary, so you will then need to select a subset of them to include in your simulation design.
 The entire simulation process is iterative: pick the factors you are most confident about, and know as you accumulate simulation evidence and thus learn more about what is going on, you will likely be adjusting your set of factors or running other simulations to verify your developing understanding.
 
 
 ### Deciding on the range and levels of a factor
 
 Once you have identified your factors, you then have to decide on the range and the specific levels of the factor you will include in the simulation.
-Determine these details by first determining the range, and then determining the number of levels (and specific values) within the range.
+Determine these details by first determining the range, and then the levels within the range.
 
 For the range, there are at least three strategies you might take:
 
@@ -104,20 +106,34 @@ For the range, there are at least three strategies you might take:
 
 2.  Choose factor levels to represent a realistic practical range. These ranges would ideally be empirically justified based on systematic reviews of prior applications. Lacking such empirical evidence, you may need to rely on informal impressions of what is realistic in practice.
 
-3.  Tune the factors to emulate an important application or context.
+3.  Tune the factor to emulate an important application or context.
 
 Of these choices, option (1) is the most general but also the most computationally intensive.
 In the ideal, option (2) focuses attention on what is most relevant to a practitioner.
 Option (3) is usually coupled with a subsequent applied data analysis, and in this case the simulation is often used to enrich that analysis.
 In particular, if the simulation shows the methods work for data with the given form of the target application, people may be more willing to believe the application's findings.
 
-For determining the number of levels and specific values to use, there are also a few strategies you might take.
-Begin with a default of at least three levels of each factor going from the minimum to maximum of your range.
-These three levels encode something notably small, something about what we would expect to see in the real world, and something notably high.
-From these levels you can get a good sense of what happens both when things are "normal" and also when you push the boundaries.
+For determining the number of levels and specific values to use, there are four options to consider: 1) a single level, 2) two levels, 3) three levels, or 4) many levels.
+We next walk through reasons for each of these options.
+
+**A single level:** Pick a single level if you are not particularly interested in the factor or are trying to simplify. For the single level, try to pick a "realistic" value, or a value estimated from actual data. (See strategy 2 and 3, above).
+
+**Two levels:** Many factors fit neatly into an "on" and "off" framing.
+For example, the error distribution is normal or it is skewed.
+There are outliers or there are not.
+For these factors, a binary "on/off" design is often sufficient, and more levels may not be necessary.
+Be sure the "on" level, in this case, is _notably_ on: you want to have a large change so you can clearly see the impact of the factor on your performance criteria.
+That said, we generally want to know if an observed risk is a realistic risk in practice.
+For example, while some estimators may be prone to bias, if the bias is not practically large in normal empirical contexts, then we might not mind.
+This tension does come up: regression adjustment in randomized trials can cause bias [@freedman2008regression], for example, but in practice that bias is small [@lin2013agnostic].
+If the realism is a concern, then considering three levels might be reasonable: "off," "realistic," and "high."
+
+**Three levels:** We find a default of three levels of a factor can capture a great deal of expresivity.
+Encode the three levels as something notably small, something about what we would expect to see in the real world, and something notably high.
+From these levels you can get a good sense of what happens both when things are "normal," and also when you push the boundaries.
 
 Three levels is also the smallest number that gives some sense of how much variation there is when looking at raw results.
-For example, say you had three SE estimates, that, as a factor increases, were 3.1, 5.2, and 2.6.
+For example, say you had three SE estimates, that, as the factor increased, went 3.1, 5.2, and 2.6.
 The up and down nature would either be something very surprising, or an indication that the Monte Carlo uncertainty was large enough to create notable "wiggles" in your results.
 An advantage of more levels of a factor is that it makes Monte Carlo uncertainty more salient.
 
@@ -125,22 +141,15 @@ An additional reason for using at least three levels is that doing so can give a
 This can be useful for determining, for example, if the relationship between a factor and performance is linear, quadratic, or leveling off.
 A two-level factor will always give an impression of increase or decrease, without any sense of shape or even whether the increase is due to Monte Carlo uncertainty.
 
-By contrast, having only a few levels can often make analyzing simulations easier.
+**Many levels:** For truly continuous factors of great importance, having many values along the range can make it possible to fit a curve to fully describe how performance changes as the factor does.
+A dense sequence of levels is frequently used for power analyses, for example: slowly raise the size of the effect and see how power changes to trace out a full power curve.
+
+In reviewing the above, we advocate for picking three levels as a good default: you do not have too many levels, you can explore a range of values while also having "typical" values, you get a sense of Monte Carlo uncertainty, and you get a sense of trend.
+That said, having only two levels can often make analyzing simulations easier.
 In particular, experiments with just "high" and "low" conditions are often easier to analyze and explain.
 Even more straightforward is when a factor is "on" or "off"---this allows straightforward statements such as "when there is a correlation, the estimator is biased," and so forth.
 
-Many factors fit neatly into an "on" and "off" framing.
-For example, the error distribution is normal or it is skewed.
-There are outliers or there are not.
-For these factors, a binary "on/off" design is often sufficient, and more levels may not be necessary.
-Be sure the "on" level, in this case, is _notably_ on: you want to have a large change so you can clearly see the impact of the factor on your performance criteria.
-That said, we would also want to know if a risk is a realistic risk in practice.
-Some estimators may be prone to bias, but if the bias is not practically large, then we might not mind.
-For example, using regression in randomized trials can cause bias [@freedman2008regression], but in practice that bias is small [@lin2013agnostic].
-If this is a concern, then considering three levels might be reasonable: "off," "realistic," and "high."
 
-For truly continuous factors of great importance, having many values along the range can make it possible to fit a curve to fully describe how performance changes as the factor does.
-A dense sequence of levels is frequently used for power analyses, for example: slowly raise the size of the effect and see how power changes to trace out a full power curve.
 
 
 
@@ -310,10 +319,10 @@ if ( !file.exists( "results/simulation_CRT.rds" ) ) {
 
 Normally, we would speed up these calculations using parallel processing\index{parallel processing}; we discuss how to do so in @sec-parallel-processing.
 Even under parallel processing, this simulation took several hours to run.
-Our final results look like this:
+Our final results look like the following:
 
 ```{r, echo = FALSE}
-glimpse(res)
+print(res, n=4 )
 ```
 
 We have a lot of rows of data!
@@ -360,11 +369,11 @@ sres <-
   dplyr::select( -K_absolute, -K_relvar ) %>%
   ungroup()
 
-glimpse( sres )
+str( sres )
 ```
 
 After we calculate our performance measures, we have `r nrow(sres)` rows of results across `r nrow(sres)/3` different scenarios.
-We can simply aggregate across everything to get overall comparisons:
+We can simply aggregate across all our scenarios to get overall comparisons:
 
 ```{r}
 sres %>%
@@ -376,24 +385,76 @@ sres %>%
 
 Even with this very crude summary of the results, we see tantalizing hints of differences between the methods.
 Linear Regression does seem biased, on average, across the scenarios considered.
-But so does multilevel modeling---we did not see bias before, but apparently for some scenarios it is biased as well.
-Overall SE and RMSE\index{performance measures!RMSE} seems roughly the same across scenarios, and it is clear that uncertainty trumps bias, at least on average.
+But so does multilevel modeling---we did not see bias before, but apparently for at least some scenarios it is biased as well.
+Overall the SE and RMSE seems roughly the same across scenarios, and it is clear that uncertainty trumps bias, at least on average.
 However, this pattern could be driven by the scenarios with few clusters that are small in size.
-In order to understand the full story of what is going on, we need to dig further into the results.
-
+In order to understand the full story of what is going on, we will need to dig further into the results.
 
 
 
 
 ## Further principles of design
 
+Generally it is easy to design simulations with too many factors, which creates two core concerns.
+First, the computational cost of the simulation might become untenable.
+Second, analyzing and presenting the results may become difficult, with too many things to look at which can feel overwhelming and confusing.
+We close with a few more principles of good design that are worth keeping in mind to navigate this pair of concerns.
 
-### The number of factors vs. number of replicates trade-off
 
-For any factor, more levels is usually better, but more levels is also more computationally intensive.
-Even modest increases in the number of factors for each level can create an explosion in the total number of simulation trials.
+### Selecting the number of replications
+
+The number of replications per scenario $R$ is a key design choice.
+For some performance measures, there are good initial rules of thumb.
+
+For confidence interval coverage, if the true coverage level is $\pi$, then the MCSE of coverage levels will be $\sqrt{\pi (1 - \pi) / R}$, and the margin of error will be $\Phi^{-1}(0.975) \times \sqrt{\pi (1 - \pi) / R} \approx 2\sqrt{\pi (1 - \pi) / R}$, where $\Phi(\cdot)$ is the inverse Gaussian.
+Solving this expression for $R$ lets us determine the number of replications needed to attain a given margin of error.
+For example, if coverage is expected to be around 0.95 and we want a Monte Carlo margin of error of approximately 0.01, we would need about $R = 2000$ replications.
+This resolution means we could tell that an estimated coverage of 0.94 was too low.
+Put differently the minimum detectable effect (MDE) of being too low would be about
+$$
+MDE = 2.8 \times MCSE = 2.8 \times \sqrt{\frac{ 0.95 \cdot 0.05 }{1000}} = 2.8 \times 0.007 = 0.02,
+$$
+meaning we would have an 80% chance of detecting that a true coverage of 0.93 was indeed below 0.95.
+Using only $R = 500$ replications would yield a margin of error of approximately 0.02, and an MDE of about 0.03.
+
+For simulations focused on estimator bias or RMSE, we again have a nice rule of thumb in terms of the variability of the estimator being evaluated. 
+If $\sigma$ is the true standard error of an estimator in a given condition, then the MCSE of bias will be $\sigma  / \sqrt{R}$ and the margin of error will be $\Phi^{-1}(0.975) \sigma / \sqrt{R}$.
+A simplification is to assume you want the MCSE of bias to be no more than 5% of the true standard error.
+In this case you can solve for $R$ and get $R \approx (2 / 0.05)^2 \approx 1600$.
+Given the arguments in @sec-MCSE-for-points, this would be sufficient, in most cases, to keep the MCSE of the SE and RMSE to within 5% as well.
+
+In practice, a common but arbitrary choice is to use $R = 1000$ replications per scenario, which yields a margin of error for the bias of around $0.06 \sigma$ and, under most conditions, a bound on the margin of error for the SE and RMSE of around $0.06\sigma$ as well.
+Whether this is sufficiently small Monte Carlo error will depend on the context of the simulation.
+If the simulation involves examining several estimators to understand differences in their bias, then a margin of error of $0.06 \sigma$ might be too large to identify systematic differences.
+
+In practice, published simulation studies typically use the same number of replications for every scenario examined.
+However, there are sometimes good reasons to deviate from this convention and use different $R$ for different scenarios. 
+One reason is that some scenarios may be more computationally intensive than others.
+For instance, if the computation time increases with sample size, then it might be worth using fewer replications for the conditions with larger sample sizes.
+
+Another reason to consider varying $R$ is that Monte Carlo uncertainty itself can be strongly dependent on model parameters. 
+Again consider a simulation focused on estimator bias, for which the MCSE will be $\sigma / \sqrt{R}$.
+If $\sigma$ depends on any of the simulation factors, then the MCSE will also depend on those factors.
+For example, in many instances, $\sigma$ is roughly proportional to $N^{-1/2}$, where $N$ is the sample size of the data being analyzed.
+Thus, $\sigma$ will be large when $N$ is small and $\sigma$ will be smaller for scenarios where $N$ is larger.
+Using a constant $R$ for every scenario will mean that the MCSEs will be smaller for large-$N$ scenarios than for small-$N$ scenarios.
+
+If one really wanted to be fancy, they could set $R = R_0 / N$, where $R_0$ is some base factor, so that the MCSE of bias will be roughly constant across scenarios with different sample sizes.
+The simulations reported in @pustejovsky2014converting used this strategy, setting $R = 10^7 / N$ for simulations that examined sample sizes of $N = 20, 40, 80$, and $160$.
+The nice thing here is you get a double win: fewer trials for the larger sample sizes (which tend to be slow) while maintaining comparable levels of precision across all scenarios!
+
+
+
+### Balancing factors, factor levels, and number of replicates
+
+The number of simulations grows exponentially with the number of factors.
+If we have 3 levels per factor, then varying 3 factors is $3^3 = 27$ scenarios, varying 4 is $3^4 = 81$, and then it goes 243, 729, 2187, and 6561.
+
+Similarly, for any factor, more levels is usually better, but more levels is also more computationally intensive.
+Even modest increases in the number of levels in the factors can also create an explosion in the total number of simulation trials.
 Consider that a four-factor experiment with 2 levels each is only 16 conditions; with 3 levels each, it is 81 conditions; and with 4 levels each, it is 256 conditions.
-This exponential explosion is hard to navigate: more comprehensive designs require massively more computing.
+
+Both these explosions are hard to navigate: more comprehensive designs require massively more computing.
 However, the computational cost can be tempered by reducing the number of replications per scenario.
 
 For example, suppose you were initially planning on doing 1000 simulations per scenario, but then you realize that you need to incorporate an additional factor.
@@ -401,14 +462,13 @@ After thinking about it, you suspect that this factor will not actually matter b
 To address this potential concern, you could include the factor in your simulation design, say with four levels, but then reduce the number of replications to 250 simulations per scenario.
 The total work remains the same.
 
-When analyzing the final simulation you would first verify you do not see trends along this new factor, and then marginalize out that factor (i.e., average your performance metrics across the factor) in your summaries of results.
+When analyzing the final simulation you would first verify you do not see trends along this new factor, and then marginalize out\index{marginalization} that factor (i.e., average your performance metrics across the factor) in your summaries of results.
 Marginalizing out a factor is a powerful technique of making a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario.
 We will discuss marginalization further in @sec-presentation-of-results.
 
-
 ### Preliminary explorations and multiple simulations
 
-For factors you do not expect to matter, you can conduct preliminary simulations to verify they do not matter, and then drop them from consideration.
+For factors you do not expect to matter, conduct preliminary simulations to verify they do not matter, and then drop them from consideration.
 
 For example, in our cluster RCT example, we do not expect the size of the treatment effect to impact performance.
 Even so, we might still run an initial simulation with multiple levels of the treatment effect to verify our intuition is correct.
@@ -418,50 +478,21 @@ On the other hand, if we did find that estimator performances changed as we chan
 In either case, this would be an important finding that would need to be addressed before we could have confidence in the full simulation results.
 
 One might also run distinct multi-factor simulations as well.
-For example, in the Cluster RCT study we might run a seperate multi-factor simulation where we vary $p$ (proportion treated) over multiple levels, but keep $ICC=0.20$ and $\alpha=0.5$ both fixed.
-This second simulation would allow for evaluating how proportion treated matters in its own constillation of other factors.
+For example, in the Cluster RCT study we might run a separate multi-factor simulation where we vary $p$ (proportion treated) over multiple levels, but keep $ICC=0.20$ and $\alpha=0.5$ both fixed.
+This second simulation would allow for evaluating how proportion treated matters in its own constellation of other factors.
 
 To sharpen this point, consider six factors of 3 levels each.
 A full factorial experiment would be $3^6 = 729$ conditions.
 Three different simulations of different sets of four of the six factors would be $3^4 + 3^4 + 3^4 = 243$ conditions.
-At the extreme, some will vary one factor at a time, which would be $3 \times 6 = 18$ conditions.
-In this latter case, we could easily expand the resolution of each factor to many different levels.
+At the extreme, some will vary one factor at a time, running 6 different simulations, which would be $3 \times 6 = 18$ conditions.
+In this latter case, we could easily expand the resolution of each factor to many different levels without doing more than the full factorial design.
 
-
-### Selecting number of replications
-
-The number of replications per scenario $R$ is a key design choice.
-For some performance measures, there are good initial rules of thumb.
-
-For simulations focused on confidence interval coverage, rules of thumb can suffice. If the true coverage level is $\pi$, then the MCSE of coverage levels will be $\sqrt{\pi (1 - \pi) / R}$, and the margin of error will be $\Phi^{-1}(0.975) \times \sqrt{\pi (1 - \pi) / R}$.
-Solving this expression for $R$ lets us determine the number of replications needed to attain a given margin of error. Thus, if coverage is expected to be around 0.95 and we want a Monte Carlo margin of error of approximately 0.01, we would need about $R = 2000$ replications.
-Using only $R = 500$ replications would yield a margin of error of approximately 0.02.
-
-For simulations focused on estimator bias or RMSE, it is somewhat more difficult to find general rules of thumb. 
-If $\sigma$ is the true standard error of an estimator in a given condition, then the MCSE of bias will be $\sigma  / \sqrt{R}$ and the margin of error will be $\Phi^{-1}(0.975) \sigma / \sqrt{R}$.
-In practice, a common but arbitrary choice is to use $R = 1000$ replications per scenario, which yields a margin of error of around $0.06 \sigma$.
-Whether this is sufficiently small Monte Carlo error will depend on the context of the simulation.
-If the simulation involves examining several estimators to understand differences in their bias, then a margin of error of $0.06 \sigma$ might be too large to identify systematic differences between the estimators.
-
-In practice, published simulation studies typically use the same number of replications for every scenario examined.
-However, there are sometimes good reasons to deviate from this convention and use different $R$ for different scenarios. 
-One reason to do so is that some scenarios may be more computationally intensive than others.
-For instance, if the computation time increases with sample size, then it might be worth using fewer replications for the conditions with larger sample size.
-
-Another reason to consider varying $R$ is that Monte Carlo uncertainty itself can be strongly dependent on model parameters. 
-Again consider a simulation focused on estimator bias, for which the MCSE will be $\sigma /\sqrt{R}$.
-If $\sigma$ depends on any of the simulation factors, then the MCSE will vary across scenarios.
-In many instances, $\sigma$ is roughly proportional to $N^{-1/2}$, where $N$ is the sample size used for a given replication. 
-Thus, $\sigma$ will be large when $N$ is small and $\sigma$ will be smaller for scenarios where $N$ is larger.
-Using a constant $R$ for every scenario will mean that the MCSE will be smaller for large-$N$ scenarios than for small-$N$ scenarios. 
-Alternately, we could set $R = R_0 / N$, where $R_0$ is some base factor, so that the MCSE of bias will be roughly constant across scenarios with different sample sizes.
-The simulations reported in @pustejovsky2014converting used this strategy, setting $R = 10^7 / N$ for simulations that examined sample sizes of $N = 20, 40, 80$, and $160$.
 
 
 ## Concluding thoughts
 
 
-In this chapter, we have moved from isolated simulation scenarios to fully specified multifactor simulation designs.
+In this chapter, we moved from isolated simulation scenarios to fully specified multifactor simulation designs.
 Full factorial designs involve systematically varying multiple features of a data-generating process, which allows us to explore how the performance of an estimator depends on the context in which it is used.
 By thinking of simulations as designed experiments, we gain a principled framework for choosing parameters and curating a set of scenarios to explore.
 The result is a rich collection of simulation output that can capture bias, variability, uncertainty estimation, or testing behavior across a wide range of plausible conditions.
@@ -470,20 +501,19 @@ As we noted at the outset, the primary limitation of a simulation study is gener
 Multifactor simulations are often designed to address this core concern.
 Of course, no simulation is entirely generalizable---even an extensive full factorial design will entail many stylized assumptions and artificial constraints.
 To withstand critiques about generalizability, simulations should be designed by aiming for comprehensiveness, by including conditions that are relevant to real data, and by including conditions that are relevant to previous methodological work.
-Although the result will surely fall short of perfect generalizability, we can still design simulations thoughtfully and as best we can, seeking to avoid obvious limitations that a critic might identify as a basis for dismissing our findings.
+Although the result will surely fall short of perfect generalizability, we can still design simulations thoughtfully and, as best we can,  avoid obvious limitations that a critic might identify as a basis for dismissing our findings.
 
 In our experience, it is quite rare to nail the choice of parameters on the first pass.
-You should expect to add and subtract from your identified set of simulation factors with each round of results.
+Expect to add and subtract from an identified set of simulation factors with each round of results.
 Of course, the purpose of revision should never be to make a particular estimator look better or to conceal problems with the performance of a method. 
-Rather, it should be to identify the set of factors and parameter settings that are most relevant and most useful for investigating the questions at issue. 
-After all, the final design that we arrive at needs to be well justified and defensible.
+Rather, it should be to identify the set of factors and parameter settings that are most relevant and most useful for investigating the research questions of interest.
 
 <!-- LWM: Do we want to cite the pre-analysis plan folks?  Where do we put discussion of that? -->
 
 Well designed simulations can be quite large and complex, however, which creates a challenge for interpretation.
 With many factors, levels, and performance measures, it is no longer possible to understand results simply by inspecting a table of results.
 In the next few chapters, we will turn to the problem of analyzing and presenting simulation results, with an emphasis on graphical approaches that clarify how performance varies across conditions.
-Through further analysis, we will seek to identify systematic trends in estimator performance, understand the generality of identified patterns, and identify trade-offs between different methods.
+We aim to provide analytic tools to help identify systematic trends in estimator performance, understand the generality of identified patterns, and identify trade-offs between different methods.
 
 
 ## Exercises {.unnumbered}

@@ -77,15 +77,16 @@ We do this in four steps:
 
 Back in @sec-case-ANOVA, before we knew much, we developed a function, `generate_ANOVA_data()`, to generate data for a heteroskedastic ANOVA scenario, and a function, `ANOVA_Welch_F()`, to analyze the resulting data.
 We then built our simulation and analysis by hand.
-Before we move on to multiple scenarios, let us clean this work up by writing a simulation driver that runs a simulation and give results as a single call.
+Before we move on to multiple scenarios, let us clean this work up by writing a simulation driver that runs a complete simulation and give results as a single call.
 
+To do this we have a few design decisions.
 `generate_ANOVA_data()` takes an arbitrary vector of means per group.
 Our goal is, however, to have a single "knob" that we can turn to increase the spread of groups in the generated data.
 To do this, we will rewrite our function to take a single value, maximum difference (`max_diff`).
 Inside our new function we will generate group means that are equally spaced between zero and this value.
 We will also re-parameterize the function in terms of the total sample size (`N`) and the fraction of observations allocated to each group (`allocation`) to make calling it simpler.
 
-The revised function is 
+The revised data generating function is 
 ```{r}
 generate_ANOVA_new <- function(
   G, max_diff, sigma_sq = 1, N = 20, allocation = "equal" 
@@ -122,15 +123,18 @@ Our simulation driver does not give us final performance, however, just the raw 
 ```{r}
 sims <- sim_ANOVA( 100, G = 4, max_diff = 1, 
            sigma_sq = c(1, 2, 2, 3), N = 40 )
-sims
-```
-Using what we learned in @sec-performance-measures, we can calculate power as so:
-```{r}
-calc_rejection(sims, p_values = Welch, alpha = c(.01, .05))
+str( sims )
 ```
 
+
 We want power for both the Welch test and the conventional ANOVA $F$ test, so we can compare them, so we write a small function to generate a table of power levels for both tests across the alpha levels we are interested in.
-In order to easily incorporate it into our pipeline, our function takes a set of simulation results as input and provide a dataset of performance measures as output:
+In order to easily incorporate the function into our pipeline, our function takes a set of simulation results as input and provide a dataset of performance measures as output.
+We can simply use, twice, the function we wrote in @sec-performance-measures, and stack the results:
+```{r}
+calc_rejection(sims, p_values = Welch, alpha = c(.01, .05),
+               format = "long")
+```
+
 ```{r}
 summarize_power <- function(data, alpha = c(.01,.05)) {
   ANOVA <- calc_rejection(data, p_values = ANOVA, alpha = alpha,
@@ -143,11 +147,6 @@ summarize_power <- function(data, alpha = c(.01,.05)) {
     .id = "test"
   )
 } 
-```
-
-We get back a nice tibble of results when we use it:
-```{r}
-summarize_power( sims )
 ```
 
 Our next step is to wrap all of the above into a single call.
@@ -196,21 +195,27 @@ Welch_results <-
                 N = 40)
   )
 ```
-Another way to accomplish the same thing is to specify an anonymous function (also called a lambda) in the `map()` call.
-This syntax makes it clearer that the additional arguments are getting called in every evaluation of `sim_ANOVA()`:
+More explicit code for exactly the same thing is to specify an anonymous function\index{anonymous functions} (also called a lambda) in the `map()` call.
+The general notation is `\( .x ) { }`, so everything you normally would use to write a function, using a "\" as the temporary name for that function; you can even have two arguments if you are using `map2()`.
+Anonymous functions make it easy to specify what should be mapped to what, and it makes clear how the additional arguments are getting used in every evaluation of `sim_ANOVA()`:
 ```{r}
 Welch_results <- 
   Welch_design %>%
   mutate(
-    pvals = map(max_diff, ~ sim_ANOVA(100, max_diff = .x, 
-                                      G = 4, sigma_sq = c(1, 2, 2, 3), 
-                                      N = 40))
+    pvals = map(max_diff, 
+                \( .x ) {
+                  sim_ANOVA(100, max_diff = .x, 
+                            G = 4, sigma_sq = c(1, 2, 2, 3), 
+                            N = 40)
+                }
+    )
   )
 ```
-In the resulting dataset, the `pvals` variable is a list, with each entry consisting of a tibble of our results:
+
+Regardless of how you code it, in the resulting dataset, the `pvals` variable is a list, with each entry consisting of a tibble of our results:
 
 ```{r}
-Welch_results
+print( Welch_results, n = 4 )
 ```
 
 The above code and output may look a bit peculiar: we are storing a set of dataframes (our result) in our original dataframe as a new "variable."
@@ -227,22 +232,26 @@ To turn the list-column into normal data, we can use `unnest()` to expand the `p
 
 ```{r}
 Welch_results_long <- unnest(Welch_results, cols = pvals)
-Welch_results_long
+print( Welch_results_long, n = 5 )
 ```
 
 The final dataset has `r nrow(Welch_results_long)` rows, consisting of `r nrow(Welch_results_long) / nrow(Welch_design)` different result rows for each of `r nrow(Welch_design)` scenarios.
-The results are also organized in a way that facilitates visualization of the power levels:
+The results are also organized in a way that facilitates plotting:
 
-```{r hetero-ANOVA-power, fig.width = 7, fig.height = 3.5, out.width = "100%"}
+```{r hetero-ANOVA-power, fig.width = 6, fig.height = 3, out.width = "100%"}
 
 ggplot(Welch_results_long) + 
   aes(max_diff, rej_rate, color = test) + 
   geom_point() + geom_line() + 
-  scale_y_continuous(limits = c(0, NA), expand = expansion(0,c(0,0.01))) + 
-  facet_wrap(~ alpha, labeller = label_bquote(alpha == .(alpha))) + 
-  labs(x = "Maximum mean difference", y = "Power") + 
+  scale_y_continuous(limits = c(0, NA), 
+                     expand = expansion(0,c(0,0.01))) + 
+  facet_wrap(~ alpha, 
+             labeller = label_bquote(alpha == .(alpha))) + 
+  labs(x = "Maximum mean difference", y = "Power",
+       color = "Test") + 
   theme_minimal() + 
-  theme(legend.position  ="inside", legend.position.inside = c(0.08,0.85))
+  theme(legend.position  ="inside",
+        legend.position.inside = c(0.08,0.85))
 ```
 
 Under the conditions examined here, both tests appear to have similar power.
@@ -353,7 +362,7 @@ design_factors <- list(
 lengths(design_factors)
 
 params <- expand_grid( !!!design_factors )
-glimpse(params)
+str(params)
 ```
 
 We use `expand_grid()` from the `tidyr` package to create all possible combinations of the four factors.[^expand-grid-wtf]
@@ -410,7 +419,9 @@ In @sec-estimation-functions, we developed a function called `r_and_z()` for com
 We bundle `r_bivariate_Poisson()`, `r_and_z()`, and `evaluate_CIs()` into a simulation driver as follows:
 ```{r}
 Pearson_sim <- bundle_sim(
-  f_generate = r_bivariate_Poisson, f_analyze = r_and_z, f_summarize = evaluate_CIs
+  f_generate = r_bivariate_Poisson,
+  f_analyze = r_and_z, 
+  f_summarize = evaluate_CIs
 )
 args(Pearson_sim)
 ```
@@ -642,11 +653,13 @@ If we follow the outside strategy, keeping the results nested reduces the file s
 If we generate raw results using the "outside" approach, we will then need to do the performance calculations across replications within each simulation context.
 One way to do this is to use `group_by()` and `summarize()` to carry out the performance calculations all at once across the full unnested simulation results:
 ```{r}
-sim_results_full %>%
+res <- sim_results_full %>%
   group_by( N, mu1, mu2, rho ) %>%
   summarise( 
-    calc_coverage(lower_bound = CI_lo, upper_bound = CI_hi, true_param = rho)
+    calc_coverage(lower_bound = CI_lo, upper_bound = CI_hi, true_param = rho),
+    .groups = "drop"
   )
+str( res )
 ```
 
 If we want to use our full performance measure function `evaluate_CIs()` to get additional metrics such as MCSEs, we would _nest_ our data into a series of mini-datasets (one for each simulation), and then process each element.
@@ -657,10 +670,10 @@ results <-
   sim_results_full |>
   group_by( N, mu1, mu2, rho ) %>%
   nest( .key = "res" )
-results
+print( results, n = 4 )
 ```
 
-Note how each row of our nested data has a little tibble containing the results for that context, with 1000 rows each.[^use-nested]
+Note how each row of our nested data has a little tibble containing the results for that context, with 1000 rows each.
 Once nested, we can then use `map2()` to apply a function to each element of `res`:
 
 ```{r}
@@ -673,8 +686,6 @@ results_summary
 ```
 
 We have built our final performance table _after_ running the entire simulation, rather than running it on each simulation scenario in turn.
-
-[^use-nested]: Alternately, we could store the results in nested form (as in `sim_results_nested`), so that the `group_by()` and `nest()` steps are unnecessary.
 
 With the "outside" approach, it is easy to add a performance metric without having to recompute the entire simulation: simply change `evaluate_CIs` and recalculate.
 Summarizing during the simulation vs. after, as we just did, leads to the same set of results.^[In fact, if we use the same seed, we should obtain _exactly_ the same results.]
