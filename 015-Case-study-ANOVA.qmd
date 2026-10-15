@@ -12,16 +12,20 @@ In this chapter, we present another detailed example of a simulation study\index
 To illustrate the process of programming a simulation, we reconstruct the simulations from @brown1974SmallSampleBehavior.
 We will also use this case study as a recurring example in some of the following chapters.
 
-@brown1974SmallSampleBehavior studied methods for null hypothesis testing in studies that measure a characteristic $X$ on samples from each of several groups. They consider a population consisting of $G$ separate groups, with population means $\mu_1,...,\mu_G$ and population variances $\sigma_1^2,...,\sigma_G^2$ for the characteristic $X$.
+@brown1974SmallSampleBehavior studied methods for null hypothesis testing in studies that measure some variable on samples from each of several groups. 
+To be more concrete, such tests might be used in a study examining differences between students from different college majors on a personality trait such as extroversion. 
+<!-- JEP: Possible alternative: "analyzing the toxicity of different species of poison dart frogs" -->
+Brown and Forsythe consider a population consisting of $G$ separate groups, with population means $\mu_1,...,\mu_G$ and population variances $\sigma_1^2,...,\sigma_G^2$ for a measured characteristic $X$.
+In our example, $X$ would be a measure of extroversion, we might have $G = 10$ different college majors, and $\mu_g$ would be the average level of extroversion among all students from major $g$. 
 A researcher obtains samples of size $n_1,...,n_G$ from each of the groups and takes measurements of the characteristic for each sampled unit.
-Let $x_{ig}$ denote the measurement from unit $i$ in group $g$, for $i = 1,...,n_g$ for each $j = 1,..., G$.
+Let $x_{ig}$ denote the measurement from unit $i$ in group $g$, for $i = 1,...,n_g$ for each $j = 1,..., G.$
 The researcher's goal is to use the sample data to test the hypothesis that the population means are all equal
 $$
-H_0: \mu_1 = \mu_2 = \cdots = \mu_G.
+H_0: \mu_1 = \mu_2 = \cdots = \mu_G
 $$
-
+(e.g., all college majors attract students with the same average level of extroversion).
 If the population _variances_ were all equal (so $\sigma_1^2 = \sigma_2^2 = \cdots = \sigma_G^2$), we could use a conventional one-way analysis of variance (ANOVA) to conduct this test.
-However, one-way ANOVA might not work well if the variances are not equal.
+However, one-way ANOVA might not work well if the variances are not equal (e.g., if some majors attract students with a broader distribution of personality traits while other majors tend to attract students with a narrower range of traits).
 The question is then: what are best practices for testing the null of equal group means, allowing for the possibility that variances could differ across groups?
 
 ```{r BF-scenarios-data, echo=FALSE}
@@ -76,17 +80,17 @@ table_1_scenarios |>
 
 
 
-When evaluating hypothesis testing procedures, there are two main performance metrics of interest: type-I error rate and power.
-The type-I error rate is the rate at which a test rejects the null hypothesis when the null hypothesis is actually true.
-To apply a hypothesis testing procedure, one has to specify a desired, or nominal, type-I error rate, often denoted as the $\alpha$-level. 
-For a specified $\alpha$, a valid or well-calibrated test should have an actual type-I error rate less than or equal to the nominal level, and ideally should be very close to nominal. 
-<!-- JEP: Do you have a source for the terminology of a _valid_ test? I'm kind of wary of calling it the validity of a test because validity is already such an overloaded term. In some of my work, I've written about type-I error as measuring whether the test is appropriately _calibrated_, which lines up with the idea of calibrating physical measurement instruments like scales or temperature gauges. -->
+When evaluating hypothesis testing procedures, there are two main performance metrics of interest: Type I error rate and power.
+The Type I error rate is the rate at which a test rejects the null hypothesis when the null hypothesis is actually true.
+To apply a hypothesis testing procedure, one has to specify a desired, or nominal, Type I error rate, often denoted as the $\alpha$-level. 
+For a specified $\alpha$, a valid or well-calibrated test should have an actual Type I error rate less than or equal to the nominal level, and ideally should be very close to nominal. 
+<!-- JEP: Do you have a source for the terminology of a _valid_ test? I'm kind of wary of calling it the validity of a test because validity is already such an overloaded term. In some of my work, I've written about Type I error as measuring whether the test is appropriately _calibrated_, which lines up with the idea of calibrating physical measurement instruments like scales or temperature gauges. -->
 <!-- LWM: I poked around and valid seems to be common usage.  (Lot of papers talk about valid testing, for example).  Not sure we would want to cite that term here?  But i am content with calibrated only if you prefer. -->
 Power is how often a test correctly rejects the null when it is indeed false.
 It is a measure of how sensitive a method is to violations of the null.
 
 Brown and Forsythe estimated error rates and power for nominal $\alpha$-levels of 1%, 5%, and 10%.
-Table 1 of their paper reports the simulation results for type-I error (labeled as "size").
+Table 1 of their paper reports the simulation results for Type I error (labeled as "size").
 Our @tbl-BF-table1 reports some of their results with respect to Type I error\index{performance measures!Type I error}.
 For a well-calibrated hypothesis testing method, the reported numbers should be very close to the desired alpha levels, as listed at the top of the table.
 We can compare the four tests to each other across each row, where each row is a specific scenario defined by a specific data generating process\index{data-generating process}.
@@ -179,12 +183,14 @@ table_1 %>%
   group_tt(
     j = list("ANOVA F test" = 2:4, "B & F's F* test" = 5:7, "Welch's test" = 8:10, "James' test" = 11:13)
   ) %>%
+  format_tt(i = "groupj", escape = TRUE) %>%
   style_tt(j = 1, align = "c") %>%
   style_tt(i = 0:11, j = 2:13, align = "r")
 ```
 
-To replicate the Brown and Forsythe simulation, we will first write functions to generate data for a specified scenario and evaluate data of a given structure.
-We will then use these functions to evaluate the hypothesis testing procedures in a specific scenario with a particular set of parameters (e.g., sample sizes, number of groups, and so forth). We will then scale up to execute the simulations for a range of scenarios that vary the parameters of the data-generating model, just as reported in Brown and Forsythe's paper.
+To replicate the Brown and Forsythe simulation, we will first write functions to generate data for a specified scenario and evaluate the generated datasets.
+We will then use these functions to evaluate the performance of hypothesis testing procedures in a specific scenario with a particular set of parameters (e.g., sample sizes, number of groups, and so forth). 
+Finally, we will scale up to execute the simulations for a range of scenarios that vary the parameters of the data-generating model, just as reported in Brown and Forsythe's paper.
 
 ## The data-generating model {#sec-case-anova-DGP}
 \index{data-generating process}
@@ -278,17 +284,18 @@ Including `mu_long` or `sd_long` would amount to making the population parameter
 ### Cautious coding
 
 In the above, we built some sample code, and then bundled it into a function by literally cutting and pasting the initial work we did into a function skeleton.
-In the process, we shifted from having variables in our workspace with different names to using those variable names as parameters in our function call.
+In the process, we shifted from working with variables in our workspace to using the names of those variables as parameters in our function call.
 
 Developing code in this way is not without hazards.
 In particular, after we have created our function, our workspace is left with a variable `mu` in it and our function also has a parameter named `mu`.
-Inside the function, R will use the parameter `mu` first, but this is potentially confusing.
-Another potential source of confusion are lines such as `mu = mu`, which means "set the function's parameter called `mu` to the variable called `mu`."
 These are different things (with the same name).
+Inside the function, R will use the parameter `mu` first, so long as it is included among the function's arguments, but it still makes for confusing code.
+Another potential source of confusion are lines such as `mu = mu`, which means "set the function's parameter called `mu` to the variable called `mu`."
 
 Once  you have built a function, one way to check that it is working properly is to comment out the initial code (or delete it), clear out the workspace (or restart R), and then re-run the code that uses the function.
 If things still work, then you can be somewhat confident that you have successfully bundled your code into the function.
-Once you bundle your code, you can also do a search and replace to change the variable names inside your function to something more generic, to better clarify the distinction betwen object names and argument names.
+Once you bundle your code, you can also do a search and replace to change the variable names inside your function to something more generic, to better clarify the distinction between object names and argument names.
+In @sec-checking-DGPs, we will discuss a variety of other approaches to checking that a function like `generate_ANOVA_data()` works as intended.
 
 ## The hypothesis testing procedures {#sec-ANOVA-hypothesis-testing-function}
 
@@ -311,7 +318,7 @@ We can use the same function to calculate Welch's test by setting `var.equal = F
 Welch_F <- oneway.test(x ~ group, data = sim_data, var.equal = FALSE)
 Welch_F
 ```
-The main results we need here are the $p$-values of the tests, which will let us assess Type-I error and power for a given nominal $\alpha$-level. The following function takes simulated data as input and returns as output the $p$-values from the one-way ANOVA test and Welch test:
+The main results we need here are the $p$-values of the tests, which will let us assess Type I error and power for a given nominal $\alpha$-level. The following function takes simulated data as input and returns as output the $p$-values from the one-way ANOVA test and Welch test:
 
 ```{r, file = "case_study_code/ANOVA_Welch_F.R"}
 ```
@@ -322,11 +329,13 @@ ANOVA_Welch_F(sim_data)
 Following our tidy, modular simulation principles, this function returns a small dataset with the p-values from both tests. 
 Eventually, we might want to use this function on some real data.
 Our estimation function does not care if the data are simulated or not; we call the input `data` rather than `sim_data` to reflect this.
+Later, in @sec-validating-estimation-function, we will look at strategies for checking that the function we have written is working correctly.
 
 As an alternative to this function, we could instead write code to implement the ANOVA and Welch tests ourselves.
 This has some potential advantages, such as avoiding any extraneous calculations that `oneway.test` does, which take time and slow down our simulation.
 However, there are also drawbacks to doing so, including that writing our own code takes _our_ time and opens up the possibility of errors in our code.
 For further discussion of the trade-offs, see @sec-optimize-code, where we do implement these tests by hand and see what kind of speed-ups we can obtain.
+
 
 ## Running the simulation
 
@@ -337,13 +346,17 @@ To answer this question, we will need to repeat the chain of generate-and-analyz
 To facilitate repetition, we first put the components together into a single function:
 ```{r}
 one_run = function( mu, sigma_sq, sample_size ) {
-  sim_data <- generate_ANOVA_data( mu = mu,
-                                   sigma_sq = sigma_sq,
-                                   sample_size = sample_size )
+  sim_data <- generate_ANOVA_data( 
+    mu = mu, sigma_sq = sigma_sq,
+    sample_size = sample_size 
+  )
   ANOVA_Welch_F(sim_data)
 }
 
-one_run( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size )
+one_run( 
+  mu = mu, sigma_sq = sigma_sq, 
+  sample_size = sample_size 
+)
 ```
 This function implements a single simulation trial by generating artificial data and then analyzing the data, ending with a tidy dataset that has results for the single run.
 
@@ -354,7 +367,10 @@ The following uses `repeat_and_stack()` from `simhelpers` to evaluate `one_run()
 library(simhelpers)
 
 sim_data <- repeat_and_stack(4, 
-  one_run( mu = mu, sigma_sq = sigma_sq, sample_size = sample_size)
+  one_run( 
+    mu = mu, sigma_sq = sigma_sq, 
+    sample_size = sample_size
+  )
 )
 sim_data
 ```
@@ -364,8 +380,8 @@ Voila! We have simulated $p$-values!
 ## Summarizing test performance
 
 We now have all the pieces in place to reproduce the results from Brown and Forsythe (1974).
-We first focus on calculating the actual type-I error rate of these tests---that is, the proportion of the time that they reject the null hypothesis of equal means when that null is actually true---for an $\alpha$-level of .05.
-To evaluate the type-I error rate, we need to simulate data from a process where the population means are indeed all equal. 
+We first focus on calculating the actual Type I error rate of these tests---that is, the proportion of the time that they reject the null hypothesis of equal means when that null is actually true---for an $\alpha$-level of .05.
+To evaluate the Type I error rate, we need to simulate data from a process where the population means are indeed all equal. 
 Arbitrarily, let's start with $G = 4$ groups and set all of the means equal to zero:
 
 ```{r}
@@ -404,7 +420,7 @@ mean(p_vals$ANOVA < 0.05)
 ```
 
 We get a rejection rate that is much larger than $\alpha = .05$.
-We have learned that the ANOVA F-test does not adequately control Type-I error under this set of conditions.
+We have learned that the ANOVA F-test does not adequately control Type I error under this set of conditions.
 
 ```{r}
 mean(p_vals$Welch < 0.05)
@@ -442,7 +458,7 @@ Table 1 from @brown1974SmallSampleBehavior reported rejection rates for $\alpha 
 
 ### Compare results 
 
-Try simulating the Type-I error rates for the parameter values in the first two rows of Table 1 of the original paper. Use 10,000 replications. How do your results compare to the report results?
+Try simulating the Type I error rates for the parameter values in the first two rows of Table 1 of the original paper. Use 10,000 replications. How do your results compare to the report results?
 
 :::
 
@@ -465,7 +481,7 @@ pow <- tribble( ~Variances, ~ Means, ~ `Brown's F`, ~ `B & F's F*`, ~`Welch's W`
                 )
 
 pow %>%
-  tt() %>%
+  tt(escape = TRUE) %>%
   format_tt(replace = "-") %>%
   style_tt(j = 3:5, align = "r")
 
@@ -521,7 +537,7 @@ sres <-
 
 The `onewaytests` package in R includes functions for calculating Brown and Forsythe's $F^*$ test and James' test for differences in population means.
 Modify the data analysis function `ANOVA_Welch_F` (or, better yet, `ANOVA_Welch_F_long` from @exr-BF-wide-long) to also include results from these hypothesis tests.
-Re-run the simulation to estimate the type-I error rate of all four tests under Scenarios A and B of @tbl-BF-Scenarios.
+Re-run the simulation to estimate the Type I error rate of all four tests under Scenarios A and B of @tbl-BF-Scenarios.
 
 :::
 
