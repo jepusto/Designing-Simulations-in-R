@@ -1138,7 +1138,7 @@ normal distribution:
 \end{Shaded}
 
 \begin{verbatim}
-[1] -0.1844273 -0.9278009  0.1409381
+[1] -0.4323720 -0.1585178  0.2882908
 \end{verbatim}
 
 Each time the function is called, it returns a different set of numbers:
@@ -1150,7 +1150,7 @@ Each time the function is called, it returns a different set of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-[1] -0.5085935 -0.7030726  0.6107462
+[1] -0.3376516 -0.9736805  0.2961668
 \end{verbatim}
 
 The \texttt{rnorm()} function also has further input arguments that let
@@ -1164,7 +1164,7 @@ from which numbers are drawn:
 \end{Shaded}
 
 \begin{verbatim}
-[1]  9.873683 10.268131 10.226348
+[1]  9.599565  9.307078 10.572342
 \end{verbatim}
 
 In writing code for simulations, we will make extensive use of this
@@ -1235,7 +1235,7 @@ like:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 4.116538e-76
+[1] 6.836607e-71
 \end{verbatim}
 
 \begin{Shaded}
@@ -1245,7 +1245,7 @@ like:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.1844009
+[1] 0.00546076
 \end{verbatim}
 
 \begin{Shaded}
@@ -1255,7 +1255,7 @@ like:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 2.228645e-06
+[1] 3.977012e-05
 \end{verbatim}
 
 In each case, the output of the function is a p-value from a simulated
@@ -2422,13 +2422,15 @@ tasks involved in writing a simulation.
 In this chapter, we outline the component structure of a methodological
 simulation study, highlighting the four steps involved in a simulation
 of a single scenario and the three additional steps involved in
-multifactor simulations. We then describe a strategy for implementing
-simulations that mirrors the same component structure, where each step
-in the simulation is represented by a separate function or object. We
-call this strategy \textbf{\emph{tidy, modular simulation}}. Finally, we
-show how the tidy, modular simulation strategy informs the structure and
-organization of the code itself by walking through basic code skeletons
-(cf. Section~\ref{sec-function-skeletons}) for each of the steps.
+simulations that examine multiple scenarios (such as multiple sample
+sizes or multiple values for the strength of an effect). We then
+describe a strategy for implementing simulations that mirrors the same
+component structure, where each step in the simulation is represented by
+a separate function or object. We call this strategy \textbf{\emph{tidy,
+modular simulation}}. Finally, we show how the tidy, modular simulation
+strategy informs the structure and organization of the code itself by
+walking through basic code skeletons (cf.
+Section~\ref{sec-function-skeletons}) for each of the steps.
 
 \section{General structure of a
 simulation}\label{general-structure-of-a-simulation}
@@ -2480,8 +2482,8 @@ design. \\
 \end{longtable}
 
 In the simple \(t\)-test example presented in
-Chapter~\ref{sec-t-test-simulation}, we put each of these steps into
-action with R code:
+Chapter~\ref{sec-t-test-simulation}, we put each of the first four steps
+into action with R code:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
@@ -2529,6 +2531,24 @@ for each of the conditions and store all the results for further
 analysis. Finally, we will need to find ways to synthesize or make sense
 of the main patterns in the results across all of the conditions in the
 design.
+
+In the simple \(t\)-test example from
+Chapter~\ref{sec-t-test-simulation}, we actually put these last three
+steps into action too:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{4}
+\tightlist
+\item
+  We specified a range of different sample sizes to examine;
+\item
+  We used \texttt{map\_dbl()} to execute run the simulation for each
+  sample size; and
+\item
+  We made a graph to show how confidence interval coverage improved for
+  larger sample sizes.
+\end{enumerate}
 
 Just as with the first four steps, it is useful to recognize these
 further steps as distinct from one another, each involving its own set
@@ -2604,7 +2624,10 @@ skills and tools to examine simulation output as long as it is in
 tabular form. Many of the data processing and data analysis tools
 available in R work with---or even require---rectangular datasets. Thus,
 using rectangular datasets makes it easier to inspect, summarize, and
-visualize the output.
+visualize the output. A further benefit of always working with
+rectangular datasets is more conceptual, in that doing so forces you to
+think carefully about what pieces of information are needed and how to
+structure the output from any single step.
 
 \section{Skeleton of a simulation
 study}\label{skeleton-of-a-simulation-study}
@@ -2673,9 +2696,9 @@ for designing each component.
 Besides illustrating the skeletal framework of a simulation, readers
 might find it useful to use it as a template from which to start writing
 their own code. The \texttt{simhelpers}
-package\index{package!simhelpers} includes the function
-\texttt{create\_skeleton()},\index{create\_skeleton()} which will open a
-new R script that contains a template similar to the above:
+package\index{package!simhelpers} \citep{R-simhelpers} includes the
+function \texttt{create\_skeleton()},\index{create\_skeleton()} which
+will open a new R script that contains a template similar to the above:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -2897,18 +2920,20 @@ across a range of contexts. If we choose conditions in a structured and
 thoughtful manner, we will be able to examine broad trends and
 potentially make more general claims about the behaviors of the
 data-analysis procedures under investigation. Thus, it is helpful to
-think of simulations as akin to a designed experiment: in seeking to
+think of a simulation as akin to a designed experiment: in seeking to
 understand the properties of one or more procedures, we test them under
 a variety of different scenarios to see how they perform, then seek to
 identify more general patterns that hold beyond the specific scenarios
 examined. This is the heart of simulation for methodological evaluation.
 
-When we combine the elements in this chapter we can build a core
-building block of a single simulation scenario. In particular, we will
-take the code developed for simulating a single context and bundle it
-into a function that can be evaluated for any and all scenarios of
-interest. We can then use this element as a core element for more
-complex simulations and explorations.
+Following the principles of tidy simulation, we will end up with a
+collection of functions that comprise the core building blocks for a
+simulation of a single scenario. With solid building blocks, it becomes
+possible to extend a simulation from a single scenario to look at many
+different scenarios. In particular, we will take the code developed for
+simulating a single context and bundle it into a function that can be
+evaluated for any and all scenarios of interest. This bundled function
+becomes the basis for more complex simulations and explorations.
 
 Simulation studies often follow a full factorial design, in which each
 level of a factor (something we vary, such as sample size, true
@@ -2916,12 +2941,10 @@ treatment effect, or residual variance) is crossed with every other
 level. The experimental design then consists of sets of parameter values
 (including design parameters, such as sample sizes), and these too can
 be represented in an object, distinct from the other components of the
-simulation.
-
-We will discuss multiple-scenario simulations in Part III (starting with
-Chapter~\ref{sec-simulating-multiple-scenarios}). Before that, we, in
-the following chapters, more fully develop the core concepts and
-techniques involved in simulating a single context.
+simulation. We will discuss multiple-scenario simulations in Part III
+(starting with Chapter~\ref{sec-simulating-multiple-scenarios}). Before
+that, in the next several chapters, we will more fully develop the core
+concepts and techniques involved in simulating a single context.
 
 \section*{Exercises}\label{exercises-2}
 \addcontentsline{toc}{section}{Exercises}
@@ -2954,26 +2977,33 @@ programming a simulation, we reconstruct the simulations from
 as a recurring example in some of the following chapters.
 
 \citet{brown1974SmallSampleBehavior} studied methods for null hypothesis
-testing in studies that measure a characteristic \(X\) on samples from
-each of several groups. They consider a population consisting of \(G\)
-separate groups, with population means \(\mu_1,...,\mu_G\) and
-population variances \(\sigma_1^2,...,\sigma_G^2\) for the
-characteristic \(X\). A researcher obtains samples of size
-\(n_1,...,n_G\) from each of the groups and takes measurements of the
-characteristic for each sampled unit. Let \(x_{ig}\) denote the
-measurement from unit \(i\) in group \(g\), for \(i = 1,...,n_g\) for
-each \(j = 1,..., G\). The researcher's goal is to use the sample data
-to test the hypothesis that the population means are all equal \[
-H_0: \mu_1 = \mu_2 = \cdots = \mu_G.
-\]
-
-If the population \emph{variances} were all equal (so
-\(\sigma_1^2 = \sigma_2^2 = \cdots = \sigma_G^2\)), we could use a
-conventional one-way analysis of variance (ANOVA) to conduct this test.
-However, one-way ANOVA might not work well if the variances are not
-equal. The question is then: what are best practices for testing the
-null of equal group means, allowing for the possibility that variances
-could differ across groups?
+testing in studies that measure some variable on samples from each of
+several groups. To be more concrete, such tests might be used in a study
+examining differences between students from different college majors on
+a personality trait such as extroversion. Brown and Forsythe consider a
+population consisting of \(G\) separate groups, with population means
+\(\mu_1,...,\mu_G\) and population variances
+\(\sigma_1^2,...,\sigma_G^2\) for a measured characteristic \(X\). In
+our example, \(X\) would be a measure of extroversion, we might have
+\(G = 10\) different college majors, and \(\mu_g\) would be the average
+level of extroversion among all students from major \(g\). A researcher
+obtains samples of size \(n_1,...,n_G\) from each of the groups and
+takes measurements of the characteristic for each sampled unit. Let
+\(x_{ig}\) denote the measurement from unit \(i\) in group \(g\), for
+\(i = 1,...,n_g\) for each \(j = 1,..., G.\) The researcher's goal is to
+use the sample data to test the hypothesis that the population means are
+all equal \[
+H_0: \mu_1 = \mu_2 = \cdots = \mu_G
+\] (e.g., all college majors attract students with the same average
+level of extroversion). If the population \emph{variances} were all
+equal (so \(\sigma_1^2 = \sigma_2^2 = \cdots = \sigma_G^2\)), we could
+use a conventional one-way analysis of variance (ANOVA) to conduct this
+test. However, one-way ANOVA might not work well if the variances are
+not equal (e.g., if some majors attract students with a broader
+distribution of personality traits while other majors tend to attract
+students with a narrower range of traits). The question is then: what
+are best practices for testing the null of equal group means, allowing
+for the possibility that variances could differ across groups?
 
 To tackle this question, Brown and Forsythe evaluated two different
 hypothesis testing procedures, developed by
@@ -3041,12 +3071,12 @@ T & 10 & 20,20,20,20,20,20,20,20,20,20 & 1,1,1.5,1.5,2,2,2.5,2.5,3,3 \\
 \end{table}%
 
 When evaluating hypothesis testing procedures, there are two main
-performance metrics of interest: type-I error rate and power. The type-I
+performance metrics of interest: Type I error rate and power. The Type I
 error rate is the rate at which a test rejects the null hypothesis when
 the null hypothesis is actually true. To apply a hypothesis testing
-procedure, one has to specify a desired, or nominal, type-I error rate,
+procedure, one has to specify a desired, or nominal, Type I error rate,
 often denoted as the \(\alpha\)-level. For a specified \(\alpha\), a
-valid or well-calibrated test should have an actual type-I error rate
+valid or well-calibrated test should have an actual Type I error rate
 less than or equal to the nominal level, and ideally should be very
 close to nominal. Power is how often a test correctly rejects the null
 when it is indeed false. It is a measure of how sensitive a method is to
@@ -3054,7 +3084,7 @@ violations of the null.
 
 Brown and Forsythe estimated error rates and power for nominal
 \(\alpha\)-levels of 1\%, 5\%, and 10\%. Table 1 of their paper reports
-the simulation results for type-I error (labeled as ``size''). Our
+the simulation results for Type I error (labeled as ``size''). Our
 Table~\ref{tbl-BF-table1} reports some of their results with respect to
 Type I error\index{performance measures!Type I error}. For a
 well-calibrated hypothesis testing method, the reported numbers should
@@ -3116,7 +3146,7 @@ cell{2-13}{7}={}{halign=r},
 cell{2-13}{8}={}{halign=r},
 cell{2-13}{9}={}{halign=r},
 }                     %% tabularray inner close
-& ANOVA F test &  &  & B & F's F* test &  &  & Welch's test &  &  & James' test &  &  \\
+& ANOVA F test &  &  & B \& F's F* test &  &  & Welch's test &  &  & James' test &  &  \\
 Scenario & 10\% & 5\% & 1\% & 10\% & 5\% & 1\% & 10\% & 5\% & 1\% & 10\% & 5\% & 1\% \\
 A & 10.2 & 4.9 & 0.9 & 7.8 & 3.4 & 0.5 & 9.6 & 4.5 & 0.8 & 13.3 & 7.9 & 2.4 \\
 B & 12.0 & 6.7 & 1.7 & 8.9 & 4.1 & 0.7 & 10.3 & 4.7 & 0.8 & 13.8 & 8.1 & 2.7 \\
@@ -3136,13 +3166,13 @@ K & 9.6 & 4.9 & 1.0 & 7.3 & 3.4 & 0.4 & 11.4 & 6.1 & 1.4 & 14.7 & 9.5 & 3.8 \\
 \end{table}%
 
 To replicate the Brown and Forsythe simulation, we will first write
-functions to generate data for a specified scenario and evaluate data of
-a given structure. We will then use these functions to evaluate the
-hypothesis testing procedures in a specific scenario with a particular
-set of parameters (e.g., sample sizes, number of groups, and so forth).
-We will then scale up to execute the simulations for a range of
-scenarios that vary the parameters of the data-generating model, just as
-reported in Brown and Forsythe's paper.
+functions to generate data for a specified scenario and evaluate the
+generated datasets. We will then use these functions to evaluate the
+performance of hypothesis testing procedures in a specific scenario with
+a particular set of parameters (e.g., sample sizes, number of groups,
+and so forth). Finally, we will scale up to execute the simulations for
+a range of scenarios that vary the parameters of the data-generating
+model, just as reported in Brown and Forsythe's paper.
 
 \section{The data-generating model}\label{sec-case-anova-DGP}
 
@@ -3200,7 +3230,7 @@ group memberships and the measured characteristic:
 \begin{verbatim}
 tibble [15 x 2] (S3: tbl_df/tbl/data.frame)
  $ group: Factor w/ 4 levels "1","2","3","4": 1 1 1 2 2 2 2 2 2 3 ...
- $ x    : num [1:15] 2.161 0.992 2.305 1.265 4.006 ...
+ $ x    : num [1:15] -0.702 1.626 1.928 1.776 0.611 ...
 \end{verbatim}
 
 We have followed the strategy of first constructing a dataset with
@@ -3276,7 +3306,7 @@ same parameters as before, we can do:
 \begin{verbatim}
 tibble [15 x 2] (S3: tbl_df/tbl/data.frame)
  $ group: Factor w/ 4 levels "1","2","3","4": 1 1 1 2 2 2 2 2 2 3 ...
- $ x    : num [1:15] 0.866 1.382 0.832 3.16 0.646 ...
+ $ x    : num [1:15] 1.7147 -0.0701 2.5972 0.5845 0.2348 ...
 \end{verbatim}
 
 To generate one with population means of zero in all the groups, but the
@@ -3297,7 +3327,7 @@ same group variances and sample sizes as before, we can do:
 \begin{verbatim}
 tibble [15 x 2] (S3: tbl_df/tbl/data.frame)
  $ group: Factor w/ 4 levels "1","2","3","4": 1 1 1 2 2 2 2 2 2 3 ...
- $ x    : num [1:15] 0.866 1.382 0.832 3.16 0.646 ...
+ $ x    : num [1:15] 1.7147 -0.0701 2.5972 0.5845 0.2348 ...
 \end{verbatim}
 
 Following the principles of tidy, modular simulation, we have written a
@@ -3313,18 +3343,19 @@ which is not something that happens when analyzing real data.
 
 In the above, we built some sample code, and then bundled it into a
 function by literally cutting and pasting the initial work we did into a
-function skeleton. In the process, we shifted from having variables in
-our workspace with different names to using those variable names as
+function skeleton. In the process, we shifted from working with
+variables in our workspace to using the names of those variables as
 parameters in our function call.
 
 Developing code in this way is not without hazards. In particular, after
 we have created our function, our workspace is left with a variable
 \texttt{mu} in it and our function also has a parameter named
-\texttt{mu}. Inside the function, R will use the parameter \texttt{mu}
-first, but this is potentially confusing. Another potential source of
-confusion are lines such as \texttt{mu\ =\ mu}, which means ``set the
-function's parameter called \texttt{mu} to the variable called
-\texttt{mu}.'' These are different things (with the same name).
+\texttt{mu}. These are different things (with the same name). Inside the
+function, R will use the parameter \texttt{mu} first, so long as it is
+included among the function's arguments, but it still makes for
+confusing code. Another potential source of confusion are lines such as
+\texttt{mu\ =\ mu}, which means ``set the function's parameter called
+\texttt{mu} to the variable called \texttt{mu}.''
 
 Once you have built a function, one way to check that it is working
 properly is to comment out the initial code (or delete it), clear out
@@ -3333,7 +3364,10 @@ function. If things still work, then you can be somewhat confident that
 you have successfully bundled your code into the function. Once you
 bundle your code, you can also do a search and replace to change the
 variable names inside your function to something more generic, to better
-clarify the distinction betwen object names and argument names.
+clarify the distinction between object names and argument names. In
+Section~\ref{sec-checking-DGPs}, we will discuss a variety of other
+approaches to checking that a function like
+\texttt{generate\_ANOVA\_data()} works as intended.
 
 \section{The hypothesis testing
 procedures}\label{sec-ANOVA-hypothesis-testing-function}
@@ -3362,8 +3396,8 @@ will calculate this test automatically:
     One-way analysis of means
 
 data:  x and group
-F = 15.653, num df = 3, denom df = 11, p-value =
-0.0002773
+F = 9.3641, num df = 3, denom df = 11, p-value =
+0.002304
 \end{verbatim}
 
 We can use the same function to calculate Welch's test by setting
@@ -3382,12 +3416,12 @@ We can use the same function to calculate Welch's test by setting
     variances)
 
 data:  x and group
-F = 22.287, num df = 3.0000, denom df = 3.1763,
-p-value = 0.01254
+F = 14.417, num df = 3.0000, denom df = 3.2374,
+p-value = 0.02281
 \end{verbatim}
 
 The main results we need here are the \(p\)-values of the tests, which
-will let us assess Type-I error and power for a given nominal
+will let us assess Type I error and power for a given nominal
 \(\alpha\)-level. The following function takes simulated data as input
 and returns as output the \(p\)-values from the one-way ANOVA test and
 Welch test:
@@ -3416,16 +3450,19 @@ Welch test:
 
 \begin{verbatim}
 # A tibble: 1 x 2
-     ANOVA  Welch
-     <dbl>  <dbl>
-1 0.000277 0.0125
+    ANOVA  Welch
+    <dbl>  <dbl>
+1 0.00230 0.0228
 \end{verbatim}
 
 Following our tidy, modular simulation principles, this function returns
 a small dataset with the p-values from both tests. Eventually, we might
 want to use this function on some real data. Our estimation function
 does not care if the data are simulated or not; we call the input
-\texttt{data} rather than \texttt{sim\_data} to reflect this.
+\texttt{data} rather than \texttt{sim\_data} to reflect this. Later, in
+Section~\ref{sec-validating-estimation-function}, we will look at
+strategies for checking that the function we have written is working
+correctly.
 
 As an alternative to this function, we could instead write code to
 implement the ANOVA and Welch tests ourselves. This has some potential
@@ -3451,21 +3488,25 @@ single function:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{one\_run }\OtherTok{=} \ControlFlowTok{function}\NormalTok{( mu, sigma\_sq, sample\_size ) \{}
-\NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{generate\_ANOVA\_data}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu,}
-                                   \AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
-                                   \AttributeTok{sample\_size =}\NormalTok{ sample\_size )}
+\NormalTok{  sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{generate\_ANOVA\_data}\NormalTok{( }
+    \AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq,}
+    \AttributeTok{sample\_size =}\NormalTok{ sample\_size }
+\NormalTok{  )}
   \FunctionTok{ANOVA\_Welch\_F}\NormalTok{(sim\_data)}
 \NormalTok{\}}
 
-\FunctionTok{one\_run}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }\AttributeTok{sample\_size =}\NormalTok{ sample\_size )}
+\FunctionTok{one\_run}\NormalTok{( }
+  \AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
+  \AttributeTok{sample\_size =}\NormalTok{ sample\_size }
+\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
 # A tibble: 1 x 2
-   ANOVA  Welch
-   <dbl>  <dbl>
-1 0.0992 0.0941
+        ANOVA   Welch
+        <dbl>   <dbl>
+1 0.000000659 0.00249
 \end{verbatim}
 
 This function implements a single simulation trial by generating
@@ -3483,7 +3524,10 @@ single dataset:\index{package!simhelpers}\index{repeat\_and\_stack()}
 \FunctionTok{library}\NormalTok{(simhelpers)}
 
 \NormalTok{sim\_data }\OtherTok{\textless{}{-}} \FunctionTok{repeat\_and\_stack}\NormalTok{(}\DecValTok{4}\NormalTok{, }
-  \FunctionTok{one\_run}\NormalTok{( }\AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }\AttributeTok{sample\_size =}\NormalTok{ sample\_size)}
+  \FunctionTok{one\_run}\NormalTok{( }
+    \AttributeTok{mu =}\NormalTok{ mu, }\AttributeTok{sigma\_sq =}\NormalTok{ sigma\_sq, }
+    \AttributeTok{sample\_size =}\NormalTok{ sample\_size}
+\NormalTok{  )}
 \NormalTok{)}
 \NormalTok{sim\_data}
 \end{Highlighting}
@@ -3491,12 +3535,12 @@ single dataset:\index{package!simhelpers}\index{repeat\_and\_stack()}
 
 \begin{verbatim}
 # A tibble: 4 x 2
-     ANOVA   Welch
-     <dbl>   <dbl>
-1 0.000307 0.00483
-2 0.000204 0.00616
-3 0.00458  0.0195 
-4 0.0700   0.136  
+      ANOVA   Welch
+      <dbl>   <dbl>
+1 0.00392   0.0468 
+2 0.000371  0.0287 
+3 0.0000203 0.00666
+4 0.00118   0.0330 
 \end{verbatim}
 
 Voila! We have simulated \(p\)-values!
@@ -3505,10 +3549,10 @@ Voila! We have simulated \(p\)-values!
 performance}\label{summarizing-test-performance}
 
 We now have all the pieces in place to reproduce the results from Brown
-and Forsythe (1974). We first focus on calculating the actual type-I
+and Forsythe (1974). We first focus on calculating the actual Type I
 error rate of these tests---that is, the proportion of the time that
 they reject the null hypothesis of equal means when that null is
-actually true---for an \(\alpha\)-level of .05. To evaluate the type-I
+actually true---for an \(\alpha\)-level of .05. To evaluate the Type I
 error rate, we need to simulate data from a process where the population
 means are indeed all equal. Arbitrarily, let's start with \(G = 4\)
 groups and set all of the means equal to zero:
@@ -3574,7 +3618,7 @@ This is equivalent to taking the mean of the logical conditions:
 \end{verbatim}
 
 We get a rejection rate that is much larger than \(\alpha = .05\). We
-have learned that the ANOVA F-test does not adequately control Type-I
+have learned that the ANOVA F-test does not adequately control Type I
 error under this set of conditions.
 
 \begin{Shaded}
@@ -3638,7 +3682,7 @@ tests for all three \(\alpha\)-levels and compare to the table.
 \begin{exercise}[Compare
 results]\protect\hypertarget{exr-BF-compare-results}{}\label{exr-BF-compare-results}
 
-Try simulating the Type-I error rates for the parameter values in the
+Try simulating the Type I error rates for the parameter values in the
 first two rows of Table 1 of the original paper. Use 10,000
 replications. How do your results compare to the report results?
 
@@ -3666,7 +3710,7 @@ hline{1}={1-5}{solid, black, 0.08em},
 hline{6}={1-5}{solid, black, 0.08em},
 column{3-5}={}{halign=r},
 }                     %% tabularray inner close
-Variances & Means & Brown's F & B & F's F* & Welch's W \\
+Variances & Means & Brown's F & B \& F's F* & Welch's W \\
 1,1,1,1 & 0,0,0,0 & 4.9 & 5.1 & 5.0 \\
 & 1,0,0,0 & 68.6 & 67.6 & 65.0 \\
 3,2,2,1 & 0,0,0,0 & - & 6.2 & 5.5 \\
@@ -3704,10 +3748,10 @@ example. The resulting dataset would then look like the following:
 
 \begin{verbatim}
 # A tibble: 2 x 3
-  method Fstat pvalue
-  <chr>  <dbl>  <dbl>
-1 ANOVA   4.02 0.0371
-2 Welch   6.87 0.0559
+  method Fstat  pvalue
+  <chr>  <dbl>   <dbl>
+1 ANOVA  11.2  0.00113
+2 Welch   6.08 0.0816 
 \end{verbatim}
 
 Modify \texttt{ANOVA\_Welch\_F()} to return output in the long format,
@@ -3736,7 +3780,7 @@ Brown and Forsythe's \(F^*\) test and James' test for differences in
 population means. Modify the data analysis function
 \texttt{ANOVA\_Welch\_F} (or, better yet, \texttt{ANOVA\_Welch\_F\_long}
 from Exercise~\ref{exr-BF-wide-long}) to also include results from these
-hypothesis tests. Re-run the simulation to estimate the type-I error
+hypothesis tests. Re-run the simulation to estimate the Type I error
 rate of all four tests under Scenarios A and B of
 Table~\ref{tbl-BF-Scenarios}.
 
@@ -3808,13 +3852,15 @@ variance}\label{sec-ANOVA-example}
 
 We have already seen one example of a DGP in the ANOVA example from
 Chapter~\ref{sec-case-ANOVA}.\index{example!heteroskedastic ANOVA (Welch)}
-Here, we consider observations on some variable \(X\) drawn from a
-population consisting of \(G\) groups, where group \(g\) has population
-mean \(\mu_g\) and population variance \(\sigma_g^2\) for
-\(g = 1,...,G\). A simulated dataset consists of \(n_g\) observations
-from each group \(g = 1,...,G\), where \(X_{ig}\) is the measurement for
-observation \(i\) in group \(g\). The statistical model for these data
-can be written as follows: \[
+Here, we imagined a study investigating differences in extroversion
+among students who select different college majors. Formally, we
+consider observations on some variable \(X\) drawn from a population
+consisting of \(G\) groups, where group \(g\) has population mean
+\(\mu_g\) and population variance \(\sigma_g^2\) for \(g = 1,...,G\). A
+simulated dataset consists of \(n_g\) observations from each group
+\(g = 1,...,G\), where \(X_{ig}\) is the measurement for observation
+\(i\) in group \(g\). The statistical model for these data can be
+written as follows: \[
 X_{ig} = \mu_g + \epsilon_{ig}, \quad \mbox{with} \quad \epsilon_{ig} \sim N( 0, \sigma^2_g )
 \] for \(i = 1,...,n_g\) and \(g = 1,...,G\). Alternately, we could
 write the model as \[
@@ -3826,15 +3872,25 @@ model}\label{sec-BVPois-example}
 
 \index{example!bivariate Poisson}
 
-As a second example, suppose that we want to understand how the usual
-Pearson sample correlation coefficient behaves with non-normal data and
-also to investigate how the Pearson correlation relates to Spearman's
-rank correlation coefficient. To look into such questions, one DGP we
-might entertain is a bivariate Poisson model, which is a distribution
-for a pair of counts, \(C_1,C_2\), where each count follows a Poisson
-distribution and where the pair of counts may be correlated. We will
-denote the expected values of the counts as \(\mu_1\) and \(\mu_2\) and
-the Pearson correlation between the counts as \(\rho\).
+As a second example, consider an analysis of scores of basketball games
+in an amateur league, recorded as a pair of numbers: final score of the
+visiting team, final score of the visiting team. We might be interested
+in understanding the correlation between home-team and visiting-team
+scores, but should we estimate this correlation with the usual Pearson
+correlation coefficient? Or should we instead use Spearman's rank
+correlation? The scores are integer-valued and appear to be non-normally
+distributed, and we are unsure of how well a conventional confidence
+interval for Pearson's correlation works with non-normal distributions.
+
+\citet{Karlis2003analysis} discuss modeling sports scores with a
+bivariate Poisson distribution, which is a distribution for a pair of
+counts, \(C_1,C_2\), where each count follows a Poisson distribution and
+where the pair of counts may be correlated. We denote the expected
+values of the counts as \(\mu_1\) and \(\mu_2\) and the Pearson
+correlation between the counts as \(\rho\). In our example, \(\mu_1\)
+and \$\mu\_2 would represent the average final scores for visiting teams
+and home teams, respectively, and \(\rho\) would represent the
+correlation between the scores.
 
 To simulate a dataset based on this model, we would first need to choose
 how many observations to generate. Call this sample size \(N\). One way
@@ -4157,11 +4213,11 @@ Here we generate 5 observations from the bivariate Poisson with
 
 \begin{verbatim}
   C1 C2
-1  1  2
-2  4  4
-3  3  3
-4  2  4
-5  6  4
+1  6  6
+2  7  7
+3  6  3
+4  3  5
+5  2  3
 \end{verbatim}
 
 \section{Plot the artificial data}\label{sec-DGP-plotting}
@@ -4215,8 +4271,7 @@ transformations of the dataset, such as a histogram of the differences
 \(C_2 - C_1\) or a scatterplot of the rank transformations of \(C_1\)
 and \(C_2\).
 
-\section{Check the data-generating
-function}\label{check-the-data-generating-function}
+\section{Check the data-generating function}\label{sec-checking-DGPs}
 
 An important part of programming in R---especially when writing custom
 functions---is finding ways to test and check the correctness of your
@@ -5151,7 +5206,7 @@ parameter.
   Check \texttt{df} equal to 500, 5, 3, and 2.
 \item
   Once you are satisfied that you have a correct DGP function, re-run
-  the Type-I error rate calculations from
+  the Type I error rate calculations from
   Exercise~\ref{exr-BF-other-alphas} and
   Exercise~\ref{exr-BF-compare-results} using a \(t\)-distribution with
   5 degrees of freedom. Do the results change substantially?
@@ -7639,7 +7694,7 @@ functions in turn:
 
 \begin{verbatim}
           r         z      CI_lo     CI_hi
-1 0.3901632 0.4119926 0.03478328 0.6579487
+1 0.2192753 0.2228947 -0.1530875 0.5371136
 \end{verbatim}
 
 To execute a simulation with these components, we need to repeat this
@@ -7665,12 +7720,12 @@ use it to generate five replications of our correlation coefficient:
 \end{Shaded}
 
 \begin{verbatim}
-  rep         r         z       CI_lo     CI_hi
-1   1 0.4286189 0.4582035  0.08083152 0.6833642
-2   2 0.6950947 0.8577463  0.44668482 0.8440067
-3   3 0.1327338 0.1335217 -0.23896258 0.4705036
-4   4 0.4106075 0.4363417  0.05907758 0.6715368
-5   5 0.2519424 0.2574858 -0.11914086 0.5612671
+  rep         r         z        CI_lo     CI_hi
+1   1 0.3673154 0.3853162  0.008120807 0.6425539
+2   2 0.1809334 0.1829475 -0.191840899 0.5080834
+3   3 0.4963440 0.5444433  0.165705903 0.7266716
+4   4 0.4732218 0.5142137  0.136167355 0.7120889
+5   5 0.4355183 0.4666866  0.089253247 0.6878597
 \end{verbatim}
 
 The first argument specifies the number of times to repeat the
@@ -7723,8 +7778,8 @@ Calling the function produces a nicely formatted set of results:
 \end{Shaded}
 
 \begin{verbatim}
-           r         z      CI_lo     CI_hi
-1 0.01707204 0.0170737 -0.3453211 0.3750346
+          r         z     CI_lo     CI_hi
+1 0.5385157 0.6020626 0.2211523 0.7527445
 \end{verbatim}
 
 We can then evaluate the function over and over using
@@ -7741,12 +7796,12 @@ We can then evaluate the function over and over using
 \end{Shaded}
 
 \begin{verbatim}
-  rep          r          z      CI_lo     CI_hi
-1   1 0.56646996 0.64230942  0.2590727 0.7696647
-2   2 0.57911738 0.66113369  0.2765463 0.7772273
-3   3 0.09451446 0.09479741 -0.2751229 0.4398079
-4   4 0.07516040 0.07530242 -0.2930439 0.4239499
-5   5 0.50606362 0.55742396  0.1783023 0.7327403
+  rep         r         z      CI_lo     CI_hi
+1   1 0.5420610 0.6070696  0.2259091 0.7549062
+2   2 0.1095163 0.1099573 -0.2610528 0.4519535
+3   3 0.6857158 0.8398239  0.4322242 0.8387727
+4   4 0.4742884 0.5155889  0.1375169 0.7127662
+5   5 0.5897938 0.6773499  0.2914541 0.7835671
 \end{verbatim}
 
 This technique of wrapping the data-generating function and estimation
@@ -7804,9 +7859,9 @@ call the function, we get a nicely structured table of results:
 # A tibble: 3 x 4
   method ATE_hat SE_hat p_value
   <chr>    <dbl>  <dbl>   <dbl>
-1 MLM      0.350  0.178  0.0642
-2 LR       0.368  0.204  0.0893
-3 Agg      0.348  0.175  0.0627
+1 MLM      0.402  0.244   0.116
+2 LR       0.376  0.243   0.141
+3 Agg      0.406  0.245   0.114
 \end{verbatim}
 
 We organize the output in a tibble to make it easier to do subsequent
@@ -7984,11 +8039,11 @@ function as so:
 \end{Shaded}
 
 \begin{verbatim}
-  rep         r         z       CI_lo     CI_hi
-1   1 0.3657932 0.3835578 0.006362461 0.6415203
-2   2 0.4142576 0.4407399 0.063459284 0.6739445
-3   3 0.3762194 0.3956483 0.018450999 0.6485799
-4   4 0.4620851 0.4999593 0.122151001 0.7049909
+  rep         r         z      CI_lo     CI_hi
+1   1 0.5478523 0.6153074 0.23371179 0.7584274
+2   2 0.5467389 0.6137178 0.23220847 0.7577514
+3   3 0.5697772 0.6471928 0.26362259 0.7716478
+4   4 0.4099432 0.4355429 0.05828155 0.6710980
 \end{verbatim}
 
 To create this simulation function, \texttt{bundle\_sim()} examined
@@ -8076,9 +8131,9 @@ variables:
 \end{Shaded}
 
 \begin{verbatim}
-         [,1]      [,2]      [,3]     [,4]
-c1 0.08928319 0.9188885 1.8795633 5.858220
-c2 4.27153094 0.2331429 0.2110111 1.149022
+        [,1]     [,2]     [,3]     [,4]
+c1 2.6933093 2.113329 2.182629 6.153663
+c2 0.5487747 1.054941 5.609391 1.119519
 \end{verbatim}
 
 If you run the same code as above, you will get different results from
@@ -9387,7 +9442,7 @@ parameter \(\theta = 0\). The rejection rate is then
 
 When data are simulated from a process in which the null hypothesis is
 true (i.e., \(\theta\) really does equal 0), then the rejection rate is
-equivalent to the Type-I error rate of the test. When the data are
+equivalent to the Type I error rate of the test. When the data are
 simulated from a process in which the null hypothesis is violated
 (\(\theta \neq 0\)), then the rejection rate is equivalent to the power
 of the test.
@@ -9401,7 +9456,7 @@ calculating
 r_\alpha(\theta) = \frac{1}{R} \sum_{r=1}^R I(P_r < \alpha).
 }\end{equation} It may be of interest to evaluate the performance of the
 test at several different \(\alpha\) levels. For instance,
-\citet{brown1974SmallSampleBehavior} evaluated the Type-I error rates
+\citet{brown1974SmallSampleBehavior} evaluated the Type I error rates
 and power of their tests using \(\alpha = .01\), \(.05\), and \(.10\).
 Recording the \(p\)-value of the test makes it easy to estimate
 rejection rates for multiple \(\alpha\) levels, since we simply apply
@@ -9413,14 +9468,14 @@ follow a standard uniform distribution with a cumulative distribution
 falling along the \(45^\circ\) line.
 
 Methodologists hold a variety of perspectives on how close the actual
-Type-I error rate should be in order to qualify as suitable for use in
+Type I error rate should be in order to qualify as suitable for use in
 practice. Following a strict statistical definition, a hypothesis
 testing procedure is said to be \textbf{level-\(\alpha\)} if its actual
-Type-I error rate is \emph{always} less than or equal to \(\alpha\), for
+Type I error rate is \emph{always} less than or equal to \(\alpha\), for
 any specific conditions of a data-generating process. Among a collection
 of level-\(\alpha\) testing procedures, we would prefer the one with
 highest power. If looking only at null rejection rates, then the test
-with Type-I error closest to \(\alpha\) would usually be preferred.
+with Type I error closest to \(\alpha\) would usually be preferred.
 
 \subsection{Inference in the cluster RCT
 simulation}\label{inference-in-the-cluster-rct-simulation}
@@ -9497,13 +9552,13 @@ MLM & 0.017 & 0.065 \\
 
 The aggregation and multi-level modeling approaches both seem to reject
 a bit below 0.05, at 0.04, while LR is here at 0.10. The test for the
-linear regression estimator has an elevated Type-I error, probably
+linear regression estimator has an elevated Type I error, probably
 driven by the upward bias of the point estimator used in constructing
 the test (see the bias column). The elevated rejection rate due to bias
 might then be part of the reason that the linear regression had higher
 power than the other procedures in our power example, above. If so, it
 is not entirely fair to compare the power of the three testing
-procedures, because one of them has Type-I error in excess of the
+procedures, because one of them has Type I error in excess of the
 desired level.
 
 As discussed above, linear regression targets the person-level average
@@ -9513,7 +9568,7 @@ cluster-average effect is zero, because we have specified a non-zero
 impact heterogeneity parameter (\texttt{size\_coef=0.75}) along with
 positive school size variation (\texttt{alpha\ =\ 0.75}), so that the
 school-specific treatment effects vary around 0. To see if this is why
-the linear regression test has an inflated Type-I error rate, we could
+the linear regression test has an inflated Type I error rate, we could
 re-run the simulation using settings where both the school-level and
 person-level average effects are truly zero by setting
 \texttt{size\_coef\ =\ 0}.
@@ -9896,15 +9951,17 @@ conventional formulas.\footnote{To be precise, the formulas that we give
   two, but we avoid this notation for simplicity.} When we run a
 simulation, we end up with \(R\) replicates of a point estimator \(T\)
 of a target parameter \(\theta\). A performance measure of \(T\) (e.g.,
-bias, RMSE, or SE) is a summary across these \(R\) replicates.
+bias, RMSE, or SE) is a summary across these \(R\) replicates,
+approximating what we would get if we did \(R=\infty\) replications.
 
-For example, the bias of \(T\) is \(\E(T - \theta)\), which is the
+For example, the true bias of \(T\) is \(\E(T - \theta)\), which is the
 expected value of \(T\) minus the true parameter value, and we estimate
 the bias as \(\bar{T} - \theta\). Each replicate of \(T - \theta\) is an
 \emph{estimate} of the expected value of \(T - \theta\), and, in this
 case, we have \(R\) independent draws of \(T - \theta\) and can use
-simple sampling theory to get the standard error for the population mean
-of them: \begin{equation}\protect\phantomsection\label{eq-MCSE-bias}{
+simple sampling theory to get the estimated standard error for the
+population mean of them:
+\begin{equation}\protect\phantomsection\label{eq-MCSE-bias}{
 MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}},
 }\end{equation} where \(S_T\) is the sample standard deviation of \(T\)
 across the \(R\) replications of the simulation process (noting that
@@ -9919,14 +9976,15 @@ sample of \(R\) performances, \(\bar{M}\). The standard error for
 average performance then follows along the same lines as
 Equation~\ref{eq-MCSE-bias}. For example, the Mean Square Error (the
 square of RMSE) is simply the average of \(M = (T-\theta)^2\) and the
-MCSE of the MSE is then
+estimated MCSE of the MSE is then
 \begin{equation}\protect\phantomsection\label{eq-MCSE-MSE}{ 
 MCSE( \widehat{MSE} ) = \sqrt{\frac{\Var(M)}{R}} = \sqrt{\frac{\Var\left((T-\theta)^2\right)}{R}}.
-}\end{equation} For quantifying the accuracy of an estimator, we have
-recommended using RMSE, or the square root of the MSE, as shown in
-Equation~\ref{eq-rmse-estimator}. To get the MCSE for RMSE, we can use a
-delta method approximation.\footnote{\citet{Oehlert1992note} provides a
-  friendly introduction to the delta method, or see
+}\end{equation} where \(\Var\left((T-\theta)^2\right)\) is the sampling
+variance of the \(R\) \(M=(T-\theta)^2\) values. For quantifying the
+accuracy of an estimator, we recommend using RMSE, or the square root of
+the MSE, as shown in Equation~\ref{eq-rmse-estimator}. To get the MCSE
+for the RMSE, we can use a delta method approximation.\footnote{\citet{Oehlert1992note}
+  provides a friendly introduction to the delta method, or see
   \citet{pustejovsky2018deltamethod}. The delta method approximation
   says (with some conditions), that if we assume
   \(X \sim N\left( \phi, \sigma_X^2 \right)\), then we can approximate
@@ -9936,39 +9994,76 @@ delta method approximation.\footnote{\citet{Oehlert1992note} provides a
   where \(g'(\phi)\) is the derivative of \(g(\cdot)\) evaluated at
   \(\phi\). In practice, \(\phi\) is an unknown parameter, but we can
   estimate the variance of \(g(X)\) by substituting \(X\) in place of
-  \(\phi\). Thus, an approximate estimator of the variance of \(g(X)\)
-  is \(g'(X)^2 \times \hat\sigma_X^2\), and an approximate SE for
-  \(g(X)\) is
+  \(\phi\). Thus, an approximation of the variance of \(g(X)\) is
+  \(g'(X)^2 \times \sigma_X^2\). If \(g(X)\) is an estimator, this means
+  an approximate SE for \(g(X)\) is
   \[ SE( g(X) ) \approx \left| g'(\mu_X) \right|  \times SE(X).\] To
-  find the MCSE of \(RMSE\), we apply the delta method approximation to
-  \(X = MSE\) with \(g(x) = \sqrt{x}\) and
-  \(g'(x) =\frac{1}{2\sqrt{x}}\).} In the case of the RMSE,
+  find the MCSE of \(RMSE\), then, simply apply this delta method
+  approximation to \(X = MSE\) with \(g(x) = \sqrt{x}\) and
+  \(g'(x) =\frac{1}{2\sqrt{x}}\).}:
 \begin{equation}\protect\phantomsection\label{eq-MCSE-RMSE}{
 MCSE( \widehat{RMSE} ) = \frac{1}{2 \times RMSE} \sqrt{\frac{Var((T-\theta)^2)}{R}}.
-}\end{equation} To actually approximate the MCSE, we plug in the
-estimated \(RMSE\) and the variance of the \(R\) values of
-\((T-\theta)^2\). The delta method approach can be applied to many other
+}\end{equation} The delta method approach can be applied to many other
 quantities of interest as well.
 
 The MCSE for the true standard error \(S_T\) of \(T\) does not directly
 follow the above pattern because the sampling variance \(S_T^2\) of
 \(T\) is estimated across all the replicates, rather than simply being
-an average of \(R\) independent estimates. Statistical theory gives the
-standard error of a variance estimator as
+an average of \(R\) independent estimates. Statistical theory gives an
+estimated standard error of a variance estimator as
 \begin{equation}\protect\phantomsection\label{eq-MCSE-var}{
 MCSE\left(\widehat{\Var}(T)\right) = MCSE\left(S^2_T\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}},
-}\end{equation} where \(k_T\) is the standardized kurtosis of \(T\):
+}\end{equation} where \(k_T\) is the sample standardized kurtosis of
+\(T\):
 \begin{equation}\protect\phantomsection\label{eq-skewness-kurtosis}{
 \begin{aligned}
 k_T &=  \frac{1}{S_T^4} \frac{1}{R}\sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
 \end{aligned}
-}\end{equation}
+}\end{equation} For a distribution, kurtosis would be
+\(\kappa_T = E[ (T-E[T])^4 ]/\sigma^4\). The kurtosis is a fourth moment
+(mean is first, variance is second, skew is third), and measures, in
+effect, the thickness of the tails of a distribution. The standardized
+kurtosis is a unitless quantity (note the scaling of \(1/\sigma^4\));
+for a normal distribution \(\kappa\) equals 3.
 
-With the MCSE of the variance, we can use the same delta method
-approximation as above to get the MCSE of the standard error:
+To get the MCSE of the standard error, use the delta method on the
+variance to get:
 \begin{equation}\protect\phantomsection\label{eq-MCSE-SE}{
 MCSE\left(S_T\right) \approx \frac{1}{2 S_T} MCSE( S^2_T ) = \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
 }\end{equation}
+
+\subsection{Connecting bias, RMSE, and SE}\label{sec-MCSE-for-points}
+
+\(S_T\) is the sample standard deviation of \(T\), which is, by
+definition, the true standard error of \(T\). The true MCSE of bias is
+of the form \(\sigma / \sqrt{R}\), where \(\sigma^2 = \Var(T)\) and thus
+\(\sigma = SE(T)\). The MCSE of the standard error is of the form
+\(c \sigma / \sqrt{R}\), where \(c = \sqrt{\kappa - 1}/2\) is a constant
+depending on the distribution of \(T\). For example, if \(T\) is
+normally distributed, \(\kappa = 3\) and
+\(c = 1/\sqrt{2} \approx 0.70\).
+
+For the RMSE, we have a true MCSE of \[
+MCSE( \widehat{RMSE} ) = \frac{\sqrt{Var((T-\theta)^2)}}{2 \sigma \sqrt{\sigma^2 + b^2}} \times \frac{\sigma}{\sqrt{R}} 
+\] where the ugly first term is again going to be a constant \(c\)
+depending on the distribution of \(T\) (here \(b\) is the bias,
+i.e.~\(E[T]-\theta\)). For example, if \(T\) is normal around
+\(\theta\), \(c\) collapses to \(1/\sqrt{2}\) (coinciding with the SE,
+since there is no bias). If \(T\) is normal but shifted by bias \(b\)
+that is equal to the standard error (this would be a very big bias), we
+get a constant of \(\sqrt{3}/2\). It turns out this constant can not be
+bigger than 1 unless \(T\) is substantially skewed (see exercises).
+
+Taking the totality of the above, a reasonable, usually conservative,
+rule of thumb is the MCSE for a typical performance estimate of a point
+estimator can be taken as \(\sigma / \sqrt{R}\) (the one for bias). This
+can be used to quickly get a sense of how precise a simulation will be.
+For example, the MCSE for \(R=1000\) is going to be about 3\% of the
+true variability of \(T\), \(\sigma\), for bias, SE, and RMSE. For
+\(R=100\), it is 10\%.
+
+\subsection{Relative performance
+measures}\label{relative-performance-measures}
 
 Section~\ref{sec-relative-performance} discussed circumstances where we
 might prefer to calculate performance measures in relative rather than
@@ -10434,9 +10529,9 @@ measures for three point estimators of the school-level average
 treatment effect in a cluster RCT. We next carry out the same
 calculations using the \texttt{calc\_absolute()} function from
 \texttt{simhelpers}, which also provides MCSEs. Examining the MCSEs is
-useful to ensure that 1000 replications of the simulation is suffiicent
-to provide reasonably precise estimates of the performance measures. We
-have:
+useful to ensure that our choice of 1000 replications of the simulation
+is sufficient to provide reasonably precise estimates of the performance
+measures. We have:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -10607,7 +10702,7 @@ results]\protect\hypertarget{exr-Brown-Forsythe-performance}{}\label{exr-Brown-F
   for the Brown and Forsythe
   simulations.\index{example!heteroskedastic ANOVA (Welch)}
 \item
-  Use your simulation driver to evaluate the Type-I error rate of the
+  Use your simulation driver to evaluate the Type I error rate of the
   ANOVA \(F\)-test, Welch's test, and the BFF* test for a scenario with
   four groups, sample sizes \(n_1 = 11\), \(n_2 = 16\), \(n_3 = 16\),
   \(n_4 = 21\), equal group means \(\mu_1 = \mu_2 = \mu_3 = \mu_4 = 0\),
@@ -10632,12 +10727,12 @@ differences in the non-null power of the tests. One approach for
 conducting a fair comparison of testing procedures in this situation is
 to compute the \emph{size-adjusted} power of the tests. Size-adjusted
 power involves computing the rejection rate of a test using a different
-threshold \(\alpha'\), selected so that the Type-I error rate of the
+threshold \(\alpha'\), selected so that the Type I error rate of the
 test is equal to the desired \(\alpha\) level. Specifically, size
 adjusted power is \[
 \rho^{adjusted}_\alpha(\theta) = \Prob(P < \rho_\alpha(0)).
 \] To estimate size-adjusted power using simulation, we first need to
-estimate the Type-I error rate, \(r_\alpha(0)\). We can then evaluate
+estimate the Type I error rate, \(r_\alpha(0)\). We can then evaluate
 the rejection rate of the testing procedure under scenarios with other
 values of \(\theta\) by computing \[
 r^{adjusted}_\alpha(\theta) = \frac{1}{R} \sum_{r=1}^R I(P_r < r_{\alpha}(0)).
@@ -10724,7 +10819,7 @@ how poorly they perform.
   estimators have reasonable coverage? If so, which has the best
   expected width?
 \item
-  Use your simulation driver to estimate the Type-I error rate of the
+  Use your simulation driver to estimate the Type I error rate of the
   hypothesis tests for each correlation coefficient for a scenario with
   \(N = 20\), \(\mu_1 = \mu_2 = 5\), \(p_1 = p_2 = 0.5\). Are any of the
   tests level-\(\alpha\)?
@@ -10808,6 +10903,32 @@ Continuing from Exercise~\ref{exr-jackknife-MCSE}, compute the ratio of
 the RMSE of each estimator to the RMSE of the linear regression
 estimator. Use the jackknife technique to compute a MCSE for these RMSE
 ratios.
+
+\end{exercise}
+
+\begin{exercise}[Calculate simplifications of the
+MCSEs]\protect\hypertarget{exr-kurtosis-derivation}{}\label{exr-kurtosis-derivation}
+
+When calculating the monte-carlo standard error of the RMSE, we assumed
+\(T \sim N( \theta, \sigma^2 )\) and then stated that
+\(Var[ (T-\theta)^2 ] = 2\sigma^2\).
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\item
+  Derive this expression.
+\item
+  Now assume \(T \sim N( \theta + b, \sigma^2 )\), i.e., that \(T\) has
+  a bias. What does \(Var[ (T-\theta)^2 ]\) equal now?
+\item
+  Using (b), simplify the expression for the MCSE of the RMSE in terms
+  of kurtosis, variance, and bias parameters.
+\item
+  Expand \(Var[ (T-\theta)^2 ]\) for any \(T\) with defined moments up
+  to the fourth moment. Show that the MCSE of
+  \(c \times S_T / \sqrt{R}\) can only have a scaling constant larger
+  than 1 if there is substantial skew in \(T\).
+\end{enumerate}
 
 \end{exercise}
 
@@ -10949,8 +11070,9 @@ heteroskedastic ANOVA scenario, and a function,
 \texttt{ANOVA\_Welch\_F()}, to analyze the resulting data. We then built
 our simulation and analysis by hand. Before we move on to multiple
 scenarios, let us clean this work up by writing a simulation driver that
-runs a simulation and give results as a single call.
+runs a complete simulation and give results as a single call.
 
+To do this we have a few design decisions.
 \texttt{generate\_ANOVA\_data()} takes an arbitrary vector of means per
 group. Our goal is, however, to have a single ``knob'' that we can turn
 to increase the spread of groups in the generated data. To do this, we
@@ -10961,7 +11083,7 @@ re-parameterize the function in terms of the total sample size
 (\texttt{N}) and the fraction of observations allocated to each group
 (\texttt{allocation}) to make calling it simpler.
 
-The revised function is
+The revised data generating function is
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -11010,49 +11132,39 @@ the raw results:
 \begin{Highlighting}[]
 \NormalTok{sims }\OtherTok{\textless{}{-}} \FunctionTok{sim\_ANOVA}\NormalTok{( }\DecValTok{100}\NormalTok{, }\AttributeTok{G =} \DecValTok{4}\NormalTok{, }\AttributeTok{max\_diff =} \DecValTok{1}\NormalTok{, }
            \AttributeTok{sigma\_sq =} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{), }\AttributeTok{N =} \DecValTok{40}\NormalTok{ )}
-\NormalTok{sims}
+\FunctionTok{str}\NormalTok{( sims )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-# A tibble: 100 x 2
-    ANOVA  Welch
-    <dbl>  <dbl>
- 1 0.178  0.155 
- 2 0.0556 0.0348
- 3 0.282  0.382 
- 4 0.547  0.467 
- 5 0.0671 0.0627
- 6 0.124  0.300 
- 7 0.112  0.108 
- 8 0.600  0.709 
- 9 0.212  0.344 
-10 0.159  0.0820
-# i 90 more rows
-\end{verbatim}
-
-Using what we learned in Chapter~\ref{sec-performance-measures}, we can
-calculate power as so:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{calc\_rejection}\NormalTok{(sims, }\AttributeTok{p\_values =}\NormalTok{ Welch, }\AttributeTok{alpha =} \FunctionTok{c}\NormalTok{(.}\DecValTok{01}\NormalTok{, .}\DecValTok{05}\NormalTok{))}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-  K_rejection rej_rate_01 rej_rate_05 rej_rate_mcse_01
-1         100        0.05        0.27       0.02179449
-  rej_rate_mcse_05
-1       0.04439595
+tibble [100 x 2] (S3: tbl_df/tbl/data.frame)
+ $ ANOVA: num [1:100] 0.0114 0.0122 0.786 0.0002 0.0599 ...
+ $ Welch: num [1:100] 0.04713 0.02573 0.68891 0.00267 0.14223 ...
 \end{verbatim}
 
 We want power for both the Welch test and the conventional ANOVA \(F\)
 test, so we can compare them, so we write a small function to generate a
 table of power levels for both tests across the alpha levels we are
-interested in. In order to easily incorporate it into our pipeline, our
-function takes a set of simulation results as input and provide a
-dataset of performance measures as output:
+interested in. In order to easily incorporate the function into our
+pipeline, our function takes a set of simulation results as input and
+provide a dataset of performance measures as output. We can simply use,
+twice, the function we wrote in Chapter~\ref{sec-performance-measures},
+and stack the results:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{calc\_rejection}\NormalTok{(sims, }\AttributeTok{p\_values =}\NormalTok{ Welch, }\AttributeTok{alpha =} \FunctionTok{c}\NormalTok{(.}\DecValTok{01}\NormalTok{, .}\DecValTok{05}\NormalTok{),}
+               \AttributeTok{format =} \StringTok{"long"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+# A tibble: 2 x 4
+  K_rejection alpha rej_rate rej_rate_mcse
+        <int> <dbl>    <dbl>         <dbl>
+1         100  0.01     0.07        0.0255
+2         100  0.05     0.27        0.0444
+\end{verbatim}
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -11069,24 +11181,6 @@ dataset of performance measures as output:
 \NormalTok{\} }
 \end{Highlighting}
 \end{Shaded}
-
-We get back a nice tibble of results when we use it:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{summarize\_power}\NormalTok{( sims )}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-# A tibble: 4 x 5
-  test  K_rejection alpha rej_rate rej_rate_mcse
-  <chr>       <int> <dbl>    <dbl>         <dbl>
-1 ANOVA         100  0.01     0.03        0.0171
-2 ANOVA         100  0.05     0.25        0.0433
-3 Welch         100  0.01     0.05        0.0218
-4 Welch         100  0.05     0.27        0.0444
-\end{verbatim}
 
 Our next step is to wrap all of the above into a single call. The
 \texttt{bundle\_sim()} function from \texttt{simhelpers} will actually
@@ -11115,10 +11209,10 @@ does. Witness!
 # A tibble: 4 x 5
   test  K_rejection alpha rej_rate rej_rate_mcse
   <chr>       <int> <dbl>    <dbl>         <dbl>
-1 ANOVA         100  0.01     0.09        0.0286
-2 ANOVA         100  0.05     0.22        0.0414
-3 Welch         100  0.01     0.04        0.0196
-4 Welch         100  0.05     0.25        0.0433
+1 ANOVA         100  0.01     0.07        0.0255
+2 ANOVA         100  0.05     0.25        0.0433
+3 Welch         100  0.01     0.07        0.0255
+4 Welch         100  0.05     0.23        0.0421
 \end{verbatim}
 
 Now we can apply our simulation driver to several different scenarios
@@ -11173,47 +11267,51 @@ additional arguments in \texttt{map()}, and they will be used every time
 \end{Highlighting}
 \end{Shaded}
 
-Another way to accomplish the same thing is to specify an anonymous
-function (also called a lambda) in the \texttt{map()} call. This syntax
-makes it clearer that the additional arguments are getting called in
-every evaluation of \texttt{sim\_ANOVA()}:
+More explicit code for exactly the same thing is to specify an anonymous
+function\index{anonymous functions} (also called a lambda) in the
+\texttt{map()} call. The general notation is
+\texttt{\textbackslash{}(\ .x\ )\ \{\ \}}, so everything you normally
+would use to write a function, using a ``" as the temporary name for
+that function; you can even have two arguments if you are using
+\texttt{map2()}. Anonymous functions make it easy to specify what should
+be mapped to what, and it makes clear how the additional arguments are
+getting used in every evaluation of \texttt{sim\_ANOVA()}:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{Welch\_results }\OtherTok{\textless{}{-}} 
 \NormalTok{  Welch\_design }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{mutate}\NormalTok{(}
-    \AttributeTok{pvals =} \FunctionTok{map}\NormalTok{(max\_diff, }\SpecialCharTok{\textasciitilde{}} \FunctionTok{sim\_ANOVA}\NormalTok{(}\DecValTok{100}\NormalTok{, }\AttributeTok{max\_diff =}\NormalTok{ .x, }
-                                      \AttributeTok{G =} \DecValTok{4}\NormalTok{, }\AttributeTok{sigma\_sq =} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{), }
-                                      \AttributeTok{N =} \DecValTok{40}\NormalTok{))}
+    \AttributeTok{pvals =} \FunctionTok{map}\NormalTok{(max\_diff, }
+\NormalTok{                \textbackslash{}( .x ) \{}
+                  \FunctionTok{sim\_ANOVA}\NormalTok{(}\DecValTok{100}\NormalTok{, }\AttributeTok{max\_diff =}\NormalTok{ .x, }
+                            \AttributeTok{G =} \DecValTok{4}\NormalTok{, }\AttributeTok{sigma\_sq =} \FunctionTok{c}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{2}\NormalTok{, }\DecValTok{3}\NormalTok{), }
+                            \AttributeTok{N =} \DecValTok{40}\NormalTok{)}
+\NormalTok{                \}}
+\NormalTok{    )}
 \NormalTok{  )}
 \end{Highlighting}
 \end{Shaded}
 
-In the resulting dataset, the \texttt{pvals} variable is a list, with
-each entry consisting of a tibble of our results:
+Regardless of how you code it, in the resulting dataset, the
+\texttt{pvals} variable is a list, with each entry consisting of a
+tibble of our results:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{Welch\_results}
+\FunctionTok{print}\NormalTok{( Welch\_results, }\AttributeTok{n =} \DecValTok{4}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
 # A tibble: 11 x 2
-   max_diff pvals           
-      <dbl> <list>          
- 1      0   <tibble [4 x 5]>
- 2      0.2 <tibble [4 x 5]>
- 3      0.4 <tibble [4 x 5]>
- 4      0.6 <tibble [4 x 5]>
- 5      0.8 <tibble [4 x 5]>
- 6      1   <tibble [4 x 5]>
- 7      1.2 <tibble [4 x 5]>
- 8      1.4 <tibble [4 x 5]>
- 9      1.6 <tibble [4 x 5]>
-10      1.8 <tibble [4 x 5]>
-11      2   <tibble [4 x 5]>
+  max_diff pvals           
+     <dbl> <list>          
+1      0   <tibble [4 x 5]>
+2      0.2 <tibble [4 x 5]>
+3      0.4 <tibble [4 x 5]>
+4      0.6 <tibble [4 x 5]>
+# i 7 more rows
 \end{verbatim}
 
 The above code and output may look a bit peculiar: we are storing a set
@@ -11234,10 +11332,10 @@ we can pull it out as follows:
 # A tibble: 4 x 5
   test  K_rejection alpha rej_rate rej_rate_mcse
   <chr>       <int> <dbl>    <dbl>         <dbl>
-1 ANOVA         100  0.01     0.03        0.0171
-2 ANOVA         100  0.05     0.09        0.0286
-3 Welch         100  0.01     0.04        0.0196
-4 Welch         100  0.05     0.07        0.0255
+1 ANOVA         100  0.01     0.02       0.014  
+2 ANOVA         100  0.05     0.1        0.03   
+3 Welch         100  0.01     0.01       0.00995
+4 Welch         100  0.05     0.1        0.03   
 \end{verbatim}
 
 \subsection{Analyzing the results}\label{analyzing-the-results}
@@ -11250,41 +11348,40 @@ once for each row in the nested dataset:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{Welch\_results\_long }\OtherTok{\textless{}{-}} \FunctionTok{unnest}\NormalTok{(Welch\_results, }\AttributeTok{cols =}\NormalTok{ pvals)}
-\NormalTok{Welch\_results\_long}
+\FunctionTok{print}\NormalTok{( Welch\_results\_long, }\AttributeTok{n =} \DecValTok{5}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
 # A tibble: 44 x 6
-   max_diff test  K_rejection alpha rej_rate rej_rate_mcse
-      <dbl> <chr>       <int> <dbl>    <dbl>         <dbl>
- 1      0   ANOVA         100  0.01     0.02       0.014  
- 2      0   ANOVA         100  0.05     0.06       0.0237 
- 3      0   Welch         100  0.01     0.01       0.00995
- 4      0   Welch         100  0.05     0.06       0.0237 
- 5      0.2 ANOVA         100  0.01     0.01       0.00995
- 6      0.2 ANOVA         100  0.05     0.07       0.0255 
- 7      0.2 Welch         100  0.01     0.01       0.00995
- 8      0.2 Welch         100  0.05     0.05       0.0218 
- 9      0.4 ANOVA         100  0.01     0.03       0.0171 
-10      0.4 ANOVA         100  0.05     0.09       0.0286 
-# i 34 more rows
+  max_diff test  K_rejection alpha rej_rate rej_rate_mcse
+     <dbl> <chr>       <int> <dbl>    <dbl>         <dbl>
+1      0   ANOVA         100  0.01     0.02       0.014  
+2      0   ANOVA         100  0.05     0.04       0.0196 
+3      0   Welch         100  0.01     0.01       0.00995
+4      0   Welch         100  0.05     0.03       0.0171 
+5      0.2 ANOVA         100  0.01     0.01       0.00995
+# i 39 more rows
 \end{verbatim}
 
 The final dataset has 44 rows, consisting of 4 different result rows for
 each of 11 scenarios. The results are also organized in a way that
-facilitates visualization of the power levels:
+facilitates plotting:
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{ggplot}\NormalTok{(Welch\_results\_long) }\SpecialCharTok{+} 
   \FunctionTok{aes}\NormalTok{(max\_diff, rej\_rate, }\AttributeTok{color =}\NormalTok{ test) }\SpecialCharTok{+} 
   \FunctionTok{geom\_point}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{geom\_line}\NormalTok{() }\SpecialCharTok{+} 
-  \FunctionTok{scale\_y\_continuous}\NormalTok{(}\AttributeTok{limits =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\ConstantTok{NA}\NormalTok{), }\AttributeTok{expand =} \FunctionTok{expansion}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FloatTok{0.01}\NormalTok{))) }\SpecialCharTok{+} 
-  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha, }\AttributeTok{labeller =} \FunctionTok{label\_bquote}\NormalTok{(alpha }\SpecialCharTok{==}\NormalTok{ .(alpha))) }\SpecialCharTok{+} 
-  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x =} \StringTok{"Maximum mean difference"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Power"}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{scale\_y\_continuous}\NormalTok{(}\AttributeTok{limits =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\ConstantTok{NA}\NormalTok{), }
+                     \AttributeTok{expand =} \FunctionTok{expansion}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{,}\FloatTok{0.01}\NormalTok{))) }\SpecialCharTok{+} 
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{ alpha, }
+             \AttributeTok{labeller =} \FunctionTok{label\_bquote}\NormalTok{(alpha }\SpecialCharTok{==}\NormalTok{ .(alpha))) }\SpecialCharTok{+} 
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{x =} \StringTok{"Maximum mean difference"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Power"}\NormalTok{,}
+       \AttributeTok{color =} \StringTok{"Test"}\NormalTok{) }\SpecialCharTok{+} 
   \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+} 
-  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position  =}\StringTok{"inside"}\NormalTok{, }\AttributeTok{legend.position.inside =} \FunctionTok{c}\NormalTok{(}\FloatTok{0.08}\NormalTok{,}\FloatTok{0.85}\NormalTok{))}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position  =}\StringTok{"inside"}\NormalTok{,}
+        \AttributeTok{legend.position.inside =} \FunctionTok{c}\NormalTok{(}\FloatTok{0.08}\NormalTok{,}\FloatTok{0.85}\NormalTok{))}
 \end{Highlighting}
 \end{Shaded}
 
@@ -11396,17 +11493,16 @@ full experimental design:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{params }\OtherTok{\textless{}{-}} \FunctionTok{expand\_grid}\NormalTok{( }\SpecialCharTok{!!!}\NormalTok{design\_factors )}
-\FunctionTok{glimpse}\NormalTok{(params)}
+\FunctionTok{str}\NormalTok{(params)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-Rows: 144
-Columns: 4
-$ N      <dbl> 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,~
-$ mu1    <dbl> 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4~
-$ lambda <dbl> 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0~
-$ rho    <dbl> 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.0~
+tibble [144 x 4] (S3: tbl_df/tbl/data.frame)
+ $ N     : num [1:144] 10 10 10 10 10 10 10 10 10 10 ...
+ $ mu1   : num [1:144] 4 4 4 4 4 4 4 4 4 4 ...
+ $ lambda: num [1:144] 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 1 1 ...
+ $ rho   : num [1:144] 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0 0.1 ...
 \end{verbatim}
 
 We use \texttt{expand\_grid()} from the \texttt{tidyr} package to create
@@ -11514,7 +11610,9 @@ driver as follows:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{Pearson\_sim }\OtherTok{\textless{}{-}} \FunctionTok{bundle\_sim}\NormalTok{(}
-  \AttributeTok{f\_generate =}\NormalTok{ r\_bivariate\_Poisson, }\AttributeTok{f\_analyze =}\NormalTok{ r\_and\_z, }\AttributeTok{f\_summarize =}\NormalTok{ evaluate\_CIs}
+  \AttributeTok{f\_generate =}\NormalTok{ r\_bivariate\_Poisson,}
+  \AttributeTok{f\_analyze =}\NormalTok{ r\_and\_z, }
+  \AttributeTok{f\_summarize =}\NormalTok{ evaluate\_CIs}
 \NormalTok{)}
 \FunctionTok{args}\NormalTok{(Pearson\_sim)}
 \end{Highlighting}
@@ -11789,31 +11887,27 @@ at once across the full unnested simulation results:
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{sim\_results\_full }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{res }\OtherTok{\textless{}{-}}\NormalTok{ sim\_results\_full }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{group\_by}\NormalTok{( N, mu1, mu2, rho ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{summarise}\NormalTok{( }
-    \FunctionTok{calc\_coverage}\NormalTok{(}\AttributeTok{lower\_bound =}\NormalTok{ CI\_lo, }\AttributeTok{upper\_bound =}\NormalTok{ CI\_hi, }\AttributeTok{true\_param =}\NormalTok{ rho)}
+    \FunctionTok{calc\_coverage}\NormalTok{(}\AttributeTok{lower\_bound =}\NormalTok{ CI\_lo, }\AttributeTok{upper\_bound =}\NormalTok{ CI\_hi, }\AttributeTok{true\_param =}\NormalTok{ rho),}
+    \AttributeTok{.groups =} \StringTok{"drop"}
 \NormalTok{  )}
+\FunctionTok{str}\NormalTok{( res )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-# A tibble: 144 x 9
-# Groups:   N, mu1, mu2 [18]
-       N   mu1   mu2   rho K_coverage coverage coverage_mcse
-   <dbl> <dbl> <dbl> <dbl>      <int>    <dbl>         <dbl>
- 1    10     4     2   0         1000    0.945       0.00721
- 2    10     4     2   0.1       1000    0.936       0.00774
- 3    10     4     2   0.2       1000    0.956       0.00649
- 4    10     4     2   0.3       1000    0.944       0.00727
- 5    10     4     2   0.4       1000    0.946       0.00715
- 6    10     4     2   0.5       1000    0.935       0.00780
- 7    10     4     2   0.6       1000    0.95        0.00689
- 8    10     4     2   0.7       1000    0.945       0.00721
- 9    10     4     4   0         1000    0.946       0.00715
-10    10     4     4   0.1       1000    0.944       0.00727
-# i 134 more rows
-# i 2 more variables: width <dbl>, width_mcse <dbl>
+tibble [144 x 9] (S3: tbl_df/tbl/data.frame)
+ $ N            : num [1:144] 10 10 10 10 10 10 10 10 10 10 ...
+ $ mu1          : num [1:144] 4 4 4 4 4 4 4 4 4 4 ...
+ $ mu2          : num [1:144] 2 2 2 2 2 2 2 2 4 4 ...
+ $ rho          : num [1:144] 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0 0.1 ...
+ $ K_coverage   : int [1:144] 1000 1000 1000 1000 1000 1000 1000 1000 1000 1000 ...
+ $ coverage     : num [1:144] 0.945 0.936 0.956 0.944 0.946 0.935 0.95 0.945 0.946 0.944 ...
+ $ coverage_mcse: num [1:144] 0.00721 0.00774 0.00649 0.00727 0.00715 ...
+ $ width        : num [1:144] 1.16 1.15 1.14 1.1 1.05 ...
+ $ width_mcse   : num [1:144] 0.0041 0.00436 0.00491 0.00553 0.00661 ...
 \end{verbatim}
 
 If we want to use our full performance measure function
@@ -11829,34 +11923,25 @@ of a list of datasets:
 \NormalTok{  sim\_results\_full }\SpecialCharTok{|\textgreater{}}
   \FunctionTok{group\_by}\NormalTok{( N, mu1, mu2, rho ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{nest}\NormalTok{( }\AttributeTok{.key =} \StringTok{"res"}\NormalTok{ )}
-\NormalTok{results}
+\FunctionTok{print}\NormalTok{( results, }\AttributeTok{n =} \DecValTok{4}\NormalTok{ )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
 # A tibble: 144 x 5
 # Groups:   N, mu1, mu2, rho [144]
-       N   mu1   rho   mu2 res                 
-   <dbl> <dbl> <dbl> <dbl> <list>              
- 1    10     4   0       2 <tibble [1,000 x 4]>
- 2    10     4   0.1     2 <tibble [1,000 x 4]>
- 3    10     4   0.2     2 <tibble [1,000 x 4]>
- 4    10     4   0.3     2 <tibble [1,000 x 4]>
- 5    10     4   0.4     2 <tibble [1,000 x 4]>
- 6    10     4   0.5     2 <tibble [1,000 x 4]>
- 7    10     4   0.6     2 <tibble [1,000 x 4]>
- 8    10     4   0.7     2 <tibble [1,000 x 4]>
- 9    10     4   0       4 <tibble [1,000 x 4]>
-10    10     4   0.1     4 <tibble [1,000 x 4]>
-# i 134 more rows
+      N   mu1   rho   mu2 res                 
+  <dbl> <dbl> <dbl> <dbl> <list>              
+1    10     4   0       2 <tibble [1,000 x 4]>
+2    10     4   0.1     2 <tibble [1,000 x 4]>
+3    10     4   0.2     2 <tibble [1,000 x 4]>
+4    10     4   0.3     2 <tibble [1,000 x 4]>
+# i 140 more rows
 \end{verbatim}
 
 Note how each row of our nested data has a little tibble containing the
-results for that context, with 1000 rows each.\footnote{Alternately, we
-  could store the results in nested form (as in
-  \texttt{sim\_results\_nested}), so that the \texttt{group\_by()} and
-  \texttt{nest()} steps are unnecessary.} Once nested, we can then use
-\texttt{map2()} to apply a function to each element of \texttt{res}:
+results for that context, with 1000 rows each. Once nested, we can then
+use \texttt{map2()} to apply a function to each element of \texttt{res}:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -12227,18 +12312,21 @@ eventually select a single level, if you do not think the factor matters
 for the questions you are considering.
 
 Often, your DGP will be a parametric model. In principle, each parameter
-could then be taken as a factor, but this can create some difficulties.
-In particular, the factors represented by the parameters can feel quite
-interdependent in terms of the effects they have on the resulting data.
-For example, if you had a linear model for your DGP, with
-\(Y = a + bX + \epsilon\), with \(\epsilon \sim N(0, \sigma^2)\), then
-if you identify \(b\) as a factor, increasing it would both increase the
-\(R^2\) of \(X\) and also increase the variation of \(Y\). Instead we
-might want to separately manipulate the \(R^2\) and the variance of
-\(Y\) by using a different parameterization of the DGP, such as by using
-the \(R^2\) and the variance of \(Y\) as initial parameters that we then
-translate to values of \(b\) and \(\sigma^2\). See
-Section~\ref{sec-DGP-standardization}.
+of the model could be taken as a factor, but this can create some
+difficulties. In particular, the factors represented by the parameters
+can feel quite interdependent in terms of the effects they have on the
+resulting data.
+
+For example, say you had a linear model for your DGP, with
+\(Y = a + bX + \epsilon\), with \(\epsilon \sim N(0, \sigma^2)\). In
+this case, considering \(b\) as a factor, increasing it would both
+increase the \(R^2\) of \(X\) and also increase the overall variation of
+\(Y\). Instead we might want to separately manipulate the \(R^2\) and
+the variance of \(Y\) by using a different parameterization of the DGP,
+such as by using the \(R^2\) and the variance of \(Y\) as initial
+parameters that we then translate to values of \(b\) and \(\sigma^2\).
+See Section~\ref{sec-DGP-standardization} for some ideas on how to do
+this.
 
 More straightforward as factors are the design parameters, e.g., sample
 sizes. You should still list these, and think about why you would want
@@ -12247,18 +12335,18 @@ simulation is partly for identifying when an asymptotic behavior kicks
 in, and for understanding what happens before that point.
 
 If possible, write the data generation code with all the factors as
-arguments, so that you can easily vary them in your simulation design if
-you choose to later on. That said, it is also helpful to specify default
-values for factors, so you can ignore them if you decide they are not
-important enough to vary.
+arguments to your DGP function, so that you can easily vary them in your
+simulation design if you choose to later on. That said, it is also
+helpful to specify default values for factors, so you can ignore them if
+you decide they are not important enough to vary.
 
-You will end up with too many factors to vary, so you will then need to
-select a subset of them to include in your simulation design. The entire
-simulation process is iterative: pick the factors you are most confident
-about, and know as you accumulate simulation evidence and thus learn
-more about what is going on, you will likely be adjusting your set of
-factors or running other simulations to verify your developing
-understanding.
+Following the above principles will, almost certainly, result in too
+many factors to vary, so you will then need to select a subset of them
+to include in your simulation design. The entire simulation process is
+iterative: pick the factors you are most confident about, and know as
+you accumulate simulation evidence and thus learn more about what is
+going on, you will likely be adjusting your set of factors or running
+other simulations to verify your developing understanding.
 
 \subsection{Deciding on the range and levels of a
 factor}\label{deciding-on-the-range-and-levels-of-a-factor}
@@ -12266,8 +12354,7 @@ factor}\label{deciding-on-the-range-and-levels-of-a-factor}
 Once you have identified your factors, you then have to decide on the
 range and the specific levels of the factor you will include in the
 simulation. Determine these details by first determining the range, and
-then determining the number of levels (and specific values) within the
-range.
+then the levels within the range.
 
 For the range, there are at least three strategies you might take:
 
@@ -12282,7 +12369,7 @@ For the range, there are at least three strategies you might take:
   may need to rely on informal impressions of what is realistic in
   practice.
 \item
-  Tune the factors to emulate an important application or context.
+  Tune the factor to emulate an important application or context.
 \end{enumerate}
 
 Of these choices, option (1) is the most general but also the most
@@ -12295,17 +12382,42 @@ application, people may be more willing to believe the application's
 findings.
 
 For determining the number of levels and specific values to use, there
-are also a few strategies you might take. Begin with a default of at
-least three levels of each factor going from the minimum to maximum of
-your range. These three levels encode something notably small, something
-about what we would expect to see in the real world, and something
-notably high. From these levels you can get a good sense of what happens
-both when things are ``normal'' and also when you push the boundaries.
+are four options to consider: 1) a single level, 2) two levels, 3) three
+levels, or 4) many levels. We next walk through reasons for each of
+these options.
+
+\textbf{A single level:} Pick a single level if you are not particularly
+interested in the factor or are trying to simplify. For the single
+level, try to pick a ``realistic'' value, or a value estimated from
+actual data. (See strategy 2 and 3, above).
+
+\textbf{Two levels:} Many factors fit neatly into an ``on'' and ``off''
+framing. For example, the error distribution is normal or it is skewed.
+There are outliers or there are not. For these factors, a binary
+``on/off'' design is often sufficient, and more levels may not be
+necessary. Be sure the ``on'' level, in this case, is \emph{notably} on:
+you want to have a large change so you can clearly see the impact of the
+factor on your performance criteria. That said, we generally want to
+know if an observed risk is a realistic risk in practice. For example,
+while some estimators may be prone to bias, if the bias is not
+practically large in normal empirical contexts, then we might not mind.
+This tension does come up: regression adjustment in randomized trials
+can cause bias \citep{freedman2008regression}, for example, but in
+practice that bias is small \citep{lin2013agnostic}. If the realism is a
+concern, then considering three levels might be reasonable: ``off,''
+``realistic,'' and ``high.''
+
+\textbf{Three levels:} We find a default of three levels of a factor can
+capture a great deal of expresivity. Encode the three levels as
+something notably small, something about what we would expect to see in
+the real world, and something notably high. From these levels you can
+get a good sense of what happens both when things are ``normal,'' and
+also when you push the boundaries.
 
 Three levels is also the smallest number that gives some sense of how
 much variation there is when looking at raw results. For example, say
-you had three SE estimates, that, as a factor increases, were 3.1, 5.2,
-and 2.6. The up and down nature would either be something very
+you had three SE estimates, that, as the factor increased, went 3.1,
+5.2, and 2.6. The up and down nature would either be something very
 surprising, or an indication that the Monte Carlo uncertainty was large
 enough to create notable ``wiggles'' in your results. An advantage of
 more levels of a factor is that it makes Monte Carlo uncertainty more
@@ -12319,33 +12431,22 @@ two-level factor will always give an impression of increase or decrease,
 without any sense of shape or even whether the increase is due to Monte
 Carlo uncertainty.
 
-By contrast, having only a few levels can often make analyzing
-simulations easier. In particular, experiments with just ``high'' and
-``low'' conditions are often easier to analyze and explain. Even more
-straightforward is when a factor is ``on'' or ``off''---this allows
-straightforward statements such as ``when there is a correlation, the
-estimator is biased,'' and so forth.
+\textbf{Many levels:} For truly continuous factors of great importance,
+having many values along the range can make it possible to fit a curve
+to fully describe how performance changes as the factor does. A dense
+sequence of levels is frequently used for power analyses, for example:
+slowly raise the size of the effect and see how power changes to trace
+out a full power curve.
 
-Many factors fit neatly into an ``on'' and ``off'' framing. For example,
-the error distribution is normal or it is skewed. There are outliers or
-there are not. For these factors, a binary ``on/off'' design is often
-sufficient, and more levels may not be necessary. Be sure the ``on''
-level, in this case, is \emph{notably} on: you want to have a large
-change so you can clearly see the impact of the factor on your
-performance criteria. That said, we would also want to know if a risk is
-a realistic risk in practice. Some estimators may be prone to bias, but
-if the bias is not practically large, then we might not mind. For
-example, using regression in randomized trials can cause bias
-\citep{freedman2008regression}, but in practice that bias is small
-\citep{lin2013agnostic}. If this is a concern, then considering three
-levels might be reasonable: ``off,'' ``realistic,'' and ``high.''
-
-For truly continuous factors of great importance, having many values
-along the range can make it possible to fit a curve to fully describe
-how performance changes as the factor does. A dense sequence of levels
-is frequently used for power analyses, for example: slowly raise the
-size of the effect and see how power changes to trace out a full power
-curve.
+In reviewing the above, we advocate for picking three levels as a good
+default: you do not have too many levels, you can explore a range of
+values while also having ``typical'' values, you get a sense of Monte
+Carlo uncertainty, and you get a sense of trend. That said, having only
+two levels can often make analyzing simulations easier. In particular,
+experiments with just ``high'' and ``low'' conditions are often easier
+to analyze and explain. Even more straightforward is when a factor is
+``on'' or ``off''---this allows straightforward statements such as
+``when there is a correlation, the estimator is biased,'' and so forth.
 
 \section{Case study: a multifactor evaluation of cluster RCT
 estimators}\label{case-study-a-multifactor-evaluation-of-cluster-rct-estimators}
@@ -12607,27 +12708,20 @@ Normally, we would speed up these calculations using parallel
 processing\index{parallel processing}; we discuss how to do so in
 Chapter~\ref{sec-parallel-processing}. Even under parallel processing,
 this simulation took several hours to run. Our final results look like
-this:
+the following:
 
 \begin{verbatim}
-Rows: 810,000
-Columns: 16
-$ n_bar     <dbl> 320, 320, 320, 320, 320, 320, 320, 320, ~
-$ J         <dbl> 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5~
-$ ATE       <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, ~
-$ size_coef <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, ~
-$ ICC       <dbl> 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, ~
-$ alpha     <dbl> 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, ~
-$ seed      <dbl> 103553, 103553, 103553, 103553, 103553, ~
-$ runID     <int> 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5~
-$ method    <chr> "MLM", "LR", "Agg", "MLM", "LR", "Agg", ~
-$ ATE_hat   <dbl> -0.11701641, -0.27662276, -0.11673502, -~
-$ SE_hat    <dbl> 0.5485042, 0.5980588, 0.6178521, 0.49060~
-$ p_value   <dbl> 0.84473987, 0.68825974, 0.86220164, 0.28~
-$ message   <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
-$ warning   <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
-$ error     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
-$ seconds   <dbl> 0.176337957, 0.086425066, 0.141067028, 0~
+# A tibble: 810,000 x 16
+  n_bar     J   ATE size_coef   ICC alpha   seed runID
+  <dbl> <dbl> <dbl>     <dbl> <dbl> <dbl>  <dbl> <int>
+1   320     5   0.2       0.2   0.8   0.5 103553     1
+2   320     5   0.2       0.2   0.8   0.5 103553     1
+3   320     5   0.2       0.2   0.8   0.5 103553     1
+4   320     5   0.2       0.2   0.8   0.5 103553     2
+# i 809,996 more rows
+# i 8 more variables: method <chr>, ATE_hat <dbl>,
+#   SE_hat <dbl>, p_value <dbl>, message <dbl>,
+#   warning <dbl>, error <dbl>, seconds <dbl>
 \end{verbatim}
 
 We have a lot of rows of data!
@@ -12681,33 +12775,32 @@ use the \texttt{simhelpers} package as so:
 \NormalTok{  dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{( }\SpecialCharTok{{-}}\NormalTok{K\_absolute, }\SpecialCharTok{{-}}\NormalTok{K\_relvar ) }\SpecialCharTok{\%\textgreater{}\%}
   \FunctionTok{ungroup}\NormalTok{()}
 
-\FunctionTok{glimpse}\NormalTok{( sres )}
+\FunctionTok{str}\NormalTok{( sres )}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-Rows: 810
-Columns: 15
-$ n_bar             <dbl> 20, 20, 20, 20, 20, 20, 20, 20, ~
-$ J                 <dbl> 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,~
-$ ATE               <dbl> 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.~
-$ size_coef         <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,~
-$ ICC               <dbl> 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.~
-$ alpha             <dbl> 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 0.~
-$ method            <chr> "Agg", "LR", "MLM", "Agg", "LR",~
-$ bias              <dbl> 0.0078528924, 0.0078528924, 0.00~
-$ bias_mcse         <dbl> 0.006512388, 0.006512388, 0.0065~
-$ SE                <dbl> 0.2059398, 0.2059398, 0.2059398,~
-$ SE_mcse           <dbl> 0.004380492, 0.004380492, 0.0043~
-$ rmse              <dbl> 0.2059865, 0.2059865, 0.2059865,~
-$ rmse_mcse         <dbl> 0.005468829, 0.005468829, 0.0054~
-$ rel_bias_var      <dbl> 0.9834635, 0.9834635, 1.2690179,~
-$ rel_bias_var_mcse <dbl> 0.05290317, 0.05290317, 0.057941~
+tibble [810 x 15] (S3: tbl_df/tbl/data.frame)
+ $ n_bar            : num [1:810] 20 20 20 20 20 20 20 20 20 20 ...
+ $ J                : num [1:810] 5 5 5 5 5 5 5 5 5 5 ...
+ $ ATE              : num [1:810] 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 ...
+ $ size_coef        : num [1:810] 0 0 0 0 0 0 0 0 0 0 ...
+ $ ICC              : num [1:810] 0 0 0 0 0 0 0 0 0 0.2 ...
+ $ alpha            : num [1:810] 0 0 0 0.5 0.5 0.5 0.8 0.8 0.8 0 ...
+ $ method           : chr [1:810] "Agg" "LR" "MLM" "Agg" ...
+ $ bias             : num [1:810] 0.00785 0.00785 0.00785 0.00162 0.00139 ...
+ $ bias_mcse        : num [1:810] 0.00651 0.00651 0.00651 0.00667 0.00649 ...
+ $ SE               : num [1:810] 0.206 0.206 0.206 0.211 0.205 ...
+ $ SE_mcse          : num [1:810] 0.00438 0.00438 0.00438 0.0045 0.00439 ...
+ $ rmse             : num [1:810] 0.206 0.206 0.206 0.211 0.205 ...
+ $ rmse_mcse        : num [1:810] 0.00547 0.00547 0.00547 0.00559 0.00545 ...
+ $ rel_bias_var     : num [1:810] 0.983 0.983 1.269 1.045 1.037 ...
+ $ rel_bias_var_mcse: num [1:810] 0.0529 0.0529 0.0579 0.0512 0.0518 ...
 \end{verbatim}
 
 After we calculate our performance measures, we have 810 rows of results
-across 270 different scenarios. We can simply aggregate across
-everything to get overall comparisons:
+across 270 different scenarios. We can simply aggregate across all our
+scenarios to get overall comparisons:
 
 \begin{Shaded}
 \begin{Highlighting}[]
@@ -12731,29 +12824,118 @@ everything to get overall comparisons:
 Even with this very crude summary of the results, we see tantalizing
 hints of differences between the methods. Linear Regression does seem
 biased, on average, across the scenarios considered. But so does
-multilevel modeling---we did not see bias before, but apparently for
-some scenarios it is biased as well. Overall SE and
-RMSE\index{performance measures!RMSE} seems roughly the same across
-scenarios, and it is clear that uncertainty trumps bias, at least on
-average. However, this pattern could be driven by the scenarios with few
-clusters that are small in size. In order to understand the full story
-of what is going on, we need to dig further into the results.
+multilevel modeling---we did not see bias before, but apparently for at
+least some scenarios it is biased as well. Overall the SE and RMSE seems
+roughly the same across scenarios, and it is clear that uncertainty
+trumps bias, at least on average. However, this pattern could be driven
+by the scenarios with few clusters that are small in size. In order to
+understand the full story of what is going on, we will need to dig
+further into the results.
 
 \section{Further principles of
 design}\label{further-principles-of-design}
 
-\subsection{The number of factors vs.~number of replicates
-trade-off}\label{the-number-of-factors-vs.-number-of-replicates-trade-off}
+Generally it is easy to design simulations with too many factors, which
+creates two core concerns. First, the computational cost of the
+simulation might become untenable. Second, analyzing and presenting the
+results may become difficult, with too many things to look at which can
+feel overwhelming and confusing. We close with a few more principles of
+good design that are worth keeping in mind to navigate this pair of
+concerns.
 
-For any factor, more levels is usually better, but more levels is also
-more computationally intensive. Even modest increases in the number of
-factors for each level can create an explosion in the total number of
-simulation trials. Consider that a four-factor experiment with 2 levels
-each is only 16 conditions; with 3 levels each, it is 81 conditions; and
-with 4 levels each, it is 256 conditions. This exponential explosion is
-hard to navigate: more comprehensive designs require massively more
-computing. However, the computational cost can be tempered by reducing
-the number of replications per scenario.
+\subsection{Selecting the number of
+replications}\label{selecting-the-number-of-replications}
+
+The number of replications per scenario \(R\) is a key design choice.
+For some performance measures, there are good initial rules of thumb.
+
+For confidence interval coverage, if the true coverage level is \(\pi\),
+then the MCSE of coverage levels will be \(\sqrt{\pi (1 - \pi) / R}\),
+and the margin of error will be
+\(\Phi^{-1}(0.975) \times \sqrt{\pi (1 - \pi) / R} \approx 2\sqrt{\pi (1 - \pi) / R}\),
+where \(\Phi(\cdot)\) is the inverse Gaussian. Solving this expression
+for \(R\) lets us determine the number of replications needed to attain
+a given margin of error. For example, if coverage is expected to be
+around 0.95 and we want a Monte Carlo margin of error of approximately
+0.01, we would need about \(R = 2000\) replications. This resolution
+means we could tell that an estimated coverage of 0.94 was too low. Put
+differently the minimum detectable effect (MDE) of being too low would
+be about \[
+MDE = 2.8 \times MCSE = 2.8 \times \sqrt{\frac{ 0.95 \cdot 0.05 }{1000}} = 2.8 \times 0.007 = 0.02,
+\] meaning we would have an 80\% chance of detecting that a true
+coverage of 0.93 was indeed below 0.95. Using only \(R = 500\)
+replications would yield a margin of error of approximately 0.02, and an
+MDE of about 0.03.
+
+For simulations focused on estimator bias or RMSE, we again have a nice
+rule of thumb in terms of the variability of the estimator being
+evaluated. If \(\sigma\) is the true standard error of an estimator in a
+given condition, then the MCSE of bias will be \(\sigma  / \sqrt{R}\)
+and the margin of error will be \(\Phi^{-1}(0.975) \sigma / \sqrt{R}\).
+A simplification is to assume you want the MCSE of bias to be no more
+than 5\% of the true standard error. In this case you can solve for
+\(R\) and get \(R \approx (2 / 0.05)^2 \approx 1600\). Given the
+arguments in Section~\ref{sec-MCSE-for-points}, this would be
+sufficient, in most cases, to keep the MCSE of the SE and RMSE to within
+5\% as well.
+
+In practice, a common but arbitrary choice is to use \(R = 1000\)
+replications per scenario, which yields a margin of error for the bias
+of around \(0.06 \sigma\) and, under most conditions, a bound on the
+margin of error for the SE and RMSE of around \(0.06\sigma\) as well.
+Whether this is sufficiently small Monte Carlo error will depend on the
+context of the simulation. If the simulation involves examining several
+estimators to understand differences in their bias, then a margin of
+error of \(0.06 \sigma\) might be too large to identify systematic
+differences.
+
+In practice, published simulation studies typically use the same number
+of replications for every scenario examined. However, there are
+sometimes good reasons to deviate from this convention and use different
+\(R\) for different scenarios. One reason is that some scenarios may be
+more computationally intensive than others. For instance, if the
+computation time increases with sample size, then it might be worth
+using fewer replications for the conditions with larger sample sizes.
+
+Another reason to consider varying \(R\) is that Monte Carlo uncertainty
+itself can be strongly dependent on model parameters. Again consider a
+simulation focused on estimator bias, for which the MCSE will be
+\(\sigma / \sqrt{R}\). If \(\sigma\) depends on any of the simulation
+factors, then the MCSE will also depend on those factors. For example,
+in many instances, \(\sigma\) is roughly proportional to \(N^{-1/2}\),
+where \(N\) is the sample size of the data being analyzed. Thus,
+\(\sigma\) will be large when \(N\) is small and \(\sigma\) will be
+smaller for scenarios where \(N\) is larger. Using a constant \(R\) for
+every scenario will mean that the MCSEs will be smaller for large-\(N\)
+scenarios than for small-\(N\) scenarios.
+
+If one really wanted to be fancy, they could set \(R = R_0 / N\), where
+\(R_0\) is some base factor, so that the MCSE of bias will be roughly
+constant across scenarios with different sample sizes. The simulations
+reported in \citet{pustejovsky2014converting} used this strategy,
+setting \(R = 10^7 / N\) for simulations that examined sample sizes of
+\(N = 20, 40, 80\), and \(160\). The nice thing here is you get a double
+win: fewer trials for the larger sample sizes (which tend to be slow)
+while maintaining comparable levels of precision across all scenarios!
+
+\subsection{Balancing factors, factor levels, and number of
+replicates}\label{balancing-factors-factor-levels-and-number-of-replicates}
+
+The number of simulations grows exponentially with the number of
+factors. If we have 3 levels per factor, then varying 3 factors is
+\(3^3 = 27\) scenarios, varying 4 is \(3^4 = 81\), and then it goes 243,
+729, 2187, and 6561.
+
+Similarly, for any factor, more levels is usually better, but more
+levels is also more computationally intensive. Even modest increases in
+the number of levels in the factors can also create an explosion in the
+total number of simulation trials. Consider that a four-factor
+experiment with 2 levels each is only 16 conditions; with 3 levels each,
+it is 81 conditions; and with 4 levels each, it is 256 conditions.
+
+Both these explosions are hard to navigate: more comprehensive designs
+require massively more computing. However, the computational cost can be
+tempered by reducing the number of replications per scenario.
 
 For example, suppose you were initially planning on doing 1000
 simulations per scenario, but then you realize that you need to
@@ -12765,20 +12947,19 @@ levels, but then reduce the number of replications to 250 simulations
 per scenario. The total work remains the same.
 
 When analyzing the final simulation you would first verify you do not
-see trends along this new factor, and then marginalize out that factor
-(i.e., average your performance metrics across the factor) in your
-summaries of results. Marginalizing out a factor is a powerful technique
-of making a claim about how your methods work \emph{on average} across a
-\emph{range} of scenarios, rather than for a specific scenario. We will
-discuss marginalization further in
-Chapter~\ref{sec-presentation-of-results}.
+see trends along this new factor, and then marginalize
+out\index{marginalization} that factor (i.e., average your performance
+metrics across the factor) in your summaries of results. Marginalizing
+out a factor is a powerful technique of making a claim about how your
+methods work \emph{on average} across a \emph{range} of scenarios,
+rather than for a specific scenario. We will discuss marginalization
+further in Chapter~\ref{sec-presentation-of-results}.
 
 \subsection{Preliminary explorations and multiple
 simulations}\label{preliminary-explorations-and-multiple-simulations}
 
-For factors you do not expect to matter, you can conduct preliminary
-simulations to verify they do not matter, and then drop them from
-consideration.
+For factors you do not expect to matter, conduct preliminary simulations
+to verify they do not matter, and then drop them from consideration.
 
 For example, in our cluster RCT example, we do not expect the size of
 the treatment effect to impact performance. Even so, we might still run
@@ -12794,84 +12975,29 @@ be an important finding that would need to be addressed before we could
 have confidence in the full simulation results.
 
 One might also run distinct multi-factor simulations as well. For
-example, in the Cluster RCT study we might run a seperate multi-factor
+example, in the Cluster RCT study we might run a separate multi-factor
 simulation where we vary \(p\) (proportion treated) over multiple
 levels, but keep \(ICC=0.20\) and \(\alpha=0.5\) both fixed. This second
 simulation would allow for evaluating how proportion treated matters in
-its own constillation of other factors.
+its own constellation of other factors.
 
 To sharpen this point, consider six factors of 3 levels each. A full
 factorial experiment would be \(3^6 = 729\) conditions. Three different
 simulations of different sets of four of the six factors would be
 \(3^4 + 3^4 + 3^4 = 243\) conditions. At the extreme, some will vary one
-factor at a time, which would be \(3 \times 6 = 18\) conditions. In this
-latter case, we could easily expand the resolution of each factor to
-many different levels.
-
-\subsection{Selecting number of
-replications}\label{selecting-number-of-replications}
-
-The number of replications per scenario \(R\) is a key design choice.
-For some performance measures, there are good initial rules of thumb.
-
-For simulations focused on confidence interval coverage, rules of thumb
-can suffice. If the true coverage level is \(\pi\), then the MCSE of
-coverage levels will be \(\sqrt{\pi (1 - \pi) / R}\), and the margin of
-error will be \(\Phi^{-1}(0.975) \times \sqrt{\pi (1 - \pi) / R}\).
-Solving this expression for \(R\) lets us determine the number of
-replications needed to attain a given margin of error. Thus, if coverage
-is expected to be around 0.95 and we want a Monte Carlo margin of error
-of approximately 0.01, we would need about \(R = 2000\) replications.
-Using only \(R = 500\) replications would yield a margin of error of
-approximately 0.02.
-
-For simulations focused on estimator bias or RMSE, it is somewhat more
-difficult to find general rules of thumb. If \(\sigma\) is the true
-standard error of an estimator in a given condition, then the MCSE of
-bias will be \(\sigma  / \sqrt{R}\) and the margin of error will be
-\(\Phi^{-1}(0.975) \sigma / \sqrt{R}\). In practice, a common but
-arbitrary choice is to use \(R = 1000\) replications per scenario, which
-yields a margin of error of around \(0.06 \sigma\). Whether this is
-sufficiently small Monte Carlo error will depend on the context of the
-simulation. If the simulation involves examining several estimators to
-understand differences in their bias, then a margin of error of
-\(0.06 \sigma\) might be too large to identify systematic differences
-between the estimators.
-
-In practice, published simulation studies typically use the same number
-of replications for every scenario examined. However, there are
-sometimes good reasons to deviate from this convention and use different
-\(R\) for different scenarios. One reason to do so is that some
-scenarios may be more computationally intensive than others. For
-instance, if the computation time increases with sample size, then it
-might be worth using fewer replications for the conditions with larger
-sample size.
-
-Another reason to consider varying \(R\) is that Monte Carlo uncertainty
-itself can be strongly dependent on model parameters. Again consider a
-simulation focused on estimator bias, for which the MCSE will be
-\(\sigma /\sqrt{R}\). If \(\sigma\) depends on any of the simulation
-factors, then the MCSE will vary across scenarios. In many instances,
-\(\sigma\) is roughly proportional to \(N^{-1/2}\), where \(N\) is the
-sample size used for a given replication. Thus, \(\sigma\) will be large
-when \(N\) is small and \(\sigma\) will be smaller for scenarios where
-\(N\) is larger. Using a constant \(R\) for every scenario will mean
-that the MCSE will be smaller for large-\(N\) scenarios than for
-small-\(N\) scenarios. Alternately, we could set \(R = R_0 / N\), where
-\(R_0\) is some base factor, so that the MCSE of bias will be roughly
-constant across scenarios with different sample sizes. The simulations
-reported in \citet{pustejovsky2014converting} used this strategy,
-setting \(R = 10^7 / N\) for simulations that examined sample sizes of
-\(N = 20, 40, 80\), and \(160\).
+factor at a time, running 6 different simulations, which would be
+\(3 \times 6 = 18\) conditions. In this latter case, we could easily
+expand the resolution of each factor to many different levels without
+doing more than the full factorial design.
 
 \section{Concluding thoughts}\label{concluding-thoughts-8}
 
-In this chapter, we have moved from isolated simulation scenarios to
-fully specified multifactor simulation designs. Full factorial designs
-involve systematically varying multiple features of a data-generating
-process, which allows us to explore how the performance of an estimator
-depends on the context in which it is used. By thinking of simulations
-as designed experiments, we gain a principled framework for choosing
+In this chapter, we moved from isolated simulation scenarios to fully
+specified multifactor simulation designs. Full factorial designs involve
+systematically varying multiple features of a data-generating process,
+which allows us to explore how the performance of an estimator depends
+on the context in which it is used. By thinking of simulations as
+designed experiments, we gain a principled framework for choosing
 parameters and curating a set of scenarios to explore. The result is a
 rich collection of simulation output that can capture bias, variability,
 uncertainty estimation, or testing behavior across a wide range of
@@ -12887,18 +13013,17 @@ comprehensiveness, by including conditions that are relevant to real
 data, and by including conditions that are relevant to previous
 methodological work. Although the result will surely fall short of
 perfect generalizability, we can still design simulations thoughtfully
-and as best we can, seeking to avoid obvious limitations that a critic
-might identify as a basis for dismissing our findings.
+and, as best we can, avoid obvious limitations that a critic might
+identify as a basis for dismissing our findings.
 
 In our experience, it is quite rare to nail the choice of parameters on
-the first pass. You should expect to add and subtract from your
-identified set of simulation factors with each round of results. Of
-course, the purpose of revision should never be to make a particular
-estimator look better or to conceal problems with the performance of a
-method. Rather, it should be to identify the set of factors and
-parameter settings that are most relevant and most useful for
-investigating the questions at issue. After all, the final design that
-we arrive at needs to be well justified and defensible.
+the first pass. Expect to add and subtract from an identified set of
+simulation factors with each round of results. Of course, the purpose of
+revision should never be to make a particular estimator look better or
+to conceal problems with the performance of a method. Rather, it should
+be to identify the set of factors and parameter settings that are most
+relevant and most useful for investigating the research questions of
+interest.
 
 Well designed simulations can be quite large and complex, however, which
 creates a challenge for interpretation. With many factors, levels, and
@@ -12906,7 +13031,7 @@ performance measures, it is no longer possible to understand results
 simply by inspecting a table of results. In the next few chapters, we
 will turn to the problem of analyzing and presenting simulation results,
 with an emphasis on graphical approaches that clarify how performance
-varies across conditions. Through further analysis, we will seek to
+varies across conditions. We aim to provide analytic tools to help
 identify systematic trends in estimator performance, understand the
 generality of identified patterns, and identify trade-offs between
 different methods.
@@ -13434,13 +13559,13 @@ meta-regression}\label{sec-CRVE-F-tests}
 
 \index{example!meta-regression}
 
-In our next example, drawn from \citet{tipton2015small}, we explore
-Type-I error rates of small-sample corrected F-tests based on
-cluster-robust variance estimation in meta-regression models. The
-simulation aimed to compare 5 different small-sample corrections for
-hypothesis tests involving multiple constraints (i.e., multiple
-regression coefficients). This was another complex experimental design,
-which involved varying several factors:
+In our next example, drawn from \citet{tipton2015small}, we explore Type
+I error rates of small-sample corrected F-tests based on cluster-robust
+variance estimation in meta-regression models. The simulation aimed to
+compare 5 different small-sample corrections for hypothesis tests
+involving multiple constraints (i.e., multiple regression coefficients).
+This was another complex experimental design, which involved varying
+several factors:
 
 \begin{itemize}
 \tightlist
@@ -13465,7 +13590,7 @@ Figure~\ref{fig-CRVE-Ftests}.
 
 }
 
-\caption{\label{fig-CRVE-Ftests}Type-I error rates of selected
+\caption{\label{fig-CRVE-Ftests}Type I error rates of selected
 hypothesis testing procedures for meta-regression models with
 cluster-robust variance estimation. Source: Tipton and Pustejovsky
 (2015).}
@@ -13478,7 +13603,7 @@ multiples to show variation in the results across two simulation factors
 each of the five hypothesis testing procedures under comparison. The
 boxplots depict the \emph{distribution} of the performance measure
 across the remaining factors in the design; Each box shows the range,
-inter-quartile range, and median of the Type-I error rates for a given
+inter-quartile range, and median of the Type I error rates for a given
 test procedure across the various covariates tested and different
 degrees of model misspecification. For reference, we add a solid line at
 the target .05 rejection rate and a dashed line at the upper bound of a
@@ -15496,7 +15621,7 @@ term & lambda.1se \\
 \bottomrule\noalign{}
 \endlastfoot
 (Intercept) & 0.003 \\
-size\_coef0.2 & 0.003 \\
+size\_coef0.2 & 0.004 \\
 size\_coef0.2:alpha0.8 & 0.023 \\
 \end{longtable}
 }
@@ -15563,33 +15688,29 @@ was unusual).
 \begin{verbatim}
 
 
-| order|term                           |     LR|    MLM|   Agg|
-|-----:|:------------------------------|------:|------:|-----:|
-|     0|(Intercept)                    |  0.001|  0.001| 0.001|
-|     0|n_bar80                        | -0.001| -0.001|      |
-|     0|size_coef0.2                   |  0.001|  0.002|      |
-|     1|n_bar80:J80                    |  0.001|       |      |
-|     1|J20:alpha0.8                   |  0.002|       |      |
-|     1|size_coef0.2:ICCsc             |  0.001|       |      |
-|     1|size_coef0.2:alpha0.5          |  0.008|       |      |
-|     1|size_coef0.2:alpha0.8          |  0.026|  0.003|      |
-|     1|ICCsc:alpha0.5                 | -0.001| -0.001|      |
-|     1|n_bar80:ICCsc                  |       |  0.000|      |
-|     1|J20:ICCsc                      |       |  0.000|      |
-|     2|n_bar80:J80:size_coef0.2       |  0.000|       |      |
-|     2|n_bar320:J20:ICCsc             | -0.001| -0.001|      |
-|     2|n_bar80:J20:alpha0.8           |  0.005|  0.005|      |
-|     2|n_bar320:size_coef0.2:alpha0.5 |  0.004|  0.002|      |
-|     2|J20:size_coef0.2:alpha0.5      |  0.002|       |      |
-|     2|J80:size_coef0.2:alpha0.5      |  0.002|       |      |
-|     2|J20:size_coef0.2:alpha0.8      |  0.009|       |      |
-|     2|J80:size_coef0.2:alpha0.8      |  0.010|       |      |
-|     2|J80:ICCsc:alpha0.5             |  0.000|       |      |
-|     2|size_coef0.2:ICCsc:alpha0.8    |  0.000|       |      |
-|     2|n_bar80:size_coef0.2:ICCsc     |       |  0.000|      |
-|     2|J80:size_coef0.2:zeroICC       |       |  0.002|      |
-|     2|size_coef0.2:alpha0.5:zeroICC  |       |  0.003|      |
-|     2|size_coef0.2:alpha0.8:zeroICC  |       |  0.015|      |
+| order|term                           |    LR|   MLM|   Agg|
+|-----:|:------------------------------|-----:|-----:|-----:|
+|     0|(Intercept)                    | 0.000| 0.001| 0.001|
+|     0|n_bar80                        | 0.000| 0.000|      |
+|     0|size_coef0.2                   | 0.003| 0.001|      |
+|     1|J20:alpha0.8                   | 0.001|      |      |
+|     1|size_coef0.2:ICCsc             | 0.000|      |      |
+|     1|size_coef0.2:alpha0.5          | 0.007|      |      |
+|     1|size_coef0.2:alpha0.8          | 0.026| 0.003|      |
+|     1|ICCsc:alpha0.5                 | 0.000| 0.000|      |
+|     1|n_bar80:ICCsc                  |      | 0.000|      |
+|     1|J20:ICCsc                      |      | 0.000|      |
+|     2|n_bar320:J20:ICCsc             | 0.000| 0.000|      |
+|     2|n_bar80:J20:alpha0.8           | 0.004| 0.004|      |
+|     2|n_bar320:size_coef0.2:alpha0.5 | 0.004| 0.001|      |
+|     2|J20:size_coef0.2:alpha0.5      | 0.000|      |      |
+|     2|J80:size_coef0.2:alpha0.5      | 0.001|      |      |
+|     2|J20:size_coef0.2:alpha0.8      | 0.007|      |      |
+|     2|J80:size_coef0.2:alpha0.8      | 0.009|      |      |
+|     2|size_coef0.2:ICCsc:alpha0.8    | 0.000|      |      |
+|     2|J80:size_coef0.2:zeroICC       |      | 0.002|      |
+|     2|size_coef0.2:alpha0.5:zeroICC  |      | 0.002|      |
+|     2|size_coef0.2:alpha0.8:zeroICC  |      | 0.014|      |
 \end{verbatim}
 
 Of course, this is table is hard to read. Better to instead plot the
@@ -16482,11 +16603,11 @@ X1 & X2 & X3 & X4 & Y \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-3 & 1 & 2.78 & 2.78 & 550.00 \\
--1 & 0 & 3.43 & -2.80 & 3.21 \\
--1 & 1 & 1.81 & -0.60 & 9.19 \\
-4 & 1 & 6.12 & 2.37 & 1584.65 \\
-5 & 1 & 4.57 & 3.51 & 550.00 \\
+1 & 1 & 2.72 & -0.25 & 6.71 \\
+2 & 1 & 2.77 & 0.14 & 245.21 \\
+-4 & 1 & 4.18 & -1.20 & 54.25 \\
+7 & 1 & 6.12 & 4.74 & 1639.30 \\
+3 & 1 & 3.31 & -0.70 & 255.94 \\
 \end{longtable}
 }
 
@@ -16507,11 +16628,11 @@ Here are the pairwise correlations on the raw values:
 
 \begin{verbatim}
       X1    X2   X3    X4    Y
-X1  1.00 -0.19 0.37  0.82 0.54
-X2 -0.19  1.00 0.23 -0.15 0.19
-X3  0.37  0.23 1.00  0.31 0.64
-X4  0.82 -0.15 0.31  1.00 0.45
-Y   0.54  0.19 0.64  0.45 1.00
+X1  1.00 -0.24 0.35  0.81 0.51
+X2 -0.24  1.00 0.21 -0.18 0.20
+X3  0.35  0.21 1.00  0.30 0.65
+X4  0.81 -0.18 0.30  1.00 0.43
+Y   0.51  0.20 0.65  0.43 1.00
 \end{verbatim}
 
 We want to generate synthetic data that captures the correlation
@@ -16579,7 +16700,7 @@ sd\_Yhat & sd\_Y & cor \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-318.2 & 468.3 & 0.9 \\
+354.1 & 499 & 0.9 \\
 \end{longtable}
 }
 
@@ -16653,7 +16774,7 @@ how coupled the predicted and actual are:
 # A tibble: 1 x 3
     rho  sd_Y sd_Yhat
   <dbl> <dbl>   <dbl>
-1 0.756 1.000   1.000
+1 0.775 1.000   1.000
 \end{verbatim}
 
 \subsection{Step 3. Get some new Xs}\label{step-3.-get-some-new-xs}
@@ -16682,18 +16803,18 @@ original fake data. It looks like so:
 
 \begin{verbatim}
 # A tibble: 3,000 x 5
-      X1    X2     X3      X4     trueY
-   <dbl> <dbl>  <dbl>   <dbl>     <dbl>
- 1    -1     1  5.27   0.0106   80.5   
- 2     3     1  3.68   1.21    134.    
- 3     0     1  2.15  -1.01      0.0944
- 4     1     1  1.29  -0.178    33.8   
- 5     1     1 -0.629  0.357     0.149 
- 6     9     1  3.41   3.61   1763.    
- 7    -1     1  2.81   0.520    33.8   
- 8     4     1  0.415  1.52    278.    
- 9     4     1  5.82   0.281  1136.    
-10     3     0  3.84   0.499    33.4   
+      X1    X2    X3    X4  trueY
+   <dbl> <dbl> <dbl> <dbl>  <dbl>
+ 1     6     1  4.83  1.58 1037. 
+ 2     7     1  1.47  3.42  871. 
+ 3     3     1  5.51  1.42  550  
+ 4     1     0  3.90  1.32   79.5
+ 5     6     0  3.45  4.42  282. 
+ 6    -2     1  6.11 -2.45  219. 
+ 7     5     1  5.69  1.51 1309. 
+ 8     7     1  4.76  4.38 1659. 
+ 9     1     1  4.02  2.54  160. 
+10    -1     1  1.64 -1.16   24.7
 # i 2,990 more rows
 \end{verbatim}
 
@@ -16749,10 +16870,8 @@ We then convert the percentiles to the \(z\)-scores they represent:
 \end{Shaded}
 
 \begin{verbatim}
-      Min.    1st Qu.     Median       Mean    3rd Qu. 
--3.5879147 -0.6742276  0.0000000  0.0000001  0.6742276 
-      Max. 
- 3.5879147 
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+-3.5879 -0.6742  0.0000  0.0000  0.6742  3.5879 
 \end{verbatim}
 
 We next use a formula for the conditional distribution of a normal
@@ -16810,10 +16929,10 @@ Variable & Y & trueY \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-X1 & 0.44 & 0.51 \\
-X2 & 0.19 & 0.19 \\
-X3 & 0.48 & 0.65 \\
-X4 & 0.39 & 0.43 \\
+X1 & 0.43 & 0.51 \\
+X2 & 0.21 & 0.22 \\
+X3 & 0.49 & 0.66 \\
+X4 & 0.40 & 0.42 \\
 \end{longtable}
 }
 
@@ -18302,7 +18421,7 @@ error because R recycles the standard deviation parameter:
 \end{Shaded}
 
 \begin{verbatim}
-[1]   100   261 -1552   401
+[1]   99  118 3084  400
 \end{verbatim}
 
 This sort of behavior could produce errors, and it is pernicious because
@@ -18540,6 +18659,8 @@ run them all at once:
 \end{Shaded}
 
 \begin{verbatim}
+
+== Testing demo_test_file.R ================================
 
 [ FAIL 0 | WARN 0 | SKIP 0 | PASS 0 ]
 [ FAIL 0 | WARN 0 | SKIP 0 | PASS 1 ]
@@ -20998,7 +21119,7 @@ replicate will produce a vector of numbers:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 1.0000000 0.6666667 1.0000000 1.0000000 1.3333333
+[1] 1.333333 1.333333 0.000000 1.000000 1.333333
 \end{verbatim}
 
 If you do not simplify, you then will need to massage your results:
@@ -21019,13 +21140,13 @@ If you do not simplify, you then will need to massage your results:
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1     2     1
+1  1.33  1.53
 
 [[2]]
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1  1.33 0.577
+1  1.33  1.53
 \end{verbatim}
 
 In particular, you will probably stack all your tibbles to make one
@@ -21042,8 +21163,8 @@ large dataset:
 # A tibble: 2 x 2
    mean    sd
   <dbl> <dbl>
-1  2    1    
-2  1.33 0.577
+1  1.33  1.53
+2  1.33  1.53
 \end{verbatim}
 
 Note that you give replicate a full piece of code that would run on its
@@ -21087,13 +21208,13 @@ thus can call a function repeatedly, but with a shifting set of inputs.
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1   0.5 0.707
+1   1.5 0.707
 
 [[2]]
 # A tibble: 1 x 2
    mean    sd
   <dbl> <dbl>
-1     1 0.707
+1     1     1
 \end{verbatim}
 
 You again would want to stack your results:
@@ -21108,8 +21229,8 @@ You again would want to stack your results:
 # A tibble: 2 x 2
    mean    sd
   <dbl> <dbl>
-1   0.5 0.707
-2   1   0.707
+1   1.5 0.707
+2   1   1    
 \end{verbatim}
 
 We have a small issue here, however, which is we lost what we
@@ -21139,8 +21260,8 @@ column when you stack:
 # A tibble: 2 x 3
   n      mean    sd
   <chr> <dbl> <dbl>
-1 2         2  1.41
-2 5         1  1.73
+1 2       0.5 0.707
+2 5       1   1    
 \end{verbatim}
 
 An advantage here is if you are returning multiple rows (e.g., one row
@@ -21174,9 +21295,9 @@ can. E.g.,
 # A tibble: 3 x 2
    mean    sd
   <dbl> <dbl>
-1 1.67  1.15 
-2 0.667 0.577
-3 1     1    
+1  1.33 0.577
+2  1    1    
+3  0    0    
 \end{verbatim}
 
 The weird ``(.)'' is a shorthand for a function that takes one argument
@@ -21197,8 +21318,8 @@ manipulate on the fly:
 # A tibble: 2 x 2
    mean    sd
   <dbl> <dbl>
-1  1.5  1.73 
-2  1.28 0.980
+1  0.25 0.5  
+2  0.88 0.881
 \end{verbatim}
 
 Anonymous functions, as these are called, can be useful to connect your
@@ -21300,12 +21421,12 @@ happens:
 \end{Shaded}
 
 \begin{verbatim}
-   B         Y0       Y1
-1 B1 -0.3074470 4.969646
-2 B1  1.2342241 5.876253
-3 B1  0.8594334 5.567430
-4 B2 -0.8475623 2.826296
-5 B2 -0.6709092 5.782150
+   B          Y0       Y1
+1 B1 -0.75124016 5.549969
+2 B1  1.13550037 5.074527
+3 B1  0.09466744 4.752642
+4 B2  1.19256618 4.206507
+5 B2  0.16846504 4.245059
 \end{verbatim}
 
 Nice! We see that we have a block ID and the control and treatment
@@ -21362,7 +21483,7 @@ to run that expression. For example:
 
 \begin{verbatim}
    user  system elapsed 
-  0.024   0.001   0.025 
+  0.024   0.000   0.024 
 \end{verbatim}
 
 Elapsed time is how much time actually passed. The user time is how much
@@ -21382,7 +21503,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 0.000158178
+[1] -0.001004804
 \end{verbatim}
 
 \begin{Shaded}
@@ -21392,7 +21513,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-[1] 1.000658
+[1] 1.000226
 \end{verbatim}
 
 \begin{Shaded}
@@ -21404,7 +21525,7 @@ You can also start and stop a clock by checking the system time:
 \end{Shaded}
 
 \begin{verbatim}
-Time difference of 0.0321939 secs
+Time difference of 0.02979898 secs
 \end{verbatim}
 
 This can be useful, but be careful, as the time is stored along with the
@@ -21429,7 +21550,7 @@ mark the start and end of a block of code.
 \end{Shaded}
 
 \begin{verbatim}
-Generating data: 0.026 sec elapsed
+Generating data: 0.024 sec elapsed
 \end{verbatim}
 
 It is basically like \texttt{Sys.time()} but it has a few more features,
@@ -21464,9 +21585,9 @@ Section~\ref{sec-case-cluster}:\index{example!cluster randomized trial}
 # A tibble: 3 x 6
   expression      min   median `itr/sec` mem_alloc `gc/sec`
   <bch:expr> <bch:tm> <bch:tm>     <dbl> <bch:byt>    <dbl>
-1 MLM            78ms  78.02ms      12.8    30.1MB    76.9 
-2 OLS          37.6ms  40.29ms      24.1    3.31MB     2.01
-3 agg           2.6ms   2.85ms     337.     2.34MB     6.27
+1 MLM         64.02ms     65ms      15.2    30.1MB     9.10
+2 OLS         35.99ms   36.5ms      27.4    3.31MB     4.56
+3 agg          2.54ms    2.6ms     375.     2.34MB    10.8 
 \end{verbatim}
 
 You can even get a viz of how long everything took:
@@ -21652,12 +21773,12 @@ expression & min & median & itr/sec & speed\_up \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Rfunction & 188.4us & 204.9us & 4635.64 & 1.0 \\
-direct & 81.3us & 85.3us & 11238.41 & 2.4 \\
+Rfunction & 189.3us & 196us & 5012.91 & 1.00 \\
+direct & 81.2us & 84us & 11682.53 & 2.34 \\
 \end{longtable}
 }
 
-The direct function is 2.4 times faster than the built-in R function.
+The direct function is 2.3 times faster than the built-in R function.
 
 This result is not unusual. Built-in R functions usually include lots of
 checks and error-handling, which take time to compute. These checks are
@@ -21987,8 +22108,8 @@ expression & min & median & itr/sec & speed\_up \\
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-original & 542us & 594us & 1575.35 & 1.00 \\
-one\_agg & 452us & 489us & 1932.32 & 1.21 \\
+original & 534us & 551us & 1787.53 & 1.0 \\
+one\_agg & 446us & 460us & 2149.57 & 1.2 \\
 \end{longtable}
 }
 

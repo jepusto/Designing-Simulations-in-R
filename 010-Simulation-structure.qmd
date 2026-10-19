@@ -10,7 +10,7 @@
 Monte Carlo\index{Monte Carlo simulation} simulation is a very flexible tool that researchers use to study a vast array of different models and topics. Within the realm of methodological research, most simulations share a common structure, nearly always involving the same set of steps or component pieces. In learning to design your own simulations, it is very useful to recognize these core components.
 Identifying these components will help you to organize your work and structure the coding tasks involved in writing a simulation.
 
-In this chapter, we outline the component structure of a methodological simulation study, highlighting the four steps involved in a simulation of a single scenario and the three additional steps involved in multifactor simulations.
+In this chapter, we outline the component structure of a methodological simulation study, highlighting the four steps involved in a simulation of a single scenario and the three additional steps involved in simulations that examine multiple scenarios (such as multiple sample sizes or multiple values for the strength of an effect).
 We then describe a strategy for implementing simulations that mirrors the same component structure, where each step in the simulation is represented by a separate function or object.
 We call this strategy ***tidy, modular simulation***.
 Finally, we show how the tidy, modular simulation strategy informs the structure and organization of the code itself by walking through basic code skeletons (cf. @sec-function-skeletons) for each of the steps.
@@ -37,7 +37,7 @@ The four main steps involved in a simulation study, introduced in @sec-introduct
 
 :::
 
-In the simple $t$-test example presented in @sec-t-test-simulation, we put each of these steps into action with R code:
+In the simple $t$-test example presented in @sec-t-test-simulation, we put each of the first four steps into action with R code:
 
 1. We used the geometric distribution as a data-generating process;
 2. We used the confidence interval from a one-sample $t$-test as the data-analysis procedure;
@@ -49,6 +49,12 @@ We also saw that it was helpful to wrap all of these steps up into a single func
 These four initial steps are common and shared across nearly all simulations. In our first example, each of the steps was fairly simple, sometimes involving only a single line of code. More generally, each of the steps might be quite a bit more complex. The data-generating process might involve a more complex model with multiple variables or multilevel structure. The data analysis procedure might involve solving a multidimensional optimization problem to get parameter estimates, or might involve a data analysis workflow with multiple steps or contingencies. Further, we might use more than one metric for summarizing the results across replications and describing the performance of the data analysis procedure. Because each of the four steps involves its own set of choices, it will useful to recognize them as distinct from one another.
 
 In methodological research projects, we usually want to examine simulation results across an array of different conditions that differ not only in terms of sample size, but also in other parameters or features of the data-generating process. Running a simulation study across multiple conditions entails several further steps, which are summarized in the bottom portion of @tbl-simulation. We will first need to specify the factors and specific conditions to be examined in our experimental design. We will then need to execute the simulation for each of the conditions and store all the results for further analysis. Finally, we will need to find ways to synthesize or make sense of the main patterns in the results across all of the conditions in the design.
+
+In the simple $t$-test example from @sec-t-test-simulation, we actually put these last three steps into action too:
+
+5. We specified a range of different sample sizes to examine;
+6. We used `map_dbl()` to execute run the simulation for each sample size; and
+7. We made a graph to show how confidence interval coverage improved for larger sample sizes.
 
 Just as with the first four steps, it is useful to recognize these further steps as distinct from one another, each involving its own set of choices and techniques. The design step requires choosing which parameters and features of the data-generating process to vary, as well as which specific values to use for each factor that is varied. Executing a simulation might require a lot of computing power, especially if the simulation design has many conditions or the data analysis procedure takes a long time to compute. How to effectively implement the execution step will therefore depend on the computing requirements and available resources. Finally, many different techniques can be used to synthesizing findings from a multifactor simulation. Which ones are most useful will depend on your research questions and the choices you make in each of the preceeding steps.
 
@@ -67,6 +73,7 @@ We call this *tidy, modular simulation* and it involves two simple principles:
 Writing separate functions for each component step of a simulation has several benefits. The first is the practical benefit of turning the coding process from a monolithic (and potentially daunting) activity into a set of smaller, discrete tasks. This lets us focus on one task at a time and makes it easier to see progress. Second, following this principle makes for code that is easier to read, test, and debug. Rather than having to scan through an entire code file to understand how the data analysis procedure is implemented, we can quickly identify the function that implements it, then focus on understanding the workings of that function. Likewise, if another researcher wanted to test out the data analysis procedure on a dataset of their own, they could do so by running the corresponding function rather than having to dissect an entire script. Third, writing separate code for each component makes it possible to tweak the code or swap out pieces of the simulation, such as by adding additional estimation methods or trying out a data-generating process involving different distributional assumptions. We already saw this in @sec-t-test-simulation, where we modified our initial data-generating process to use a geometric distribution rather than a normal distribution. In short, following the first principle makes for simpler, more robust code that is easier to navigate, easier to test, and easier to extend.
 
 The second principle of tidy, modular simulation is to store all results in rectangular datasets, such as the base R `data.frame` object or the tidyverse `tibble` object.[^010-simulation-structure-1] This principle applies to any and all output, including the simulated data from Step 1, the results of data analysis procedures from Step 2, full sets of replicated simulation results from Step 3, and summarized results from Step 4. A primary benefit of following this principle is that it facilitates working with the output of each stage in the simulation process. If you are comfortable using R to analyze real data, you you can use the same skills and tools to examine simulation output as long as it is in tabular form. Many of the data processing and data analysis tools available in R work with---or even require---rectangular datasets. Thus, using rectangular datasets makes it easier to inspect, summarize, and visualize the output.
+A further benefit of always working with rectangular datasets is more conceptual, in that doing so forces you to think carefully about what pieces of information are needed and how to structure the output from any single step.
 
 [^010-simulation-structure-1]: @Wickham2014tidydata provides a broader introduction to the concept of tidy data in the context of data-analysis tasks.
 
@@ -119,7 +126,7 @@ It involves four functions, where the outputs of earlier functions get used as i
 
 We will now look at the inputs and outputs of each function to see how they align with the four steps in the simulation process. Subsequent chapters examine each piece in much greater detail---putting meat on the bones of each function skeleton, to torture our metaphor---and discuss specific statistical issues and programming techniques that are useful for designing each component.
 
-Besides illustrating the skeletal framework of a simulation, readers might find it useful to use it as a template from which to start writing their own code. The `simhelpers` package\index{package!simhelpers} includes the function `create_skeleton()`,\index{create\_skeleton()} which will open a new R script that contains a template similar to the above:
+Besides illustrating the skeletal framework of a simulation, readers might find it useful to use it as a template from which to start writing their own code. The `simhelpers` package\index{package!simhelpers} [@R-simhelpers] includes the function `create_skeleton()`,\index{create\_skeleton()} which will open a new R script that contains a template similar to the above:
 
 ```{r eval=FALSE}
 simhelpers::create_skeleton()
@@ -211,16 +218,17 @@ Performance measures are the metrics or criteria used to assess the performance 
 
 ### Concluding thoughts
 
-Thus far, we have sketched out the structure of a modular, tidy simulation for a single context.\index{tidy design} In our $t$-test case study, for example, we might ask how well the $t$-test works when we have $n=100$ units and the observations follow geometric distribution. However, we rarely want to examine a method only in a single context. Typically, we want to explore how well a procedure works across a range of contexts. If we choose conditions in a structured and thoughtful manner, we will be able to examine broad trends and potentially make more general claims about the behaviors of the data-analysis procedures under investigation. Thus, it is helpful to think of simulations as akin to a designed experiment: in seeking to understand the properties of one or more procedures, we test them under a variety of different scenarios to see how they perform, then seek to identify more general patterns that hold beyond the specific scenarios examined. This is the heart of simulation for methodological evaluation.
+Thus far, we have sketched out the structure of a modular, tidy simulation for a single context.\index{tidy design} In our $t$-test case study, for example, we might ask how well the $t$-test works when we have $n=100$ units and the observations follow geometric distribution. However, we rarely want to examine a method only in a single context. Typically, we want to explore how well a procedure works across a range of contexts. If we choose conditions in a structured and thoughtful manner, we will be able to examine broad trends and potentially make more general claims about the behaviors of the data-analysis procedures under investigation. Thus, it is helpful to think of a simulation as akin to a designed experiment: in seeking to understand the properties of one or more procedures, we test them under a variety of different scenarios to see how they perform, then seek to identify more general patterns that hold beyond the specific scenarios examined. This is the heart of simulation for methodological evaluation.
 
-When we combine the elements in this chapter we can build a core building block of a single simulation scenario.
-In particular, we will take the code developed for simulating a single context and bundle it into a function that can be evaluated for any and all scenarios of interest. 
-We can then use this element as a core element for more complex simulations and explorations.
+
+Following the principles of tidy simulation, we will end up with a collection of functions that comprise the core building blocks for a simulation of a single scenario.
+With solid building blocks, it becomes possible to extend a simulation from a single scenario to look at many different scenarios. 
+In particular, we will take the code developed for simulating a single context and bundle it into a function that can be evaluated for any and all scenarios of interest.
+This bundled function becomes the basis for more complex simulations and explorations.
 
 Simulation studies often follow a full factorial design, in which each level of a factor (something we vary, such as sample size, true treatment effect, or residual variance) is crossed with every other level. The experimental design then consists of sets of parameter values (including design parameters, such as sample sizes), and these too can be represented in an object, distinct from the other components of the simulation.
-
 We will discuss multiple-scenario simulations in Part III (starting with @sec-simulating-multiple-scenarios).
-Before that, we, in the following chapters, more fully develop the core concepts and techniques involved in simulating a single context.
+Before that, in the next several chapters, we will more fully develop the core concepts and techniques involved in simulating a single context.
 
 
 ## Exercises {.unnumbered}
