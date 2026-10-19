@@ -112,7 +112,7 @@ In @fig-CRT-ATE-hist, for example, we estimated the bias of each estimator by ta
 If we were to repeat the whole simulation (with a different seed), then our estimates of bias would shift.
 
 It is important to track this _Monte Carlo uncertainty_, i.e., uncertainty arising from using only a finite number of replications of the Monte Carlo\index{Monte Carlo simulation} simulation.
-One way to quantify this simulation uncertainty is with the _Monte Carlo Standard Error (MCSE\index{Monte Carlo standard error})_, which is the standard error of a performance estimate given a specific number of replications. 
+One way to quantify this simulation uncertainty is with the _Monte Carlo standard error (MCSE\index{Monte Carlo standard error})_, which is the standard error of a performance estimate given a specific number of replications. 
 Just as when we analyze real data, we can apply statistical techniques to estimate the MCSE and to generate confidence intervals for the performance measures themselves. 
 
 The magnitude of the MCSE is driven by how many replications we use: if we only use a few, we will have noisy estimates of performance and large MCSEs; if we use millions of replications, the MCSE will usually be tiny.
@@ -158,7 +158,7 @@ $$
 \left[\RMSE(T)\right]^2 = \left[\Bias(T)\right]^2 + \Var(T). 
 $$ {#eq-RMSE-decomposition}
 
-When conducting a simulation, we do not compute these performance measures directly but rather must estimate them.
+When conducting a simulation, we cannot compute these performance measures directly but rather must estimate them.
 In most cases, in running a simulation we generate a (typically large) series of $R$ datasets, with $\theta$ being the true target parameter in each of them.
 To estimate performance, we analyze each dataset, obtaining a sample of estimates $T_1,...,T_R$ drawn from the sampling distribution and then plug in sample quantities in place of the expectations and variances.
 Specifically, we estimate bias by taking
@@ -224,13 +224,12 @@ Let us see how the three estimators compare on these measures.
 We first calculate the measures all at once, with results on Table @tbl-cluster-bias, and then dive into interpretation.
 
 ```{r}
-#| label: tbl-cluster-bias
-#| tbl-cap: "Bias, standard error, and RMSE across methods in the clustered randomized trial simulations."
-#| echo: false
+#| label: cluster-bias-calculations
 
 ATE <- 0.30
 
-ClusterRCT_runs %>% 
+point_estimator_performance <-
+  ClusterRCT_runs %>% 
   group_by(method) %>%
   summarise(
     mean_ATE_hat = mean(ATE_hat),
@@ -241,15 +240,24 @@ ClusterRCT_runs %>%
   mutate(
     per_SE = SE / SE[method == "LR"],
     per_RMSE = RMSE / RMSE[method == "LR"]
-  ) %>%
+  )
+```
+
+```{r}
+#| label: tbl-cluster-bias
+#| tbl-cap: "Bias, standard error, and RMSE across methods in the clustered randomized trial simulations."
+#| echo: false
+
+point_estimator_performance %>%
   knitr::kable(digits = 3)
+
 ```
 
 
 #### Are the estimators biased? {-}
 
 Bias is defined with respect to a target estimand.
-Here we assess whether our estimates are systematically different from the $\gamma_1$ parameter, which we defined in standardized units by setting the standard deviation of the student-level distribution of the outcome equal to one (see Section @sec-DGP-standardization).
+Here we assess whether our estimates are systematically different from the $\gamma_1$ parameter, which we defined in standardized units by setting the standard deviation of the student-level distribution of the outcome equal to one [see @sec-DGP-standardization].
 In our simulation, we generated data with a school-level ATE parameter of $\gamma_1 = 0.30$ SDs.
 
 Table @tbl-cluster-bias shows no indication of major bias for aggregation or multi-level modeling.
