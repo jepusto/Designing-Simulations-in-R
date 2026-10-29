@@ -50,7 +50,7 @@ The scores are integer-valued and appear to be non-normally distributed, and we 
 
 @Karlis2003analysis discuss modeling sports scores with a bivariate Poisson distribution, which is a distribution for a pair of counts, $C_1,C_2$, where each count follows a Poisson distribution and where the pair of counts may be correlated. 
 We denote the expected values of the counts as $\mu_1$ and $\mu_2$ and the Pearson correlation between the counts as $\rho$.
-In our example, $\mu_1$ and $\mu_2 would represent the average final scores for visiting teams and home teams, respectively, and $\rho$ would represent the correlation between the scores.
+In our example, $\mu_1$ and $\mu_2$ represent the average final scores for visiting teams and home teams, respectively, and $\rho$ captures the correlation between the scores.
 
 To simulate a dataset based on this model, we would first need to choose how many observations to generate. Call this sample size $N$. 
 One way to generate data following a bivariate Poisson model is to generate _three_ independent Poisson random variables for each of the $N$ observations:
@@ -100,20 +100,22 @@ The main distinction is that the ANOVA model treats the $G$ groups as a fixed se
 ## Components of a DGP
 
 A DGP involves a statistical model with parameters and random variables, but it also often includes further details as well, beyond those that we would consider to be part of the model as we would use it for analyzing real data. 
-In statistical analysis of real data, we often use models that describe only _part_ of the distribution of the data, rather than its full, multivariate distribution.
+In statistical analysis of real data, we often use a model that describes only _part_ of the distribution of the data, rather than its full, multivariate distribution.
+We call this the _focal_ statistical model; we call any further details about how other parts of the data are generated the _auxiliary_ modeling assumptions.
 For instance, when conducting a regression analysis, we are analyzing the distribution of an outcome or response variable, conditional on a set of predictor variables.
 In other words, we take the predictor variables as _given_ or _fixed_, rather than modeling their distribution.
-When using an item response theory (IRT) model,\index{item response theory} we use responses to a set of items to estimate individual ability levels, given the set of items on the test.
+Here, the regression is the focal model and we need an auxiliary model to describe the distribution of predictors. When using an item response theory (IRT) model,\index{item response theory} we use responses to a set of items to estimate individual ability levels, given the set of items on the test.
 We do not (usually) model the items themselves.
-In contrast, if we are going to _generate_ data for simulating a regression model or IRT model, we need to specify distributions for these additional features (the predictors in a regression model, the items in an IRT model); we can no longer just take them as given.
+The IRT model is focal, but if we are going to _generate_ data based on an IRT model, we need to specify an auxiliary model for the item characteristics as well; we can no longer just take them as given.
 
 In designing and discussing DGPs, it is helpful to draw distinctions between the components of the focal statistical model and the remaining components of the DGP that are taken as given when analyzing real data. A first relevant distinction is between structural features, covariates, and outcomes (or more generally, endogenous quantities):
 
-* __Structural features__ are quantities, such as the per-group sample sizes in the one-way ANOVA example, that describe the structure of a dataset but do not enter directly into the focal statistical model.
+* __Structural features__ are quantities that describe the structure of a dataset but do not enter directly into the focal statistical model.
+    In the one-way ANOVA example, the per-group sample sizes are an important factor but their distribution is not part of the focal model used to test for differences between groups.
     When analyzing real data, we usually take the structural features as they come, but when simulating data, we will need to make choices about the structural features.
     For instance, in the HLM example involving students nested within schools, the number of students in each school is a structural feature. 
-    To simulate data based on HLM, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not have to consider these quantities when estimating a hierarchical model on real data. 
-* __Covariates__ are variables in a dataset that we typically take as given when analyzing real data. 
+    To simulate data based on HLM, we will need to make choices about the number of schools and the distribution of the number of students in each school (e.g., we might specify that school sizes are uniformly distributed between specified minimum and maximum sizes), even though we do not make assumptions about these quantities when estimating a hierarchical model on real data. 
+* __Covariates__ are variables in a dataset that we typically take as given (fixed constants) when analyzing real data. 
     For instance, in the one-way ANOVA example, the group assignments of each observation is a covariate.
     In the HLM example, covariates would include the treatment indicators $Z_1,...,Z_J$. In a more elaborate version of the HLM, they might also include variables such as student demographic information, measures of past academic performance, or school-level characteristics such as the school's geographic region or treatment assignment. 
     When analyzing real data, we condition on these quantities, but when specifying a DGP, we will need to make choices about how they are distributed (e.g., we might specify that students' past academic performance is normally distributed).
@@ -171,8 +173,9 @@ generate_data <- function(
 
 The function takes a set of parameter values as input, simulates random numbers and does calculations, and produces as output a set of simulated data.
 Typically, the inputs will consist of multiple parameters, and these will include not only the focal model parameters, but also the auxiliary parameters, sample sizes, and other design parameters.
-The output will typically be a dataset, mimicking what one would see in an analysis of real data.
-In some cases, the output data might be augmented with some other latent quantities (normally unobserved in the real world)  that can be used later to assess whether an estimation procedure produces results that are close to the truth.
+The output will typically be a dataset, mimicking what one would see in an analysis of real data.[^oracle-data]
+
+[^oracle-data]: In some cases, we might need to augment the generated dataset with some latent variables that would be unobserved in a real world data analysis. Including such latent variables may be necessary in order to to assess whether an estimation procedure produces results that are close to the truth. However, if you need to include latent variables in the generated dataset, then it is important to take care that the estimation procedures only make use of the variables that would be available in an actual data analysis. A good way to do this is to include an option in the `generate_data()` function that lets the user include or not include any latent quantities.
 
 We have already seen an example of a complete DGP function in the case study on one-way ANOVA (see @sec-case-anova-DGP).
 In this case study, we developed the following function to generate data for a single outcome from a set of $G$ groups:
@@ -184,7 +187,7 @@ generate_ANOVA_data <- function(mu, sigma_sq, sample_size)
 This function takes both the focal model parameters (`mu`, `sigma_sq`) and other design parameters that one might not think of as parameters per-se (`sample_size`).
 When simulating, we have to specify quantities that we take for granted when analyzing real data.
 
-How would we write a DGP function for the bivariate Poisson model? The equations in @sec-DGP-examples give us the recipe, so it just a matter of re-expressing them in code.\index{example!bivariate Poisson}
+How would we write a DGP function for the bivariate Poisson model? The equations in @sec-BVPois-example give us the recipe, so it just a matter of re-expressing them in code.\index{example!bivariate Poisson}
 For this model, the only design parameter is the sample size, $N$;
 the sole focal parameter is the correlation between the variates, $\rho$; and
 the auxiliary parameters are the expected counts $\mu_1$ and $\mu_2$.
@@ -288,7 +291,7 @@ Depending on the analysis procedures we will apply to the dataset, we might even
 
 An important part of programming in R---especially when writing custom functions---is finding ways to test and check the correctness of your code. Just writing a data-generating function is not enough. It is also _critical_ to test whether the output it produces is correct. How best to do this will depend on the particulars of the DGP being implemented. 
 
-For many DGPs, a broadly useful strategy is to generate a very large sample of data---one so large that the sample distribution should very closely resemble the population distribution.
+For many DGPs, a broadly useful strategy is to generate a very large sample of data---perhaps tens of thousands of observations---so that the sample distribution should very closely resemble the population distribution.
 One can then test whether features of the sample distribution closely align with corresponding parameters of the population model.
 
 For the heteroskedastic ANOVA problem, one basic thing we can do is check that the simulated data from each group follows a normal distribution. 
@@ -333,8 +336,8 @@ Even simple checks such as these can be quite helpful in catching such bugs.
 ## Example: simulating clustered data {#sec-case-cluster}
 \index{example!cluster randomized trial}
 
-Writing code for a complicated DGP can feel like a daunting task, but if you first focus on a recipe for how the data is generated, it is often not too bad to then convert that recipe into code.
-We now illustrate this process with a detailed case study involving a more complex data-generating process\index{data-generating process} 
+Writing code for a complicated DGP can feel like a daunting task, but if you first focus on a recipe for how the data is generated, it becomes more feasible to then convert that recipe into code.
+We now illustrate this process with a detailed case study involving a more complex data-generating process.\index{data-generating process} 
 Recent literature on multisite trials (where, for example, students are randomized to treatment or control within each of a series of schools) has explored how variation in the strength of effects across schools can affect how different data-analysis procedures behave [e.g., @miratrix2021applied; @Bloom2016using].
 In this example, we are going to extend this work to explore best practices for estimating treatment effects in cluster randomized trials.
 In particular, we will investigate what happens when the treatment impact for each school is related to the size of the school.
@@ -479,7 +482,7 @@ skeleton <- c(cluster_RCT_fun[1:10], "  # Code (see below) goes here", "}")
 ```
 
 Note that the inputs to this function are a mix of *model parameters* (`gamma_0`, `gamma_1`, `gamma_2`, representing coefficients in regressions), *auxilary parameters* (`sigma2_u`, `sigma2_e`, `alpha`, `n_bar`), and *design parameters* (`J`, `p`) that directly inform data generation.
-We set default arguments (e.g., `gamma_0=0`) so that we can ignore aspects of the DGP that we do not care about for the moment.
+We set default arguments (e.g., `gamma_0 = 0`) so that we can ignore aspects of the DGP that we do not care about for the moment.
 
 Inside the model, we will have a block of code to generate the variables pertaining to schools, and then another to generate the variables pertaining to students.
 
@@ -489,7 +492,7 @@ We first make the schools:
 ```
 
 The code is a literal translation of the math we did before.
-Note the line with `sample(1:J) <= J*p`; this is a simple trick to generate a 0/1 indicator for control and treatment conditions.
+Note the line with `sample(1:J) <= J * p`; this is a simple trick to generate a 0/1 indicator for control and treatment conditions.
 
 There is also a serious error in the above code (serious in that the code will run and look fine in many cases, but not always do what we want); we leave it as an exercise (see below) to find and fix it.
 <!-- JEP: Does this exercise support our pedagogical goals? If this is supposed to be intro chapter, then debugging a subtle problem seems like it could be counterproductive. -->
@@ -514,7 +517,7 @@ dat <- gen_cluster_RCT(
 head( dat )
 ```
 
-With this function, we can control the average size of the clusters (`n`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the school size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of school size variation (`alpha`).
+With this function, we can control the average size of the clusters (`n_bar`), the number of clusters (`J`), the proportion treated (`p`), the average outcome in the control group (`gamma_0`), the average treatment effect (`gamma_1`), the school size by treatment interaction (`gamma_2`), the amount of cross site variation (`sigma2_u`), the residual variation (`sigma2_e`), and the amount of school size variation (`alpha`).
 The next step is to test the code, making sure it is doing what we think it is.
 In fact, it is not--there is a subtle bug that only appears under some specifications of the parameters; see the exercises for more on diagnosing and repairing this error.
 
@@ -591,21 +594,21 @@ $$
 Pr(X_{im} = 1) = \gamma_m + (1 - \gamma_m) g\left( \alpha_m [\theta_i - \beta_m]\right),
 $$
 where $g(x)$ is the cumulative logistic curve: $g(x) = e^x / (1 + e^x)$.
-The instructor explains that $\alpha_m$ is a positive-valued "discrimination parameter", $\beta_m$ is a difficulty parameter that can be any value, and $\gamma_m$ is a guessing probability parameter between 0 and 1.
-<!-- LWM: I changed this to say discrimination is non-negative and difficulty is anything?  That is correct, yes?  (it was swapped) -->
+The instructor explains that $\alpha_m$ is a positive-valued discrimination parameter, $\beta_m$ is a difficulty parameter that can be any value, and $\gamma_m$ is a guessing probability parameter between 0 and 1.
 They further explain that the guessing parameter is often hard to estimate and so might get treated as fixed and known, based on the number of response options on the item.
 For instance, if all the items have four options, then we might take $\gamma_m = \frac{1}{4}$ for $m = 1,...,M$.
 Finally, they explain that the ability parameters are assumed to follow a standard normal distribution, so $\theta_i \sim N(0, 1)$ in the population. 
 
 What is this madness? It certainly is a lot of notation to follow. 
 To make sense of all the moving pieces, let's try simulating from the model using more-or-less arbitrary parameters.
-To begin, we will need to pick a test length $M$ and a sample size $N$.
-Let's use $N = 7$ participants and $M = 4$ items for starters:
+It's useful to break up the model into pieces: the structural features, covariates, and outcomes.
+To begin, we will need to pick values for the design parameters, which in this case is a test length $M$ and a sample size $N$.
+Let's use $N = 7$ participants and $M = 4$ items for starters, so that the generated dataset is small enough to inspect by hand:
 ```{r}
 N <- 7
 M <- 4
 ```
-DGPs usually follow a hierarchy, with different elements being defined in terms of other elements, and so on until some elements do not depend on anything.
+DGPs often follow a hierarchy, with different elements being defined in terms of other elements, and so on until some elements do not depend on anything.
 Following this structure, we first generate the ability parameters because they follow a standard normal distribution that does not depend on anything else:
 ```{r}
 thetas <- rnorm(N)
@@ -614,9 +617,10 @@ Now we need sets of parameters $\alpha_m, \beta_m, \gamma_m$ for every item $m =
 Where do we get these? 
 
 For a particular fixed-length test, the set of item parameters would depend on the features of the actual test questions.
-But we are not (yet) dealing with actual testing data, so we will need to make up an auxiliary model for these parameters.
+But we are not (yet) dealing with actual testing data, so we will need to specify an auxiliary model for these parameters.
+
 Perhaps we could just simulate some values?
-Each item requires three numbers; the easiest way to generate them is to let them all be independent of each other, so we do that.
+Each item requires three numbers; the easiest way to generate them is to let them all be independent of each other, so we will do that.
 
  * **Difficulty:** Arbitrarily, let's draw the difficulty parameters from a normal distribution with mean $\mu_\beta = 0$ and standard deviation $\tau_\beta = 1$.
 
@@ -666,10 +670,11 @@ We made assumptions about the item parameters, but we had to specify means and s
 Our data-generating function will then be
 ```{r}
 r_3PL_IRT <- function(
-    N, M = 4,
-    diff_M = 0, diff_SD = 1,
-    disc_M = 1, disc_SD = 0.2,
-    item_options = 4
+    N,                          # number of respondents
+    M = 4,                      # number of items
+    diff_M = 0, diff_SD = 1,    # distribution of difficulty parameters
+    disc_M = 1, disc_SD = 0.2,  # distribution of discrimination parameters
+    item_options = 4            # number of response options
 ) {
   # generate ability parameters
   thetas <- rnorm(N)
@@ -745,9 +750,8 @@ For instance, we could look at what happens to the distribution of total scores 
 What if the items had varying numbers of response options, so the guessing parameters differ? 
 Are there item parameter values that will produce highly unrealistic distributions of total scores?
 Exercises -@exr-IRT-DGP-parameters, -@exr-IRT-DGP-checking, and -@exr-IRT-DGP-breaking ask you to further explore these questions.
-
-Overall, implementing the model as a data-generating function has allowed us to explore the model in a more active way than simply reading about it or listening to a lecture.
-We have a more visceral feel about how the different parameters would create variation in our data---and it would be easy to tweak those parameters to see how things changed to learn even more.
+Implementing the model as a data-generating function allows for exploration of the model in a more active way than simply reading about it or listening to a lecture.
+We can gain a more visceral feel about how the different parameters would create variation in our data---and it would be easy to tweak those parameters to see how things changed to learn even more.
 
 <!-- LWM: I like this example, but it would be great if we added some specific takeaways of what we are learning by these sorts of explorations. I had originally thought to look at how distribution of total score has changed as a function of student ability, but that would involve updating the DGP. To discuss. -->
 
@@ -1105,7 +1109,7 @@ d)  Write code to check the properties of your data-generating function.
 
 @vevea1995general proposed a meta-regression model that allows for the possibility that not all primary study results are published. 
 They assume that primary study results are generated according to the random effects meta-regression model described in @exr-meta-regression-DGP, but then only a subset of results are observed, where the probability of being included is a function of the result's one-sided $p$-value for the null hypothesis $H_0: \delta \leq 0$ against alternative $H_A: \delta > 0$.
-Let $p_i = 1 - \Phi(T_i / s_i)$ be the one-sided $p$-value for study result $i$, where $Phi()$ is the standard normal cumulative distribution (`pnorm()` in R). 
+Let $p_i = 1 - \Phi(T_i / s_i)$ be the one-sided $p$-value for study result $i$, where $\Phi()$ is the standard normal cumulative distribution (`pnorm()` in R). 
 In one version of the selection model, the selection probability follows a piece-wise constant distribution with
 $$
 \text{Pr}(T_i \text{ is observed}) = \begin{cases} 

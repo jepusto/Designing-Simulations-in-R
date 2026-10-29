@@ -39,7 +39,7 @@ The easiest approach here is to implement each estimator in turn, and then bundl
 We describe how to do this in @sec-multiple-estimation-procedures.
 
 In @sec-validating-estimation-function, we describe strategies for validating the coded-up estimator before running a full simulation.
-We offer a few strategies for validating ones code, including checking against existing implementations, checking theoretical properties, and using simulations to check for bugs.
+We offer several strategies for validating one's code, including checking against existing implementations, checking theoretical properties, and using simulations to check for bugs.
 
 For a full simulation, an estimator needs to be reliable, not crashing and giving answers across the wide range of datasets to which it is applied.
 An estimator will need to be able to handle odd edge cases or pathological datasets that might be generated as we explore a full range of simulation scenarios.
@@ -50,7 +50,7 @@ To allow for this, @sec-error-handling demonstrates several methods for handling
 
 In the abstract, a function that implements an estimation procedure should have the following form:
 ```{r}
-estimator <- function(data) {
+analyze <- function(data) {
 
   # calculations/model-fitting/estimation procedures
   
@@ -58,10 +58,12 @@ estimator <- function(data) {
 }
 ```
 
-An estimator function should take a dataset as input, fit a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and return these quantities as output.
+An `analyze()` function should take a dataset as input, fit a model or otherwise calculates an estimate, possibly with associated standard errors and so forth, and return these quantities as output.[^analyze-options]
 It can return point estimates of parameters, standard errors, confidence intervals, $p$-values, predictions, or other quantities.
 The calculations in the body of the function should be set up to use datasets that have the same structure (i.e., same dimensions, same variable names) as the output of the corresponding function for generating simulated data. 
 However, in principle, we should also be able to run the estimation function on real data as well. 
+
+[^analyze-options]: In some cases, the `analyze()` function might need to have additional input options to control details of how the estimation is carried out, such as the method of calculating standard errors. See @sec-multiple-estimation-procedures for examples of functions that include such optional arguments.
 
 As a first example, suppose we want to evaluate a method for generating a confidence interval for Pearson's sample correlation coefficient when faced with non-normal data.
 For bivariate normal data, statistical theory provides some very useful facts. 
@@ -96,7 +98,7 @@ USJudgeRatings %>%
 The function returns a valid result---a quite strong correlation in this case!
 
 It is good practice to test out a newly-developed estimation function on real data as a check that it is working as intended.
-Testing on real data ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate.
+Testing on real data ensures that the estimation function is not using information outside of the dataset, such as by using known parameter values to construct an estimate or standardizing the outcome variable based on an unobserved latent variable.
 Applying the function to a real dataset demonstrates that the function implements a procedure that could actually be applied in real data analysis contexts.
 
 
@@ -105,18 +107,18 @@ Applying the function to a real dataset demonstrates that the function implement
 Many simulations involve head-to-head comparisons between more than one data-analysis procedure. 
 As a design principle, we generally recommend writing different functions for each estimation method one is planning on evaluating. 
 Doing so makes it easier to add in additional methods as desired or to focus on just a subset of methods. 
-Writing separate functions also leads to a code base that is flexible and useful for other purposes (such as analyzing real data).
+Writing separate functions also leads to a code base that is flexible and useful for other purposes (such as analyzing real data) and easier to share with others.
 Finally (repeating one of our favorite mantras), separating functions makes debugging easier because  it lets you focus attention on one thing at a time, without worrying about how errors in one area might propagate to others.
 
 To see how this works in practice, we return to the case study from @sec-case-cluster, \index{example!cluster randomized trial} where we developed a data-generating function for simulating a cluster-randomized trial\index{cluster-randomized trial} with student-level outcomes but school-level treatment assignment.
 Our data-generating process\index{data-generating process} allowed for varying school sizes and heterogeneous treatment effects that are correlated with school size.
-Several different procedures might be used to estimate an overall average effect from a clustered experiment. We will consider three different procedures:
+We will consider three different procedures for estimating an overall average effect from a clustered experiment:
 
 * Fitting a multi-level regression model (also known as a hierarchical linear model),
 * Fitting an ordinary least squares (OLS) regression model and applying cluster-robust standard errors, or
 * Averaging the outcomes by school, then fitting a linear regression model on the mean outcomes.
 
-All three of these methods are widely used and have some theoretical guarantees supporting their use. 
+All three of these methods are widely used and have some theoretical guarantees supporting their use, although none of them directly address the possibility of heterogeneous effects that are correlated with school size.
 Education researchers tend to be more comfortable using multi-level regression models, whereas economists tend to use OLS with clustered standard errors.
 
 <!-- JEP: Do we want to add any citations for further reading about these strategies? Any further comments about these methods? -->
@@ -169,7 +171,7 @@ Here is a function implementing OLS regression with cluster-robust standard erro
 ```{r, code = analysis_OLS_code}
 ```
 To get cluster-robust standard errors, we use the `lm_robust()` function from the `estimatr()` package, again calling only the relevant function using the package prefix rather than loading the whole package.
-A novel aspect of this estimation function is that it includes an additional intput argument, `se_type`, which allows us to control the type of standard error calculated by `lm_robust()`.
+A novel aspect of this estimation function is that it includes an additional input argument, `se_type`, which allows us to control the type of standard error calculated by `lm_robust()`.
 Adding this option would let us use the same function to compute (and compare) different types of clustered standard errors for the average treatment effect estimate.
 We set a default option of `"CR2"`, just like the default of `lm_robust()`.
 
@@ -314,7 +316,9 @@ Here is the tweaked function:
 ```{r}
 analysis_MLM <- function( dat, all_results = FALSE) {
   
-  M1_test <- lmerTest::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
+  M1_test <- lmerTest::lmer( 
+    Yobs ~ 1 + Z + (1 | sid), data = dat 
+  )
   
   if (all_results) {
     return(summary(M1_test))
@@ -367,13 +371,13 @@ When faced with an unusual pattern, revisit the estimation code to double check 
 Further exploration might lead you to a deeper understanding of how a method works and perhaps even an idea for how to improve the estimator or refine the data-generating process.
 
 A good illustration of this process comes from one of Luke's past research projects (see @pashley2024improving), in which he and other co-authors were working on a way to improve Instrumental Variable (IV) estimation using post-stratification.
-The method they studied involved grouping units based on a covariate that predicts compliance status, then calculating estimates within each group, then averaging the estimates across groups.
+The method they studied involved grouping units based on a covariate that predicts whether participants comply with their assigned treatment condition, then calculating estimates within each group, then averaging the estimates across groups.
 They used simulations to see whether this method would improve the accuracy of the overall summary effect estimate.
 In the first simulation, the estimates were full of missing values and odd results because the estimation function failed to account for what happens in groups of observations where the number of compliers was estimated to be zero.
 After repairing that problem and re-running everything, the simulation results still indicated serious and unexpected bias, which turned out to be due to an error in how the estimation function implemented the step of averaging estimates across groups.
 After again correcting and re-running, the simulation results showed that the gains in accuracy from this new method were minimal, even when the groups were formed based on a variable that was almost perfectly predictive of compliance status.
-Eventually, we understood that the groups with very few compliers produced such unstable estimates that they spoiled the overall average estimate.
-This inspired us to revise our estimation strategy and introduce a method that dropped or down-weighted strata with few compliers, which ultimately helped us to strengthen the contribution of our work.
+Eventually, the authors recognized that the groups with very few compliers produced such unstable estimates that they spoiled the overall average estimate.
+This inspired them to revise the estimation strategy and introduce a method that dropped or down-weighted strata with few compliers, which ultimately helped us to strengthen the contribution of the work.
 
 As this experience highlights, simulations seldom follow a single, well-defined trajectory.
 The point of conducting simulations is to help us, as researchers, learn about estimation methods so that we can analyze real data better.
@@ -470,6 +474,8 @@ my_safe_quiet_function(7)
 To see how this works in practice, we will adapt our `analysis_MLM()` function, which makes use of `lmer()` for fitting a multilevel model.
 Currently, the estimation function sometimes prints messages to the console:
 ```{r illustrate_warnings}
+#| warning: true
+#| message: true
 set.seed(101012)  # (hand-picked to show a warning.)
 dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
 mod <- analysis_MLM(dat)
@@ -497,10 +503,12 @@ analysis_MLM_safe <- function( dat ) {
  
   if ( is.null( M1$result ) ) {
     # we had an error!
-    tibble( ATE_hat = NA, SE_hat = NA, p_value = NA,
-            message = M1$message,
-            warning = M1$warning,
-            error = TRUE )
+    tibble( 
+      ATE_hat = NA, SE_hat = NA, p_value = NA,
+      message = M1$message,
+      warning = M1$warning,
+      error = TRUE 
+    )
   } else {
     # no error!
     sum <- summary( M1$result )
@@ -512,7 +520,7 @@ analysis_MLM_safe <- function( dat ) {
       message = length( M1$messages ) > 0,
       warning = length( M1$warning ) > 0,
       error = FALSE
-      )
+    )
   }
 }
 ```
@@ -533,25 +541,25 @@ quiet_analyze_data <- function(dat,
                                agg_se_type = "HC2") {
   
   # MLM
-  a = Sys.time()
+  a <- Sys.time()
   MLM <- analysis_MLM_safe(dat)
   MLM$seconds <- as.numeric(Sys.time() - a, units = "secs")
   
   # OLS
-  a = Sys.time()
+  a <- Sys.time()
   LR <- analysis_OLS(dat, se_type = CR_se_type)
   LR$seconds <- as.numeric(Sys.time() - a, units = "secs")
-  LR$message <- 0
-  LR$warning <- 0
-  LR$error <- 0
+  LR$message <- FALSE
+  LR$warning <- FALSE
+  LR$error <- FALSE
   
   # Aggregated
-  a = Sys.time()
+  a <- Sys.time()
   Agg <- analysis_agg(dat, se_type = agg_se_type)
   Agg$seconds <- as.numeric(Sys.time() - a, units = "secs")
-  Agg$message <- 0
-  Agg$warning <- 0
-  Agg$error <- 0
+  Agg$message <- FALSE
+  Agg$warning <- FALSE
+  Agg$error <- FALSE
   
   bind_rows(MLM = MLM, LR = LR, Agg = Agg, .id = "method")
 }
@@ -638,28 +646,30 @@ Just as with `possibly()`, we include `otherwise = NA` to set a return value if 
 
 We can use the safe function repeatedly and it will always return a result:
 ```{r}
-resu <- replicate(20, my_safe_function( 7 ), simplify = FALSE)
+res <- replicate(20, my_safe_function( 7 ), simplify = FALSE)
 ```
 
 We still get warnings, but any errors are trapped so the function does not crash.
 
 We end up with a 20-entry list, with each element consisting of a pair of the result and error message:
 ```{r}
-length( resu )
-resu[[3]]
+length( res )
+res[[3]]
 ```
 We can massage our data into a format that is easier to parse:
 ```{r}
-resu <- transpose( resu )
-unlist(resu$result)
+res <- transpose( res )
+unlist(res$result)
 ```
 
 The `transpose()` function takes a list of lists, and reorganizes them to give you a list of all the first elements, a list of all the second elements, etc.
 `transpose()` is very powerful for wrangling data, because then we can make a tibble with list columns as so:
 
 ```{r}
-tb <- tibble( result = unlist( resu$result ), 
-              error = resu$error )
+tb <- tibble( 
+  result = unlist( res$result ), 
+  error = res$error 
+)
 print( tb, n = 4 )
 ```
 
@@ -698,6 +708,8 @@ Once written, applying the function will produce a tidy table of results that we
 
 ## Concluding thoughts
 
+<!-- JEP: Need to expand this further. -->
+<!-- MJ: But what you include in sim study should be very connected to what you are trying to answer in the sim study. It would be good to go over a bit what kind of estimation methods to select to do a good sim, what do you use for benchmark, what is okay to omit. -->
 The estimation procedures are not really in the domain of the simulation design.
 These are the methods that we are trying to evaluate, and should come out of the core research and development that is motivating the simulation in the first place.
 
