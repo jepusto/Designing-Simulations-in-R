@@ -241,6 +241,11 @@ point_estimator_performance <-
     per_SE = SE / SE[method == "LR"],
     per_RMSE = RMSE / RMSE[method == "LR"]
   )
+
+LR_bias <- 
+  point_estimator_performance %>%
+  filter(method == "LR") %>%
+  pull(bias)
 ```
 
 ```{r}
@@ -261,10 +266,10 @@ Here we assess whether our estimates are systematically different from the $\gam
 In our simulation, we generated data with a school-level ATE parameter of $\gamma_1 = 0.30$ SDs.
 
 Table @tbl-cluster-bias shows no indication of major bias for aggregation or multi-level modeling.
-Linear regression, with a bias of about 0.12 SDs, appears much more biased than the other estimators.
+Linear regression, with a bias of about `{r} round(LR_bias, 2)` SDs, appears much more biased than the other estimators.
 This is because the linear regression is targeting the person-level average treatment effect.
 Our data-generating process makes larger sites have larger effects, so the person-level average effect is going to be higher because those larger sites count more in the overall average.
-In contrast, our estimand is the school-level average treatment effect, or the simple average of each school's true impact, which we have set to 0.30.
+In contrast, our estimand is the school-level average treatment effect, or the simple average of each school's true impact, which we have set to `{r} ATE`.
 The aggregation and multi-level modeling methods target this school-level average effect.
 If we had instead decided that the target estimand should be the person-level average effect, then we would find that linear regression is unbiased whereas aggregation and multi-level modeling are biased; see Section @sec-implicit-estimands, below, to see how this plays out.
 It is crucial to think carefully about the appropriate target parameter and to assess performance with respect to a well-justified and clearly articulated target.
@@ -290,17 +295,20 @@ For aggregation and multi-level modeling, the RMSE is the same as the standard e
 For linear regression, the combination of bias plus increased variability yields a higher RMSE, with the standard error dominating the bias term (note how RMSE and SE are more similar than RMSE and bias).
 <!--The difference between the estimators are pronounced because RMSE is the square root of the _squared_ bias and _squared_ standard error.-->
 <!-- LWM: I don't think the prior line is needed? -->
-Overall, aggregation and multi-level modeling have RMSEs around 10% smaller than linear regression, meaning they tend to produce estimates that are closer to the truth than linear regression.
+Overall, aggregation and multi-level modeling have RMSEs around 10% smaller than linear regression, meaning they tend to produce estimates that tend to be closer to the truth than linear regression.
 
 ### Robust performance measures {#sec-less-conventional-measures}
 
 We have introduced bias, variance and RMSE as three core measures of performance for point estimators.
 However, all of these measures are sensitive to outliers in the sampling distribution.
-Consider an estimator that generally does well, except for an occasional large mistake.
+Consider, for example, an instrumental variables analysis, where it is common to use a two-stage least squares (2SLS) estimator. The 2SLS estimator takes the form of a ratio, where the denominator measures the strength of the instrument and the numerator measures the effect of the instrument on the outcome. 
+As long as the instrument is strong, the 2SLS estimator will be reasonably accurate.
+However, even with a strong instrument, it is possible that the denominator estimator can be small (near zero), causing the ratio to go wildly off.
+Thus, the 2SLS will generally do pretty well but will, on rare occasions, make a very large error [see @pashley2024improving for an example of a simulation where this occurs].
 Because conventional measures are based on arithmetic averages and squares of errors, they could indicate that such an estimator performs very poorly overall, when in fact it performs very well most of the time and terribly only rarely.
 
 If we are more curious about typical performance, then we might prefer to use other performance measures, such as the __median bias__ and the __median absolute deviation__ of $T$.
-These are called "robust" measures because they are not strongly affect by a few extreme values.
+These are called "robust" measures because they are not strongly affected by a few extreme values.
 
 One way to make a robust measure is to simply chop off some percent of the most extreme values, and then look at the central tendency or spread of the remaining values.
 For example, one robust measure of central tendency uses the $p \times 100\%$-trimmed mean, which ignores the estimates in the lowest and highest $p$-quantiles of the sampling distribution.
@@ -376,9 +384,9 @@ The `robustbase` package [@robustbase] provides R functions for calculating many
 
 ## Measures for variance estimators {#sec-measures-for-variance-estimators}
 
-Statistics is concerned not only with how to estimate things (e.g., point estimates), but also with understanding how well we have estimated them (e.g., standard errors).
+Statistics is concerned not only with how to estimate quantities of interest, but also with understanding _how well_ we have estimated them---that is, with understanding how well we have quantified the uncertainty, using a quantity like a standard error.
 Monte Carlo simulation studies can help us evaluate both these concerns.
-The prior section focused on assessing how well our estimators work.
+The prior section focused on assessing how well our point estimators work.
 In this section we focus on assessing how well our uncertainty assessments work, looking in particular on estimation of the standard error.
 
 A first order question is whether our estimated standard errors are __calibrated__, meaning whether they are the right size, on average.
@@ -465,7 +473,7 @@ The second is to assess the effective degrees of freedom of $V$, which takes int
 
 [^df-correction]: A degrees of freedom correction used in a confidence interval or hypothesis test functions in exactly this way. For instance, when $V$ is unstable, as represented by a low degree of freedom, we hedge against it being randomly too small by making our confidence intervals systematically larger.
 
-The relative Variance and MSE of $V$ as an estimate of $Var(T)$ are defined as
+The relative variance and MSE of $V$ as an estimate of $Var(T)$ are defined as
 $$
 \begin{aligned}
 \text{Relative Var}(V) &= \frac{\Var(V)}{\Var(T)} ,\\
@@ -495,7 +503,7 @@ For some simple statistical models such as classical analysis of variance and li
 In such cases, the sampling distribution of the variance estimator is a multiple of a $\chi^2$ distribution, with degrees of freedom corresponding to the number of independent observations used to compute the sum of squares.
 This is what leads to $t$ statistics and so forth.
 
-In the context of analysis of variance problems, @Satterthwaite1946approximate described a method of extending this idea by approximating the variability of more complex statistics (those that can be represented as a linear combination of a sum of squares), by using a chi-squared distribution with a certain degrees of freedom.
+In the context of analysis of variance problems, @Satterthwaite1946approximate described a method of extending this idea by approximating the variability of more complex statistics (those that can be represented as a linear combination of a sum of squares), by using a $\chi^2$ distribution with a certain degrees of freedom.
 When applied to an arbitrary variance estimator $V$, these degrees of freedom can be interpreted as the number of independent, normally distributed errors going into a sum of squares that would lead to a variance estimator that is as equally precise as $V$.
 More succinctly, these effective degrees of freedom correspond to the amount of independent observations used to estimate $V$.
 
@@ -563,7 +571,7 @@ The coverage rate of a $\beta$-level interval estimator is the probability that 
 $$
 \text{Coverage}(A,B) = \Prob(A \leq \theta \leq B).
 $$ {#eq-coverage}
-For a well-performing interval estimator, $\text{Coverage}$ will be at least $\beta$ and ideally will not exceed $\beta$ by too much.
+For a well-performing interval estimator, coverage will be at least $\beta$ and ideally will not exceed $\beta$ by too much.
 Some analysts prefer to look at lower and upper coverage separately, where lower coverage is $\Prob(A \leq \theta)$ and upper coverage is $\Prob(\theta \leq B)$,
 and where it is desirable for each of these rates to be near $\beta / 2$.
 
@@ -629,7 +637,7 @@ The linear regression confidence intervals are a bit wider than the other method
 The normal Wald-type confidence intervals we have examined here are based on fairly rough approximations.
 In practice, we might want to examine more carefully constructed intervals such as ones that use critical values based on $t$ distributions or ones constructed by profile likelihood. 
 Especially in scenarios with a small or moderate number of clusters, such methods might provide better intervals, with coverage closer to the desired confidence level.
-In our earlier assessment of the variance estimator (see @sec-assess-cluster-RCT-SEs), we also found Linear Regression had lower degrees of freedom, meaning it might have even wider intervals if they were calculated more carefully.
+In our earlier assessment of the variance estimator (see @sec-assess-cluster-RCT-SEs), we also found that linear regression had lower degrees of freedom, meaning it might have even wider intervals if they were calculated more carefully.
 See @exr-cluster-RCT-t-confidence-intervals.
 
 ## Measures for inferential procedures (hypothesis tests) {#sec-assessing-inferential-procedures}
@@ -643,12 +651,14 @@ Hypothesis testing procedures aim to control the level of false positives, corre
 The level of a testing procedure is often denoted as $\alpha$, and it has become conventional in many fields to conduct tests with a level of $\alpha = .05$.[^significance]
 Just as in the case of confidence intervals, hypothesis testing procedures can sometimes be developed that will have false positive rates exactly equal to the intended level $\alpha$.
 However, in many other problems, hypothesis testing procedures involve approximations or simplifying assumptions, so that the actual rate of false positives might deviate from the intended $\alpha$-level.
-Knowing the risk of this is important.
+Knowing the risk of this possibility is important.
 When we evaluate a hypothesis testing procedure, we are concerned with two primary measures of performance: *validity* and *power*.
 
 [^significance]: The convention of using $\alpha = .05$ does not have a strong theoretical rationale. Many scholars have criticized the rote application of this convention and argued for using other $\alpha$ levels. See @Benjamin2017redefine and @Lakens2018justify for spirited arguments about choosing $\alpha$ levels for hypothesis testing.
 
 ### Validity
+
+<!-- MJ: This is type 1 error? why not just call it type 1 error rate? I think in sim studies i haven't heard this called validity. -->
 
 Validity pertains to whether we erroneously reject a true null more often than we should.
 An $\alpha$-level testing procedure is valid if it has no more than an $\alpha$ chance of rejecting the null, when the null is true.
@@ -662,7 +672,7 @@ The key to evaluating the validity of a procedure is that, for whatever data-gen
 
 ### Power
 
-Power is concerned with the chance that we notice when an effect exists---that is, the probability of rejecting the null hypothesis when it does not actually hold.
+Power concerns the chance that we detect an effect under conditions where the effect exists---that is, the probability of rejecting the null hypothesis when the null is actually false.
 Compared to validity, power is a more nuanced concept because larger effects will clearly be easier to notice than smaller ones, and more blatant violations of a null hypothesis will be easier to identify than subtle ones.
 Furthermore, the rate at which we can detect violations of a null will depend on the $\alpha$ level of the testing procedure. A lower $\alpha$ level will make for a less sensitive test, requiring stronger evidence to rule out a null hypothesis. 
 Conversely, a higher $\alpha$ level will reject more readily, leading to higher power but at a cost of increased false positives. 
@@ -674,7 +684,7 @@ The only difference is the _conditions_ under which the data are generated.
 
 We often find it useful to think of power as a _function_ rather than as a single quantity because its absolute magnitude will generally depend on the sample size of a dataset and the magnitude of the effect of interest. 
 Because of this, power evaluations will typically involve examining a _sequence_ of data-generating scenarios with varying sample size or varying effect size. 
-If we are actually planning a future\index{future package} analysis, we would then look to determine what sample size or effect size would give us 80% power (a traditional target power level used for planning in many cases).
+If we are actually planning a future study, we would then look to determine what sample size or effect size would give us 80% power (a traditional target power level used for planning in many cases).
 See @sec-power for more on power analysis\index{power analysis} for study planning.
 
 Separately, if our goal is to compare testing procedures, then absolute power at substantively large effects is often less informative than the relative power of different testing procedures at substantively small effects, near to but not exactly at the null.
@@ -772,7 +782,7 @@ Results are as follows:
 runs_val %>% 
   group_by( method ) %>%
   summarise( 
-    bias = mean(ATE_hat),
+    bias = mean(ATE_hat) - 0,       # true ATE is zero
     power = mean( p_value <= 0.05 ) 
   ) %>%
   knitr::kable( digits = 3 )
@@ -784,7 +794,7 @@ The elevated rejection rate due to bias might then be part of the reason that th
 If so, it is not entirely fair to compare the power of the three testing procedures, because one of them has Type I error in excess of the desired level.
 
 As discussed above, linear regression targets the person-level average treatment effect. 
-In the scenario we just simulated for evaluating validity, the person-level average effect is not zero even though our cluster-average effect is zero, because we have specified a non-zero impact heterogeneity parameter (`size_coef=0.75`) along with positive school size variation (`alpha = 0.75`), so that the school-specific treatment effects vary around 0.
+In the scenario we just simulated for evaluating validity, the person-level average effect is not zero even though our cluster-average effect is zero, because we have specified a non-zero impact heterogeneity parameter (`size_coef = 0.75`) along with positive school size variation (`alpha = 0.75`), so that the school-specific treatment effects vary around 0.
 To see if this is why the linear regression test has an inflated Type I error rate, we could re-run the simulation using settings where both the school-level and person-level average effects are truly zero by setting `size_coef = 0`.
 
 
@@ -817,14 +827,14 @@ For instance, studies might use relative bias or relative RMSE, defined as
 $$
 \begin{aligned}
 \text{Relative }\Bias(T) &= \frac{\E(T)}{\theta}, \\ 
-\text{Relative }\RMSE(T) &= \frac{\sqrt{\E\left[\left(T - \theta\right)^2 \right]}}{\theta}.
+\text{Relative }\RMSE(T) &= \frac{\sqrt{\E\left[\left(T - \theta\right)^2 \right]}}{|\theta|}.
 \end{aligned}
 $$ {#eq-relative-bias-RMSE}
 and estimated as 
 $$
 \begin{aligned}
 \widehat{\text{Relative }\Bias(T)} &= \frac{\bar{T}}{\theta}, \\ 
-\widehat{\text{Relative }\RMSE(T)} &= \frac{\widehat{RMSE}(T)}{\theta}.
+\widehat{\text{Relative }\RMSE(T)} &= \frac{\widehat{RMSE}(T)}{|\theta|}.
 \end{aligned}
 $$ {#eq-relative-bias-RMSE-estimators}
 As justification for evaluating bias in relative terms, authors often appeal to @hoogland1998RobustnessStudiesCovariance, who suggested that relative bias of under 5% (i.e., relative bias falling between 0.95 and 1.05) could be considered acceptable for an estimation procedure.
@@ -837,7 +847,7 @@ But if the true value were 0.01, then the relative bias would be 10!
 As the true value gets smaller and smaller, the relative bias will explode.
 
 Another problem with relative bias occurs when the target parameter is on an arbitrary scale, so that the absolute magnitude is not meaningful.
-For example, in our Cluster RCT simulation, the relative bias of the ATE estimators would change if we moved the ATE from 0.2 to 0.5, or from 0.2 to 0 (where relative bias would now be entirely undefined).
+For example, in our cluster RCT simulation, the relative bias of the ATE estimators would change if we moved the ATE from 0.2 to 0.5, or from 0.2 to 0 (where relative bias would now be entirely undefined).
 In contrast, the absolute bias would stay the same regardless of the ATE.
 
 A more principled approach to choosing between whether to use absolute and relative measures is to first consider whether the magnitude of the measure changes across different performances of the target parameter $\theta$.
@@ -910,7 +920,7 @@ Whether this is misleading or not will depend on context.
 
 ## Estimands not represented by a parameter {#sec-implicit-estimands}
 
-In the Cluster RCT example,\index{example!cluster randomized trial} we focused on the estimand of the school-level ATE, represented by the model parameter $\gamma_1$.
+In the cluster RCT example,\index{example!cluster randomized trial} we focused on the estimand of the school-level ATE, represented by the model parameter $\gamma_1$.
 What if we were instead interested in the person-level average effect?
 This estimand does not correspond to any input parameter in our data generating process.
 Instead, it is defined _implicitly_ by a combination of other parameters.
@@ -927,18 +937,22 @@ However, this approach requires knowledge of distribution theory, and it can get
 **Massive dataset.** Another approach is to generate a massive dataset---one so large that it can stand in for the entire data-generating model---and then simply calculate the target parameter of interest in this massive dataset. In the cluster-RCT example, we can apply this strategy by generating data from a very large number of clusters and then simply calculating the true person-average effect across all generated clusters.
 If the dataset is big enough, then the uncertainty in this estimate will be negligible compared to the uncertainty in our simulation.
 
-We implement this approach as follows, generating a dataset with 100,000 clusters:
+We implement this approach as follows, generating a dataset with 200,000 clusters:
 ```{r, cache=TRUE}
 dat <- gen_cluster_RCT( 
-  n_bar = 30, J = 100000, 
+  n_bar = 30, J = 200000, 
   gamma_1 = 0.3, gamma_2 = 0.5,
   sigma2_u = 0.20, sigma2_e = 0.80,
   alpha = 0.75  
 )
 
-ATE_person <- mean( dat$Yobs[dat$Z==1] ) - mean( dat$Yobs[dat$Z==0] )
+person_fit <- estimatr::lm_robust(
+  Yobs ~ Z, clusters = sid, data = dat, se_type = "CR0"
+)
+ATE_person <- coef(person_fit)["Z"]
 ```
-Our extremely precise estimate of the person-average effect is `r round( ATE_person, 2)`, which is consistent with what we would expect given the bias we saw earlier for the linear model.
+Our estimate of the person-average effect is `r round( ATE_person, 2)`, which is consistent with what we would expect given the bias we saw earlier for the linear model.
+The estimate is also extremely precise, with a standard error of just `r round(person_fit$std.error[["Z"]], 4)`.
 
 If we recalculate performance measures for all of our estimators with respect to the `ATE_person` estimand, the bias and RMSE of our estimators will shift, although the standard errors will stay the same.
 
@@ -988,7 +1002,7 @@ This approach is quite similar to directly calculating _potential outcomes_, as 
 After modifying the data-generating function, we will also need to modify the analysis function(s) to record the sample-specific treatment effect parameter.
 We might have, for example:
 ```{r, eval=FALSE}
-analyze_data = function( dat ) {
+analyze_data <- function( dat ) {
   MLM <- analysis_MLM( dat )
   LR <- analysis_OLS( dat )
   Agg <- analysis_agg( dat )
@@ -1018,7 +1032,7 @@ The key is to be clear about what you are trying to estimate because the perform
 
 The performance of an estimator is not well captured by any single number.
 As we have seen, estimators have multiple properties, with bias and precision being only two of many.
-@tbl-performance-measure-summary lists the main measures we have introduced for point estimators; each captures a different aspect of performance, and their importance depends on how the estimator will be used.
+Each of the measures that we have described captures a distinct aspect of estimator performance, and their importance and interpretation depends on how the estimator will be used.
 
 Beyond point estimates, most data analysis procedures also produce quantities such as standard errors, confidence intervals, and $p$-values.
 These outputs are closely related.

@@ -305,10 +305,10 @@ runW <- ClusterRCT_runs %>%
 print( runW, n = 4 )
 ```
 
-We now can simply bootstrap the rows, as so:
+Now we can bootstrap the rows, as so:
 
 ```{r, cache=TRUE}
-rps <- simhelpers::repeat_and_stack( 1000, {
+rps <- simhelpers::repeat_and_stack( 500, {
   run_star = sample_n( runW, size = nrow(runW), replace = TRUE )
   tibble( 
     cal_agg = mean( run_star$S_Agg^2 ) / var( run_star$A_Agg ),
@@ -316,14 +316,19 @@ rps <- simhelpers::repeat_and_stack( 1000, {
   )
 })
 ```
+The `sample_n()` function draws a sample of 1000 rows from the `runW` dataset, sampling with replacement so that some rows will be repeated multiple times. This results in a bootstrapped dataset, `run_star`, on which we calculate performance measures. 
+The whole process is repeated 500 times using `repeat_and_stack()`, resulting in 1000 bootstrap iterations of the performance measures.
 
-For simplicity, we are only looking at the aggregated estimator---we could extend our code to bootstrap for everything.
-Regardless, once we have 1000 bootstrap iterations, we can evaluate how much our performance measures change across iterations:
+For simplicity, we are only looking at the aggregation estimator (although we could extend the code to bootstrap all of the performance measures for all of the estimators).
+Once we have 500 bootstrap iterations, we can evaluate how much our performance measures change across iterations:
 
 ```{r}
-rps %>%
-  pivot_longer( everything(), 
-                names_to = "measure", values_to = "value" ) %>%
+bootstrap_performance <- 
+  rps %>%
+  pivot_longer( 
+    everything(), 
+    names_to = "measure", values_to = "value" 
+  ) %>%
   group_by( measure ) %>%
   summarise( 
     avg = mean( value ),
@@ -334,9 +339,15 @@ rps %>%
     CI_l = theta - 2 * MCSE,
     CI_u = theta + 2 * MCSE
   ) %>%
-  relocate( measure, theta ) %>%
+  relocate( measure, theta )
+```
+```{r}
+#| echo: false
+
+bootstrap_performance %>%
   knitr::kable( digits = 3 )
 ```
+
 
 Interpreting the confidence interval in the second row, Aggregation has a lower variance than linear regression, with the upper end of the MCSE-based confidence interval being 97% (less than 100%).
 Second, we have evidence that the Aggregation variance estimator is systematically too high, with the lower end of the confidence interval being above 1 (but only just).
@@ -350,28 +361,27 @@ It can be applied to assess MCSE for nearly any performance measure you might en
 \index{package!simhelpers}\index{calc\_absolute()}\index{calc\_relative\_var()}\index{calc\_rejection()}\index{calc\_coverage()}
 
 The `simhelpers` package provides several functions for calculating most of the performance measures that we have reviewed, along with MCSEs for each.
-The functions are easy to use. 
-Consider this set of simulation runs on the Welch dataset:
-
-```{r simhelpers-MCSEs, include=FALSE}
-library( simhelpers )
-data( welch_res )
-
-welch <- 
-  welch_res %>%
-  dplyr::select(-seed, -iterations ) %>%
-  mutate(method = case_match(method, "Welch t-test" ~ "Welch", .default = method))
-```
+The functions are easy to use.
+The package also includes some example datasets, including a dataset called `welch_res` that contains simulation results for the conventional t-test and Welch's t-test for unequal variances, similar to the case study in @sec-t-test-simulation.
+Here is the raw simulation output:
 
 ```{r}
-str(welch)
+#| label: simhelpers-MCSEs
+library( simhelpers )
+data( welch_res )
+str(welch_res)
 ```
 
 We first assess the rejection rate for the traditional $t$-test based on the subset of simulation results with sample sizes of $n_1 = n_2 = 50$ and a mean difference of 0, using $\alpha$ levels of .01 and .05:
 
 ```{r}
-welch_sub <- filter(welch, method == "t-test",
-                    n1 == 50, n2 == 50, mean_diff == 0 )
+welch_sub <- 
+  welch_res %>%
+  filter(
+    method == "t-test",
+    n1 == 50, n2 == 50, 
+    mean_diff == 0 
+  )
 
 calc_rejection(welch_sub, p_values = p_val, alpha = c(.01, .05))
 ```
@@ -390,7 +400,8 @@ calc_coverage(
 The performance functions are designed to be used within a `tidyverse`-style workflow, including on grouped datasets.
 For instance, we can calculate the performance measures for all the methods for our given scenario:
 ```{r}
-welch_sub <- filter(welch, n1 == 50, n2 == 50,
+welch_sub <- welch_res %>%
+  filter(, n1 == 50, n2 == 50,
                     mean_diff == 0 )
 welch_sub %>% 
   group_by( method ) %>%
@@ -410,6 +421,7 @@ We can use this function to generate 1000 simulated confidence intervals:
 
 ```{r}
 #| echo: false
+
 sim_r_Poisson <- bundle_sim( f_generate = r_bivariate_Poisson, 
                              f_analyze = r_and_z, 
                              id = "rep" )
