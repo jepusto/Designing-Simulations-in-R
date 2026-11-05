@@ -32,7 +32,9 @@ Suppose that we want to repeatedly generate bivariate Poisson data and then use 
 We saw a DGP function for the bivariate Poisson in @sec-DGP-functions, and an estimation function in @sec-estimation-functions.\index{example!bivariate Poisson}
 To produce a simulated correlation coefficient, we need to run these two functions in turn:
 ```{r}
-dat <- r_bivariate_Poisson( N = 30, rho = 0.4, mu1 = 8, mu2 = 14 )
+dat <- r_bivariate_Poisson( 
+  N = 30, rho = 0.4, mu1 = 8, mu2 = 14 
+)
 r_and_z(dat)
 ```
 To execute a simulation with these components, we need to repeat this set of calculations over and over.
@@ -44,7 +46,9 @@ library(simhelpers)
 repeat_and_stack(
   n = 5, 
   {
-    dat <- r_bivariate_Poisson( N = 30, rho = 0.4, mu1 = 8, mu2 = 14 )
+    dat <- r_bivariate_Poisson( 
+      N = 30, rho = 0.4, mu1 = 8, mu2 = 14 
+    )
     r_and_z(dat)
   }, 
   id = "rep", 
@@ -69,7 +73,9 @@ A slightly different technique for running multiple replications of a process is
 For instance, here is a function that stitches together the two steps in the bivariate-Poisson correlation simulation:\index{example!bivariate Poisson}
 ```{r}
 one_bivariate_Poisson_r <- function(N, rho, mu1, mu2) {
-  dat <- r_bivariate_Poisson( N = N, rho = rho, mu1 = mu1, mu2 = mu2 )
+  dat <- r_bivariate_Poisson( 
+    N = N, rho = rho, mu1 = mu1, mu2 = mu2 
+  )
   res <- r_and_z(dat)
   return(res)
 }
@@ -82,7 +88,9 @@ We can then evaluate the function over and over using `repeat_and_stack()`:
 ```{r}
 repeat_and_stack(
   n = 5, 
-  one_bivariate_Poisson_r( N = 30, rho = 0.4, mu1 = 8, mu2 = 14 ), 
+  one_bivariate_Poisson_r( 
+    N = 30, rho = 0.4, mu1 = 8, mu2 = 14 
+  ), 
   id = "rep"
 )
 ```
@@ -128,9 +136,11 @@ Once we have a function to execute a single run, we can produce multiple results
 ```{r cluster_rand_sim, eval=FALSE}
 R <- 1000
 ATE <- 0.30
-runs <- repeat_and_stack( R, 
-                          one_run( n_bar = 30, J = 20, gamma_1 = ATE ),
-                          id = "runID") 
+runs <- repeat_and_stack( 
+  R, 
+  one_run( n_bar = 30, J = 20, gamma_1 = ATE ),
+  id = "runID"
+)
 ```
 
 Setting `id = "runID"` lets us keep track of which iteration number produced which result.
@@ -173,7 +183,7 @@ Also see @sec-multiple-estimation-procedures for how `quiet_analyze_data()` bund
 
 Careful use of the foundational elements such as our data generating function can make interpreting our final results much more straightforward.
 In the revised `one_run()` function, for example, transforming the `ICC` input parameter into the parameters used by `gen_cluster_RCT()` maintains the effect size interpretation of our simulation.
-We have not modified `gen_cluster_RCT()` at all: instead, we specify the parameters of the DGP function in terms of the parameters we want to directly control in the simulation, and then translate to the low-level parametersin the `one_run()` call.
+We have not modified `gen_cluster_RCT()` at all: instead, we specify the parameters of the DGP function in terms of the parameters we want to directly control in the simulation, and then translate to the low-level parameters in the `one_run()` call.
 
 We can then wrap both the reparameterization and replication into a function that runs an entire simulation:
 
@@ -197,11 +207,14 @@ run_CRT_sim <- function( reps,
 ```
 
 Using it is then quite simple:
+
 ```{r, eval = FALSE}
-runs <- run_CRT_sim( reps = 1000, 
-             n_bar = 30, J = 20, 
-             ATE = 0.3, ICC = 0.2, 
-             size_coef = 0.5, alpha = 0.75 )
+runs <- run_CRT_sim( 
+  reps = 1000, 
+  n_bar = 30, J = 20, 
+  ATE = 0.3, ICC = 0.2, 
+  size_coef = 0.5, alpha = 0.75 
+)
 saveRDS( runs, file = "results/cluster_RCT_simulation.rds" )
 ```
 
@@ -259,7 +272,7 @@ We can use the newly created function as so:
 sim_r_Poisson( 4, N = 30, rho = 0.4, mu1 = 8, mu2 = 14 )
 ```
 
-To create this simulation function, `bundle_sim()` examined `r_bivariate_Poisson()`, figured out what its input arguments were, and made sure that the simulation function includes the same input arguments.
+To create this simulation function, `bundle_sim()` examined `r_bivariate_Poisson()`, determined what its input arguments were, and made sure that the simulation function includes the same input arguments.
 You can see the full set of arguments for `sim_r_Poisson()` by evaluating it with `args()`:
 ```{r}
 args(sim_r_Poisson)
@@ -267,12 +280,17 @@ args(sim_r_Poisson)
 In addition to the expected arguments from `r_bivariate_Poisson()`, the function has some additional parameters.
 First is `reps`, which controls the number of times that the simulation process will be evaluated.
 There is also `seed`, which ensures reproducible code; we discuss seeds in @sec-seeds-and-pseudo-RNGs.
+If the estimation function `r_and_z()` had additional input arguments besides `data`, then these arguments would be included among the inputs to `sim_r_Poisson()`.
 
 The `bundle_sim()` function requires specifying a DGP function and a _single_ estimation function, with the data as the first argument.
 If you have multiple estimators, you would need to wrap them into a single method, just as we did with `quiet_analyze_data()`:
 
 ```{r, messages=FALSE}
-sim_cluster_RCT <- bundle_sim(gen_cluster_RCT, quiet_analyze_data, id = "runID")
+sim_cluster_RCT <- bundle_sim(
+  f_generate = gen_cluster_RCT, 
+  f_analyze = quiet_analyze_data, 
+  id = "runID"
+)
 ```
 
 To use the newly created simulation function, we call it by specifying the number of replications desired and any relevant input parameters.
@@ -284,9 +302,9 @@ runs <- sim_cluster_RCT( reps = 2,
 ```
 
 The `bundle_sim()` function is just a convenient way to create a function that pieces together the steps in the simulation process.
+The function programmatically handles the tedious book-keeping aspects of creating a simulation function.
 This is especially useful when the component functions include many input parameters.
-Think of it as a not overly smart coding assistant who will take some basic directions and give you some code back.
-The function has several further features, which we will demonstrate in subsequent chapters.
+The `bundle_sim()` function has several further features, which we will demonstrate in subsequent chapters.
 
 One limitation is `bundle_sim()` produces a function with input names that exactly match the inputs of the DGP function that we give it. 
 It is not possible to re-parameterize or change argument names, as we did with `one_run()` in @sec-one-run-reparameterization.

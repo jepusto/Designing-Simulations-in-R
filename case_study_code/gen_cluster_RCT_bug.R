@@ -1,10 +1,13 @@
 gen_cluster_RCT <- function(
-    J = 30,
-    n_bar = 10,
-    alpha = 0,
-    p = 0.5,
-    gamma_0 = 0, gamma_1 = 0, gamma_2 = 0,
-    sigma2_u = 0, sigma2_e = 1
+    J = 30,       # number of schools
+    n_bar = 10,   # average school size
+    alpha = 0,    # spread of school sizes
+    p = 0.5,      # proportion assigned to treatment
+    gamma_0 = 0,  # average outcome in control group
+    gamma_1 = 0,  # average treatment effect
+    gamma_2 = 0,  # size-by-treatment interaction
+    sigma2_u = 0, # between-school variance
+    sigma2_e = 1  # within-school variance
 ) {
   
   # generate schools sizes 
