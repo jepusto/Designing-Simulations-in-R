@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A text on designing, implementing, and reporting on Monte Carlo simulation studies">
+
+<title>10&nbsp; Uncertainty in performance estimates – Designing Monte Carlo Simulations in R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./060-multiple-scenarios.html" rel="next">
+<link href="./040-Performance-criteria.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-9e5dc4a779ddd83a488d2ae14233eab0.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./010-Simulation-structure.html">Structure and Mechanics of a Simulation Study</a></li><li class="breadcrumb-item"><a href="./045-MCSEs.html"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Uncertainty in performance estimates</span></a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Designing Monte Carlo Simulations in R</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/jepusto/Designing-Simulations-in-R" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+    <a href="./Designing-Monte-Carlo-Simulations-in-R.pdf" title="Download PDF" class="quarto-navigation-tool px-1" aria-label="Download PDF"><i class="bi bi-file-pdf"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Welcome</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">An Introductory Look</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./001-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Introduction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./003-programming-preliminaries.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Programming preliminaries</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./005-initial-t-test-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">An initial simulation</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Structure and Mechanics of a Simulation Study</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./010-Simulation-structure.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Structure of a simulation study</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./015-Case-study-ANOVA.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Case study: heteroskedastic ANOVA and Welch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./020-Data-generating-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Data-generating processes</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./030-Estimation-procedures.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Estimation procedures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./035-running-simulation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Running the simulation process</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./040-Performance-criteria.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance measures</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./045-MCSEs.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Uncertainty in performance estimates</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Systematic Simulations</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./060-multiple-scenarios.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./070-experimental-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Designing multifactor simulations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./072-presentation-of-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Exploring and presenting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./074-building-good-vizualizations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Building good visualizations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./075-special-topics-on-reporting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Special topics on reporting simulation results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./080-simulations-as-evidence.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Simulations as evidence</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">Computational Considerations</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./100-file-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Organizing a simulation project</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./110-debugging-and-testing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Debugging and testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./120-parallel-processing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Parallel processing</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-controls="quarto-sidebar-section-5" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-5-label">Complex Data Structures</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-5" aria-labelledby="quarto-sidebar-section-5-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./140-simulation-for-power-analysis.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Using simulation as a power calculator</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./150-potential-outcomes-framework.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">21</span>&nbsp; <span class="chapter-title">Simulation under the Potential Outcomes framework</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" aria-controls="quarto-sidebar-section-6" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-6-label">Appendices</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-6" aria-labelledby="quarto-sidebar-section-6-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./200-coding-tidbits.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Coding reference</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#mcses-for-conventional-measures-for-point-estimators" id="toc-mcses-for-conventional-measures-for-point-estimators" class="nav-link active" data-scroll-target="#mcses-for-conventional-measures-for-point-estimators"><span class="header-section-number">10.1</span> MCSEs for conventional measures for point estimators</a></li>
+  <li><a href="#mcses-for-confidence-intervals-and-hypothesis-tests" id="toc-mcses-for-confidence-intervals-and-hypothesis-tests" class="nav-link" data-scroll-target="#mcses-for-confidence-intervals-and-hypothesis-tests"><span class="header-section-number">10.2</span> MCSEs for confidence intervals and hypothesis tests</a></li>
+  <li><a href="#sec-MCSE-for-relative-variance" id="toc-sec-MCSE-for-relative-variance" class="nav-link" data-scroll-target="#sec-MCSE-for-relative-variance"><span class="header-section-number">10.3</span> MCSEs for ratio-based and non-standard performance measures</a></li>
+  <li><a href="#doing-it-all-at-once-with-the-simhelpers-package" id="toc-doing-it-all-at-once-with-the-simhelpers-package" class="nav-link" data-scroll-target="#doing-it-all-at-once-with-the-simhelpers-package"><span class="header-section-number">10.4</span> Doing it all at once with the <code>simhelpers</code> package</a></li>
+  <li><a href="#concluding-thoughts" id="toc-concluding-thoughts" class="nav-link" data-scroll-target="#concluding-thoughts"><span class="header-section-number">10.5</span> Concluding thoughts</a></li>
+  <li><a href="#exercises" id="toc-exercises" class="nav-link" data-scroll-target="#exercises">Exercises</a></li>
+  </ul>
+<div class="toc-actions"><ul class="collapse"><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/045-MCSEs.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+<span class="math inline">
+\(\newcommand{\Prob}{\text{Pr}}\)
+\(\newcommand{\E}{\mathbb{E}}\)
+\(\newcommand{\M}{\mathbb{M}}\)
+\(\newcommand{\Q}{\mathbb{Q}}\)
+\(\newcommand{\Var}{\text{Var}}\)
+\(\newcommand{\Bias}{\text{Bias}}\)
+\(\newcommand{\RMSE}{\text{RMSE}}\)
+\(\newcommand{\Cov}{\text{Cov}}\)
+\(\newcommand{\cor}{\text{cor}}\)
+\(\newcommand{\diag}{\text{diag}}\)
+\(\newcommand{\mat}[1]{\mathbf{#1}}\)
+\(\newcommand{\bs}{\boldsymbol}\)
+\(\newcommand{\trace}{\text{tr}}\)
+</span>
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./010-Simulation-structure.html">Structure and Mechanics of a Simulation Study</a></li><li class="breadcrumb-item"><a href="./045-MCSEs.html"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Uncertainty in performance estimates</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec-MCSE" class="quarto-section-identifier"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Uncertainty in performance estimates</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>The performance measures described in the prior chapter are all defined in terms of an infinite number of replications of the data-generating process. Of course, simulations only involve a finite set of replications, based on which we <em>estimate</em> the measures. If we re-ran the simulation (with a different seed), our estimates would change. We use the term <em>Monte Carlo error</em> to describe the variability of performance measure estimates that is due to using a random, finite set of replications. To understand how good our estimates of performance are, we need to assess how large the Monte Carlo error is likely to be.</p>
+<p>To account for Monte Carlo error, we can think of simulation results as a sample from a population. Each replication is an independent draw from the population of the sampling distribution. Once we frame the problem in these terms, we can apply standard statistical techniques to calculate standard errors for our performance measures, which we will call <em>Monte Carlo Standard Errors</em>, or MCSEs. For most performance measures, closed-form expressions for MCSEs are available. If no closed-form expressions are available, we can still estimate MCSEs using techniques such as the jackknife or bootstrap.</p>
+<section id="mcses-for-conventional-measures-for-point-estimators" class="level2" data-number="10.1">
+<h2 data-number="10.1" class="anchored" data-anchor-id="mcses-for-conventional-measures-for-point-estimators"><span class="header-section-number">10.1</span> MCSEs for conventional measures for point estimators</h2>
+<p>For the performances measures that we have described for evaluating point estimators, Monte Carlo standard errors can be calculated using conventional formulas.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> When we run a simulation, we end up with <span class="math inline">\(R\)</span> replicates of a point estimator <span class="math inline">\(T\)</span> of a target parameter <span class="math inline">\(\theta\)</span>. A performance measure of <span class="math inline">\(T\)</span> (e.g., bias, RMSE, or SE) is a summary across these <span class="math inline">\(R\)</span> replicates, approximating what we would get if we did <span class="math inline">\(R=\infty\)</span> replications.</p>
+<p>For example, the true bias of <span class="math inline">\(T\)</span> is <span class="math inline">\(\E(T - \theta)\)</span>, which is the expected value of <span class="math inline">\(T\)</span> minus the true parameter value, and we estimate the bias as <span class="math inline">\(\bar{T} - \theta\)</span>. Each replicate of <span class="math inline">\(T - \theta\)</span> is an <em>estimate</em> of the expected value of <span class="math inline">\(T - \theta\)</span>, and, in this case, we have <span class="math inline">\(R\)</span> independent draws of <span class="math inline">\(T - \theta\)</span> and can use simple sampling theory to get the estimated standard error for the population mean of them: <span id="eq-MCSE-bias"><span class="math display">\[
+MCSE\left(\widehat{\Bias}(T)\right) = \sqrt{\frac{S_T^2}{R}},
+\tag{10.1}\]</span></span> where <span class="math inline">\(S_T\)</span> is the sample standard deviation of <span class="math inline">\(T\)</span> across the <span class="math inline">\(R\)</span> replications of the simulation process (noting that <span class="math inline">\(Var(T-\theta) = Var(T)\)</span>). <a href="#eq-MCSE-bias" class="quarto-xref">Equation&nbsp;<span>10.1</span></a> is simply the standard error for the mean of <span class="math inline">\(R\)</span> independent samples from a population.</p>
+<p>This approach is readily extended to estimators of other performance measures. If we have a performance measure <span class="math inline">\(M\)</span> for each replicate in a simulation, we can estimate average performance as the average of the sample of <span class="math inline">\(R\)</span> performances, <span class="math inline">\(\bar{M}\)</span>. The standard error for average performance then follows along the same lines as <a href="#eq-MCSE-bias" class="quarto-xref">Equation&nbsp;<span>10.1</span></a>. For example, the Mean Square Error (the square of RMSE) is simply the average of <span class="math inline">\(M = (T-\theta)^2\)</span> and the estimated MCSE of the MSE is then <span id="eq-MCSE-MSE"><span class="math display">\[
+MCSE( \widehat{MSE} ) = \sqrt{\frac{\Var(M)}{R}} = \sqrt{\frac{\Var\left((T-\theta)^2\right)}{R}}.
+\tag{10.2}\]</span></span> where <span class="math inline">\(\Var\left((T-\theta)^2\right)\)</span> is the sampling variance of the <span class="math inline">\(R\)</span> <span class="math inline">\(M=(T-\theta)^2\)</span> values. For quantifying the accuracy of an estimator, we recommend using RMSE, or the square root of the MSE, as shown in <a href="040-Performance-criteria.html#eq-rmse-estimator" class="quarto-xref">Equation&nbsp;<span>9.5</span></a>. To get the MCSE for the RMSE, we can use a delta method approximation.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>: <span id="eq-MCSE-RMSE"><span class="math display">\[
+MCSE( \widehat{RMSE} ) = \frac{1}{2 \times RMSE} \sqrt{\frac{Var((T-\theta)^2)}{R}}.
+\tag{10.3}\]</span></span> The delta method approach can be applied to many other quantities of interest as well.</p>
+<p>The MCSE for the true standard error <span class="math inline">\(S_T\)</span> of <span class="math inline">\(T\)</span> does not directly follow the above pattern because the sampling variance <span class="math inline">\(S_T^2\)</span> of <span class="math inline">\(T\)</span> is estimated across all the replicates, rather than simply being an average of <span class="math inline">\(R\)</span> independent estimates. Statistical theory gives an estimated standard error of a variance estimator as <span id="eq-MCSE-var"><span class="math display">\[
+MCSE\left(\widehat{\Var}(T)\right) = MCSE\left(S^2_T\right) = S_T^2 \sqrt{\frac{k_T - 1}{R}},
+\tag{10.4}\]</span></span> where <span class="math inline">\(k_T\)</span> is the sample standardized kurtosis of <span class="math inline">\(T\)</span>: <span id="eq-skewness-kurtosis"><span class="math display">\[
+\begin{aligned}
+k_T &amp;=  \frac{1}{S_T^4} \frac{1}{R}\sum_{r=1}^R \left(T_r - \bar{T}\right)^4.
+\end{aligned}
+\tag{10.5}\]</span></span> For a distribution, kurtosis would be <span class="math inline">\(\kappa_T = E[ (T-E[T])^4 ]/\sigma^4\)</span>. The kurtosis is a fourth moment (mean is first, variance is second, skew is third), and measures, in effect, the thickness of the tails of a distribution. The standardized kurtosis is a unitless quantity (note the scaling of <span class="math inline">\(1/\sigma^4\)</span>); for a normal distribution <span class="math inline">\(\kappa\)</span> equals 3.</p>
+<p>To get the MCSE of the standard error, use the delta method on the variance to get: <span id="eq-MCSE-SE"><span class="math display">\[
+MCSE\left(S_T\right) \approx \frac{1}{2 S_T} MCSE( S^2_T ) = \frac{S_T}{2}\sqrt{\frac{k_T - 1}{R}}.
+\tag{10.6}\]</span></span></p>
+<section id="sec-MCSE-for-points" class="level3" data-number="10.1.1">
+<h3 data-number="10.1.1" class="anchored" data-anchor-id="sec-MCSE-for-points"><span class="header-section-number">10.1.1</span> Connecting bias, RMSE, and SE</h3>
+<p><span class="math inline">\(S_T\)</span> is the sample standard deviation of <span class="math inline">\(T\)</span>, which is, by definition, the true standard error of <span class="math inline">\(T\)</span>. The true MCSE of bias is of the form <span class="math inline">\(\sigma / \sqrt{R}\)</span>, where <span class="math inline">\(\sigma^2 = \Var(T)\)</span> and thus <span class="math inline">\(\sigma = SE(T)\)</span>. The MCSE of the standard error is of the form <span class="math inline">\(c \sigma / \sqrt{R}\)</span>, where <span class="math inline">\(c = \sqrt{\kappa - 1}/2\)</span> is a constant depending on the distribution of <span class="math inline">\(T\)</span>. For example, if <span class="math inline">\(T\)</span> is normally distributed, <span class="math inline">\(\kappa = 3\)</span> and <span class="math inline">\(c = 1/\sqrt{2} \approx 0.70\)</span>.</p>
+<p>For the RMSE, we have a true MCSE of <span class="math display">\[
+MCSE( \widehat{RMSE} ) = \frac{\sqrt{Var((T-\theta)^2)}}{2 \sigma \sqrt{\sigma^2 + b^2}} \times \frac{\sigma}{\sqrt{R}}
+\]</span> where the ugly first term is again going to be a constant <span class="math inline">\(c\)</span> depending on the distribution of <span class="math inline">\(T\)</span> (here <span class="math inline">\(b\)</span> is the bias, i.e.&nbsp;<span class="math inline">\(E[T]-\theta\)</span>). For example, if <span class="math inline">\(T\)</span> is normal around <span class="math inline">\(\theta\)</span>, <span class="math inline">\(c\)</span> collapses to <span class="math inline">\(1/\sqrt{2}\)</span> (coinciding with the SE, since there is no bias). If <span class="math inline">\(T\)</span> is normal but shifted by bias <span class="math inline">\(b\)</span> that is equal to the standard error (this would be a very big bias), we get a constant of <span class="math inline">\(\sqrt{3}/2\)</span>. It turns out this constant can not be bigger than 1 unless <span class="math inline">\(T\)</span> is substantially skewed (see exercises).</p>
+<p>Taking the totality of the above, a reasonable, usually conservative, rule of thumb is the MCSE for a typical performance estimate of a point estimator can be taken as <span class="math inline">\(\sigma / \sqrt{R}\)</span> (the one for bias). This can be used to quickly get a sense of how precise a simulation will be. For example, the MCSE for <span class="math inline">\(R=1000\)</span> is going to be about 3% of the true variability of <span class="math inline">\(T\)</span>, <span class="math inline">\(\sigma\)</span>, for bias, SE, and RMSE. For <span class="math inline">\(R=100\)</span>, it is 10%.</p>
+</section>
+<section id="relative-to-parameter-performance-measures" class="level3" data-number="10.1.2">
+<h3 data-number="10.1.2" class="anchored" data-anchor-id="relative-to-parameter-performance-measures"><span class="header-section-number">10.1.2</span> Relative-to-parameter performance measures</h3>
+<p><a href="040-Performance-criteria.html#sec-relative-performance" class="quarto-xref"><span>Section 9.5</span></a> discussed circumstances where we might prefer to calculate performance measures in relative rather than absolute terms to some known parameter. For measures that are calculated by dividing a raw measure by the known target parameter, the MCSE for the relative measure is simply the MCSE for the raw measure divided by the target parameter. For instance, the MCSE of relative bias <span class="math inline">\(\bar{T} / \theta\)</span> is <span id="eq-MCSE-relative-bias"><span class="math display">\[
+MCSE\left( \frac{\bar{T}}{\theta} \right) = \frac{1}{\theta} MCSE(\bar{T}) = \frac{S_T}{\theta \sqrt{R}}.
+\tag{10.7}\]</span></span> MCSEs for relative variance and relative RMSE follow similarly.</p>
+<p>Importantly, measures relative to an unknown quantity, such as the true standard error or the performance of another method, is more tricky. See <a href="#sec-MCSE-for-relative-variance" class="quarto-xref"><span>Section 10.3</span></a>.</p>
+</section>
+<section id="robust-performance-measures" class="level3" data-number="10.1.3">
+<h3 data-number="10.1.3" class="anchored" data-anchor-id="robust-performance-measures"><span class="header-section-number">10.1.3</span> Robust performance measures</h3>
+<p>In <a href="040-Performance-criteria.html#sec-less-conventional-measures" class="quarto-xref"><span>Section 9.1.2</span></a> we described several alternative performance measures for evaluating point estimators. MCSEs for these less conventional measures can be obtained using results from the theory of robust statistics <span class="citation" data-cites="Hettmansperger2010robust Maronna2006robust">(<a href="references.html#ref-Hettmansperger2010robust" role="doc-biblioref">Hettmansperger and McKean 2010</a>; <a href="references.html#ref-Maronna2006robust" role="doc-biblioref">Maronna et al. 2006</a>)</span>.</p>
+<p><span class="citation" data-cites="McKean1984comparison">McKean and Schrader (<a href="references.html#ref-McKean1984comparison" role="doc-biblioref">1984</a>)</span> proposed a standard error estimator for the sample median from a continuous but not necessarily normal distribution, derived from a non-parametric confidence interval for the sample median. We use their approach to compute a MCSE for <span class="math inline">\(M_T\)</span>, the sample median of <span class="math inline">\(T\)</span>. Let <span class="math inline">\(c = \left\lceil(R + 1) / 2 - 1.96 \times \sqrt{R/4}\right\rfloor\)</span>, where the inner expression is rounded to the nearest integer. Then <span id="eq-MCSE-median"><span class="math display">\[
+MCSE\left(M_T\right) = \frac{T_{(R + 1 - c)} - T_{(c)}}{2 \times 1.96}.
+\tag{10.8}\]</span></span> A Monte Carlo standard error for the median absolute deviation can be computed following the same approach, but substituting the order statistics of <span class="math inline">\(E_r = | T_r - \theta|\)</span> in place of those for <span class="math inline">\(T_r\)</span>.</p>
+<p>For the trimmed mean bias with trimming proportion <span class="math inline">\(p\)</span>, a MCSE is <span id="eq-MCSE-trimmed-mean"><span class="math display">\[
+MCSE\left(\tilde{T}_{\{p\}}\right) = \sqrt{\frac{U_p}{R}},
+\tag{10.9}\]</span></span> where <span class="math display">\[
+U_p = \frac{1}{(1 - 2p)R}\left( pR\left(T_{(pR)}  - \tilde{T}_{\{p\}}\right)^2 + pR\left(T_{((1-p)R + 1)}  - \tilde{T}_{\{p\}}\right)^2 + \sum_{r=pR + 1}^{(1 - p)R} \left(T_{(r)} - \tilde{T}_{\{p\}}\right)^2 \right) .
+\]</span> <span class="citation" data-cites="Maronna2006robust">(<a href="references.html#ref-Maronna2006robust" role="doc-biblioref">Maronna et al. 2006</a>, Eq. 2.85)</span>. The additional uncertainty due to the thresholds being estimated is ignorable.</p>
+<p>Performance measures based on winsorization include winsorized bias, winsorized standard error, and winsorized RMSE. MCSEs for these measures can be computed using the same formuals as for the conventional measures of bias, standard error, and RMSE, but using sample moments of <span class="math inline">\(\hat{X}_r\)</span> in place of the sample moments of <span class="math inline">\(T_r\)</span>. The additional uncertainty from the thresholds being estimated is ignorable.</p>
+</section>
+</section>
+<section id="mcses-for-confidence-intervals-and-hypothesis-tests" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="mcses-for-confidence-intervals-and-hypothesis-tests"><span class="header-section-number">10.2</span> MCSEs for confidence intervals and hypothesis tests</h2>
+<p>Performance measures for confidence intervals and hypothesis tests are simple compared to those we have described for point and variance estimators, and come directly from the theory of estimating the proportion in a population. First, the MCSE for the estimated rejection rate is <span id="eq-MCSE-rejection-rate"><span class="math display">\[
+MCSE(r_\alpha) = \sqrt{\frac{r_\alpha ( 1 - r_\alpha)}{R}}.
+\tag{10.10}\]</span></span> This MCSE uses the estimated rejection rate to approximate its Monte Carlo error. When evaluating the validity of a test, we might expect the rejection rate to be fairly close to the nominal <span class="math inline">\(\alpha\)</span> level, in which case we could compute a MCSE using <span class="math inline">\(\alpha\)</span> in place of <span class="math inline">\(r_\alpha\)</span>, taking <span class="math inline">\(\sqrt{\alpha(1 - \alpha) / R}\)</span>. When evaluating power, we will not usually know the neighborhood of the rejection rate in advance of the simulation. However, a conservative upper bound on the MCSE can be derived by observing that MCSE is maximized when <span class="math inline">\(r_\alpha = \frac{1}{2}\)</span>, giving <span class="math display">\[
+MCSE(r_\alpha) \leq \frac{1}{2 \sqrt{R}}.
+\]</span></p>
+<p>When evaluating confidence interval performance, we focus on coverage rates and expected widths. MCSEs for the estimated coverage rate work similarly to those for rejection rates. If the coverage rate is expected to be in the neighborhood of the intended coverage level <span class="math inline">\(\beta\)</span>, then we can approximate the MCSE as <span id="eq-MCSE-coverage"><span class="math display">\[
+MCSE(\widehat{\text{Coverage}}(A,B)) = \sqrt{\frac{\beta(1 - \beta)}{R}}.
+\tag{10.11}\]</span></span> Alternately, <a href="#eq-MCSE-coverage" class="quarto-xref">Equation&nbsp;<span>10.11</span></a> could be computed using the estimated coverage rate <span class="math inline">\(\widehat{\text{Coverage}}(A,B)\)</span> in place of <span class="math inline">\(\beta\)</span>.</p>
+<p>Finally, the expected confidence interval width is estimated as <span class="math inline">\(\bar{W}\)</span>, with MCSE <span id="eq-MCSE-width"><span class="math display">\[
+MCSE(\bar{W}) = \sqrt{\frac{S_W^2}{R}},
+\tag{10.12}\]</span></span> where <span class="math inline">\(S_W^2\)</span> is the sample variance of <span class="math inline">\(W_1,...,W_R\)</span>, the widths of the confidence interval from each replication.</p>
+</section>
+<section id="sec-MCSE-for-relative-variance" class="level2" data-number="10.3">
+<h2 data-number="10.3" class="anchored" data-anchor-id="sec-MCSE-for-relative-variance"><span class="header-section-number">10.3</span> MCSEs for ratio-based and non-standard performance measures</h2>
+<p>Estimating the MCSE of relative performance measures for variance estimators is complicated by the appearance of an estimated quantity in the denominator of the ratio. For instance, the relative bias of <span class="math inline">\(V\)</span> is estimated as the ratio <span class="math inline">\(\bar{V} / S_T^2\)</span>, and both the numerator and denominator are estimated quantities that will include some Monte Carlo error. To properly account for the Monte Carlo uncertainty of the ratio, one can use formulas for the standard errors of ratio estimators. Alternately, we can use general uncertainty approximation techniques such as the jackknife <span class="citation" data-cites="boos2015Assessing">(<a href="references.html#ref-boos2015Assessing" role="doc-biblioref">Boos and Osborne 2015</a>)</span> or bootstrap <span class="citation" data-cites="efron1994introduction">(<a href="references.html#ref-efron1994introduction" role="doc-biblioref">Efron and Tibshirani 1994</a>)</span>. We advocate for these more flexible approaches, and discuss them both in the following.</p>
+<section id="the-jackknife-for-relative-variance-estimators" class="level3" data-number="10.3.1">
+<h3 data-number="10.3.1" class="anchored" data-anchor-id="the-jackknife-for-relative-variance-estimators"><span class="header-section-number">10.3.1</span> The jackknife for relative variance estimators</h3>
+<p>The jackknife involves calculating a statistic of interest repeatedly, each time excluding one observation. The variance of this set of one-left-out statistics usually serves as a reasonable approximation to the actual sampling variance of the statistic calculated from the full sample.</p>
+<p>Say we have some performance measure <span class="math inline">\(M\)</span>. To do the jackknife, calculate <span class="math inline">\(M_{(j)}\)</span>, for <span class="math inline">\(j = 1,...,R\)</span>, as the performance calculated on the <span class="math inline">\(R\)</span> simulation replicates <em>excluding</em> replicate <span class="math inline">\(j\)</span>. Then take the MCSE of <span class="math inline">\(M\)</span> as <span class="math display">\[
+MCSE\left( M \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left( M_{(j)} - M\right)^2}.
+\]</span></p>
+<p>For example, to apply the jackknife to assess the MCSEs of the calibration, or relative bias, of a variance estimator, <span class="math inline">\(M = \bar{V}_{(j)} / S_{T(j)}^2\)</span>, we will need to compute several statistics repeatedly. Let <span class="math inline">\(\bar{V}_{(j)}\)</span> and <span class="math inline">\(S_{T(j)}^2\)</span> be the average variance estimate and the variance estimate calculated from the set of replicates <em>that excludes replicate <span class="math inline">\(j\)</span></em>. The relative bias estimate, excluding replicate <span class="math inline">\(j\)</span>, would then be <span class="math inline">\(\bar{V}_{(j)} / S_{T(j)}^2\)</span>. Calculating all <span class="math inline">\(R\)</span> versions of this relative bias estimate and taking the variance of these <span class="math inline">\(R\)</span> versions yields a jackknife MCSE: <span id="eq-MCSE-relative-bias-V"><span class="math display">\[
+MCSE\left( \frac{ \bar{V}}{S_T^2} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(\frac{\bar{V}_{(j)}}{S_{T(j)}^2} - \frac{\bar{V}}{S_T^2}\right)^2}.
+\tag{10.13}\]</span></span> Similarly, a MCSE for the relative standard error of <span class="math inline">\(V\)</span> is <span id="eq-MCSE-relative-var-V"><span class="math display">\[
+MCSE\left( \frac{ S_V}{S_T^2} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(\frac{S_{V(j)}}{S_{T(j)}^2} - \frac{S_V}{S_T^2}\right)^2},
+\tag{10.14}\]</span></span> where <span class="math inline">\(S_{V(j)}\)</span> is the sample variance of <span class="math inline">\(V_1,...,V_R\)</span>, omitting replicate <span class="math inline">\(j\)</span>.</p>
+<!--For the relative RMSE of $V$, let
+$$
+RRMSE_{V} = \frac{1}{S_{T}^2}\sqrt{(\bar{V} - S_{T}^2)^2 + \frac{R - 1}{R} S_{V}^2}
+$$
+and
+$$
+RRMSE_{V(j)} = \frac{1}{S_{T(j)}^2}\sqrt{(\bar{V}_{(j)} - S_{T(j)}^2)^2 + \frac{R - 1}{R} S_{V(j)}^2} .
+$$
+Then the jackknife MCSE for the estimated relative RMSE of $V$ is 
+$$
+MCSE\left( RRMSE_{V} \right) = \sqrt{\frac{1}{R} \sum_{j=1}^R \left(RRMSE_{V(j)} - RRMSE_{V}\right)^2}.
+$$ {#eq-MCSE-relative-rmse-V}
+-->
+<p>Jackknife calculation would be cumbersome if we did all of the above by brute force. Happily, a few algebra tricks provide a much quicker way. The tricks come from observing that <span class="math display">\[
+\begin{aligned}
+\bar{V}_{(j)} &amp;= \frac{1}{R - 1}\left(R \bar{V} - V_j\right) \\
+S_{V(j)}^2 &amp;= \frac{1}{R - 2} \left[(R - 1) S_V^2 - \frac{R}{R - 1}\left(V_j - \bar{V}\right)^2\right] \\
+S_{T(j)}^2 &amp;= \frac{1}{R - 2} \left[(R - 1) S_T^2 - \frac{R}{R - 1}\left(T_j - \bar{T}\right)^2\right]
+\end{aligned}
+\]</span> These formulas can be used to avoid re-computing the mean and sample variance from every subsample. Instead, all we need to do is calculate the overall mean and overall variance, and then do a small adjustment with each jackknife iteration.</p>
+<p>Jackknife methods are useful for approximating MCSEs of other performance measures beyond just those for variance estimators. For instance, the jackknife is a convenient alternative for computing the MCSE of the standard error or (raw) RMSE of a point estimator, which avoids the need to compute skewness or kurtosis. However, <span class="citation" data-cites="boos2015Assessing">Boos and Osborne (<a href="references.html#ref-boos2015Assessing" role="doc-biblioref">2015</a>)</span> notes that the jackknife does not work for performance measures involving percentiles, including medians; for such statistics, bootstrapping techniques (discussed next) usually remains valid.</p>
+</section>
+<section id="sec-bootstrapping-MCSEs" class="level3" data-number="10.3.2">
+<h3 data-number="10.3.2" class="anchored" data-anchor-id="sec-bootstrapping-MCSEs"><span class="header-section-number">10.3.2</span> The bootstrap for complex performance measures</h3>
+<p>An alternative to the jackknife for estimating MCSEs is the bootstrap <span class="citation" data-cites="efron1994introduction">(<a href="references.html#ref-efron1994introduction" role="doc-biblioref">Efron and Tibshirani 1994</a>)</span>. The bootstrap involves repeatedly resampling the set of simulation replications with replacement, calculating the performance measure of interest for each resample, and then calculating the standard deviation of the performance measures across the resamples.</p>
+<p>To illustrate, we calculate a bootstrap MCSE for two quantities from our running cluster RCT example: the relative improvement in variance for Aggregation vs.&nbsp;Linear Regression, and the relative bias of Aggregation’s variance estimator (i.e., how well calibrated it is).</p>
+<p>We first calculate these performance measures on our simulation trials:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>ests <span class="ot">&lt;-</span> ClusterRCT_runs <span class="sc">%&gt;%</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( method ) <span class="sc">%&gt;%</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">SE2 =</span> <span class="fu">var</span>( ATE_hat ),</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">Vbar =</span> <span class="fu">mean</span>( SE_hat<span class="sc">^</span><span class="dv">2</span> )</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">imp_var =</span> SE2 <span class="sc">/</span> SE2[method<span class="sc">==</span><span class="st">"LR"</span>],</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>          <span class="at">calib =</span> Vbar <span class="sc">/</span> SE2 )</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>ests</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 5
+  method    SE2   Vbar imp_var calib
+  &lt;chr&gt;   &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;
+1 Agg    0.0457 0.0515   0.914  1.13
+2 LR     0.0500 0.0553   1      1.11
+3 MLM    0.0454 0.0510   0.908  1.12</code></pre>
+</div>
+</div>
+<p>As before, we see that Aggregation has variance around 9% smaller than linear regression and that its variance estimator is inflated by around 13%. Let’s make bootstrap confidence intervals on these two quantities to account for Monte Carlo error in our simulation.</p>
+<p>We want to resample entire <em>simulation iterations</em> to take within-dataset correlations of the model estimates into account. To do this, we first pivot our raw simulation results to wide format:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>runW <span class="ot">&lt;-</span> ClusterRCT_runs <span class="sc">%&gt;%</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( runID, method, SE_hat, ATE_hat ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>( <span class="at">S=</span>SE_hat, <span class="at">A=</span>ATE_hat ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_wider</span>( <span class="at">names_from =</span> method, </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                      <span class="at">values_from =</span> <span class="fu">c</span>( S, A ) )</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>( runW, <span class="at">n =</span> <span class="dv">4</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1,000 × 7
+  runID S_MLM  S_LR S_Agg A_MLM  A_LR A_Agg
+  &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1     1 0.196 0.189 0.198 0.128 0.164 0.106
+2     2 0.185 0.199 0.181 0.181 0.295 0.147
+3     3 0.253 0.210 0.261 0.132 0.204 0.122
+4     4 0.209 0.190 0.211 0.556 0.769 0.501
+# ℹ 996 more rows</code></pre>
+</div>
+</div>
+<p>Now we can bootstrap the rows, as so:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>rps <span class="ot">&lt;-</span> simhelpers<span class="sc">::</span><span class="fu">repeat_and_stack</span>( <span class="dv">500</span>, {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  run_star <span class="ot">=</span> <span class="fu">sample_n</span>( runW, <span class="at">size =</span> <span class="fu">nrow</span>(runW), <span class="at">replace =</span> <span class="cn">TRUE</span> )</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>( </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">cal_agg =</span> <span class="fu">mean</span>( run_star<span class="sc">$</span>S_Agg<span class="sc">^</span><span class="dv">2</span> ) <span class="sc">/</span> <span class="fu">var</span>( run_star<span class="sc">$</span>A_Agg ),</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_imp_var =</span> <span class="fu">var</span>( run_star<span class="sc">$</span>A_Agg ) <span class="sc">/</span> <span class="fu">var</span>( run_star<span class="sc">$</span>A_LR )</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The <code>sample_n()</code> function draws a sample of 1000 rows from the <code>runW</code> dataset, sampling with replacement so that some rows will be repeated multiple times. This results in a bootstrapped dataset, <code>run_star</code>, on which we calculate performance measures. The whole process is repeated 500 times using <code>repeat_and_stack()</code>, resulting in 1000 bootstrap iterations of the performance measures.</p>
+<p>For simplicity, we are only looking at the aggregation estimator (although we could extend the code to bootstrap all of the performance measures for all of the estimators). Once we have 500 bootstrap iterations, we can evaluate how much our performance measures change across iterations:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>bootstrap_performance <span class="ot">&lt;-</span> </span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  rps <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>( </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">everything</span>(), </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_to =</span> <span class="st">"measure"</span>, <span class="at">values_to =</span> <span class="st">"value"</span> </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( measure ) <span class="sc">%&gt;%</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">avg =</span> <span class="fu">mean</span>( value ),</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">MCSE =</span> <span class="fu">sd</span>( value ) </span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( </span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">theta =</span> <span class="fu">c</span>( ests<span class="sc">$</span>calib[[<span class="dv">1</span>]], ests<span class="sc">$</span>imp_var[[<span class="dv">1</span>]] ),</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">CI_l =</span> theta <span class="sc">-</span> <span class="dv">2</span> <span class="sc">*</span> MCSE,</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">CI_u =</span> theta <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> MCSE</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>( measure, theta )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">measure</th>
+<th style="text-align: right;">theta</th>
+<th style="text-align: right;">avg</th>
+<th style="text-align: right;">MCSE</th>
+<th style="text-align: right;">CI_l</th>
+<th style="text-align: right;">CI_u</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">cal_agg</td>
+<td style="text-align: right;">1.127</td>
+<td style="text-align: right;">1.132</td>
+<td style="text-align: right;">0.056</td>
+<td style="text-align: right;">1.015</td>
+<td style="text-align: right;">1.239</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">rel_imp_var</td>
+<td style="text-align: right;">0.914</td>
+<td style="text-align: right;">0.913</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.862</td>
+<td style="text-align: right;">0.965</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Interpreting the confidence interval in the second row, Aggregation has a lower variance than linear regression, with the upper end of the MCSE-based confidence interval being 97% (less than 100%). Second, we have evidence that the Aggregation variance estimator is systematically too high, with the lower end of the confidence interval being above 1 (but only just). If we had run fewer simulation iterations, we may well not have been able to make these claims with certainty.</p>
+<p>The bootstrap is a very general tool. It can be applied to assess MCSE for nearly any performance measure you might encounter.</p>
+</section>
+</section>
+<section id="doing-it-all-at-once-with-the-simhelpers-package" class="level2" data-number="10.4">
+<h2 data-number="10.4" class="anchored" data-anchor-id="doing-it-all-at-once-with-the-simhelpers-package"><span class="header-section-number">10.4</span> Doing it all at once with the <code>simhelpers</code> package</h2>
+<p></p>
+<p>The <code>simhelpers</code> package provides several functions for calculating most of the performance measures that we have reviewed, along with MCSEs for each. The functions are easy to use. The package also includes some example datasets, including a dataset called <code>welch_res</code> that contains simulation results for the conventional t-test and Welch’s t-test for unequal variances, similar to the case study in <a href="005-initial-t-test-simulation.html" class="quarto-xref"><span>Chapter 3</span></a>. Here is the raw simulation output:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>( simhelpers )</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>( welch_res )</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(welch_res)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>tibble [16,000 × 11] (S3: tbl_df/tbl/data.frame)
+ $ n1         : num [1:16000] 50 50 50 50 50 50 50 50 50 50 ...
+ $ n2         : num [1:16000] 50 50 50 50 50 50 50 50 50 50 ...
+ $ mean_diff  : num [1:16000] 0 0 0 0 0 0 0 0 0 0 ...
+ $ iterations : num [1:16000] 1000 1000 1000 1000 1000 1000 1000 1000 1000 1000 ...
+ $ seed       : num [1:16000] 2.05e+08 2.05e+08 2.05e+08 2.05e+08 2.05e+08 ...
+ $ method     : chr [1:16000] "t-test" "Welch t-test" "t-test" "Welch t-test" ...
+ $ est        : num [1:16000] 0.02584 0.02584 0.00516 0.00516 -0.07982 ...
+ $ var        : num [1:16000] 0.0954 0.0954 0.0848 0.0848 0.0818 ...
+ $ p_val      : num [1:16000] 0.934 0.934 0.986 0.986 0.781 ...
+ $ lower_bound: num [1:16000] -0.587 -0.59 -0.573 -0.574 -0.647 ...
+ $ upper_bound: num [1:16000] 0.639 0.642 0.583 0.585 0.488 ...</code></pre>
+</div>
+</div>
+<p>We first assess the rejection rate for the traditional <span class="math inline">\(t\)</span>-test based on the subset of simulation results with sample sizes of <span class="math inline">\(n_1 = n_2 = 50\)</span> and a mean difference of 0, using <span class="math inline">\(\alpha\)</span> levels of .01 and .05:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>welch_sub <span class="ot">&lt;-</span> </span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  welch_res <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    method <span class="sc">==</span> <span class="st">"t-test"</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    n1 <span class="sc">==</span> <span class="dv">50</span>, n2 <span class="sc">==</span> <span class="dv">50</span>, </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    mean_diff <span class="sc">==</span> <span class="dv">0</span> </span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">calc_rejection</span>(welch_sub, <span class="at">p_values =</span> p_val, <span class="at">alpha =</span> <span class="fu">c</span>(.<span class="dv">01</span>, .<span class="dv">05</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 5
+  K_rejection rej_rate_01 rej_rate_05 rej_rate_mcse_01
+        &lt;int&gt;       &lt;dbl&gt;       &lt;dbl&gt;            &lt;dbl&gt;
+1        1000       0.009       0.048          0.00299
+# ℹ 1 more variable: rej_rate_mcse_05 &lt;dbl&gt;</code></pre>
+</div>
+</div>
+<p>The column labeled <code>K_rejection</code> reports the number of replications used to calculate the performance measures. The MCSE columns are the Monte Carlo uncertainty for the measures.</p>
+<p>Here is the coverage rate calculated for the same condition:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">calc_coverage</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  welch_sub, </span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">lower_bound =</span> lower_bound, <span class="at">upper_bound =</span> upper_bound, </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">true_param =</span> mean_diff</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 5
+  K_coverage coverage coverage_mcse width width_mcse
+       &lt;int&gt;    &lt;dbl&gt;         &lt;dbl&gt; &lt;dbl&gt;      &lt;dbl&gt;
+1       1000    0.952       0.00676  1.25    0.00338</code></pre>
+</div>
+</div>
+<p>The performance functions are designed to be used within a <code>tidyverse</code>-style workflow, including on grouped datasets. For instance, we can calculate the performance measures for all the methods for our given scenario:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>welch_sub <span class="ot">&lt;-</span> welch_res <span class="sc">%&gt;%</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(, n1 <span class="sc">==</span> <span class="dv">50</span>, n2 <span class="sc">==</span> <span class="dv">50</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>                    mean_diff <span class="sc">==</span> <span class="dv">0</span> )</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>welch_sub <span class="sc">%&gt;%</span> </span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>( method ) <span class="sc">%&gt;%</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">calc_rejection</span>( <span class="at">p_values =</span> p_val, <span class="at">alpha =</span> .<span class="dv">05</span> ) </span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 4
+  method       K_rejection rej_rate rej_rate_mcse
+  &lt;chr&gt;              &lt;int&gt;    &lt;dbl&gt;         &lt;dbl&gt;
+1 Welch t-test        1000    0.047       0.00669
+2 t-test              1000    0.048       0.00676</code></pre>
+</div>
+</div>
+<p>Later, when we analyze multifactor simulations, this grouping becomes even more powerful: we will group by the simulation factors and evaluate performance for all our scenarios at once.</p>
+<section id="sec-evaluate-CIs" class="level3" data-number="10.4.1">
+<h3 data-number="10.4.1" class="anchored" data-anchor-id="sec-evaluate-CIs"><span class="header-section-number">10.4.1</span> Quick confidence interval coverage</h3>
+<p>In <a href="020-Data-generating-models.html#sec-BVPois-example" class="quarto-xref"><span>Section 6.1.2</span></a>, we created the function <code>r_bivariate_Poisson()</code> for simulating data from a bivariate Poisson distribution. In <a href="030-Estimation-procedures.html#sec-estimation-functions" class="quarto-xref"><span>Section 7.1</span></a>, we developed a function called <code>r_and_z()</code> for computing confidence intervals for Pearson’s correlation using Fisher’s <span class="math inline">\(z\)</span> transformation. In <a href="035-running-simulation.html#sec-bundle-sim-demo" class="quarto-xref"><span>Section 8.4</span></a>, we created a simulation driver function, <code>sim_r_Poisson()</code> from these components. We can use this function to generate 1000 simulated confidence intervals:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>bvp_CIs <span class="ot">&lt;-</span> <span class="fu">sim_r_Poisson</span>( <span class="dv">1000</span>, <span class="at">N =</span> <span class="dv">30</span>, <span class="at">rho =</span> <span class="fl">0.4</span>, <span class="at">mu1 =</span> <span class="dv">8</span>, <span class="at">mu2 =</span> <span class="dv">14</span> )</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(bvp_CIs, <span class="at">n =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  rep         r         z       CI_lo     CI_hi
+1   1 0.2934471 0.3023340 -0.07472172 0.5912133
+2   2 0.1104413 0.1108936 -0.26018015 0.4526983
+3   3 0.5239512 0.5817707  0.20176854 0.7438153</code></pre>
+</div>
+</div>
+<p>It will be useful to have a function that evaluates the coverage and width of these confidence intervals based on a simulated dataset. We can create such a function using <code>calc_coverage()</code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>evaluate_CIs <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">rho =</span> <span class="dv">0</span>) {</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  simhelpers<span class="sc">::</span><span class="fu">calc_coverage</span>(</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> data, </span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">lower_bound =</span> CI_lo, <span class="at">upper_bound =</span> CI_hi, </span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">true_param =</span> rho</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>This function makes it quite easy to evaluate the output of <code>sim_r_Poisson()</code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">evaluate_CIs</span>(bvp_CIs, <span class="at">rho =</span> <span class="fl">0.4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 5
+  K_coverage coverage coverage_mcse width width_mcse
+       &lt;int&gt;    &lt;dbl&gt;         &lt;dbl&gt; &lt;dbl&gt;      &lt;dbl&gt;
+1       1000    0.954       0.00662 0.601    0.00247</code></pre>
+</div>
+</div>
+</section>
+<section id="quick-performance-calculations-for-our-cluster-rct-example" class="level3" data-number="10.4.2">
+<h3 data-number="10.4.2" class="anchored" data-anchor-id="quick-performance-calculations-for-our-cluster-rct-example"><span class="header-section-number">10.4.2</span> Quick performance calculations for our cluster RCT example</h3>
+<p>In <a href="040-Performance-criteria.html#sec-clusterRCTperformance" class="quarto-xref"><span>Section 9.1.1</span></a>, we computed performance measures for three point estimators of the school-level average treatment effect in a cluster RCT. We next carry out the same calculations using the <code>calc_absolute()</code> function from <code>simhelpers</code>, which also provides MCSEs. Examining the MCSEs is useful to ensure that our choice of 1000 replications of the simulation is sufficient to provide reasonably precise estimates of the performance measures. We have:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>( simhelpers )</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>ATE <span class="ot">&lt;-</span> <span class="fl">0.30</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>perf <span class="ot">&lt;-</span> ClusterRCT_runs <span class="sc">%&gt;%</span> </span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(method) <span class="sc">%&gt;%</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">calc_absolute</span>( </span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>      <span class="at">estimates =</span> ATE_hat, <span class="at">true_param =</span> ATE,</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">criteria =</span> <span class="fu">c</span>(<span class="st">"bias"</span>,<span class="st">"stddev"</span>, <span class="st">"rmse"</span>)</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    ) </span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>perf <span class="sc">%&gt;%</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>K_absolute ) <span class="sc">%&gt;%</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>( <span class="at">digits =</span> <span class="dv">3</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">method</th>
+<th style="text-align: right;">bias</th>
+<th style="text-align: right;">bias_mcse</th>
+<th style="text-align: right;">stddev</th>
+<th style="text-align: right;">stddev_mcse</th>
+<th style="text-align: right;">rmse</th>
+<th style="text-align: right;">rmse_mcse</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Agg</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.007</td>
+<td style="text-align: right;">0.214</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.214</td>
+<td style="text-align: right;">0.006</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">LR</td>
+<td style="text-align: right;">0.082</td>
+<td style="text-align: right;">0.007</td>
+<td style="text-align: right;">0.224</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.238</td>
+<td style="text-align: right;">0.006</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">MLM</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">0.007</td>
+<td style="text-align: right;">0.213</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.213</td>
+<td style="text-align: right;">0.006</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The MCSEs are small relative to the linear regression bias term and all of the SEs (<code>stddev</code>) and RMSEs. Results based on 1000 replications seems adequate to support our conclusions about the gross trends identified. We cannot rule out the possibility that the aggregation estimator and multilevel modeling estimator are slightly biased: they could have true bias of as much as 0.014 (two MCSEs).</p>
+<p>For our variance estimators, we can use the <code>calc_relative_var()</code> function to compute performance measures and MCSEs using the jackknife:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>perf <span class="ot">&lt;-</span> ClusterRCT_runs <span class="sc">%&gt;%</span> </span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(method) <span class="sc">%&gt;%</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">calc_relative_var</span>( </span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">estimates =</span> ATE_hat, </span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">var_estimates =</span> SE_hat<span class="sc">^</span><span class="dv">2</span>,</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>      <span class="at">criteria =</span> <span class="fu">c</span>(<span class="st">"relative bias"</span>, <span class="st">"relative rmse"</span>)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>    ) </span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>perf <span class="sc">%&gt;%</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>( <span class="sc">-</span>K_relvar ) <span class="sc">%&gt;%</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>( <span class="at">digits =</span> <span class="dv">2</span> ) </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 18%">
+<col style="width: 26%">
+<col style="width: 18%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">method</th>
+<th style="text-align: right;">rel_bias_var</th>
+<th style="text-align: right;">rel_bias_var_mcse</th>
+<th style="text-align: right;">rel_rmse_var</th>
+<th style="text-align: right;">rel_rmse_var_mcse</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Agg</td>
+<td style="text-align: right;">1.13</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.40</td>
+<td style="text-align: right;">0.03</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">LR</td>
+<td style="text-align: right;">1.11</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.47</td>
+<td style="text-align: right;">0.03</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">MLM</td>
+<td style="text-align: right;">1.12</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.40</td>
+<td style="text-align: right;">0.03</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>We can use these calculations to create confidence intervals for the performance measures:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>perf <span class="sc">%&gt;%</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span> <span class="fu">select</span>( method, rel_bias_var, rel_bias_var_mcse ) <span class="sc">%&gt;%</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>( <span class="at">CI_l =</span> rel_bias_var <span class="sc">-</span> <span class="dv">2</span> <span class="sc">*</span> rel_bias_var_mcse,</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">CI_u =</span> rel_bias_var <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> rel_bias_var_mcse ) <span class="sc">%&gt;%</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>( <span class="at">digits =</span> <span class="dv">2</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">method</th>
+<th style="text-align: right;">rel_bias_var</th>
+<th style="text-align: right;">rel_bias_var_mcse</th>
+<th style="text-align: right;">CI_l</th>
+<th style="text-align: right;">CI_u</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Agg</td>
+<td style="text-align: right;">1.13</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">1.02</td>
+<td style="text-align: right;">1.23</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">LR</td>
+<td style="text-align: right;">1.11</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">1.21</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">MLM</td>
+<td style="text-align: right;">1.12</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">1.02</td>
+<td style="text-align: right;">1.23</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>We get essentially the same results as what we found in <a href="#sec-bootstrapping-MCSEs" class="quarto-xref"><span>Section 10.3.2</span></a> using bootstrapping.</p>
+</section>
+</section>
+<section id="concluding-thoughts" class="level2" data-number="10.5">
+<h2 data-number="10.5" class="anchored" data-anchor-id="concluding-thoughts"><span class="header-section-number">10.5</span> Concluding thoughts</h2>
+<p>For most classic performance measures, calculating a MCSE is a straightforward process most easily done using a software package. In most cases, uncertainty here is like uncertaintly anywhere: it goes down with the square root of the number of trials run. Under some metrics, this means running 1000 trials often is good enough. Going to 10,000 will shrink MCSEs by around <span class="math inline">\(1/\sqrt{10}\)</span>, or about a third. Similarly, dropping to 100 will increase them by around a factor of 3.</p>
+<p>Some performance measures are harder to get MCSEs for. You should still try. We provide two tools for this, the Jackknife and the bootstrap. Even if an MCSE is not exactly right, if it is within a factor of 2 it can still be very helpful in understanding how much your performance estimates are moving around due to chance vs.&nbsp;something real.</p>
+</section>
+<section id="exercises" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="exercises">Exercises</h2>
+<div id="exr-jackknife-MCSE" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 10.1 (Jackknife calculation of MCSEs for RMSE)</strong></span> The following code generates 100 replications of a simulation of three average treatment effect estimators in a cluster RCT, using a simulation driver function we developed in <a href="035-running-simulation.html#sec-one-run-reparameterization" class="quarto-xref"><span>Section 8.3</span></a> using components described in <a href="020-Data-generating-models.html#sec-case-cluster" class="quarto-xref"><span>Section 6.6</span></a> and <a href="030-Estimation-procedures.html#sec-multiple-estimation-procedures" class="quarto-xref"><span>Section 7.2</span></a>.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>( <span class="dv">20251029</span> )</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>runs_val <span class="ot">&lt;-</span> <span class="fu">run_RCT_sim</span>( </span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">reps =</span> <span class="dv">100</span>, </span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">J =</span> <span class="dv">16</span>, <span class="at">n_bar =</span> <span class="dv">20</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">ATE =</span> <span class="fl">0.3</span>, <span class="at">ICC =</span> <span class="fl">0.2</span> )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Compute the RMSE of each estimator, and use the jackknife technique described in <a href="#sec-MCSE-for-relative-variance" class="quarto-xref"><span>Section 10.3</span></a> to compute a MCSE for the RMSE. Check your results against the results from <code>calc_absolute()</code> in the <code>simhelpers</code> package.</p>
+</div>
+<div id="exr-jackknife-MCSE-ratio" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 10.2 (Jackknife calculation of MCSEs for RMSE ratios)</strong></span> Continuing from <a href="#exr-jackknife-MCSE" class="quarto-xref">Exercise&nbsp;<span>10.1</span></a>, compute the ratio of the RMSE of each estimator to the RMSE of the linear regression estimator. Use the jackknife technique to compute a MCSE for these RMSE ratios.</p>
+</div>
+<div id="exr-kurtosis-derivation" class="theorem exercise">
+<p><span class="theorem-title"><strong>Exercise 10.3 (Calculate simplifications of the MCSEs)</strong></span> When calculating the monte-carlo standard error of the RMSE, we assumed <span class="math inline">\(T \sim N( \theta, \sigma^2 )\)</span> and then stated that <span class="math inline">\(Var[ (T-\theta)^2 ] = 2\sigma^2\)</span>.</p>
+<ol type="a">
+<li><p>Derive this expression.</p></li>
+<li><p>Now assume <span class="math inline">\(T \sim N( \theta + b, \sigma^2 )\)</span>, i.e., that <span class="math inline">\(T\)</span> has a bias. What does <span class="math inline">\(Var[ (T-\theta)^2 ]\)</span> equal now?</p></li>
+<li><p>Using (b), simplify the expression for the MCSE of the RMSE in terms of kurtosis, variance, and bias parameters.</p></li>
+<li><p>Expand <span class="math inline">\(Var[ (T-\theta)^2 ]\)</span> for any <span class="math inline">\(T\)</span> with defined moments up to the fourth moment. Show that the MCSE of <span class="math inline">\(c \times S_T / \sqrt{R}\)</span> can only have a scaling constant larger than 1 if there is substantial skew in <span class="math inline">\(T\)</span>.</p></li>
+</ol>
+</div>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-boos2015Assessing" class="csl-entry" role="listitem">
+Boos, Dennis D., and Jason A. Osborne. 2015. <span>“Assessing Variability of Complex Descriptive Statistics in <span>Monte Carlo</span> Studies Using Resampling Methods.”</span> <em>International Statistical Review</em> 83 (2): 228–38. <a href="https://doi.org/10.1111/insr.12087">https://doi.org/10.1111/insr.12087</a>.
+</div>
+<div id="ref-efron1994introduction" class="csl-entry" role="listitem">
+Efron, Bradley, and Robert J Tibshirani. 1994. <em>An Introduction to the Bootstrap</em>. Chapman; Hall/CRC.
+</div>
+<div id="ref-Hettmansperger2010robust" class="csl-entry" role="listitem">
+Hettmansperger, Thomas P., and Joseph W. McKean. 2010. <em>Robust Nonparametric Statistical Methods</em>. 2nd ed. Chapman &amp; <span>Hall</span> / <span>CRC Monographs</span> on <span>Statistics</span> &amp; <span>Applied Probability</span>. <span>Taylor and Francis</span>.
+</div>
+<div id="ref-Maronna2006robust" class="csl-entry" role="listitem">
+Maronna, Ricardo A., R. Douglas Martin, and Vı́ctor J. Yohai. 2006. <em>Robust Statistics: Theory and Methods</em>. Wiley Series in Probability and Statistics. J. Wiley.
+</div>
+<div id="ref-McKean1984comparison" class="csl-entry" role="listitem">
+McKean, Joseph W., and Ronald M. Schrader. 1984. <span>“A Comparison of Methods for Studentizing the Sample Median.”</span> <em>Communications in Statistics - Simulation and Computation</em> 13 (6): 751–73. <a href="https://doi.org/10.1080/03610918408812413">https://doi.org/10.1080/03610918408812413</a>.
+</div>
+<div id="ref-Oehlert1992note" class="csl-entry" role="listitem">
+Oehlert, Gary W. 1992. <span>“A <span>Note</span> on the <span>Delta Method</span>.”</span> <em>The American Statistician</em> 46 (1): 27–29. <a href="https://doi.org/10.1080/00031305.1992.10475842">https://doi.org/10.1080/00031305.1992.10475842</a>.
+</div>
+<div id="ref-pustejovsky2018deltamethod" class="csl-entry" role="listitem">
+Pustejovsky, James E. 2018. <em>The Multivariate Delta Method</em>. <a href="https://jepusto.com/posts/Multivariate-delta-method/">https://jepusto.com/posts/Multivariate-delta-method/</a>.
+</div>
+</div>
+</section>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn1"><p>To be precise, the formulas that we give are <em>estimators</em> for the Monte Carlo standard errors of the performance measure estimators. Our presentation does not emphasize this point because the performance measures will usually be estimated using a large number of replications from an independent and identically distributed process, so the distinction between true and estimated Monte Carlo standard errors will not be consequential. One could write <span class="math inline">\(MCSE\)</span> and <span class="math inline">\(\widehat{MCSE}\)</span> to distinguish between the two, but we avoid this notation for simplicity.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><span class="citation" data-cites="Oehlert1992note">Oehlert (<a href="references.html#ref-Oehlert1992note" role="doc-biblioref">1992</a>)</span> provides a friendly introduction to the delta method, or see <span class="citation" data-cites="pustejovsky2018deltamethod">Pustejovsky (<a href="references.html#ref-pustejovsky2018deltamethod" role="doc-biblioref">2018</a>)</span>. The delta method approximation says (with some conditions), that if we assume <span class="math inline">\(X \sim N\left( \phi, \sigma_X^2 \right)\)</span>, then we can approximate the distribution of <span class="math inline">\(g(X)\)</span> for some continuous function <span class="math inline">\(g(\cdot)\)</span> as <span class="math display">\[ g(X) \sim N\left( g(\phi), \;\; g'(\phi)^2 \times \sigma_X^2 \right),\]</span> where <span class="math inline">\(g'(\phi)\)</span> is the derivative of <span class="math inline">\(g(\cdot)\)</span> evaluated at <span class="math inline">\(\phi\)</span>. In practice, <span class="math inline">\(\phi\)</span> is an unknown parameter, but we can estimate the variance of <span class="math inline">\(g(X)\)</span> by substituting <span class="math inline">\(X\)</span> in place of <span class="math inline">\(\phi\)</span>. Thus, an approximation of the variance of <span class="math inline">\(g(X)\)</span> is <span class="math inline">\(g'(X)^2 \times \sigma_X^2\)</span>. If <span class="math inline">\(g(X)\)</span> is an estimator, this means an approximate SE for <span class="math inline">\(g(X)\)</span> is <span class="math display">\[ SE( g(X) ) \approx \left| g'(\mu_X) \right|  \times SE(X).\]</span> To find the MCSE of <span class="math inline">\(RMSE\)</span>, then, simply apply this delta method approximation to <span class="math inline">\(X = MSE\)</span> with <span class="math inline">\(g(x) = \sqrt{x}\)</span> and <span class="math inline">\(g'(x) =\frac{1}{2\sqrt{x}}\)</span>.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jepusto\.github\.io\/Designing-Simulations-in-R\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="./040-Performance-criteria.html" class="pagination-link" aria-label="Performance measures">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Performance measures</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./060-multiple-scenarios.html" class="pagination-link" aria-label="Simulating across multiple scenarios">
+        <span class="nav-page-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Simulating across multiple scenarios</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/jepusto/Designing-Simulations-in-R/edit/main/045-MCSEs.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li></ul></div></div></div></footer></body></html>
