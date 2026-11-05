@@ -142,7 +142,7 @@ run_alpha_sim <- function(iterations, n, p, alpha, df, coverage = 0.95, seed = N
     replicate(n = iterations, {
       dat <- r_mvt_items(n = n, p = p, alpha = alpha, df = df)
       estimate_alpha(dat, coverage = coverage)
-    }, simplify = FALSE) %>%
+    }, simplify = FALSE) |>
     bind_rows()
   
   alpha_performance(results, alpha = alpha, coverage = coverage)

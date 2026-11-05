@@ -2,7 +2,7 @@
 load(here::here("data","Chen-2025-sim-res.RData"))
 
 res_dat_clean <- 
-  res_dat %>%
+  res_dat |>
   mutate(
     weight = map_dbl(weights, \(x) x[[1]]),
     working_mod = str_extract(method, "(MV|UNI)_"),
@@ -14,8 +14,8 @@ res_dat_clean <-
     ),
     method_lab = str_remove(method, "(MV|UNI)_"),
     method_lab = case_match(method_lab, "CHE" ~ "RE", "CHE-ISCW" ~ "RE-ISW", .default = method_lab)
-  ) %>%
-  filter(k_stop %in% c("NA","2")) %>%
+  ) |>
+  filter(k_stop %in% c("NA","2")) |>
   select(
     mu, tau, omega, k, cor_mu, cor_sd,
     sel_mechanism,
@@ -25,11 +25,11 @@ res_dat_clean <-
     n_converged:rej_rate_mcse
   )
 
-res_dat_clean %>%
+res_dat_clean |>
   summarize(
     n = n(),
     .by = c(working_mod, method_lab)
-  ) %>%
+  ) |>
   pivot_wider(names_from = working_mod, values_from = n) 
  
 

@@ -45,7 +45,7 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
   lpdisc = MASS::mvrnorm( n, mu = lpd_mns, Sigma = lpd_cov )
   lpdisc = exp( lpdisc )
   colnames( lpdisc ) = paste0( "pdisc_", colnames( lpdisc ) )
-  lpdisc = dplyr::as_tibble( lpdisc ) %>%
+  lpdisc = dplyr::as_tibble( lpdisc ) |>
     dplyr::mutate( ID = 1:(dplyr::n()),
                    Z = 0 + ( sample( n ) <= n_t ) )
   
@@ -54,7 +54,7 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
                           pdisc_2018 = pdisc_2018 * ifelse( Z == 1, tx, 1 ),
                           pdisc_2019 = pdisc_2019 * ifelse( Z == 1, tx, 1 ) )
   
-  lpdisc %>% 
+  lpdisc |> 
     dplyr::relocate( ID, Z )
 }
 
@@ -66,20 +66,20 @@ print( a, n = 4 )
 
 
 ## ----echo=FALSE----------------------------------------------------------------------------------------------
-datWL <- datW %>% 
+datWL <- datW |> 
   pivot_longer( `2015`:`2019`, names_to = "year",
-                values_to = "pdisc" ) %>%
-  mutate( year = as.numeric( year ) ) %>%
-  group_by( year ) %>%
+                values_to = "pdisc" ) |>
+  mutate( year = as.numeric( year ) ) |>
+  group_by( year ) |>
   summarise( pdisc = mean( pdisc ) )
 
-aL = a %>% 
+aL = a |> 
   pivot_longer( pdisc_2015:pdisc_2019, 
                 names_to = c( ".value", "year" ),
-                names_pattern = "(.*)_(.*)" ) %>%
+                names_pattern = "(.*)_(.*)" ) |>
   mutate( year = as.numeric( year ) )
 
-aLg = aL %>% group_by( year, Z ) %>%
+aLg = aL |> group_by( year, Z ) |>
   summarise( pdisc = mean( pdisc ) )
 
 ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
@@ -122,7 +122,7 @@ eval_dat = function( sdat ) {
   # Time and unit fixed effects
   sdatL = tidyr::pivot_longer( sdat, cols = pdisc_2015:pdisc_2019, 
                                names_to = "year",
-                               values_to = "pdisc" ) %>%
+                               values_to = "pdisc" ) |>
     dplyr::mutate( Z = Z * (year %in% c( "pdisc_2018", "pdisc_2019" ) ),
                    ID = paste0( "S", ID ) )
   
@@ -136,9 +136,9 @@ eval_dat = function( sdat ) {
                   ratio_twopost = M_ratio_twopost,
                   log_twopost = M_twopost, 
                   FE = M_2wfe )
-  rs <- purrr::map_df( models, broom::tidy, .id="model" ) %>%
-    dplyr::filter( term=="Z" ) %>%
-    dplyr::select( -term ) %>%
+  rs <- purrr::map_df( models, broom::tidy, .id="model" ) |>
+    dplyr::filter( term=="Z" ) |>
+    dplyr::select( -term ) |>
     dplyr::arrange( model )
   
   rs

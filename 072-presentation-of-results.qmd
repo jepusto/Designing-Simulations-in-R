@@ -18,8 +18,8 @@ res <- readRDS( file = "results/simulation_CRT.rds" )
 res
 
 sres <- 
-  res %>% 
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  res |> 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) |>
   summarise( 
     bias = mean(ATE_hat - ATE),
     SE = sd( ATE_hat ),
@@ -87,21 +87,21 @@ exp.res <- readRDS( file="results/Neyman_RCT_results.rds" )
 
 # summary( exp.res$power )
 exp.res.rej <- 
-  exp.res %>% 
- # filter( tau == 0 ) %>%
-  group_by( tau, nC, nT ) %>%
+  exp.res |> 
+ # filter( tau == 0 ) |>
+  group_by( tau, nC, nT ) |>
   summarize( reject = mean( power ),
-             n = n(), .groups = "drop" ) %>%
+             n = n(), .groups = "drop" ) |>
     filter( nC %in% c( 2, 4, 10, 50, 500 ),
             nT %in% c( 2, 10, 500 ) )
 
   
 exp.res.rej = mutate( exp.res.rej, reject = round( reject * 100 ) )
 
-exp.res.rej %>%
-  dplyr::select( tau, nT, nC, reject ) %>%
-  pivot_wider( names_from = tau, values_from=reject, names_prefix = "tau=" ) %>%
-  arrange( nT, nC ) %>%
+exp.res.rej |>
+  dplyr::select( tau, nT, nC, reject ) |>
+  pivot_wider( names_from = tau, values_from=reject, names_prefix = "tau=" ) |>
+  arrange( nT, nC ) |>
   knitr::kable(caption = "Rejection rates for a two-sample t-test assuming unequal variances")
 ```
 
@@ -152,10 +152,10 @@ We can then ask, do some methods perform better than their peers on average acro
 ```{r tbl-ITE-performance, echo=FALSE}
 df_rel = read_rds( here::here( "data/MLIV_sim_results.rds" ) )
 
-df_rel_sum <- df_rel %>%
+df_rel_sum <- df_rel |>
   filter( model != "OLS S INT", model != "LASSO MCM EA", model != "LASSO MOM DR",
-          model != "LASSO MOM IPW", model != "RF MOM IPW") %>%
-  group_by( model, measure ) %>%
+          model != "LASSO MOM IPW", model != "RF MOM IPW") |>
+  group_by( model, measure ) |>
   summarise( level = mean( value ),
              level_sd = sd( value ),
              perf = mean( rel_perf ),
@@ -174,14 +174,14 @@ df_BSR$perf[ df_BSR$measure == "R2" ] <- df_BSR$perf_ab[ df_BSR$measure == "R2" 
 df_BSR$sdperf[ df_BSR$measure == "R2" ] <- df_BSR$sd_ab[ df_BSR$measure == "R2" ]
 
 # Make overall performance table and canonical ordering of models ----
-overall_performance_table <- df_BSR %>%
-  dplyr::select( model, measure, perf, sdperf ) %>%
+overall_performance_table <- df_BSR |>
+  dplyr::select( model, measure, perf, sdperf ) |>
   pivot_wider( names_from = measure, 
-               values_from = c( perf, sdperf ) ) %>%
+               values_from = c( perf, sdperf ) ) |>
   
-  arrange( perf_rmse ) %>%
+  arrange( perf_rmse ) |>
   mutate( across(starts_with("perf_") | starts_with("sdperf_"), 
-                ~ round(. * 100)) ) %>%
+                ~ round(. * 100)) ) |>
   mutate( across(3:5, ~ . - 100 ) ) 
 
 
@@ -196,7 +196,7 @@ overall_performance_table$sd_R2 <- overall_performance_table$sd_R2 / 100
 overall_performance_table$R2[ overall_performance_table$model == "ATE"] = NA
 overall_performance_table$sd_R2[ overall_performance_table$model == "ATE"] = NA
 
-overall_performance_table <- overall_performance_table %>%
+overall_performance_table <- overall_performance_table |>
   relocate( model, bias, se, rmse, sd_bias, sd_se, sd_rmse, R2, sd_R2 )
 
 knitr::kable( 
@@ -233,26 +233,26 @@ One quadrant of their table, containing the results for the scenario with misspe
 
 ```{r, include=FALSE}
 
-df <- read_csv(here::here("data/zhou_table2.csv")) %>%
+df <- read_csv(here::here("data/zhou_table2.csv")) |>
   pivot_longer(cols = -c(scenario, method), names_to = "measure", values_to = "value")
 
-df <- df %>%
+df <- df |>
   mutate(main_method = str_extract(method, "^[^-]+"),
          variant = str_extract(method, "(?<=-).+"))
 df$variant[is.na(df$variant)] <- "."
 
-method_order <- df %>% distinct(main_method) %>% pull(main_method)
-df <- df %>% mutate(main_method = factor(main_method, levels = method_order, ordered = TRUE))
+method_order <- df |> distinct(main_method) |> pull(main_method)
+df <- df |> mutate(main_method = factor(main_method, levels = method_order, ordered = TRUE))
 
 
-df_sub <- df %>% 
-  dplyr::filter( scenario == "neither" ) %>%
-  pivot_wider( names_from=measure, values_from=value ) %>%
+df_sub <- df |> 
+  dplyr::filter( scenario == "neither" ) |>
+  pivot_wider( names_from=measure, values_from=value ) |>
   dplyr::select( -main_method, -scenario, -variant )
 ```
 
 ```{r, echo=FALSE}
-df_sub %>%
+df_sub |>
   knitr::kable()
 ```
 Reading the table involves scanning across many methods, some of which are variants of the same core type.
@@ -273,12 +273,12 @@ The outliers are circled to make their truncation clear.
 #| fig-cap: "Performance of selected causal effect estimators in simulations by Zhou et al. (2015)."
 
 df3 <- 
-  df %>%
-  group_by(measure, scenario) %>%
+  df |>
+  group_by(measure, scenario) |>
   mutate(cap_lo = -15,
          cap_hi = 20,
          outlier = value < cap_lo | value > cap_hi,
-         plot_value = pmin(pmax(value, cap_lo), cap_hi)) %>%
+         plot_value = pmin(pmax(value, cap_lo), cap_hi)) |>
   ungroup()
 
 df3$variant[ df$variant == "." & df$main_method %in% c( "TML", "WR", "AIPW") ] = "vanilla"
@@ -349,12 +349,12 @@ The table provided a compact high-level summary, but it could be improved by tur
 
 # order the model by RMSE
 overall_performance_table <- 
-  overall_performance_table %>%
+  overall_performance_table |>
   mutate( model = factor(model, levels = model ),
           R2 = R2 * 100 )
           
-opt <- overall_performance_table %>%
-  dplyr::select(model, bias, se, rmse, R2) %>%
+opt <- overall_performance_table |>
+  dplyr::select(model, bias, se, rmse, R2) |>
   pivot_longer(-model, names_to = "metric", values_to = "value")
 
 opt$value[ opt$value > 100 ] = 100
@@ -385,11 +385,11 @@ We can elaborate this plot by using boxplots that summarize the distribution of 
 #| fig-cap: "Relative performance of individual treatment effect estimators across all simulation scenarios."
 
 df_BSR_long <- 
-  df_rel %>%
+  df_rel |>
   filter( 
     model != "OLS S INT",
     measure %in% c( "rmse", "se", "bias" ) 
-  ) %>%
+  ) |>
   mutate(
     measure = factor(measure, levels = c("rmse", "se", "bias")),
     model = factor(model, levels = levels(overall_performance_table$model))
@@ -397,8 +397,8 @@ df_BSR_long <-
 
 
 df_BSR_long_agg <- 
-  df_BSR_long %>%
-  group_by(model, measure) %>%
+  df_BSR_long |>
+  group_by(model, measure) |>
   summarise(
     rel_perf = mean(rel_perf, na.rm = TRUE),
     .groups = "drop"
@@ -471,8 +471,8 @@ We also see that the bias is dampened as the series length increases.
 #| fig-cap: "Bias of the LRR1 estimator of the log response ratio under a Poisson AR(1) model with baseline mean of $\\mu_A = 10$, for varying log response ratio parameters, auto-correlation, and series length."
 
 Chen_LRR <- 
-  readRDS(here::here("data","Chen-2024-LRR-sims.rds")) %>%
-  filter(r_dist == "r_pois_AR1") %>%
+  readRDS(here::here("data","Chen-2024-LRR-sims.rds")) |>
+  filter(r_dist == "r_pois_AR1") |>
   mutate(
     m_lab = factor(paste("n =", m), levels = paste("n =",seq(5,15,5)))
   )
@@ -523,7 +523,7 @@ All of the factors---and thousands of distinct simulation scenarios---are visibl
 load("data/d2r results.rData")
 
 r_F <- 
-  allResults %>%
+  allResults |>
   mutate(
     reps = 1e7 / n,
     n_f = ordered(n),
@@ -534,8 +534,8 @@ r_F <-
     bias.sm = mean.sm - rho,
     bias_mcse = sqrt(var / reps),
     rmse = sqrt(bias^2 + var)
-  ) %>%
-  filter(stat=="r.i" & design=="Extreme Group") %>%
+  ) |>
+  filter(stat=="r.i" & design=="Extreme Group") |>
   droplevels()
 
 ggplot(r_F) +
@@ -585,7 +585,7 @@ This was another complex experimental design, which involved varying several fac
 load("data/RVE_simulation.Rdata")
 
 results <- 
-  results_large_m %>%
+  results_large_m |>
   mutate(
     type = substr(contrast,1,1),
     q = as.numeric(substr(contrast,3,3)),
@@ -624,11 +624,11 @@ labs = c(
   "T^2 Z" = expression(T[Z]^2)
 )
 
-results %>%
+results |>
   filter(
     testname %in% test_select,
     m %in% m_select
-  ) %>%
+  ) |>
 ggplot() + 
   aes(testname, p05, fill = testname) + 
   geom_boxplot(coef = 1e6, outliers = FALSE) + 
@@ -691,10 +691,10 @@ coverage_smoother <- function(results) {
 }
 
 MTS_coverage <- 
-  MTS_results %>%
-  group_nest( K_intervals, k_priors, theta, .key = "results" ) %>%
-  mutate(res = map(results, coverage_smoother)) %>%
-  unnest(res) %>%
+  MTS_results |>
+  group_nest( K_intervals, k_priors, theta, .key = "results" ) |>
+  mutate(res = map(results, coverage_smoother)) |>
+  unnest(res) |>
   mutate(
     K_intervals_fac = factor(K_intervals, levels = seq(10,150,10)),
     K_intervals_fac = fct_relabel(K_intervals_fac, \(x) paste("N =", x)),
@@ -737,8 +737,8 @@ Within each panel, results for the original MLE and the penalized MLE are arrang
 coverage_colors <- c("0-92.5%" = "red", "92.5-94%" = "yellow" , "94-96%" = "green", "96-97.5%" = "blue", "97.5-100%" = "purple")
 
 coverage_small <- 
-  MTS_coverage %>%
-  filter(K_intervals >= 40, K_intervals < 100) %>%
+  MTS_coverage |>
+  filter(K_intervals >= 40, K_intervals < 100) |>
   ggplot() + 
     aes( phi, zeta, fill = pcoverage_smooth_cut ) +
     geom_tile() +
@@ -760,8 +760,8 @@ coverage_small <-
     )
 
 coverage_large <- 
-  MTS_coverage %>%
-  filter(K_intervals >= 100) %>%
+  MTS_coverage |>
+  filter(K_intervals >= 100) |>
   ggplot() + 
     aes( phi, zeta, fill = pcoverage_smooth_cut ) +
     geom_tile() +
@@ -818,22 +818,22 @@ A dashed line at $y = x$ indicates the point where both versions have equal accu
 selection_sims <- readRDS(here::here("data","Chen-2025-selection-sims.rds"))
 
 selection_sims_wide <- 
-  selection_sims %>%
-  filter(method_lab %in% c("EK","PET-PEESE","RE","RE-ISW","WAAP","WILS")) %>%
-  select(mu:iterations, working_mod, method_lab, rmse) %>%
-  pivot_wider(names_from = working_mod, values_from = rmse) %>%
+  selection_sims |>
+  filter(method_lab %in% c("EK","PET-PEESE","RE","RE-ISW","WAAP","WILS")) |>
+  select(mu:iterations, working_mod, method_lab, rmse) |>
+  pivot_wider(names_from = working_mod, values_from = rmse) |>
   mutate(
     method_lab = factor(method_lab, labels = c("RE","RE-ISW","PET-PEESE","EK","WAAP","WILS")),
     rmse_ratio = multivariate / univariate
   )
   
 
-selection_sims_wide %>%
+selection_sims_wide |>
   filter(
     sel_mechanism == "One-step selection", 
     k == 30, 
     cor_mu == 0.4
-  ) %>%
+  ) |>
 ggplot() +
   aes( univariate, multivariate, color = wt, shape = wt ) + 
   geom_abline(slope = 1, color = "grey") + 
@@ -865,12 +865,12 @@ A further drawback of this layout is that it is difficult to see the relationshi
 #| fig-height: 6
 #| fig-cap: "Ratio of RMSE of multivariate working models to the RMSE of univariate counterparts under a one-step selection process for $k = 30$ studies and $\\bar{\\rho} = 0.4$."
 
-selection_sims_wide %>%
+selection_sims_wide |>
   filter(
     sel_mechanism == "One-step selection", 
     k == 30,
     cor_mu == 0.4
-  ) %>%
+  ) |>
 ggplot() +
   aes( wt, rmse_ratio, color = wt) + 
   geom_hline(yintercept = 1, color = "darkgrey") + 
@@ -961,7 +961,7 @@ LP_ANOVA <- tribble(
   "J × IUCC"               , 0.004, 0.088, 0.013, 0.029,
 )
 
-LP_ANOVA %>%
+LP_ANOVA |>
   mutate(
     across(
       -Source, 
@@ -973,10 +973,10 @@ LP_ANOVA %>%
 #                    labels = c("","⦀", "⦀⦀","⦀⦀⦀"), include.lowest = TRUE)
       )
     )
-  ) %>%
+  ) |>
   knitr::kable(
     caption = "Partial $\\eta^2$ values from ANOVA of parameter bias in a simulation of cross-classified data"
-  ) %>%
+  ) |>
   #kableExtra::add_footnote(label = "(S)mall = .01, (M)edium = .06, (L)arge = .14", notation = "none")
 kableExtra::add_footnote( label = "x (Small) = .01, xx (Medium) = .06, xxx (Large) = .14", notation = "none")
 #  LWM: Tried ⦀ but doesn't render to PDF, trying to figure out alternatives, using 'x' for now
@@ -1017,7 +1017,7 @@ The results presented are aggregated across the sample size factor because we ha
 #| fig-cap: "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."
 
 r_F_bias_factor <- 
-  r_F %>%
+  r_F |>
   summarize(
     beta = sum(bias / (bias_mcse^2 * n)) / sum(1 / (bias_mcse^2 * n^2)),
     .by = c(fixed, p1, rho, p.inv)

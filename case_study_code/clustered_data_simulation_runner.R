@@ -38,7 +38,7 @@ params$res = future_pmap(params, .f = run_CRT_sim,
                          .progress = TRUE )
 plan(sequential)
 gc()
-res <- params %>% unnest( cols=c(res) )
+res <- params |> unnest( cols=c(res) )
 saveRDS( res, file = "results/simulation_CRT.rds" )
 
 
@@ -90,12 +90,12 @@ if ( FALSE ) {
                            .progress = TRUE )
   plan(sequential)
   gc()
-  res <- params %>% unnest( cols=c(res) )
+  res <- params |> unnest( cols=c(res) )
   tictoc::toc()
   saveRDS( res, file = "results/simulation_CRT_null.rds" )
   
-  sres <- res %>% 
-    group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+  sres <- res |> 
+    group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) |>
     summarise( calc_absolute( estimates = ATE_hat,
                               true_param = ATE,
                               criteria = c("bias","stddev",
@@ -107,12 +107,12 @@ if ( FALSE ) {
                ESE_hat = sqrt( mean( SE_hat^2 ) ),
                SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
                
-    ) %>%
+    ) |>
     rename( R = K_absolute,
             RMSE = rmse,
             RMSE_mcse = rmse_mcse,
             SE = stddev,
-            SE_mcse = stddev_mcse ) %>%
+            SE_mcse = stddev_mcse ) |>
     dplyr::select(  -K_relvar )
   sres
   

@@ -21,14 +21,14 @@ if ( FALSE ) {
   # Prep data for regression by making ATE the reference category for
   # both queen and model.
   df
-  df_sub <- df %>%
+  df_sub <- df |>
     dplyr::filter( !str_detect( model, "INF"), 
                    model != "BART S Int",
-                   #!( queen %in% c( "ATE", "CDML" ) ) ) %>%
-                   !( queen %in% c( "ATE"))) %>% #, "CDML" ) ) ) %>%
+                   #!( queen %in% c( "ATE", "CDML" ) ) ) |>
+                   !( queen %in% c( "ATE"))) |> #, "CDML" ) ) ) |>
     
     #dplyr::filter( outcome_type == 1,
-    #               dataset == "ca" ) %>%
+    #               dataset == "ca" ) |>
     mutate( model = relevel( factor( model ), ref = "ATE" ),
             #          queen = relevel( factor( queen ), ref = "ATE" ),
             cov_set_size = factor( cov_set_size, levels = c("small","medium","large" ) ),
@@ -39,21 +39,21 @@ if ( FALSE ) {
   
   
   
-  df_sub_core <- df_sub %>%
-    dplyr::filter( !( model %in% c( "XGBOOST R", "XGBOOST S", "SL S", "SL T", "BART S Int" ))) %>%
+  df_sub_core <- df_sub |>
+    dplyr::filter( !( model %in% c( "XGBOOST R", "XGBOOST S", "SL S", "SL T", "BART S Int" ))) |>
     mutate( model = droplevels( model ) )
   
   table( df_sub_core$model )
   
-  df_rel <- df_sub_core %>%
-    dplyr::select( set_id, model, queen, rmse, se, bias, R2, spearman ) %>%
+  df_rel <- df_sub_core |>
+    dplyr::select( set_id, model, queen, rmse, se, bias, R2, spearman ) |>
     pivot_longer( cols = c( rmse, se, bias, R2, spearman ), 
                   names_to = "measure",
-                  values_to = "value" ) %>%
-    group_by( queen, set_id, measure ) %>%
+                  values_to = "value" ) |>
+    group_by( queen, set_id, measure ) |>
     mutate( n = n(),
             med_value = median( value ),
-            rel_perf = value / med_value ) %>%
+            rel_perf = value / med_value ) |>
     ungroup()
   df_rel
   
@@ -66,8 +66,8 @@ length( unique( df_rel$model ) )
 table( df_rel$model )
 nrow(df_rel) / (3*16)
 
-df_rel_sum <- df_rel %>%
-  group_by( model, measure ) %>%
+df_rel_sum <- df_rel |>
+  group_by( model, measure ) |>
   summarise( level = mean( value ),
              level_sd = sd( value ),
              level_10 = quantile( value, 0.10 ),
@@ -84,10 +84,10 @@ df_BSR = filter( df_rel_sum,
                  measure %in% c( "rmse", "se", "bias" ) )
 
 # Make overall performance table and canonical ordering of models ----
-overall_performance_table <- df_BSR %>%
-  dplyr::select( model, measure, perf, sdperf ) %>%
+overall_performance_table <- df_BSR |>
+  dplyr::select( model, measure, perf, sdperf ) |>
   pivot_wider( names_from = measure, 
-               values_from = c( perf, sdperf ) ) %>%
+               values_from = c( perf, sdperf ) ) |>
   arrange( perf_rmse )
 knitr::kable( overall_performance_table, digits = 2 )
 
@@ -99,10 +99,10 @@ knitr::kable( overall_performance_table, digits = 2 )
 
 
 
-df_BSR_long <- df_rel %>%
-  filter( measure %in% c( "rmse", "se", "bias" ) )# %>%
+df_BSR_long <- df_rel |>
+  filter( measure %in% c( "rmse", "se", "bias" ) )# |>
 # filter( model != "OLS S", model != "OLS S INT" )
-df_BSR_long <- df_BSR_long %>%
+df_BSR_long <- df_BSR_long |>
   mutate(measure = factor(measure, levels = c("rmse", "se", "bias")))
 
 df_BSR_long$model = factor( df_BSR_long$model, levels = levels( overall_performance_table$model ) )
@@ -111,11 +111,11 @@ df_BSR_long$model = factor( df_BSR_long$model, levels = levels( overall_performa
 nrow(df_BSR_long) / (3*length(unique(df_BSR_long$model)))
 
 # Step 1: Get model order based on median rel_perf for RMSE
-model_order <- df_BSR_long %>%
-  filter(measure == "rmse") %>%
-  group_by(model) %>%
-  summarise(median_perf = median(rel_perf, na.rm = TRUE), .groups = "drop") %>%
-  arrange(median_perf) %>%
+model_order <- df_BSR_long |>
+  filter(measure == "rmse") |>
+  group_by(model) |>
+  summarise(median_perf = median(rel_perf, na.rm = TRUE), .groups = "drop") |>
+  arrange(median_perf) |>
   pull(model)
 
 # Step 2: Apply the factor order to the full dataset

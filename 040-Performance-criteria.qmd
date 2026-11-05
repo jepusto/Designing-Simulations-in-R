@@ -19,7 +19,7 @@ source("case_study_code/r_and_z.R")
 source("case_study_code/gen_cluster_RCT.R")
 
 ClusterRCT_runs <- 
-  readRDS("results/cluster_RCT_simulation.rds") %>%
+  readRDS("results/cluster_RCT_simulation.rds") |>
   mutate(
     runID = rep(1:1000, each = 3),
     method_L = case_match(method, 
@@ -40,8 +40,8 @@ These observations are initial impressions of how well each estimator performs--
 In this chapter, we look at how to more precisely quantify and compare specific aspects of estimator performance.
 
 ```{r, include=FALSE}
-ClusterRCT_runs %>%
-  group_by( method_L ) %>%
+ClusterRCT_runs |>
+  group_by( method_L ) |>
   summarize( ATE_hat = mean(ATE_hat),
              R = n() )
 ```
@@ -56,7 +56,7 @@ ClusterRCT_runs %>%
 #| message: false
 
 cluster_RCT_mean <- 
-  ClusterRCT_runs %>%
+  ClusterRCT_runs |>
   summarize(ATE_hat = mean(ATE_hat), .by = method_L)
 
 ggplot(ClusterRCT_runs) + 
@@ -230,22 +230,22 @@ We first calculate the measures all at once, with results on Table @tbl-cluster-
 ATE <- 0.30
 
 point_estimator_performance <-
-  ClusterRCT_runs %>% 
-  group_by(method) %>%
+  ClusterRCT_runs |> 
+  group_by(method) |>
   summarise(
     mean_ATE_hat = mean(ATE_hat),
     bias = mean(ATE_hat) - ATE,
     SE = sd(ATE_hat),
     RMSE = sqrt(mean((ATE_hat - ATE)^2))
-  ) %>%
+  ) |>
   mutate(
     per_SE = SE / SE[method == "LR"],
     per_RMSE = RMSE / RMSE[method == "LR"]
   )
 
 LR_bias <- 
-  point_estimator_performance %>%
-  filter(method == "LR") %>%
+  point_estimator_performance |>
+  filter(method == "LR") |>
   pull(bias)
 ```
 
@@ -254,7 +254,7 @@ LR_bias <-
 #| tbl-cap: "Bias, standard error, and RMSE across methods in the clustered randomized trial simulations."
 #| echo: false
 
-point_estimator_performance %>%
+point_estimator_performance |>
   knitr::kable(digits = 3)
 
 ```
@@ -528,9 +528,9 @@ See Table @tbl-cluster-se-performance for the output of the following calculatio
 
 ```{r calculate-cluster-RCT-performance}
 SE_performance <- 
-  ClusterRCT_runs %>%  
-  mutate( V = SE_hat^2 ) %>%
-  group_by( method ) %>%
+  ClusterRCT_runs |>  
+  mutate( V = SE_hat^2 ) |>
+  group_by( method ) |>
   summarise( 
     SE_sq = var( ATE_hat ),
     V_bar = mean( V ),
@@ -545,7 +545,7 @@ SE_performance <-
 #| label: tbl-cluster-se-performance
 #| echo: false
 
-SE_performance %>%
+SE_performance |>
   knitr::kable( digits = c(0,3,3,2,3,2,1),
                 caption = "Performance of the variance estimators for cluster RCT simulation" )
 ```
@@ -615,7 +615,7 @@ To do this, we first have to calculate the confidence intervals because we did n
 We compute a normal critical value for a $\beta = 0.95$ confidence level using `qnorm(0.975)`, then compute the lower and upper end-points using the point estimators and estimated standard errors:
 ```{r}
 runs_CIs <- 
-  ClusterRCT_runs %>% 
+  ClusterRCT_runs |> 
   mutate( 
     A = ATE_hat - qnorm(0.975) * SE_hat,
     B = ATE_hat + qnorm(0.975) * SE_hat
@@ -623,8 +623,8 @@ runs_CIs <-
 ```
 Now we can estimate the coverage rate and expected width of these confidence intervals:
 ```{r}
-runs_CIs %>%
-  group_by( method ) %>%
+runs_CIs |>
+  group_by( method ) |>
   summarise( 
     coverage = mean( A <= ATE & ATE <= B ),
     width = mean( B - A )
@@ -734,8 +734,8 @@ Thus, the rejection rates for this scenario correspond to estimates of power.
 We compute the rejection rate for tests with an $\alpha$ level of $.05$:
 
 ```{r demo_calc_power}
-ClusterRCT_runs %>% 
-  group_by( method ) %>%
+ClusterRCT_runs |> 
+  group_by( method ) |>
   summarise( power = mean( p_value <= 0.05 ) )
 ```
 
@@ -780,12 +780,12 @@ We also estimate the bias of the point estimator, since bias can affect the vali
 Results are as follows:
 
 ```{r demo-calc-validity, echo=FALSE}
-runs_val %>% 
-  group_by( method ) %>%
+runs_val |> 
+  group_by( method ) |>
   summarise( 
     bias = mean(ATE_hat) - 0,       # true ATE is zero
     power = mean( p_value <= 0.05 ) 
-  ) %>%
+  ) |>
   knitr::kable( digits = 3 )
 ```
 
@@ -959,13 +959,13 @@ If we recalculate performance measures for all of our estimators with respect to
 
 ```{r}
 performance_person_ATE <-
-  ClusterRCT_runs %>% 
-  group_by( method ) %>%
+  ClusterRCT_runs |> 
+  group_by( method ) |>
   summarise( 
     bias = mean( ATE_hat ) - ATE_person,
     SE = sd( ATE_hat ),
     RMSE = sqrt( mean( (ATE_hat - ATE_person)^2 ) )
-  ) %>%
+  ) |>
   mutate( per_RMSE = RMSE / RMSE[method=="LR"] )
 
 performance_person_ATE
@@ -973,9 +973,9 @@ performance_person_ATE
 
 ```{r, echo = FALSE}
 RMSE_ratio <- 
-  performance_person_ATE %>% 
-  filter(method != "LR") %>%
-  summarize(per_RMSE = mean(per_RMSE)) %>%
+  performance_person_ATE |> 
+  filter(method != "LR") |>
+  summarize(per_RMSE = mean(per_RMSE)) |>
   pull(per_RMSE)
 ```
 

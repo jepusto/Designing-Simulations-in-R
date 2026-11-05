@@ -74,7 +74,7 @@ run_CRT_sim <- function( reps,
                               sigma2_u = ICC, sigma2_e = 1 - ICC,
                               alpha = alpha )
       quiet_analyze_data(dat)
-    }) %>%
+    }) |>
     bind_rows( .id="runID" )
   
   res

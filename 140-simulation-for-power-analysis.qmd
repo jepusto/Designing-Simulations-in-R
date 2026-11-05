@@ -103,7 +103,7 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
     lpdisc = MASS::mvrnorm( n, mu = lpd_mns, Sigma = lpd_cov )
     lpdisc = exp( lpdisc )
     colnames( lpdisc ) = paste0( "pdisc_", colnames( lpdisc ) )
-    lpdisc = dplyr::as_tibble( lpdisc ) %>%
+    lpdisc = dplyr::as_tibble( lpdisc ) |>
         dplyr::mutate( ID = 1:(dplyr::n()),
                 Z = 0 + ( sample( n ) <= n_t ) )
     
@@ -112,7 +112,7 @@ make_dat_param = function( n_c, n_t, tx=1 ) {
                      pdisc_2018 = pdisc_2018 * ifelse( Z == 1, tx, 1 ),
                      pdisc_2019 = pdisc_2019 * ifelse( Z == 1, tx, 1 ) )
  
-    lpdisc %>% 
+    lpdisc |> 
       dplyr::relocate( ID, Z )
 }
 ```
@@ -138,31 +138,31 @@ We can group each treatment arm and look at discipline over the years for our sy
 #| fig-cap: "Synthetic discipline data compared to initial data"
 
 datWL <- 
-  datW %>% 
+  datW |> 
   pivot_longer( 
     `2015`:`2019`, names_to = "year",
     values_to = "pdisc" 
-  ) %>%
+  ) |>
   mutate( 
     year = as.numeric( year ) 
-  ) %>%
-  group_by( year ) %>%
+  ) |>
+  group_by( year ) |>
   summarise( pdisc = mean( pdisc ) )
 
 aL <- 
-  a %>% 
+  a |> 
   pivot_longer( 
     pdisc_2015:pdisc_2019, 
     names_to = c( ".value", "year" ),
     names_pattern = "(.*)_(.*)" 
-  ) %>%
+  ) |>
   mutate( 
     year = as.numeric( year ) 
   )
 
 aLg <- 
-  aL %>% 
-  group_by( year, Z ) %>%
+  aL |> 
+  group_by( year, Z ) |>
   summarise( pdisc = mean( pdisc ) )
 
 ggplot( aLg, aes( year, pdisc, col=as.factor(Z) ) ) +
@@ -211,7 +211,7 @@ eval_dat = function( sdat, include_FE = TRUE ) {
     if ( include_FE ) {
       sdatL = tidyr::pivot_longer( sdat, cols = pdisc_2015:pdisc_2019, 
                                    names_to = "year",
-                                   values_to = "pdisc" ) %>%
+                                   values_to = "pdisc" ) |>
         dplyr::mutate( Z = Z * (year %in% c( "pdisc_2018", "pdisc_2019" ) ),
                        ID = paste0( "S", ID ) )
       
@@ -228,9 +228,9 @@ eval_dat = function( sdat, include_FE = TRUE ) {
                        ratio_twopost = M_ratio_twopost,
                        log_twopost = M_twopost, 
                        FE = M_2wfe )
-    rs <- purrr::map_df( models, broom::tidy, .id="model" ) %>%
-      dplyr::filter( term=="Z" ) %>%
-      dplyr::select( -term ) %>%
+    rs <- purrr::map_df( models, broom::tidy, .id="model" ) |>
+      dplyr::filter( term=="Z" ) |>
+      dplyr::select( -term ) |>
       dplyr::arrange( model )
     
     rs
@@ -314,8 +314,8 @@ For evaluation, we load our saved results and calculate rejection rates (we use 
 ```{r}
 res = readRDS( file="data/discipline_simulation.rds" )
 
-sres <- res %>% 
-  group_by( n_c, n_t, tx, model ) %>%
+sres <- res |> 
+  group_by( n_c, n_t, tx, model ) |>
   summarise( E_est = mean( estimate ),
              SE = sd( estimate ),
              E_SE_hat = mean( std.error ),
@@ -333,11 +333,11 @@ Before we start examining power, note that our different models are estimating d
 Here we look at the average estimated treatment effect across our simulation scenarios, for each method:
 
 ```{r}
-sres %>%
-  group_by( model, tx ) %>%
-  summarise( E_est = mean( E_est ) ) %>%
-  pivot_wider( names_from="tx", values_from="E_est" ) %>%
-  arrange( `0.5` ) %>%
+sres |>
+  group_by( model, tx ) |>
+  summarise( E_est = mean( E_est ) ) |>
+  pivot_wider( names_from="tx", values_from="E_est" ) |>
+  arrange( `0.5` ) |>
   knitr::kable( digits = 2 )
 ```
 
@@ -372,7 +372,7 @@ sres = mutate( sres,
 sres$n = (sres$n - mean(sres$n)) / sd(sres$n)
 mod = lm( pow ~ 0 + (n + imbalance) * model - n - imbalance,
           data = filter( sres, tx == 1 ) )
-broom::tidy(mod) %>%
+broom::tidy(mod) |>
   knitr::kable( digits = 3)
 ```
 
@@ -387,8 +387,8 @@ We can also plot the nominal rejection rates under the null:
 #| fig-width: 8
 #| fig-height: 5
 
-sres %>% 
-  filter( tx == 1 ) %>%
+sres |> 
+  filter( tx == 1 ) |>
 ggplot( aes( n_c, pow, color = as.factor(n_t) ) ) +
   facet_wrap( ~ model, nrow = 2 ) +
   geom_point( alpha=0.5 ) +
@@ -416,10 +416,10 @@ Now, which methods are the most precise?
 We look at the true standard errors across our methods (we drop "simple" and the "ratio" estimators since they are not on the ratio scale):
 
 ```{r disc_precision, eval=FALSE}
-sres %>% 
-  group_by( model, n_c, n_t ) %>%
-  summarise( SE = mean(SE ) ) %>%
-  filter( !(model %in% c( "simple", "ratio", "ratio_twopost" ) ) ) %>%
+sres |> 
+  group_by( model, n_c, n_t ) |>
+  summarise( SE = mean(SE ) ) |>
+  filter( !(model %in% c( "simple", "ratio", "ratio_twopost" ) ) ) |>
   ggplot( aes( n_c, SE, col=model )) +
     facet_grid( . ~ n_t ) +
     geom_line() + geom_point() +
@@ -444,8 +444,8 @@ We next look at power over our explored contexts, for the models that we find to
 #| fig-width: 7
 #| fig-height: 5
 
-sres %>% 
-  filter( model != "FE",tx != 1 ) %>%
+sres |> 
+  filter( model != "FE",tx != 1 ) |>
   ggplot( aes( n_c, pow, col=model )) +
     facet_grid(   tx ~ n_t, labeller = label_both ) +
     geom_line() + geom_point() +
@@ -472,9 +472,9 @@ sres %>%
 ```{r, include=FALSE, eval=FALSE} 
 
 # Alt plot?
-sres %>% 
-  filter( model != "FE",tx != 1 ) %>%
-  mutate( grp = paste0( n_t, tx ) ) %>%
+sres |> 
+  filter( model != "FE",tx != 1 ) |>
+  mutate( grp = paste0( n_t, tx ) ) |>
   ggplot( aes( n_c, pow, col=as.factor(n_t), lty=as.factor(tx), group=grp ) ) +
     facet_wrap( ~ model ) +
     geom_line() + geom_point() +
@@ -554,8 +554,8 @@ Here we plot our results:
 #| fig-height: 3
 
 res <- readRDS( file="data/discipline_simulation_MDE.rds" )
-sresMDE <- res %>% 
-  group_by( model, tx, n_c, n_t ) %>%
+sresMDE <- res |> 
+  group_by( model, tx, n_c, n_t ) |>
   summarise( pow = mean( p.value <= 0.10 ) )
 
 ggplot( sresMDE, aes( tx, pow, col=model) ) +
@@ -570,19 +570,19 @@ Remember that smaller values are _larger_ effects (since it is the percent of pr
 We can convert to percent reduction by subtracting these values from 1, and then estimate the MDEs for each method by solving where each line crosses 0.8:
 
 ```{r}
-mde_est <- sresMDE %>%
-  mutate( tx = 1 - tx ) %>%
-  group_by(model, n_c, n_t) %>%
+mde_est <- sresMDE |>
+  mutate( tx = 1 - tx ) |>
+  group_by(model, n_c, n_t) |>
   group_modify( \(.x, .y) {
     fit <- loess(pow ~ tx, data = .x)
-    .x %>%
-      mutate(pred = predict(fit)) %>%
-      slice_min( abs(pred-0.8), n = 1) %>%
+    .x |>
+      mutate(pred = predict(fit)) |>
+      slice_min( abs(pred-0.8), n = 1) |>
       select(mde = tx, pred)
-  }) %>%
-  ungroup() %>%
-  dplyr::select( -pred ) %>%
-  pivot_wider( names_from = n_t, values_from = mde ) %>%
+  }) |>
+  ungroup() |>
+  dplyr::select( -pred ) |>
+  pivot_wider( names_from = n_t, values_from = mde ) |>
   arrange( `6` )
 
 mde_est
@@ -596,15 +596,15 @@ we first average our SEs over our different designs, grouped by sample size, and
 We then have to convert to our treatment scale by flipping the sign and exponentiating, to get out of the log scale.
 
 ```{r disc_mde, eval=FALSE}
-sres2 = sres %>% 
-  group_by( model, n_c, n_t ) %>%
+sres2 = sres |> 
+  group_by( model, n_c, n_t ) |>
   summarise( SE = mean( SE ),
              E_SE_hat = mean( E_SE_hat ),
-             K = n() ) %>%
+             K = n() ) |>
   mutate( MDE = exp( - (1.64 + 0.8) * SE ) )
 
-sres2 %>% 
-  filter( !(model %in% c( "FE", "simple", "ratio", "ratio_twopost" ) ) ) %>%
+sres2 |> 
+  filter( !(model %in% c( "FE", "simple", "ratio", "ratio_twopost" ) ) ) |>
   ggplot( aes( n_c, MDE, col=model ) ) +
   facet_wrap( ~ n_t, labeller = label_both ) +
   geom_point() + geom_line()  +
@@ -656,7 +656,7 @@ set.seed(4232345)
 
 dat <- generate( model, 
                  n_within = 5, 
-                 n_between = 12 ) %>%
+                 n_between = 12 ) |>
   as_tibble()
 print( dat, n=4 )
 ```
@@ -695,7 +695,7 @@ Here, for example, we might generate a very large dataset to get estimated coeff
 ```{r}
 dat <- generate( model, 
                  n_within = 100, 
-                 n_between = 100 ) %>%
+                 n_between = 100 ) |>
   as_tibble()
 M = lme4::lmer( Y ~ X + W + (1|`_id`), data=dat )
 arm::display(M)

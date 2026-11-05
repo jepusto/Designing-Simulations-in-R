@@ -159,7 +159,7 @@ params$res = future_pmap(params, .f = run_CRT_sim,
                          .progress = TRUE )
 plan(sequential)
 gc()
-res <- params %>% unnest( cols=c(res) )
+res <- params |> unnest( cols=c(res) )
 saveRDS( res, file = "results/simulation_CRT_timing.rds" )
 
 end_time = Sys.time()
@@ -188,8 +188,8 @@ comp_time / 5
 
 # Timing for longest runs
 
-rs <- res %>%
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+rs <- res |>
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) |>
   summarise( Etime = mean( seconds ) * 1000 / 60,
              ttime = total_time[1],
              sdttime = sd( total_time ),
@@ -238,8 +238,8 @@ ggplot( rs, aes( ICC, Etime, color=as.factor(n_bar), lty=as.factor(J),
 
 # Calculate _total_ time to run simulation ----
 
-rst <- res %>%
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha ) %>%
+rst <- res |>
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha ) |>
   summarise( ttime = total_time[1],
              sdttime = sd( total_time ),
              dtime = ttime - sum( seconds ) )

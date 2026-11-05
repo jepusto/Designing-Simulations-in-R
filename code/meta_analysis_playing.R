@@ -18,17 +18,17 @@ res
 
 
 # Cut down to 100 reps to make MCSE even larger (optional)
-res <- res %>%
+res <- res |>
   filter( as.numeric(runID) <= 100 )
 res
 
 
 library( simhelpers )
 sres <- 
-  res %>% 
+  res |> 
   group_by( 
     n_bar, J, ATE, size_coef, ICC, alpha, method 
-  ) %>%
+  ) |>
   summarise( 
     calc_absolute( estimates = ATE_hat, true_param = ATE,
                    criteria = c("bias","stddev", "rmse")),
@@ -37,15 +37,15 @@ sres <-
     power = mean( p_value <= 0.05 ),
     ESE_hat = sqrt( mean( SE_hat^2 ) ),
     SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
-  ) %>%
+  ) |>
   rename( 
     R = K_absolute,
     RMSE = rmse,
     RMSE_mcse = rmse_mcse,
     SE = stddev,
     SE_mcse = stddev_mcse 
-  ) %>%
-  dplyr::select(  -K_relvar ) %>%
+  ) |>
+  dplyr::select(  -K_relvar ) |>
   ungroup()
 
 sres
@@ -129,12 +129,12 @@ if ( FALSE ) {
   
   arm::display(M)
   VarCorr(M)
-  a = coef(M)$seed %>%
+  a = coef(M)$seed |>
     as.data.frame()
   a$seed = rownames(a)
   head(a)
   
-  aL <- a %>%
+  aL <- a |>
     pivot_longer( cols = -c( seed, `(Intercept)` ),
                   names_to = "method",
                   values_to = "bias_method" )
@@ -147,8 +147,8 @@ if ( FALSE ) {
 # random effects meta-analysis of bias per method
 library(metafor)
 
-sres %>%
-  filter(method == "MLM") %>%
+sres |>
+  filter(method == "MLM") |>
   rma.uni(
     yi = bias, sei = bias_mcse, 
     mods = ~ as.factor(size_coef) * as.factor(alpha) * ICC + as.factor(n_bar) + as.factor(J),
@@ -167,11 +167,11 @@ RE_shrink <- function(dat) {
 }
 
 sres_shrunken <- 
-  sres %>%
-  group_nest(method) %>%
+  sres |>
+  group_nest(method) |>
   mutate(
     shrunk_bias = map(data, RE_shrink)
-  ) %>%
+  ) |>
   unnest(cols = c(data, shrunk_bias))
 
 ggplot( sres_shrunken, aes( bias_mcse, bias, col=as.factor(size_coef) )) +

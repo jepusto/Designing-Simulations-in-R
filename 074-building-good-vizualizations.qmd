@@ -19,8 +19,8 @@ res <- readRDS( file = "results/simulation_CRT.rds" )
 res
 
 library( simhelpers )
-sres <- res %>% 
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+sres <- res |> 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) |>
   summarise( calc_absolute( estimates = ATE_hat,
                             true_param = ATE,
                             criteria = c("bias","stddev",
@@ -32,13 +32,13 @@ sres <- res %>%
              ESE_hat = sqrt( mean( SE_hat^2 ) ),
              SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
              
-  ) %>%
+  ) |>
   rename( R = K_absolute,
           RMSE = rmse,
           RMSE_mcse = rmse_mcse,
           SE = stddev,
-          SE_mcse = stddev_mcse ) %>%
-  dplyr::select(  -K_relvar ) %>%
+          SE_mcse = stddev_mcse ) |>
+  dplyr::select(  -K_relvar ) |>
   ungroup()
 sres
 
@@ -101,7 +101,7 @@ We then decide to plot bias (our performance measure) as a function of `J`, with
 #| code-fold: true
 #| echo: !expr knitr::is_html_output()
 
-sres_sub <- sres %>%
+sres_sub <- sres |>
   filter( ICC == 0.20, n_bar == 80 )
 ggplot( sres_sub, aes( as.factor(J), bias, 
                        col=method, pch=method, group=method ) ) +
@@ -149,7 +149,7 @@ We can still plot all our data, as for that subset of scenarios we still only ha
 #| code-fold: true
 #| echo: !expr knitr::is_html_output()
 
-null_sub <- sres %>%
+null_sub <- sres |>
   dplyr::filter( alpha == 0, size_coef == 0 )
 ggplot( null_sub ) +
   aes( ICC, bias, col=method, pch=method, group=method ) + 
@@ -234,15 +234,15 @@ All of our simulation trials are represented in this plot.
 Each box is a collection of trials. E.g., for `J = 5`, `size_coef = 0`, and `alpha = 0.8` each of the three boxes contains 15 scenarios representing the varying ICC and cluster size.
 Here are the 15 results in the `J = 5` box in the top right facet for the Aggregation method:
 ```{r}
-sres %>%
+sres |>
   filter(
     J == 5, 
     size_coef == 0,
     alpha == 0.8, 
     method=="Agg" 
-  ) %>%
-  select( n_bar, J, size_coef, ICC, alpha, bias, bias_mcse ) %>%
-  arrange( bias ) %>%
+  ) |>
+  select( n_bar, J, size_coef, ICC, alpha, bias, bias_mcse ) |>
+  arrange( bias ) |>
   knitr::kable( digits = 2 )
 ```
 
@@ -325,8 +325,8 @@ The averaging, in effect, gives a lot more replications per aggregated performan
 For our cluster RCT, we might aggregate our bias across our sample sizes as follows:
 ```{r}
 ssres <- 
-  sres %>% 
-  group_by( method, size_coef, J, alpha ) %>%
+  sres |> 
+  group_by( method, size_coef, J, alpha ) |>
   summarise( bias = mean( bias ) )
 ```
 
@@ -394,8 +394,8 @@ The RMSE is biased, the MSE is not.
 When aggregating, therefore, it is often best to aggregate the unbiased performance measures, and then calculate the biased ones from those.
 For example, to estimate aggregated standard error you might do the following:
 ```{r}
-agg_perf <- sres %>% 
-  group_by( ICC, method, alpha, size_coef ) %>%
+agg_perf <- sres |> 
+  group_by( ICC, method, alpha, size_coef ) |>
   summarise( SE = sqrt( mean( SE^2 ) ) )
 ```
 
@@ -478,9 +478,9 @@ This relative measure, `SE.scale`, allows us to examine how much better or worse
 
 ```{r}
 ssres <- 
-  sres %>% 
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha ) %>%
-  mutate( SE.scale = SE / SE[method=="LR"]) %>%
+  sres |> 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha ) |>
+  mutate( SE.scale = SE / SE[method=="LR"]) |>
   ungroup()
 ```
 
@@ -517,8 +517,8 @@ We finally can drop the `LR` results entirely, as it is the reference method and
 #| fig-width: 7
 #| fig-height: 4
 
-ssres %>% 
-  filter( method != "LR" ) %>%
+ssres |> 
+  filter( method != "LR" ) |>
   ggplot( aes( ICC, SE.scale, col=method, 
                group = interaction(ICC, method) ) ) +
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
@@ -548,9 +548,9 @@ We have aggregated out sample sizes, and we go further and remove `size_coef` si
 #| fig-height: 3
 
 s2 <- 
-  ssres %>% 
-  group_by( ICC, alpha, method ) %>%
-  summarise( SE.scale = mean( SE.scale ) ) %>%
+  ssres |> 
+  group_by( ICC, alpha, method ) |>
+  summarise( SE.scale = mean( SE.scale ) ) |>
   filter( method != "LR" )
 
 ggplot( s2, aes( ICC, SE.scale, col=method ) ) +
@@ -582,15 +582,15 @@ We also subset to our middle values of `n_bar = 80` and our large `J=80`, where 
 #| fig-width: 7
 #| fig-height: 5
 
-bsr <- sres %>%
+bsr <- sres |>
   filter( n_bar == 80, J==80, ICC == 0 )
 
-bsr <- bsr %>%
-  dplyr::select( -R, -power, -ESE_hat, -SD_SE_hat ) %>%
+bsr <- bsr |>
+  dplyr::select( -R, -power, -ESE_hat, -SD_SE_hat ) |>
   pivot_longer( cols=c("bias","SE","RMSE"),
                 names_to = "measure",
-                values_to = "value" ) %>%
-  group_by( measure, size_coef, method, ICC, alpha ) %>%
+                values_to = "value" ) |>
+  group_by( measure, size_coef, method, ICC, alpha ) |>
   summarise( value = mean( value ),
              n = n() )
 
@@ -645,7 +645,7 @@ We first see if the average estimated SE, relative to the true SE, is usually ar
 #| fig-width: 7
 #| fig-height: 3
 
-sres <- sres %>%
+sres <- sres |>
   mutate( inflate = ESE_hat / SE  ) 
 
 ggplot( sres,
@@ -675,14 +675,14 @@ We thus square our estimated SEs to get variance estimates, and then use that fu
 #| fig-width: 7
 #| fig-height: 4
 
-se_res <- res %>%
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+se_res <- res |>
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) |>
   summarize( calc_relative_var( estimates = ATE_hat,
                                 var_estimates = SE_hat^2,
                                 criteria = "relative bias" ) )
   
-se_res %>%
-  filter( J == 80, n_bar == 80 ) %>%
+se_res |>
+  filter( J == 80, n_bar == 80 ) |>
   ggplot( aes( ICC, rel_bias_var, col=method ) ) +
   facet_grid( size_coef ~ alpha  ) + 
   geom_hline( yintercept = 1 ) +
@@ -776,11 +776,11 @@ res <- mutate( res,
                CI_high = ATE_hat + tstar*SE_hat,
                width = CI_high - CI_low )
 
-covres <- res %>% 
-  group_by( n_bar, J, ICC, alpha, size_coef, method, ATE ) %>%
+covres <- res |> 
+  group_by( n_bar, J, ICC, alpha, size_coef, method, ATE ) |>
   summarise( calc_coverage( lower_bound = CI_low, 
                             upper_bound = CI_high,
-                            true_param = ATE ) ) %>%
+                            true_param = ATE ) ) |>
   ungroup()
 ```
 
@@ -793,7 +793,7 @@ We subset to `n_bar = 80`, `size_coef = 0.2` and `alpha = 0.5` to simplify for o
 #| fig-width: 7
 #| fig-height: 3
 
-c_sub <- covres %>%
+c_sub <- covres |>
   dplyr::filter( size_coef != 0, n_bar == 80, alpha == 0.5 )
 
 ggplot( c_sub, aes( ICC, coverage, col=method, group=method ) ) +
@@ -819,16 +819,16 @@ For confidence interval width, we can calculate the average width relative to th
 #| fig-width: 7
 #| fig-height: 5
 
-covres <- covres %>%
-  group_by( n_bar, J, ICC, alpha, size_coef ) %>%
-  mutate( width_rel = width / width[method=="LR"] ) %>%
+covres <- covres |>
+  group_by( n_bar, J, ICC, alpha, size_coef ) |>
+  mutate( width_rel = width / width[method=="LR"] ) |>
   ungroup()
 
-c_agg <- covres %>%
-  group_by( ICC, J, alpha, method ) %>%
+c_agg <- covres |>
+  group_by( ICC, J, alpha, method ) |>
   summarise( coverage = mean( coverage ),
              coverage_mcse = sqrt( mean( coverage_mcse^2 ) ) / n(),
-             width_rel = mean( width_rel ) ) %>%
+             width_rel = mean( width_rel ) ) |>
   filter( method != "LR" )
   
 ggplot( c_agg, aes( ICC, width_rel, col=method, group=method ) ) +
@@ -873,8 +873,8 @@ library( simhelpers )
 res <- readRDS( file = "results/simulation_CRT.rds" )
 head( res )
 
-sres <- res %>% 
-  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) %>%
+sres <- res |> 
+  group_by( n_bar, J, ATE, size_coef, ICC, alpha, method ) |>
   summarise( calc_absolute( estimates = ATE_hat,
                             true_param = ATE,
                             criteria = c("bias","stddev",
@@ -886,13 +886,13 @@ sres <- res %>%
              ESE_hat = sqrt( mean( SE_hat^2 ) ),
              SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
              .groups = "drop"
-  ) %>%
+  ) |>
   rename( R = K_absolute,
           RMSE = rmse,
           RMSE_mcse = rmse_mcse,
           SE = stddev,
-          SE_mcse = stddev_mcse ) %>%
-  dplyr::select(  -K_relvar ) %>%
+          SE_mcse = stddev_mcse ) |>
+  dplyr::select(  -K_relvar ) |>
   ungroup()
 names( sres )
 ```

@@ -29,7 +29,7 @@ if ( FALSE ) {
   quantile( B, c(0.1, 0.90 ) )  
   quantile( C, c(0.1, 0.90 ) )
   
-  df = bind_cols( A = A, B = B ) %>%
+  df = bind_cols( A = A, B = B ) |>
     pivot_longer( cols=c(A,B), names_to="group", values_to="value" )
   
   ggplot( df, aes( x=value, fill=group ) ) +
@@ -63,9 +63,9 @@ estimator.quality = function( estimates, mu ) {
 }
 
 analyze_results <- function( raw.exps ) {
-  rs <- raw.exps %>%
-    group_by( estimator ) %>%
-    summarise( qual = estimator.quality( estimate, mu = 0 ) ) %>%
+  rs <- raw.exps |>
+    group_by( estimator ) |>
+    summarise( qual = estimator.quality( estimate, mu = 0 ) ) |>
     tidyr::unpack( cols=c( qual ) )
 }
 
@@ -99,10 +99,10 @@ if ( FALSE ) {
   
   lvls$seed = 17 * 1:nrow(lvls) + 42242442
   
-  results <- lvls %>% 
+  results <- lvls |> 
     mutate( results = pmap( lvls, run.simulation, reps = 10000,
                             .progress=TRUE ) 
-    ) %>%
+    ) |>
     unnest( cols="results" )
   results
   

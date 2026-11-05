@@ -19,7 +19,7 @@ source("case_study_code/r_and_z.R")
 source("case_study_code/gen_cluster_RCT.R")
 
 ClusterRCT_runs <- 
-  readRDS("results/cluster_RCT_simulation.rds") %>%
+  readRDS("results/cluster_RCT_simulation.rds") |>
   mutate(
     runID = rep(1:1000, each = 3),
     method_L = case_match(method, 
@@ -281,12 +281,12 @@ To illustrate, we calculate a bootstrap MCSE for two quantities from our running
 We first calculate these performance measures on our simulation trials:
 
 ```{r}
-ests <- ClusterRCT_runs %>%
-  group_by( method ) %>%
+ests <- ClusterRCT_runs |>
+  group_by( method ) |>
   summarise(
     SE2 = var( ATE_hat ),
     Vbar = mean( SE_hat^2 )
-  ) %>%
+  ) |>
   mutate( imp_var = SE2 / SE2[method=="LR"],
           calib = Vbar / SE2 )
 ests
@@ -297,9 +297,9 @@ Let's make bootstrap confidence intervals on these two quantities to account for
 We want to resample entire _simulation iterations_ to take within-dataset correlations of the model estimates into account.
 To do this, we first pivot our raw simulation results to wide format:
 ```{r}
-runW <- ClusterRCT_runs %>%
-  dplyr::select( runID, method, SE_hat, ATE_hat ) %>%
-  rename( S=SE_hat, A=ATE_hat ) %>%
+runW <- ClusterRCT_runs |>
+  dplyr::select( runID, method, SE_hat, ATE_hat ) |>
+  rename( S=SE_hat, A=ATE_hat ) |>
   tidyr::pivot_wider( names_from = method, 
                       values_from = c( S, A ) )
 print( runW, n = 4 )
@@ -324,27 +324,27 @@ Once we have 500 bootstrap iterations, we can evaluate how much our performance 
 
 ```{r}
 bootstrap_performance <- 
-  rps %>%
+  rps |>
   pivot_longer( 
     everything(), 
     names_to = "measure", values_to = "value" 
-  ) %>%
-  group_by( measure ) %>%
+  ) |>
+  group_by( measure ) |>
   summarise( 
     avg = mean( value ),
     MCSE = sd( value ) 
-  ) %>%
+  ) |>
   mutate( 
     theta = c( ests$calib[[1]], ests$imp_var[[1]] ),
     CI_l = theta - 2 * MCSE,
     CI_u = theta + 2 * MCSE
-  ) %>%
+  ) |>
   relocate( measure, theta )
 ```
 ```{r}
 #| echo: false
 
-bootstrap_performance %>%
+bootstrap_performance |>
   knitr::kable( digits = 3 )
 ```
 
@@ -376,7 +376,7 @@ We first assess the rejection rate for the traditional $t$-test based on the sub
 
 ```{r}
 welch_sub <- 
-  welch_res %>%
+  welch_res |>
   filter(
     method == "t-test",
     n1 == 50, n2 == 50, 
@@ -400,11 +400,11 @@ calc_coverage(
 The performance functions are designed to be used within a `tidyverse`-style workflow, including on grouped datasets.
 For instance, we can calculate the performance measures for all the methods for our given scenario:
 ```{r}
-welch_sub <- welch_res %>%
+welch_sub <- welch_res |>
   filter(, n1 == 50, n2 == 50,
                     mean_diff == 0 )
-welch_sub %>% 
-  group_by( method ) %>%
+welch_sub |> 
+  group_by( method ) |>
   summarise( 
     calc_rejection( p_values = p_val, alpha = .05 ) 
   )
@@ -455,16 +455,16 @@ We have:
 library( simhelpers )
 ATE <- 0.30
 
-perf <- ClusterRCT_runs %>% 
-  group_by(method) %>%
+perf <- ClusterRCT_runs |> 
+  group_by(method) |>
   summarise( 
     calc_absolute( 
       estimates = ATE_hat, true_param = ATE,
       criteria = c("bias","stddev", "rmse")
     ) 
   )
-perf %>%
-  dplyr::select( -K_absolute ) %>%
+perf |>
+  dplyr::select( -K_absolute ) |>
   knitr::kable( digits = 3 )
 ```
 
@@ -475,8 +475,8 @@ We cannot rule out the possibility that the aggregation estimator and multilevel
 For our variance estimators, we can use the `calc_relative_var()` function to compute performance measures and MCSEs using the jackknife:
 
 ```{r cluster-variance-MCSE-calculation}
-perf <- ClusterRCT_runs %>% 
-  group_by(method) %>%
+perf <- ClusterRCT_runs |> 
+  group_by(method) |>
   summarise( 
     calc_relative_var( 
       estimates = ATE_hat, 
@@ -484,16 +484,16 @@ perf <- ClusterRCT_runs %>%
       criteria = c("relative bias", "relative rmse")
     ) 
   )
-perf %>%
-  dplyr::select( -K_relvar ) %>%
+perf |>
+  dplyr::select( -K_relvar ) |>
   knitr::kable( digits = 2 ) 
 ```
 We can use these calculations to create confidence intervals for the performance measures:
 ```{r}
-perf %>%
-  dplyr:: select( method, rel_bias_var, rel_bias_var_mcse ) %>%
+perf |>
+  dplyr:: select( method, rel_bias_var, rel_bias_var_mcse ) |>
   mutate( CI_l = rel_bias_var - 2 * rel_bias_var_mcse,
-          CI_u = rel_bias_var + 2 * rel_bias_var_mcse ) %>%
+          CI_u = rel_bias_var + 2 * rel_bias_var_mcse ) |>
   knitr::kable( digits = 2 )
 ```
 We get essentially the same results as what we found in @sec-bootstrapping-MCSEs using bootstrapping. 
