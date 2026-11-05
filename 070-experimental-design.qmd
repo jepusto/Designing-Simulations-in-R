@@ -49,7 +49,7 @@ How do we come up with a defensible set of levels to examine?
 We have no generic algorithm for choosing which parameters to vary in a simulation design, nor for choosing what levels to use for each parameter.
 The particular answers to these questions always depend on the problem being studied, the focus of the research questions, and the availability of any relevant theoretical results. 
 <!--Because choices of simulation conditions need to be made in the context of the problem or model being studied, it is difficult to identify valid but acontextual rules.-->
-So instead of specific, acontextual rules, we offer broad principles and practical advice informed by our experience conducting and reading simulation studies.
+So instead of specific-but-decontextualed rules, we offer broad principles and practical advice informed by our experience conducting and reading simulation studies.
 
 Our primary principle is to vary parameters that we believe matter or that we think other people will believe matter.
 The first is so we can learn for ourselves.
@@ -58,20 +58,24 @@ Breaking this down a bit, we find the following six precepts useful:
 
 1.  __Include the obvious or known__. Sometimes theory, general knowledge, or prior research will tell you how well a method will perform under some circumstance. For example, it might be mathematically tractable to derive the performance of an estimator if all the groups are the same size and everything is normally distributed. As a starting point, include such cases as part of your exploration to reinforce and validate intuition, use as a point of reference for the other results, and demonstrate that your implementation is working as expected.
 
-2.  __Adhere to your research questions__. The parameters you select should be those that are most relevant to the research questions you are trying to answer. For example, if you are interested in how well a method performs when there are outliers, then you need to think carefully about how you are going to vary the presence of outliers in your data. By keeping the research questions in mind, it is easier to navigate chocies and trade-offs between things you might vary.
+2.  __Adhere to your research questions__. The parameters you select should be those that are most relevant to the research questions you are trying to answer. For example, if you are interested in how well a method performs when there are outliers, then you need to think carefully about how you are going to vary the presence of outliers in your data. By keeping the research questions in mind, it is easier to navigate choices and trade-offs between things you might vary.
 
 3.  __Relate to existing research__. Especially for research simulations, it is important to be able to relate your findings to previous research. This suggests that you should select parameter levels that make this possible, such as by selecting sample sizes similar to those examined in previous studies. That said, previous simulation studies are not always perfect (in truth, there are a lot of quite bad ones out there!), and so prior work should not be your sole guide or justification.
 
-4.  __Be comprehensive__. Generally, err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation later on.
+4.  __Be comprehensive__. Generally, err on the side of being more comprehensive. You learn more by looking at a broader range of conditions, and you can always boil down your results to a more limited set of conditions for purposes of presentation later on. Of course, this aim needs to be balanced against computational constraints---especially if you are studying computationally expensive analysis procedures. Further, comprehensiveness is not merely about the _number_ of different scenarios you look at, but more centrally about the _range_ of the parameter space that you explore.[^correlation-grain]
 
 5.  __Push boundaries__. One of the most useful potential contributions of research simulations is to explore the breakdown points of a method (e.g., what sample size is too small for an estimator to be trusted?) rather than focusing only on conditions where a method might be expected to work well. Pushing the boundaries and identifying conditions where estimation methods break will help you to provide better guidance for how the methods should be used in practice.
+Of course, boundary-pushing needs to be tempered by considering the plausibility of parameter values. It is of less practical interest to know that a method breaks down under conditions so extreme that one would never expect to see them in real data analysis.
 
 6.  __Explore the incidental__. Even if you do not expect a particular parameter to matter, it can be useful to include it in your simulation design as a sanity check. In particular, in addition to any primary parameters of interest, include at least a few nuisance parameters to test the sensitivity of your results to these other aspects.
 
+[^correlation-grain]: For instance, in our simulation of the bivariate Poisson distribution, it would not be comprehensive to look at 1,000 different levels of correlation $\rho$ in the range from 0.0 to 0.2 (in steps of $2 \times 10^{-4}$). More comprehensive would be to examine 20 levels ranging from 0 to 0.95 (in steps of $5 \times 10^{-2}$).
+
+<!-- JEP: Should our principles also separately highlight plausibility or relevance to real data analysis? -->
 
 ### Deciding on the factors
 
-Write down all the factors you can think of, and then sort through them to identify which are the most important.
+A good way to begin designing a simulation experiment is to write down all the factors you can think of, and then sort through them to identify which are the most important.
 In particular, look at the core research questions, and try to identify which factors would give evidence for those questions.
 For many of the factors, you may eventually select a single level, if you do not think the factor matters for the questions you are considering.
 
@@ -109,7 +113,7 @@ For the range, there are at least three strategies you might take:
 3.  Tune the factor to emulate an important application or context.
 
 Of these choices, option (1) is the most general but also the most computationally intensive.
-In the ideal, option (2) focuses attention on what is most relevant to a practitioner.
+With option (2), we aim to focus attention on what is most relevant to practitioners conducting analysis of real data.
 Option (3) is usually coupled with a subsequent applied data analysis, and in this case the simulation is often used to enrich that analysis.
 In particular, if the simulation shows the methods work for data with the given form of the target application, people may be more willing to believe the application's findings.
 
@@ -118,17 +122,16 @@ We next walk through reasons for each of these options.
 
 **A single level:** Pick a single level if you are not particularly interested in the factor or are trying to simplify. For the single level, try to pick a "realistic" value, or a value estimated from actual data. (See strategy 2 and 3, above).
 
-**Two levels:** Many factors fit neatly into an "on" and "off" framing.
-For example, the error distribution is normal or it is skewed.
-There are outliers or there are not.
-For these factors, a binary "on/off" design is often sufficient, and more levels may not be necessary.
-Be sure the "on" level, in this case, is _notably_ on: you want to have a large change so you can clearly see the impact of the factor on your performance criteria.
+**Two levels:** Depending on what you are trying to learn, it might be sufficient to conceptualize a factor as simply being "on" versus "off" or "present" versus "absent".
+For example, a data analysis model might be correctly specified (if all of its assumptions are aligned with the true data-generating process) incorrectly specified (if some assumptions are violated in the true data-generating process); an error distribution might be normal or might be skewed; there might be outliers or there might not.
+If your research questions are only focused on understanding what happens under a certain class of scenario, a binary "on/off" design could be sufficient, and more levels may not be necessary.
+In this case, it is important to choose the "on" level so that it is _notably_ on: you want to have a large change so you can clearly see the impact of the factor on your performance criteria.
 That said, we generally want to know if an observed risk is a realistic risk in practice.
 For example, while some estimators may be prone to bias, if the bias is not practically large in normal empirical contexts, then we might not mind.
 This tension does come up: regression adjustment in randomized trials can cause bias [@freedman2008regression], for example, but in practice that bias is small [@lin2013agnostic].
 If the realism is a concern, then considering three levels might be reasonable: "off," "realistic," and "high."
 
-**Three levels:** We find a default of three levels of a factor can capture a great deal of expresivity.
+**Three levels:** We find a default of three levels of a factor can capture a great deal of expressivity.
 Encode the three levels as something notably small, something about what we would expect to see in the real world, and something notably high.
 From these levels you can get a good sense of what happens both when things are "normal," and also when you push the boundaries.
 
@@ -158,7 +161,7 @@ Even more straightforward is when a factor is "on" or "off"---this allows straig
 
 
 To bring the design of multifactor simulations to life, we return to the case study of comparing three ways to analyze a cluster randomized trial presented in @sec-case-cluster.
-In our original setup, we wrote code to generate cluster randomized trial data where a cluster's size could be correlated its average treatment effect.
+In our original setup, we wrote code to generate cluster randomized trial data where a cluster's size could be correlated with its average treatment effect.
 In @sec-clusterRCTperformance, we looked across a variety of performance criteria so we could see how the estimators compared for any given scenario we wanted.
 
 So far, we have only examined a single scenario at a time.
@@ -175,21 +178,21 @@ Then in @sec-building-good-visualization, we will continue this running example 
 
 We begin by identifying some potential research questions suggested by our preliminary exploration:
 
--   Regarding bias, we noticed in our initial simulation that Linear Regression targets a person-weighted average effect, so it would be considered biased for the cluster-average treatment effect.
+1.   Regarding bias, we noticed in our initial simulation that Linear Regression targets a person-weighted average effect, so it would be considered biased for the cluster-average treatment effect.
     But how large is this bias in practice, and how much does bias change as we change the association between cluster-size and impact?
 
--   Considering precision, we saw that Linear Regression has a higher standard error than the other estimators.
+2.   Considering precision, we saw that Linear Regression has a higher standard error than the other estimators.
 Is this a general pattern?  If not, are there contexts where linear regression will have a lower standard error than the others?
 
--   We originally thought that aggregation would lose information because smaller clusters would have the same weight as larger clusters, but be more imprecisely estimated.
+3.   We originally thought that aggregation would lose information because smaller clusters would have the same weight as larger clusters, but be more imprecisely estimated.
 This did not seem to happen.
 Were we wrong? Or perhaps we would see it if cluster size were even more variable?
 
--   The estimated SEs for all three methods all appeared to be good, although they were rather variable, relative to the true SE.
+4.  The estimated SEs for all three methods all appeared to be good, although they were rather variable, relative to the true SE.
 Is this a general pattern? Are the standard errors always the right size, on average?
 Or will the estimated SEs fall apart (i.e., be far too large or far too small) in some contexts?  If so, which ones? Do cluster-robust SEs work with fewer clusters?
 
-To answer all of these questions we need to systematically explore the space of data-generating conditions.
+To answer any of these questions, we need to systematically explore the space of data-generating conditions.
 Our data-generating function has many knobs to turn.
 In particular, we can manipulate all of the following features:
 
@@ -212,10 +215,10 @@ We probably want to also have some scenarios with $\sigma^2_u=0$ as well.
 
 Next, we turn to our research questions and then speculate as to what factor would help us answer each one:
 
-- Bias: This is about variation in cluster size, and how strongly it is connected to cluster-level impact. We know, then, that we want to manipulate both $\alpha$ and $\gamma_2$. Sticking with our first principle, we want to also verify that there is not bias if there is no correlation. We might here notice that we cannot have bias if there is no variation in cluster size; more on what to do about this later.
-- Precision: When would linear regression have lower standard error? We might not know, but guess it could happen if clusters were very different from one another. This might motivate manipulating $\sigma^2_u$ and, again, $\alpha$.
-- Aggregation: These questions motivate ensuring that $\alpha$ goes from 0 to very large.
-- SE: We know SEs are usually asymptotic in nature, so we should explore when $J$ and $\bar{n}$ are each small, and both small. 
+- Bias (RQ1): This is about variation in cluster size, and how strongly it is connected to cluster-level impact. We know, then, that we want to manipulate both $\alpha$ and $\gamma_2$. Sticking with our first principle, we want to also verify that there is not bias if there is no correlation. We might here notice that we cannot have bias if there is no variation in cluster size; more on what to do about this later.
+- Precision  (RQ2): When would linear regression have lower standard error? We might not know, but guess it could happen if clusters were very different from one another. This might motivate manipulating $\sigma^2_u$ and, again, $\alpha$.
+- Aggregation  (RQ3): These questions motivate ensuring that $\alpha$ goes from 0 to very large.
+- SE (RQ4): We know SEs are usually asymptotic in nature, so we should explore when $J$ and $\bar{n}$ are each small, and both small. 
 
 When selecting factors to manipulate, it is important to ensure the each factor is isolated, so that changing one of them should not change other aspects of the data-generating process that might impact performance.
 In this case, for example, if we simply added more cross-cluster variation by directly increasing the random effects for the clusters, the total variation in the outcome will also increase.
