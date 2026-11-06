@@ -1,3 +1,4 @@
+
 gen_cluster_RCT <- function(
     J = 30,       # number of schools
     n_bar = 10,   # average school size

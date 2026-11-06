@@ -1,7 +1,5 @@
 # Final functions for the Cronbach alpha case study
 
-
-
 library( tidyverse )
 library( mvtnorm )
 

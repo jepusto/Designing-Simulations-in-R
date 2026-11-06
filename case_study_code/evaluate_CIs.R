@@ -1,3 +1,4 @@
+
 evaluate_CIs <- function(data, rho = 0) {
   simhelpers::calc_coverage(
     data = data, 

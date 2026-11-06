@@ -1,5 +1,3 @@
-
-
 # Examining clusterRCT simulation to verify it is correctly
 # implemented.
 

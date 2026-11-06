@@ -1,3 +1,4 @@
+
 generate_ANOVA_data <- function(mu, sigma_sq, sample_size) {
   
   N <- sum(sample_size)

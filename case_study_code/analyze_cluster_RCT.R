@@ -1,3 +1,4 @@
+
 analysis_MLM <- function( dat ) {
   
   M1_test <- lmerTest::lmer( Yobs ~ 1 + Z + (1 | sid), data = dat )
@@ -98,6 +99,7 @@ analysis_MLM_safe <- function( dat, all_results = FALSE ) {
 #' mimicing human decision-making.
 #'
 #' This is _not_ what we use for the simulation results.
+
 analysis_MLM_contingent <- function( dat ) {
   
   M1 <- quiet_safe_lmer( Yobs ~ 1 + Z + (1 | sid), data=dat )

@@ -16,3 +16,4 @@ r_bivariate_Poisson <- function(N, mu1, mu2, rho = 0) {
   
   return(dat)
 }
+

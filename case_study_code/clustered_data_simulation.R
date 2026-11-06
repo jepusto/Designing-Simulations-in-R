@@ -1,4 +1,3 @@
-
 # The final functions from the clustered RCT case study
 
 library( tidyverse )

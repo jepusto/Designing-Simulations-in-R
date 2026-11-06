@@ -1,4 +1,3 @@
-
 # This script runs the multifactor simulation in parallel to generate
 # the result files used in the book.
 
