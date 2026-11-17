@@ -47,12 +47,12 @@ summary( sres$R )
 ```
 
 Visualization should nearly always be the first step in analyzing simulation results.
-In the prior chapter, we saw a variety of examples primarily taken from published work.
-Those visualizations were not the initial ones created for those research projects.
+In the prior chapter, we saw a variety of examples primarily taken from published work, but those visualizations were not the initial drafts.
+Instead, the design of the visualizations we presented was informed by prior analysis and, sometimes, experimentation. 
 In practice, getting to a good visualization often requires creating _many_ different graphs to look at different aspects of the data.
 From that pile of graphs, you would then curate and refine those that communicate the overall results most cleanly.
 
-In our work, we find we often generate a series of R Markdown reports with comprehensive sets of charts  targeting our various research questions.
+In our work, we find we often generate a series of reports (using reproducible reporting formats such as Quarto or Rmarkdown) with comprehensive sets of charts that address each of our research questions.
 These initial documents are then discussed internally by the research team.
 
 In this chapter we first discuss four essential tools that we frequently use to make these initial sets of graphs: 
@@ -84,23 +84,26 @@ We do not dive deeply into validity or power; see @sec-power for more on those m
 
 ## Subsetting and many small multiples
 
-"Small Multiples" is when you make a plot that is actually a bunch of related plots.
-These plots can themselves be organized in a plot-like structure, with an x-axis depending on one categorical variable, and the y-axis another (this is a "facet grid").
-
+_Small Multiples_ plots are figures that consist of many, related plots that follow a common layout [@Tufte1983visual].
+These plots can themselves be organized in a grid-like structure, with rows depending on one categorical variable and columns on another (this is a "facet grid").
 Generally, with small multiples, it is relatively straightforward to look at _three simulation factors_.
-This is because, with a facet grid, you can easily plot five aspects of your data: two for the facet x- and y-axis arrangement, one for the within-facet x-axis, and one for the within-facet y-axis, and one for color/line type.
+This is because, with a facet grid, you can easily plot five aspects of your data: two for the facet arrangement (grid rows and grid columns), one for the within-facet x-axis, and one for the within-facet y-axis, and one for color/line type.
 Of the five aspects, we usually use one of these for method (if we are comparing methods) and one for the performance metric (the outcome), giving three remaining aspects to assign to our simulation factors.
 In cases with more than three factors, an easy initial approach is pick three favorite factors and then filter all the simulation results down to specific levels for the remaining factors.
 
-For example, for our simulation, we might target the ICC of 0.20, taking it as a "reasonable" value that, given our substance matter knowledge, we know is frequently found in empirical data.
-We might further pick $\bar{n} = 80$, as our middle level for cluster size.
-This leaves three factors (`J`, `size_coef`, and `alpha`), allowing us to plot all of our simulation results for our subset.
+For example, for our cluster-randomized experiment simulation, we might target an intra-class correlation of 0.20, taking it as a reasonable value that, given our substance matter knowledge, we know is frequently found in empirical data.
+We might further pick an average cluster size of $\bar{n} = 80$, the middle level of the three we included.
+This leaves three remaining factors (the number of clusters `J`, the degree of association between cluster size and treatment effects `size_coef`, and the degree of variation in cluster sizes `alpha`), allowing us to plot all of our simulation results for our subset.
 We then decide to plot bias (our performance measure) as a function of `J`, with different lines for the different methods, and facets for the different levels of `size_coef` and `alpha`.
 
 ```{r}
 #| code-fold: true
 #| echo: !expr knitr::is_html_output()
-
+graph_labs <- labs(
+  x = "Number of clusters (J)",
+  color = "Estimation method",
+  shape = "Estimation method"
+)
 sres_sub <- sres |>
   filter( ICC == 0.20, n_bar == 80 )
 ggplot( sres_sub, aes( as.factor(J), bias, 
@@ -108,7 +111,7 @@ ggplot( sres_sub, aes( as.factor(J), bias,
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
   geom_point() + geom_line() +
   geom_hline( yintercept = 0 ) +
-  theme_minimal() 
+  graph_labs
 ```
 
 Each point is one of our methods in one of our simulation scenarios.
@@ -136,21 +139,23 @@ ggplot( sres_sub ) +
     position = position_dodge( width=0.3),
     width = 0 
   ) +
-  geom_hline( yintercept = 0 ) +
-  theme_minimal() 
+  geom_hline( yintercept = 0 ) + 
+  graph_labs
 ```
 
 Our confidence intervals exclude zero!
 Our excitement mounts.
 We next subset our overall results again to check all the scenarios with `alpha = 0`, and `size_coef = 0` to see if this is a real effect.
-We can still plot all our data, as for that subset of scenarios we still only have three factors, `ICC`, `J_bar`, and `n_bar`, left to plot (we omit the code as it is similar to above).
+We can still plot all our data, as for that subset of scenarios we still only have three factors (`ICC`, `J_bar`, and `n_bar`) left to plot.
 
 ```{r}
 #| code-fold: true
 #| echo: !expr knitr::is_html_output()
 
-null_sub <- sres |>
-  dplyr::filter( alpha == 0, size_coef == 0 )
+null_sub <- 
+  sres |>
+  filter( alpha == 0, size_coef == 0 )
+
 ggplot( null_sub ) +
   aes( ICC, bias, col=method, pch=method, group=method ) + 
   facet_grid( J ~ n_bar, labeller = label_both ) +
@@ -164,11 +169,13 @@ ggplot( null_sub ) +
     position = position_dodge( width=0.03),
     width = 0 
   ) +
-  geom_hline( yintercept = 0 ) +
-  theme_minimal() 
+  geom_hline( yintercept = 0 ) + 
+  graph_labs + 
+  labs(x = "Intra-class correlation")
+
 ```
 
-It appears that our `ICC=0.20` and `n_bar=80` scenario was just a fluke.
+It appears that our `ICC = 0.20` and `n_bar = 80` scenario was just a fluke.
 Almost all of our confidence intervals easily cover 0, and we are not seeing any major trends.
 Overall we conclude that indeed, when there is no variation, or when the variation does not relate to impact, nothing is particularly biased.
 Interestingly, we further see that all methods seem to give identical estimates when there is no site variation, regardless of ICC, J, or `n_bar` (identical estimates is the easiest explanation of all the estimated biases and associated MCSEs across the three methods being identical).
@@ -370,8 +377,8 @@ ggplot( sres, aes( ICC, bias, col=method,
   theme_minimal()
 ```
 
-Our story is fairly clear now: LR is increasingly biased as alpha grows large and the cluster size relates to impact.
-MLM is also biased in these cases, but only when ICC is low (this is because it is driving towards person-weighting when there is little cluster variation).
+Our story is growing clearer: LR becomes increasingly biased as alpha grows large and the cluster size relates to impact.
+MLM is also biased in these cases, but only when ICC is low (this is because it pushes towards person-weighting when there is little cluster-level variation in the outcome).
 
 Our figure does have what appears to be a negative bias trend for `alpha = 0.5` and higher `ICC`---we expect this is Monte Carlo\index{Monte Carlo simulation} error, as we do not have a theoretical reason to expect bias here; simulations will often have unfortunate, and misleading, patterns that are driven by random chance.
 We could (and probably should) run further analyses or a second simulation to check our assumptions here.
@@ -385,12 +392,10 @@ To achieve this, we can often average over a relative measure (such as standard 
 We will see more examples of this kind of aggregation later on.
 
 
-#### Some notes on how to aggregate
+### Some notes on how to aggregate
 
 Some performance measures are biased with respect to the Monte Carlo uncertainty.
-The estimated standard error, for example, is biased; the variance, by contrast, is not.
-The RMSE is biased, the MSE is not.
-
+For example, the estimated standard error is biased but the variance is not; the RMSE is biased, the MSE is not.[^why-biased]
 When aggregating, therefore, it is often best to aggregate the unbiased performance measures, and then calculate the biased ones from those.
 For example, to estimate aggregated standard error you might do the following:
 ```{r}
@@ -398,6 +403,8 @@ agg_perf <- sres |>
   group_by( ICC, method, alpha, size_coef ) |>
   summarise( SE = sqrt( mean( SE^2 ) ) )
 ```
+
+[^why-biased]: Sample variances are unbiased estimators of population variances. Computing estimated standard errors involves taking the square-root of the sample variance---a non-linear transformation---and so the estimated standard errors are biased. Likewise, MSE is unbiased because it is the sample mean of a bunch of random variables (the squared errors); RMSE is biased because it is a non-linear transformation of an unbiased estimator.
 
 MCSE can sometimes distort an aggregation of a performance measure.
 For example, if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
@@ -434,7 +441,7 @@ We observe several broad trends in the standard error behavior.
 First, standard error increases with the intraclass correlation (ICC).
 This is as expected: greater similarity within clusters reduces the effective sample size.
 Second, standard error decreases as the number of clusters (J) increases, which reflects the benefit of having more independent units of analysis.
-In contrast, increasing the cluster size (n_bar) has relatively little effect on the standard error (the rows of our facets look about the same).
+In contrast, increasing the cluster size (`n_bar`) has relatively little effect on the standard error (the rows of our facets look about the same).
 Lastly, all methods show fairly similar levels of standard error overall.
 
 While we can extract all of these observations from the figure, the figure is  not ideal for _comparing_ our methods.
@@ -473,18 +480,18 @@ We can therefore standardize, by calculating a relative performance measure, to 
 One straightforward strategy for standardization is to compare each method’s performance to a designated baseline.
 In this example, we use Linear Regression (LR) as our baseline.
 
-We standardize by, for each simulation scenario, dividing each method’s SE by the SE of LR, to produce `SE.scale`.
-This relative measure, `SE.scale`, allows us to examine how much better or worse, across our scenarios, each method performs relative to a chosen reference method.
+We standardize by, for each simulation scenario, dividing each method’s SE by the SE of LR, to produce `SE_scale`.
+This relative measure, `SE_scale`, allows us to examine how much better or worse, across our scenarios, each method performs relative to a chosen reference method.
 
 ```{r}
 ssres <- 
   sres |> 
   group_by( n_bar, J, ATE, size_coef, ICC, alpha ) |>
-  mutate( SE.scale = SE / SE[method=="LR"]) |>
+  mutate( SE_scale = SE / SE[method=="LR"]) |>
   ungroup()
 ```
 
-We can then treat `SE.scale` as a measure like any other.
+We can then treat `SE_scale` as a measure like any other.
 Here we bundle, showing how relative SE changes by J, `n_bar` and ICC:
 
 ```{r}
@@ -493,7 +500,7 @@ Here we bundle, showing how relative SE changes by J, `n_bar` and ICC:
 #| fig-width: 7
 #| fig-height: 5
 
-ggplot( ssres, aes( ICC, SE.scale, col=method,
+ggplot( ssres, aes( ICC, SE_scale, col=method,
                     group = interaction(ICC, method) ) ) +
   facet_grid( n_bar ~  J, labeller = label_both ) +
   geom_boxplot( position="dodge", width=0.1 ) +
@@ -519,7 +526,7 @@ We finally can drop the `LR` results entirely, as it is the reference method and
 
 ssres |> 
   filter( method != "LR" ) |>
-  ggplot( aes( ICC, SE.scale, col=method, 
+  ggplot( aes( ICC, SE_scale, col=method, 
                group = interaction(ICC, method) ) ) +
   facet_grid( size_coef ~ alpha, labeller = label_both ) +
   geom_hline( yintercept = 1  ) +
@@ -538,7 +545,7 @@ This should be considered when interpreting variability in the scaled results.
 Uncertainty for relative performance is generally tricky to assess.
 
 
-To clarify the main patterns, we then aggregate our SE.scale across the bundled simulation settings---relative performance is on the same scale, so averaging is now a natural thing to do.
+To clarify the main patterns, we then aggregate our `SE_scale` across the bundled simulation settings---relative performance is on the same scale, so averaging is now a natural thing to do.
 We have aggregated out sample sizes, and we go further and remove `size_coef` since it does not seem to matter much, given the above plot:
 
 ```{r}
@@ -550,10 +557,10 @@ We have aggregated out sample sizes, and we go further and remove `size_coef` si
 s2 <- 
   ssres |> 
   group_by( ICC, alpha, method ) |>
-  summarise( SE.scale = mean( SE.scale ) ) |>
+  summarise( SE_scale = mean( SE_scale ) ) |>
   filter( method != "LR" )
 
-ggplot( s2, aes( ICC, SE.scale, col=method ) ) +
+ggplot( s2, aes( ICC, SE_scale, col=method ) ) +
   facet_wrap( ~ alpha, labeller = label_both ) +
   geom_hline( yintercept = 1 ) +
   geom_point() + geom_line() +
@@ -564,7 +571,7 @@ ggplot( s2, aes( ICC, SE.scale, col=method ) ) +
 
 Our aggregated plot of the precision of aggregation and MLM relative to Linear Regression gives a simple story clearly told.
 The performance of aggregation improves with ICC.
-MLM also has benefits over LR, and does not pay much cost when ICC is low.
+MLM also has benefits over LR, and does not come at much cost when ICC is low.
 
 
 
@@ -574,7 +581,7 @@ MLM also has benefits over LR, and does not pay much cost when ICC is low.
 
 We can visualize bias and standard error together, along with RMSE, to get a rich  picture of performance.
 To illustrate, we subset to our scenarios where there is real bias for both LR and MLM (i.e., when ICC is 0; see findings under bias from above).
-We also subset to our middle values of `n_bar = 80` and our large `J=80`, where uncertainty is small and thus the relative role of bias may be large.
+We also subset to our middle values of `n_bar = 80` and our large `J = 80`, where uncertainty is small and thus the relative role of bias may be large.
 
 ```{r}
 #| code-fold: true
@@ -666,7 +673,7 @@ We also see that when J is 5, the LR estimator tends to be a bit low.
 We next start exploring to dig into why our boxplots are wide.
 In particular, we want to see if other factors dictate when the SEs are biased.
 We first subset to the $J = 80$ scenarios to see if those box widths could just be due to the MCSEs.
-The `simhelpers` `calc_relative_var()` method gives mcses for relative bias of an estimated _variance_ to the true _variance_.
+The `simhelpers` function `calc_relative_var()` method gives MCSEs for relative bias of an estimated _variance_ to the true _variance_.
 We thus square our estimated SEs to get variance estimates, and then use that function to see if the relative variance estimates are biased:
 
 ```{r}
