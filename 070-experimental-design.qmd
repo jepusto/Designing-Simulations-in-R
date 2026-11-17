@@ -203,9 +203,8 @@ In particular, we can manipulate all of the following features:
 -   the average outcome in the control group ($\gamma_0$)
 -   the average treatment effect ($\gamma_1$)
 -   how strongly average impact is connected to cluster size ($\gamma_2$)
--   how much the cluster intercepts vary (the degree of cross-cluster variation) ($\sigma^2_u$)
--   the degree of residual variation ($\sigma^2_\epsilon$)
- 
+-   how much the cluster intercepts vary (the degree of cross-cluster variation) compared to the degree of residual variation (intraclass correlation or ICC)
+
 Manipulating all of these factors would lead to a huge and unwieldy number of simulation conditions to evaluate.
 To cut down our list, we turn to our six principles laid out at the start of the chapter.
 
@@ -230,7 +229,7 @@ Based on our theoretical understanding of the problem, we are fairly confident t
 We thus decide to set $\gamma_0=0$ (because we are working with a standardized outcome) and $\gamma_1=0.20$, a typical value seen in education.
 We could later expand these if we wanted to.
 
-For proportion treated, again our research questions do not seem to relate to it.
+Our research questions do not seem to relate to the proportion of clusters that receive treatment.
 We thus select $p=0.50$.
 This is a common choice, but is not actually a good choice.
 When in doubt, it is better to create imbalance in the DGP, as it is easy for things to cancel out when everything is symmetrical.
@@ -238,13 +237,15 @@ For example, $p=1/3$ might have been more likely to uncover surprising findings.
 Nevertheless, we cannot explore everything.
 
 For ranges of our other factors, we look at existing research and existing empirical studies in education.
-For sample sizes, we know clusters can be near 20 students to hundreds in size, and we know experiments can be very small (e.g., 5) to moderately large (e.g., 80).
+For sample sizes, we know clusters can be near 20 students to hundreds in size, and we know experiments can be very small (e.g., 5 clusters) to moderately large [e.g., 80 clusters, @Spybrook2016progress; @Tipton2021system].
 For the ICC, we explore none to extremely high levels.
-We could have focused on more realistic range (e.g., 0 to 0.4), but we decided to see what happens to the estimators in the extremes to help understand the dynamics at play.
+We could have focused on more realistic range (e.g., 0 to 0.4), but we decided to see what happens to the estimators in the extremes to help understand the dynamics at play.[^empirical-ICCs]
 For cluster variation, we go with no variation, moderate variation, and high variation.
 We can only take $\alpha$ to at most 1; at 1 the smallest cluster would be size 0. At 0.8, the smallest cluster would be 20% the size of the average cluster; we could do further exploration of the literature to understand variation better to calibrate this term.
 
-Our reasoning above gives our final set of values:
+[^empirical-ICCs]: Many resources are available for understanding the range of intra-class correlations encountered in education research. Among many others, see @Brunner2018betweenschool, Hedges and Hedberg [-@Hedges2007intraclass; -@Hedges2013intraclass] and @Hedberg2014reference.
+
+Our reasoning above leads to a set of candidate values:
 
 ```{r CRT_factors}
 crt_design_factors <- list(
@@ -269,9 +270,9 @@ We have $`r paste(ns, collapse="\\times")` = `r prod( map_dbl( crt_design_factor
 Overall, we have selected factors and levels that satisfy most of the principles we have articulated.
 We have included the obvious (the no variation cases), we have focused on factors relevant to our questions, we have selected values similar to those seen in previous studies, and we tried for a wide range of values for each factor--- even including some extreme values (e.g., ICC up to 0.8 or $\alpha$ of 0.8).
 We have deeply not explored the incidental (here $p$ and $\gamma_1$, in particular), but we could do this later as a sanity check on our results.
-This is also our initial pass.
+This is also only our first pass attempt at selecting parameter values to examine.
 We may find that our estimators only start to breakdown at, say, alpha = 0.8.
-We might then go back and expand the range to 0.9 or 0.99 to explore that edge further.
+We might then go back and expand the range to 0.9 or 0.99 to explore that edge-case further.
 Or we may find that we should try $\bar{n}=4$ or even smaller, to explore small-sample properties more thoroughly.
 
 
@@ -279,7 +280,7 @@ Or we may find that we should try $\bar{n}=4$ or even smaller, to explore small-
 
 There is some redundancy in the parameter combinations that we have selected.
 In particular, if `size_coef` is nonzero, but `alpha` is 0, then the cluster size will not impact the cluster average ATE because there is no variation in cluster size.
-We could drop one of the redundant conditions to save some simulation runs---in essence we are running the same simulation for `alpha=0` two times, once for each `size_coef` value, for each level of `ICC`, `n_bar` and `J`.
+We could drop one of the redundant conditions to save some simulation runs---in essence we are running the same simulation for `alpha = 0` two times, once for each `size_coef` value, for each level of `ICC`, `n_bar` and `J`.
 However, doing so would mean that our simulation is no longer a full factorial (because the factors are not fully crossed), making it harder to analyze.
 With an imbalanced experiment, if we average performance across some factors to see the effect of others, we might end up with surprising or even misleading results.
 
@@ -293,7 +294,7 @@ We will run our cluster RCT simulation using the same code pattern as we used wi
 Because we are not exactly sure which performance metrics we will want to use, we will save the individual replications and then calculate performance metrics after generating the simulation results.
 That is, we will use the "outside" strategy.
 
-We first make a table of scenarios with unique seeds for each:
+We first make a table of scenarios, along with unique seeds for each scenario:
 ```{r}
 params <- 
   expand_grid( !!!crt_design_factors ) |>
@@ -302,12 +303,13 @@ params <-
   )
 ```
 
-The different seeds for each scenario avoid anything confusing about shared randomness across scenarios (see @sec-seeds-and-pseudo-RNGs for further discussion).
+The initial constant in the seed calculation controls where the sequence of seeds starts.
+Using different seeds for each scenario avoids introducing shared randomness across scenarios (see @sec-seeds-and-pseudo-RNGs for further discussion).
 We then run the simulation 1000 times per scenario, then unnest to get our final data:
 
 ```{r run_the_CRT_simulation, eval=FALSE}
 params$res <- pmap(params, .f = run_CRT_sim, reps = 1000 )
-res <- unnest(params, cols=data)
+res <- unnest(params, cols=res)
 saveRDS( res, file = "results/simulation_CRT.rds" )
 ```
 
@@ -376,7 +378,7 @@ str( sres )
 ```
 
 After we calculate our performance measures, we have `r nrow(sres)` rows of results across `r nrow(sres)/3` different scenarios.
-We can simply aggregate across all our scenarios to get overall comparisons:
+To get an initial sense of what is going on, we simply aggregate across all our scenarios into overall comparisons:
 
 ```{r}
 sres |>
@@ -403,7 +405,7 @@ We close with a few more principles of good design that are worth keeping in min
 ### Selecting the number of replications
 
 The number of replications per scenario $R$ is a key design choice.
-For some performance measures, there are good initial rules of thumb.
+For some performance measures, there are good initial rules of thumb [see also @morris2019UsingSimulationStudies; @Burton2006design].
 
 For confidence interval coverage, if the true coverage level is $\pi$, then the MCSE of coverage levels will be $\sqrt{\pi (1 - \pi) / R}$, and the margin of error will be $\Phi^{-1}(0.975) \times \sqrt{\pi (1 - \pi) / R} \approx 2\sqrt{\pi (1 - \pi) / R}$, where $\Phi(\cdot)$ is the inverse Gaussian.
 Solving this expression for $R$ lets us determine the number of replications needed to attain a given margin of error.
@@ -448,21 +450,20 @@ The nice thing here is you get a double win: fewer trials for the larger sample 
 
 The number of simulations grows exponentially with the number of factors.
 If we have 3 levels per factor, then varying 3 factors is $3^3 = 27$ scenarios, varying 4 is $3^4 = 81$, and then it goes 243, 729, 2187, and 6561.
-
-Similarly, for any factor, more levels is usually better, but more levels is also more computationally intensive.
+Similarly, for any factor, more levels is usually better, but more levels makes for bigger computational demands.
 Even modest increases in the number of levels in the factors can also create an explosion in the total number of simulation trials.
 Consider that a four-factor experiment with 2 levels each is only 16 conditions; with 3 levels each, it is 81 conditions; and with 4 levels each, it is 256 conditions.
-
 Both these explosions are hard to navigate: more comprehensive designs require massively more computing.
-However, the computational cost can be tempered by reducing the number of replications per scenario.
 
+Computational cost can be tempered by reducing the number of replications per scenario.
 For example, suppose you were initially planning on doing 1000 simulations per scenario, but then you realize that you need to incorporate an additional factor.
 After thinking about it, you suspect that this factor will not actually matter but you worry that other researchers might find it important.
 To address this potential concern, you could include the factor in your simulation design, say with four levels, but then reduce the number of replications to 250 simulations per scenario.
 The total work remains the same.
+The drawback is that the performance measures for specific conditions will have more Monte Carlo error, but aggregating across conditions can mitigate this problem. 
 
 When analyzing the final simulation you would first verify you do not see trends along this new factor, and then marginalize out\index{marginalization} that factor (i.e., average your performance metrics across the factor) in your summaries of results.
-Marginalizing out a factor is a powerful technique of making a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario.
+Marginalizing out a factor is a powerful technique for making a claim about how your methods work _on average_ across a _range_ of scenarios, rather than for a specific scenario.
 We will discuss marginalization further in @sec-presentation-of-results.
 
 ### Preliminary explorations and multiple simulations
@@ -487,20 +488,18 @@ At the extreme, some will vary one factor at a time, running 6 different simulat
 In this latter case, we could easily expand the resolution of each factor to many different levels without doing more than the full factorial design.
 
 
-
 ## Concluding thoughts
 
-
-In this chapter, we moved from isolated simulation scenarios to fully specified multifactor simulation designs.
-Full factorial designs involve systematically varying multiple features of a data-generating process, which allows us to explore how the performance of an estimator depends on the context in which it is used.
+In this chapter, we moved from isolated simulation scenarios to a fully specified, multifactor simulation design.
+Full factorial designs involve systematically varying multiple features of a data-generating process, thereby allowing for exploration of how the performance of an estimator depends on the context in which it is used.
 By thinking of simulations as designed experiments, we gain a principled framework for choosing parameters and curating a set of scenarios to explore.
-The result is a rich collection of simulation output that can capture bias, variability, uncertainty estimation, or testing behavior across a wide range of plausible conditions.
+The result is a rich collection of simulation output that can capture bias, variability, uncertainty estimation, or hypothesis testing behavior across a wide range of plausible conditions.
 
 As we noted at the outset, the primary limitation of a simulation study is generalizability.
 Multifactor simulations are often designed to address this core concern.
 Of course, no simulation is entirely generalizable---even an extensive full factorial design will entail many stylized assumptions and artificial constraints.
-To withstand critiques about generalizability, simulations should be designed by aiming for comprehensiveness, by including conditions that are relevant to real data, and by including conditions that are relevant to previous methodological work.
-Although the result will surely fall short of perfect generalizability, we can still design simulations thoughtfully and, as best we can,  avoid obvious limitations that a critic might identify as a basis for dismissing our findings.
+To withstand critiques about generalizability, simulations should be designed by aiming for comprehensiveness, including conditions that are relevant to real-life applications, and including conditions that allow for comparison to previous methodological work.
+Although the result will surely fall short of perfect generalizability, we can still design simulations thoughtfully and, as best we can,  avoid blatant limitations that a critic might identify as a basis for dismissing our findings.
 
 In our experience, it is quite rare to nail the choice of parameters on the first pass.
 Expect to add and subtract from an identified set of simulation factors with each round of results.
@@ -509,13 +508,16 @@ Rather, it should be to identify the set of factors and parameter settings that 
 
 <!-- LWM: Do we want to cite the pre-analysis plan folks?  Where do we put discussion of that? -->
 
-Well designed simulations can be quite large and complex, however, which creates a challenge for interpretation.
-With many factors, levels, and performance measures, it is no longer possible to understand results simply by inspecting a table of results.
+Well designed simulations can be quite large and complex, which creates challenges for interpretation of their results.
+With many factors, levels, and performance measures, it is no longer possible to understand what is going on simply by inspecting a table of results.
 In the next few chapters, we will turn to the problem of analyzing and presenting simulation results, with an emphasis on graphical approaches that clarify how performance varies across conditions.
 We aim to provide analytic tools to help identify systematic trends in estimator performance, understand the generality of identified patterns, and identify trade-offs between different methods.
 
 
 ## Exercises {.unnumbered}
+
+<!-- JEP: More exercises?  -->
+
 
 ::: {#exr-multifactor-meta-regression}
 
