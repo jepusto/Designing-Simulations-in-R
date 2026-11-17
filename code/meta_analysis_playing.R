@@ -1,5 +1,4 @@
 
-
 # Looking at how to viz simulation results and deal with
 # heteroskedasticity in the MCSEs.
 

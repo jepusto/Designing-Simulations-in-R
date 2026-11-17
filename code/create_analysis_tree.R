@@ -1,7 +1,5 @@
-
 library( rpart.plot )
 library( rpart )
-
 
 #' Make a regression tree with the simulation results 
 #' 
