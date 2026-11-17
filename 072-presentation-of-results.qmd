@@ -42,19 +42,21 @@ A good analysis provides a clear understanding of how one or more of the simulat
 In multi-factor simulations, the major challenge in analyzing simulation results is dealing with their high dimensional nature.
 For instance, in our cluster RCT simulation, we examined `r prettyNum( nrow(sres) / 3, big.mark=",")` different simulation scenarios, which vary along several factors.
 For each scenario, we calculated a whole suite of performance measures (bias, SE, RMSE, coverage, ...), and we have these performance measures for each of the three estimation methods under consideration.
-We organized all these results as a data table with `r prettyNum( nrow(sres), big.mark=",")` rows (three rows per simulation scenario, with each row corresponding to a specific method) and one column per performance metric.
-
+We organized all these results as a data table with `r prettyNum( nrow(sres), big.mark=",")` rows (three rows per simulation scenario, with each row corresponding to an estimation method) and one column per performance metric.
 Navigating all of this can feel somewhat overwhelming.
 How do we understand trends in such a complex, multi-factor data structure? 
-Broadly, the answer is to think of the performance measures as outcomes of a designed experiment, so that we can bring to bear any and all of the data analysis techniques relevant to analyzing experimental designs involving real data.
 
+Broadly, the answer is to think of the performance measures as outcomes of a designed experiment, so that we can bring to bear any and all of the data analysis techniques relevant to analyzing experimental designs involving real data.
 In this chapter, we survey three main categories of analytic tools that can be used for exploring and presenting simulation results:
 
 1.  Tabulation
 2.  Visualization
 3.  Modeling
 
-For each category of tools, we describe the logic behind how it can be applied, provide high-level examples drawn from the literature and our own work, and discuss its strengths and limitations. 
+For each category of tools, we describe the logic behind how it can be applied, provide high-level examples drawn from the literature and our own work, and discuss its strengths and limitations.
+Because we draw examples from real studies on variety of different topics, some of the illustrations we present involve models or estimation methods that may be unfamiliar. 
+The particulars of the examples are not important. We would encourage you to focus instead on the principles we illustrate, treating the model parameters or estimator names as generic placeholders.
+<!-- JEP: Okay with the above caveat? -->
 
 In this and subsequent chapters, we assume that you will be sharing the findings from your simulations with an audience beyond yourself.
 Depending on your circumstances, that might be a broad audience of researchers and data analysts, with whom you will communicate through a scholarly article in a peer-reviewed methodology journal; it might be colleagues who are evaluating your proposal for an empirical study, where the simulations serve to justify the data analysis protocol; it might be a small group of collaborators, who will use the simulations to make decisions about how to design a study; or it might be methodological scholars interested to read a blog post that discusses how a particular model works.
@@ -71,18 +73,20 @@ That said, we do not find them to be useful that often.
 Simulations usually produce lots of numbers and require making many comparisons.
 For example, you might need to show the relative performance of several alternative estimators or the performance of your estimators under several different conditions for the data-generating model.
 This results in many comparisons along several dimensions.
-Tables can do two dimensions; when you try to cram more than that into a table, neither you nor your audience will be particularly well served.
+Tables can handle two dimensions; when you try to cram more than that into a table, neither you nor your audience will be particularly well served.
 Furthermore, in simulation, the exact values of the performance measures are not usually of interest---in fact, we do not even have them due to Monte Carlo\index{Monte Carlo simulation} simulation error.
-Because of this, tables risk providing a false sense of uncertainty---unless you also report MCSEs, which creates further clutter.
-
+Consequently, tables of simulation results can create a false sense of certainty---unless you also report MCSEs, which creates further clutter.
 Because of these friction points, we believe tables rarely make the take-aways of a simulation readily apparent.
 As a rule of thumb, if you are ever tempted into putting your table in landscape mode to get it to fit on the page, think again.
 It is usually more useful and insightful to present results in graphs [@gelman2002let].
 
-To illustrate, consider the following table of simulation results showing the false rejection rate, against an $\alpha$ of $0.10$, for an estimator of an average treatment impact.
-We have three factors of interest, the treatment and control group sizes, and the true treatment effect.
+To illustrate, consider the humble t-test for a two group comparison, as might be used to test the null hypothesis of no treatment impact in a simple randomized trial. @tbl-t-test-by-tau reports simulation results showing the false rejection rate, against an $\alpha$ of $0.10$, for the t-test as a function of the true difference in group means.
+We have three factors of interest, the treatment and control group sizes, and the true treatment effect  (labelled as tau).
 
-```{r, echo=FALSE}
+```{r}
+#| echo: false
+#| label: tbl-t-test-by-tau
+
 exp.res <- readRDS( file="results/Neyman_RCT_results.rds" )
 
 # summary( exp.res$power )
@@ -102,7 +106,7 @@ exp.res.rej |>
   dplyr::select( tau, nT, nC, reject ) |>
   pivot_wider( names_from = tau, values_from=reject, names_prefix = "tau=" ) |>
   arrange( nT, nC ) |>
-  knitr::kable(caption = "Rejection rates for a two-sample t-test assuming unequal variances")
+  knitr::kable(caption = "Rejection rates (%) for a two-sample t-test assuming unequal variances")
 ```
 
 This is the classic table you might see in a paper: the table is structured as groups of results indexed by one factor, with a second factor that varies within each group.
@@ -133,7 +137,7 @@ ggplot( exp.res.rej ) +
 ```
 
 By contrast, a plot of these exact same numbers can make trends much clearer.
-@fig-rejection-interaction-plot is an "interaction plot"\index{interaction plot} showing the "interaction" of the factors nT and nC.
+@fig-rejection-interaction-plot is an _interaction plot_"_\index{interaction plot} showing the interaction of the factors nT and nC.
 The left facet of the plot makes apparent that we only achieve something close to a valid test if both nC and nT are above 50.
 Even if nC is 500, the rejection rate is elevated if nT is only 10.
 When nT is 2, then increasing nC actually _increases_ the rejection rate, meaning that larger samples make things worse.
@@ -208,6 +212,7 @@ knitr::kable(
 n_sims = n_distinct(df_rel$set_id) * n_distinct(df_rel$queen)
 ```
 
+<!-- JEP: Possible to clean up column names? For readers, the model names may not make any sense. -->
 
 @tbl-ITE-performance gives an answer to this question for a subset of the models considered: we evaluate each method along four metrics: relative bias, relative se, relative rmse, and $R^2$.
 To easily see which methods are good and which less so, we averaged the performance measures across all scenarios and order the methods from highest average relative RMSE to lowest.
@@ -329,7 +334,7 @@ Many of the estimators have very similar performances to each other across the s
 ## Visualization
 
 We see visualization as the primary technique for communicating simulation results.
-To illustrate some illustration principles, we next present a series of visualizations drawn from published simulations, each of which highlights some visualization design principles that we believe are broadly relevant and useful.
+To illustrate some illustration principles, we next present a series of visualizations drawn from published simulations, each of which highlights some visualization design principle or technique that we believe is broadly relevant and useful.
 In @sec-building-good-visualization, we present a more detailed look at the process of developing a polished visualization through iterative refinement of a series of plots.
 
 
@@ -372,7 +377,7 @@ ggplot(opt) +
 ```
 
 As a starting point, @fig-MLIV-bar-chart shows the same data as reported in the table, with the values of each performance measure depicted as bars (after rescaling `R2` by 100 to put it on a similar scale to the other measures).
-The Figure makes it easier to visually assess the extent to which the estimators follow consistent patterns across the performance measures.
+@fig-MLIV-bar-chart makes it easier to visually assess the extent to which the estimators follow consistent patterns across the performance measures.
 However, this plot, unlike the table, does not have any representation of the degree of variation across scenarios because the bars only represent the _average_ performance across scenarios.
 We can elaborate this plot by using boxplots that summarize the distribution of performance measures across all scenarios examined.
 
@@ -408,7 +413,12 @@ n_sims <- n_distinct(df_BSR_long$set_id) * n_distinct(df_BSR_long$queen)
 
 ggplot(df_BSR_long) + 
   aes( model, rel_perf, fill = measure ) +
-  facet_wrap( ~ measure, nrow=1, scales="free_x" ) +
+  facet_wrap(
+    ~ measure, 
+    nrow=1, 
+    scales="free_x",
+    strip.position = "bottom"
+  ) +
   geom_hline( yintercept = 1, lty=2 ) +
   geom_boxplot( width = 0.15, outlier.size = 0.15, outlier.color = "grey" ) +
   geom_point( 
@@ -425,7 +435,8 @@ ggplot(df_BSR_long) +
   labs( x = "", y = "" ) +
   theme(
     plot.background = element_rect(fill = "white", color = NA), # Added white background
-    legend.position = "none"
+    legend.position = "none",
+    strip.placement = "outside"
   ) + 
   labs( 
     caption = "Cropped at 50% and 200%."
@@ -437,15 +448,15 @@ The simulation evaluated performance across `r n_sims` distinct scenarios, and @
 Using boxplots instead of bars highlights how much the relative performance can change from scenario to scenario.
 Just as in @tbl-ITE-performance and @fig-MLIV-bar-chart, we order the methods from highest average RMSE to lowest.
 We use little circles to represent the average performance across all the simulations (these would correspond to the bars in @fig-MLIV-bar-chart).
-We truncate extreme values to make the plot more readable and bring focus to central tendencies.
+We truncate extreme values to make the plot more readable and keep the focus on central tendencies.
 The $x$-axis is on a log scale, selected to navigate long tails and highlight relative performances.
 The log scaling also makes the scale of improved performance (less than x1) similar to worse performance (above x1).
 
 @fig-MLIV-box-chart depicts three different performance measures in a single plot.
 We dropped $R^2$ for this plot because the $R^2$ measure was in percentage points, and, due to estimation uncertainty, included negative values; this was not compatible with the log scaling.[^plot-composition]
 We have lost something in order to gain something.
-Ultimately, which plot is best is a matter of aesthetic judgement.
-Pick your plot based on whether it is clearly communicating the message you are trying to get across.
+Ultimately, which plot is best is a matter of aesthetic judgement and context.
+Pick your plot based on whether it is clearly communicating the message you are trying to get across and appropriately representing uncertainty in your conclusions.
 
 [^plot-composition]: To represent all four performance measures, we could create a separate plot of $R^2$ and add it to the right-hand side of @fig-MLIV-box-chart. The `patchwork` package [@patchwork] provides tools for creating composite plots such as this.
 
@@ -459,7 +470,7 @@ Typical SCDs involve quite short time series with closely spaced repeated measur
 
 Following the same construction as Figure 1 of @Chen2024multilevel, @fig-LRR-bias uses a simple line chart to depict how bias of the LRR1 effect size estimator is affected by the magnitude of the underlying parameter (on the horizontal axis) and the degree of auto-correlation, with varying levels of auto-correlation represented with different colors and different styles of line.
 We use multiple plots of a similar form to represent patterns across different numbers of data series lengths, from $n = 5$ to $n = 15$ measurements per phase.
-Figures such as @fig-LRR-bias clearly show how the bias is affected by the degree of auto-correlation, with larger positive auto-correlation amplifying the bias of the estimator.
+Figures such as @fig-LRR-bias show how the bias is affected by the degree of auto-correlation, with larger positive auto-correlation amplifying the bias of the estimator.
 We also see that the bias is dampened as the series length increases.
 
 ```{r}
@@ -500,6 +511,7 @@ In a discussion about the importance of simulation, @little2013praise provides s
 
 ### Smoothing to visualize trends {#sec-biserial-correlation-visualization}
 <!-- Example 4: Biserial correlation estimation:  -->
+
 An extreme groups design is a clever way to evaluate the association between two variables when one of the variables is difficult or expensive to measure. It involves measuring one variable, $X$, on a sample of participants but measuring the other variable, $Y$, only for the subset of participants who have $X$ scores in the highest or lowest part of the distribution.
 The highest and lowest groups are defined based on cut-off percentiles that depend on the sample or population distribution of $X$, depending.
 The correlation between $X$ and $Y$ can be recovered by computing the biserial correlation coefficient between $Y$ and an indicator for whether the participant is in the highest or lowest part of the distribution.
@@ -508,7 +520,7 @@ The correlation between $X$ and $Y$ can be recovered by computing the biserial c
 This simulation was a full factorial design with four manipulated factors: true correlation, cut-off type, cut-off percentile, and sample size.
 @fig-biserial-correlation reproduces a visualization of the bias of the biserial correlation estimator examined in @pustejovsky2014converting. 
 The correlation parameter, with 96 levels, runs along the horizontal axis and shows a smoothly varying bias curve.
-We use line type to represent the sample size, which makes it apparent that the bias shrinks as sample size increases.
+We use line type to represent the sample size, which makes it more apparent that the bias shrinks as sample size increases.
 Finally, facetted plots are used to represent the remaining factors of cut-off type and cut-off percentile.
 All of the factors---and thousands of distinct simulation scenarios---are visible in a single plot.
 
@@ -518,7 +530,7 @@ All of the factors---and thousands of distinct simulation scenarios---are visibl
 #| echo: !expr knitr::is_html_output()
 #| fig-width: 10
 #| fig-height: 5
-#| fig-cap: "Bias of the biserial correlation estimate in an extreme groups design, for varying sample sizes, cut-off thresholds, and cut-off types. Source: Pustejovsky (2014)."
+#| fig-cap: "Bias of the biserial correlation estimate in an extreme groups design, for varying sample sizes, cut-off thresholds, and cut-off types."
 
 load("data/d2r results.rData")
 
@@ -580,7 +592,7 @@ This was another complex experimental design, which involved varying several fac
 #| echo: !expr knitr::is_html_output()
 #| fig-width: 9
 #| fig-height: 7
-#| fig-cap: "Type-I error rates of selected hypothesis testing procedures for meta-regression models with cluster-robust variance estimation. Source: Tipton and Pustejovsky (2015)."
+#| fig-cap: "Type-I error rates of selected hypothesis testing procedures for meta-regression models with cluster-robust variance estimation."
 
 load("data/RVE_simulation.Rdata")
 
@@ -851,7 +863,7 @@ ggplot() +
   )
 ```
 
-The head-to-head layout of @fig-head-to-head-RMSE makes it easy to see that the multivariate versions of each estimator tend to have slightly lower RMSE than their univariate counterparts and that this is true not only on average, but also across the conditions depicted in the figure.
+The head-to-head layout of @fig-head-to-head-RMSE makes it easier to see that the multivariate versions of each estimator tend to have slightly lower RMSE than their univariate counterparts and that this is true not only on average, but also across the conditions depicted in the figure.
 Furthermore, the performance advantage of the multivariate estimators seems to be approximately multiplicative: using the multivariate version instead of the univariate version reduces RMSE by close to a constant percentage.
 
 While successful in communicating the above points, the figure is still limited to a subset of conditions because depicting every sample size and every setting for $\bar\rho$ would make it too noisy to see these trends.
@@ -904,6 +916,8 @@ We can therefore leverage classical techniques for analyzing full factorial expe
 For example, regressing a performance measure against our factor levels provides a quantitative description of how the different levels influence performance, holding the other factors constant.
 This type of regression has been described as a "meta-regression" [@kleijnen1981regression; @friedman1988metamodel; @gilbert2024multilevel] because it involves a regression model where the response variable is itself a summary estimate of some performance measure.[^meta-regression-uncertainty]
 The technique also has ties to meta-analysis [see, e.g., @borenstein2021introduction], which involves summarizing and examining trends across sets of empirical findings from different studies.
+Meta-regressions and related models are especially useful as pre-cursors or adjuncts to graphic visualizations.
+Using such tools is a good way to develop an understanding of which factors are relatively important, and this in turn can inform the layout of subsequent visualizations. 
 
 [^meta-regression-uncertainty]: Meta-regression can also be used to account for Monte Carlo uncertainty in some contexts, which can be especially important when the number of iterations per scenario is low. See @sec-few-iterations. @gilbert2024multilevel examine this approach in greater detail.
 
@@ -912,7 +926,7 @@ In the language of a full factorial experiment, the ANOVA table typically includ
 Main effects characterize the extent to which a particular factor systematically influences performance, when averaging across all other factors in the design.
 By aggregating over other factors, main effects will capture the broadest possible patterns; if we see a trend when we average over all the other varying factors, then we can infer that the finding is relevant across the many different simulation contexts explored, rather than being an idiosyncratic feature of a specific and narrow context.
 Interaction effects characterize the degree to which patterns or trends observed in one factor are themselves variable, changing depending on the level of another factor.
-Interactions provide an indication of how the influence of a particular factor might matter more or less, depending on other aspects of the context.
+Interactions provide an indication of how the influence of a particular factor might matter more or less, depending on another aspect of the context.
 
 In simulations that involve comparing multiple methods, we might approach meta-regression models in one of two ways. 
 One possibility would be to include the method itself as a factor in the meta-regression.
@@ -921,8 +935,8 @@ The main effects of the simulation factors will tell us the extent to which each
 For instance, we might expect that the true standard error goes down as sample size increases, following a consistent pattern across all methods.
 With method as a factor, we would need to examine interactions between method and the other factors, to see how the methods vary in the extent to which they are influenced by the simulation scenario.
 
-Another approach would be to use separate meta-regression models for each of the multiple methods. 
-Multiple regressions makes it somewhat easier to understand the influence of the simulation design factors on the performance of each method in turn.
+Another approach would be to use separate meta-regression models or ANOVA tables for each of the multiple methods. 
+Running separate regressions makes it somewhat easier to understand the influence of the simulation design factors on the performance of each method in turn.
 Using separate meta-regressions, we might find that a certain factor has a very strong influence on the bias and RMSE of one particular method, whereas it has little or no influence on the performance of a different method.
 The challenge with this approach is that it becomes more difficult to identify patterns that hold across all methods or to draw comparisons across different methods.
 
