@@ -1014,6 +1014,78 @@ The key is to be clear about what you are trying to estimate because the perform
 
 
 
+
+
+
+## Warning and errors {#sec-warnings-and-errors}
+\index{errors and warnings}
+
+Sometimes, depending on the data being analyzed, our analytic strategy might give some sort of warning (or fail altogether).
+In @sec-error-handling we saw how to trap such warnings or errors.
+In particular, in @sec-capturing-errors-and-warnings we illustrated error trapping on the multilevel model for the cluster RCT experiment by revising our `analysis_MLM()` method to an `analysis_MLM_safe()` method, which gave output from the MLM method that looked like this:
+
+```{r, include=FALSE}
+source( "case_study_code/clustered_data_simulation.R" )
+```
+
+```{r}
+set.seed(101042)  # (I picked this to show an issue.)
+dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
+analysis_MLM_safe( dat )
+```
+
+For this dataset, a convergence issue gave rise to the indicated message.
+
+Once the full simulation is run, we can examine the patterns of these messages, warnings, and errors to see if they are a serious or minor problem.
+We do this by calculating their rates as performance measures in their own rights.
+Especially if we plan on possibly dropping some trials, it is important to see how often our estimators are acting peculiarly.
+
+For multilevel modeling, ICC can be an important driver of when convergence issues might occur, so we can explore how often we get a convergence message for a given ICC level by calculating percent change of a message, warning, or error for a given ICC level.
+Here we try an ICC of 0:
+
+```{r examine_convergence_rates, cache=TRUE}
+zeroICC <- run_CRT_sim( 100,
+                        J = 20, n_bar = 100, ICC = 0,
+                        seed = 10393 )
+
+zeroICC %>%
+  group_by( method ) %>%
+  summarise( message = 100*mean( message ),
+             warning = 100*mean( warning ),
+             error = 100*mean( error ) )
+```
+
+We see that when the ICC is 0 we get a lot of convergence issues for MLM (nearly half of our runs have a message).
+We can then try a larger ICC:
+```{r examine_convergence_rates2, cache=TRUE}
+ICC_05 <- run_CRT_sim( 100,
+                       J = 20, n_bar = 100, ICC = 0.05,
+                       seed = 10393 )
+
+ICC_05 %>%
+  group_by( method ) %>%
+  summarise( message = 100*mean( message ),
+             warning = 100*mean( warning ),
+             error = 100*mean( error ) )
+```
+
+Apparently, as soon as we pull away from ICC=0, our message rate drops off considerably.
+Thankfully, in neither case did we see any actual errors or warnings, suggesting those are quite rare.
+
+At this point we have to decide whether to drop the problematic runs or keep them.
+Ideally, failure would not be too common, meaning we could drop or keep the problematic iterations without really impacting our overall results.
+
+In our case, for example, it should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
+Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
+We might eventually, however, want to do a separate analysis of the ICC = 0 context under different scenarios (such as sample sizes or other conditions) to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
+
+Importantly, if the decision is to drop iterations with some sort of warning, then the entire simulation iteration, including the other estimators, should be dropped even if the other estimators worked fine!
+If there is something particularly unusual about the dataset that caused the concern, then dropping for one estimator and keeping for the others would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
+Consider, for example, if the dropped datasets were fundamentally harder to evaluate.
+
+
+
+
 ## Concluding thoughts
 
 The performance of an estimator is not well captured by any single number.

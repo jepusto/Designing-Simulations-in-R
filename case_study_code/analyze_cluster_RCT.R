@@ -86,8 +86,8 @@ analysis_MLM_safe <- function( dat, all_results = FALSE ) {
       ATE_hat = sum$coefficients["Z","Estimate"], 
       SE_hat = sum$coefficients["Z","Std. Error"], 
       p_value = sum$coefficients["Z", "Pr(>|t|)"],
-      message = length( list( M1$messages ) ) > 0,
-      warning = length( list( M1$warning ) ) > 0,
+      message = length( M1$messages ) > 0,
+      warning = length( M1$warning ) > 0,
       error = FALSE )
   }
   

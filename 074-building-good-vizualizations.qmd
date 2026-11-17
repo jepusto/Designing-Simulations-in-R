@@ -31,7 +31,6 @@ sres <- res %>%
              power = mean( p_value <= 0.05 ),
              ESE_hat = sqrt( mean( SE_hat^2 ) ),
              SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
-             
   ) %>%
   rename( R = K_absolute,
           RMSE = rmse,
@@ -356,173 +355,8 @@ Usually, with aggregation, we want to average over something we believe does not
 To achieve this, we can often average over a relative measure (such as standard error divided by the standard error of some baseline method), which tend to be more invariant and comparable across scenarios.
 We will see more examples of this kind of aggregation later on.
 
-
-#### Aggregating performance measures {#sec-aggregation-notes}
-
-
-Say we have $S$ scenarios and want to get an average performance of our method across all $S$ scenarios.
-If we had the true performances, $P_s$, of the scenarios we could simply average them to get an overall average performance $P$.
-Unfortunately, we do not have the true performances, but instead just have their estimates $\hat{P}_s$.
-
-Nevertheless, we can average the estimates, and hope that the errors will tend to cancel out.
-In the case of some performance measures (bias, variance, MSE, coverage, rejection rates, for example), this is exactly what happens because these estimates are unbiased (i.e., $E[ \hat{P}_s ] = P_s$).
-This means our overall estimate of the average is also unbiased, as
-$$
-E\left[ \frac{1}{S}\sum_s \hat{P}_s \right] = \frac{1}{S}\sum_s E\left[\hat{P}_s \right] = \frac{1}{S}\sum_s P_s = P .
-$$
-Unfortunately, our estimates $\hat{P}_s$ are not unbiased for some key measures, the most prominent of which is our usual estimate, $\widehat{Var}_s^{1/2}$, of the true standard error, $SE_s = \sqrt{Var_s}$.
-This is because, even though $E[ \widehat{Var}_s ] = Var_s$,
-$$
-E\left[ \widehat{SE}_s \right] = E\left[ \sqrt{ \widehat{Var}_s } \right] \le \sqrt{ E\left[ \widehat{Var}_s \right] } = SE_s
-$$
-by Jensen's inequality, because the square root function is concave.
-In other words, $\widehat{SE}_s$ is biased downward: our estimates will tend to be too small.
-
-We can actually characterize how much bias we would get, which we do next.
-First write $\widehat{Var}_s = Var_s + e_s$, where $E[e_s] = 0$ and, following @MCSE-bias-SE-RMSE, 
-$$
-E[e_s^2] = Var[e_s] \approx \frac{(\kappa_s - 1)\, Var_s^2}{R},
-$$
-with $\kappa_s$ the standardized kurtosis of the sampling distribution of the estimator in scenario $s$ (so $\kappa_s - 1 = 2$ if that distribution is normal).
-
-
-Next, we use a second-order Taylor expansion (Delta method) of $f(x) = \sqrt{x}$ around $x = Var_s$.
-Since $f'(Var_s) = 1/(2\sqrt{Var_s})$ and $f''(Var_s) = -1/(4\, Var_s^{3/2})$, we have
-$$
-\widehat{SE}_s = \sqrt{\widehat{Var}_s}
-=
-\sqrt{Var_s} + \frac{e_s}{2\sqrt{Var_s}}
-- \frac{e_s^2}{8\, Var_s^{3/2}}
-+ \text{higher-order terms}.
-$$
-
-Taking expectations removes the linear term because $E[ e_s ] = 0$, and gives
-$$
-E\left[\widehat{SE}_s\right] - SE_s
-\approx
--\frac{E[e_s^2]}{8\, Var_s^{3/2}}
-=
--\frac{(\kappa_s - 1)}{8R}\, SE_s .
-$$
-Under normality this is $-SE_s/(4R)$, i.e., a relative bias of about $-1/(4R)$.
-
-Finally, average this bias over $s$:
-$$
-\operatorname{Bias}\left(\frac1S\sum_{s=1}^S \widehat{SE}_s\right)
-\approx
--\frac{1}{8SR}\sum_{s=1}^S (\kappa_s - 1)\, SE_s
-\;\overset{\text{normal}}{=}\;
--\frac{1}{4R} \cdot \frac{1}{S}\sum_{s=1}^S SE_s .
-$$
-
-The approximation drops terms involving third and higher moments of $e_s$, so it is most reliable when $e_s$ is small relative to $Var_s$ (i.e., when $R$ is large relative to $\kappa_s$).
-For example, with $R = 1000$ the relative bias is roughly $0.025\%$, typically negligible relative to the Monte Carlo standard error; it matters mainly when $R$ is small or the sampling distribution is heavy-tailed.
-When $R = 100$ (usually considered a modest number of simulations), will be about a quarter of a percent.
-
-Say we have $S$ scenarios and want to get an average performance of our method across all $S$ scenarios.
-If we had the true performance, $P_s$, of each scenario we could simply average them to get an overall average performance $P$.
-Unfortunately, we do not have the true performances, but instead just have estimates $\hat{P}_s$ of the performances.
-
-We could simply average the estimates, and hope that the errors will tend to cancel out.
-In the case of some performance measures (bias, variance, MSE, coverage, rejection rates, for example), this is exactly what happens because these estimates are unbiased (i.e., $E[ \hat{P}_s ] = P_s$).
-This means our overall estimate of the average is also unbiased, as
-$$
-E\left[ \frac{1}{S}\sum \hat{P}_s \right] =  \frac{1}{S}\sum E\left[\hat{P}_s \right] = \frac{1}{S}\sum_s P_s = P .
-$$
-Unfortunately, our estimate, $\hat{P}_s$ is not unbiased for some key measures, the most prominent of which is the true standard error.
-This is because, even though $E[ \widehat{Var}_s ] = Var_s$,
-$$ 
-\widehat{SE}_s = E\left[ \sqrt{ \widehat{Var}_s } \right] \neq  \sqrt{ E\left[ \widehat{Var}_s \right] } 
-$$
-because the square root function is concave.
-
-In fact, as we show next, the estimate $\widehat{SE}_s$ is downwardly biased.
-To find this, we first note that $\widehat{Var}_s=Var_s+e_s>0$, where $E[e_s]=0$ and $Var[e_s^2] \approx \sigma_s^2/R$, where $\sigma_s$ is the true standard error.
-See @sec-MCSE-for-points for why we can approximate the Monte Carlo variance of our variance estimator $\widehat{Var}_s$ in these terms.
-
-Next, we use a second order Delta method, and expand $f(x)=\sqrt{x}$ around $x=Var_s$.
-Since $f'(Var_s)=1/(2Var_s)$ and $f''(Var_s)=-1/(4Var_s^3)$, we have
-$$
-\widehat{SE}_s = \sqrt{\widehat{\operatorname{Var}}_s}
-=
-\sqrt{Var_s}+\frac{e_s}{2Var_s}
--\frac{e_s^2}{8Var_s^3}
-+\text{higher-order terms}.
-$$
-
-Taking expectations removes the linear term because $e_s$ has expectation zero, and gives
-
-$$
-E\!\left[\sqrt{\widehat{\operatorname{Var}}_s}\right]-\sqrt{Var_s}
-\approx
--\frac{E[e_s^2]}{8Var_s^3}
-=
--\frac{\sigma_s^2}{8RVar_s^3}.
-$$
-
-Finally, average this bias over $s$:
-
-$$
-\operatorname{Bias}\!\left(\frac1S\sum_{s=1}^S
-\sqrt{\widehat{\operatorname{Var}}_s}\right)
-\approx
--\frac{1}{8SR}\sum_{s=1}^S\frac{\sigma_s^2}{Var_s^3}.
-$$
-
-The approximation drops terms involving third and higher moments of $e_s$, so it is most reliable when the error is small relative to $Var_s^2$.
-
-$$
-\operatorname{Bias}\!\left(\frac1S\sum_s\sqrt{\widehat{Var}_s}\right)
-\approx
--\frac{1}{8SR}\sum_s\frac{\sigma_s^2}{Var_s^3}, 
-$$
-The above formula comes from a Taylor expansion on 
-
-Thus the bias is approximately of order $1/R$ under the usual small-noise conditions. An approximate plug-in correction is
-
-\[
-\hat Var_{\mathrm{bc}}
-=
-\frac1S\sum_s
-\left(\sqrt{Y_s}+\frac{\sigma_s^2}{8R\,Y_s^{3/2}}\right).
-\]
-
-**Recommendation:** Use the simple average of $\sqrt{Y_s}$ when its estimated bias is negligible for the application. Consider the correction when the relative noise is modest and no $Y_s$ is near zero. Variances alone do not determine the *exact* bias; assessing accuracy when noise is substantial requires further assumptions about the distributions of the $e_s$.
-
-
-
-If we had 
-Some performance measures are biased with respect to the Monte Carlo uncertainty, meaning the _estimate_ of the performance is not  unbiased for the true performance.
-The estimated standard error, for example, is biased; the variance, by contrast, is not.
-The RMSE is biased, the MSE is not.
-These biases are larger when the number of replicates in the simulation are fewer.
-
-When aggregating, therefore, it is often best to aggregate the unbiased performance measures, and then calculate the biased ones from those.
-For example, to estimate aggregated standard error you might do the following:
-```{r}
-agg_perf <- sres %>% 
-  group_by( ICC, method, alpha, size_coef ) %>%
-  summarise( SE = sqrt( mean( SE^2 ) ) )
-```
-
-In math, letting $\widehat{Var}_s$ be the estimate of the variance of the method in simulation scenario $s$, and $\widehat{Var}$ the estimate of the overall variance averaged across scenarios, we have:
-$$
-\widehat{Var} = E \left[ \frac{1}{S} \sum_s \widehat{Var}_s \right]=  \frac{1}{S} \sum_s E\left[ \widehat{Var}_s \right] = \frac{1}{S} \sum_s Var_s = \overline{Var} .
-$$
-We then report the square root, $\widehat{Var}^{1/2}$, as our ``average'' standard error, so we are in the units of our original outcome.
-This will bring the reported average closer to the higher values than a simple average.
-That said, the simple average will be biased by 
-
-Beyond the above, the MCSE can also sometimes distort an aggregation of a performance measure.
-For example, if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
-In particular, imagine you have two simulation scenarios with true bias of 0.0, but your MCSE for those scenarios is 0.02.
-In one scenario, you estimate a bias of 0.017, and in the other -0.023.
-If you average the estimated biases, you get -0.003, which suggests a small bias as we would wish.
-Averaging the absolute biases, on the other hand, gives you 0.02, which could be deceptive.
-With high MCSE and small magnitudes of bias, looking at average bias, not average $|bias|$, is safer.
-
-Alternatively, you can use the formula $RMSE^2 = Bias^2 + SE^2$ to back out the average absolute bias from the RMSE and SE.
-In this approach, first aggregate to get overall average $RMSE^2$ and $SE^2$, and then calculate $Bias^2$ as $RMSE^2 - SE^2$.
+Aggegation can also be tricky when averaging over some performance measures such as the Standard Error or RMSE.
+See @sec-aggregation-notes for a more detailed discussion of how to aggregate performance measures in general.
 
 
 ## Comparing true SEs with standardization
@@ -900,6 +734,47 @@ This plot essentially echos our standard error findings, as expected.
 There are mild differences due to differences in how the degrees of freedom are calculated, however.
 
 
+## Monitoring error rates and warnings
+\index{errors and warnings}
+
+As discussed in @sec-warnings-and-errors, one performance measure of interest is the rate of throwing an error or warning.
+We can do that across all our scenarios in our cluster RCT running example.
+Since we know that ICC is an important driver of when convergence issues might occur, we start by grouping our scenarios by ICC and sample sizes and calculating rates:
+
+```{r examine_convergence_rates}
+agg <- res %>% 
+  group_by( method, ICC, n_bar, J ) %>%
+  summarise( message = 100*mean( message ),
+             warning = 100*mean( warning ),
+             error = 100*mean( error ), .groups = "drop" ) %>%
+  pivot_longer( cols = c( message, warning, error ),
+                names_to = "measure",
+                values_to = "rate" )
+```
+
+We then check to see if we are seeing anything alarming:
+```{r}
+agg %>%
+  group_by( method, measure ) %>%
+  summarize( rate = mean( rate ) ) %>%
+  pivot_wider( names_from = measure, 
+               values_from = rate )
+```
+The warning rate seems ignorably low, but we investigate messages for the MLM:
+
+```{r}
+ggplot( filter( agg, method=="MLM", measure=="message" ),
+        aes( ICC, rate, col = as.factor(J) ) ) +
+  facet_wrap( ~ n_bar ) +
+  geom_line()
+```
+
+We see that when the ICC is 0 we get a lot of convergence issues (nearly half of our runs have a message), but as soon as we pull away from 0 it drops off considerably.
+
+Diagnostics such as these are good practice for understanding what is happening more deeply.
+Further steps might be to drop those iterations with a message as a sensitivity check.
+
+
 
 ## Concluding thoughts
 
@@ -937,8 +812,8 @@ sres <- res %>%
                                 var_estimates = SE_hat^2,
                                 criteria = "relative bias" ),
              power = mean( p_value <= 0.05 ),
-             ESE_hat = sqrt( mean( SE_hat^2 ) ),
-             SD_SE_hat = sqrt( sd( SE_hat^2 ) ),
+             ESE_hat = mean( SE_hat ),
+             SD_SE_hat = sd( SE_hat ),
              .groups = "drop"
   ) %>%
   rename( R = K_absolute,
