@@ -1,5 +1,5 @@
 
-# Special topics on reporting simulation results
+# Modeling and summarizing simulation results {#sec-modeling-results}
 
 ```{r}
 #| file: "code/global-setup.R"
@@ -40,20 +40,165 @@ sres
 summary( sres$R )
 ```
 
-In this chapter we cover a few special topics on reporting simulation results.
-We first walk through some examples of how to do regression modeling, including using regression trees to identify what factor combinations are most important for explaining a set of results.
-We then dive more deeply into what to do when you have only a few iterations per scenario, and then we discuss what to do when you are evaluating methods that sometimes fail to converge or give an answer.
+Multifactor simulations are characterized by a lot of individual simulation scenarios.
+The general goal of analyzing them is to understand the themes that cut across these scenarios.
+In the prior chapter we focused on visualization as a primary tool for making such themes explicit and tangible.
+In this chapter we offer more numeric summary and model-based approaches to complement that work.
+In general, we see two primary goals for using modeling: (1) provide numeric summaries that describe general trends, and (2) identify which of a large set of possible factors might be driving the results.
+
+We begin by diving into some nuances behind aggregating across simulation scenarios, and then move into more classic modeling approaches.
+We first walk through some examples of how to do regression modeling to summarize trends across scenarios.
+This modeling is often called "meta-modeling"\index{meta models} as we are running a regression on aggregated data, using our performance measures as outcomes.
+We further note that the experimental literature often presents this approach in terms of ANOVA and ANCOVA; we use linear regression as we find it to be most transparent, although we also discuss variance decompositions using these models.
+
+Sometimes finding what factor combinations are driving results can be tricky.
+We present one tool for this, regression trees, that can easily identify which interactions between factors are most important for explaining a set of results.
+
+
+Modeling is a key tool when analyzing results with only a few iterations per scenario.
+We discuss how to use modeling, therefore, to tackle such contexts.
+A particularly useful tool in this arena are random effect meta-models, which work with the individual run data.
+We discuss this approach in our final section.
+
+
+## Aggregating performance measures {#sec-aggregation-notes}
+
+Aggregation, as shown in @sec-aggregation, is an easy way to summarize a trend across scenarios.
+In this section we unpack some important nuances to aggregation.
+Say we have $S$ scenarios and want to get an average performance of our method across all $S$ scenarios.
+If we had the true performances, $P_s$, of the scenarios we could simply average them to get an overall average performance $P$.
+Unfortunately, we do not have the true performances, but instead just have their estimates $\hat{P}_s$.
+
+Nevertheless, we can average the estimates, and hope that the errors will tend to cancel out.
+In the case of some performance measures (bias, variance, MSE, coverage, rejection rates, for example), this is exactly what happens because these estimates are unbiased (i.e., $E[ \hat{P}_s ] = P_s$).
+This means our overall estimate of the average is also unbiased, as
+$$
+E\left[ \frac{1}{S}\sum_s \hat{P}_s \right] = \frac{1}{S}\sum_s E\left[\hat{P}_s \right] = \frac{1}{S}\sum_s P_s = P .
+$$
+For example
+$$
+\widehat{Var} = E \left[ \frac{1}{S} \sum_s \widehat{Var}_s \right]=  \frac{1}{S} \sum_s E\left[ \widehat{Var}_s \right] = \frac{1}{S} \sum_s Var_s = \overline{Var} .
+$$
+
+Unfortunately, our estimates $\hat{P}_s$ are not unbiased for some key measures, the most prominent of which is our usual estimate, $\widehat{Var}_s^{1/2}$, of the true standard error, $SE_s = \sqrt{Var_s}$.
+This is because, even though $E[ \widehat{Var}_s ] = Var_s$,
+$$
+E\left[ \widehat{SE}_s \right] = E\left[ \sqrt{ \widehat{Var}_s } \right] \le \sqrt{ E\left[ \widehat{Var}_s \right] } = SE_s
+$$
+by Jensen's inequality, because the square root function is concave.
+In other words, $\widehat{SE}_s$ is biased downward: our estimates will tend to be too small.
+The question is then, is this a major problem or a minor problem.
+As we show next, it is a minor problem: the bias we get is very small, even for a modest number of simulation replicates per scenario.
+
+To show that we can usually ignore these concerns, first write $\widehat{Var}_s = Var_s + e_s$.
+The $e_s$ term is the Monte Carlo error, with $E[e_s] = 0$ and, following @MCSE-bias-SE-RMSE, a Monte Carlo variance of
+$$
+E[e_s^2] = Var[e_s] \approx \frac{(\kappa_s - 1)\, Var_s^2}{R},
+$$
+with $\kappa_s$ the standardized kurtosis of the sampling distribution of the estimator in scenario $s$ (so $\kappa_s - 1 = 2$ if that distribution is normal).
+
+Next, we use a second-order Taylor expansion (Delta method) of $f(x) = \sqrt{x}$ around $x = Var_s$.
+Since $f'(Var_s) = 1/(2\sqrt{Var_s})$ and $f''(Var_s) = -1/(4\, Var_s^{3/2})$, we have
+$$
+\widehat{SE}_s = \sqrt{\widehat{Var}_s}
+=
+\sqrt{Var_s} + \frac{e_s}{2\sqrt{Var_s}}
+- \frac{e_s^2}{8\, Var_s^{3/2}}
++ \text{higher-order terms}.
+$$
+
+Taking expectations removes the linear term because $E[ e_s ] = 0$, and gives
+$$
+E\left[\widehat{SE}_s\right] - SE_s
+\approx
+-\frac{E[e_s^2]}{8\, Var_s^{3/2}}
+=
+-\frac{(\kappa_s - 1)}{8R}\, SE_s .
+$$
+Under normality this is $-SE_s/(4R)$, i.e., a relative bias of about $-1/(4R)$.
+
+Finally, average this bias over $s$:
+$$
+\operatorname{Bias}\left(\frac1S\sum_{s=1}^S \widehat{SE}_s\right)
+\approx
+-\frac{1}{8SR}\sum_{s=1}^S (\kappa_s - 1)\, SE_s
+\;\overset{\text{normal}}{=}\;
+-\frac{1}{4R} \cdot \frac{1}{S}\sum_{s=1}^S SE_s .
+$$
+
+The approximation drops terms involving third and higher moments of $e_s$, so it is most reliable when $e_s$ is small relative to $Var_s$ (i.e., when $R$ is large relative to $\kappa_s$).
+For example, with $R = 1000$ the relative bias is roughly $0.025\%$, typically negligible relative to the Monte Carlo standard error; it matters mainly when $R$ is small or the sampling distribution is heavy-tailed.
+When $R = 100$ (usually considered a modest number of simulations), will be about a quarter of a percent.
+
+Given the above, if you want to know the average standard error across some scenarios, just average the estimated standard errors within each scenario, as long as you have a reasonable number ($R = 100$, say) replicates.
+
+That said, there may be cases where you really do want unbiased estimates.
+In this case, we recommend working with the variances, and then taking the square root of the estimated average variance as a final step to put the variances on a legible scale.
+In this case, we might report the square root, $\widehat{Var}^{1/2}$, as our "average" standard error, so we are in the units of our original outcome:
+$$ "\widehat{SE}" = \sqrt{\widehat{Var}} =  \left( \frac{1}{S} \sum_s \widehat{SE}_s^2 \right)^{1/2} . $$
+
+Note that this "average" is going to weigh the larger values more heavily, bringing the reported value close to those higher values, due to the averaging over the squares.
+Nevertheless, the overall value is some sort of summary of the true standard errors seen across the set of scenarios we averaged over.
+
+One reason to take the square-then-square-root approach is it preserves the relationship of the bias, SE, and RMSE as
+$$ \frac{1}{S} \sum_s bias_s^2 + \frac{1}{S} \sum_s SE_s^2 = \frac{1}{S} \sum_s RMSE_s^2 ,$$
+meaning $\overline{bias^2} + "\widehat{SE}"^2 = "\widehat{RMSE}"^2$, but if we had not squared then
+$$ \left( \frac{1}{S} \sum_s bias_s \right)^2 + \left( \frac{1}{S} \sum_s SE_s \right)^2 \neq \left(\frac{1}{S} \sum_s RMSE_s\right)^2 , $$
+meaning our actual average performances would _not_ follow the decomposition formula.
+In some cases, having the formula hold may be key.
+For example, if the discussion of your results revolves around ascribing the RMSE to either uncertainty (SE) or bias, then using the squared approach is likely more aligned with such a discussion.
+
+
+To compare the two aggregation approaches in our running example, we try both approaches when averaging across groups of 9 scenarios created when marginalizing out the factors of `n_bar` and `J`:
+```{r}
+agg_perf <- sres %>% 
+  group_by( ICC, method, alpha, size_coef ) %>%
+  summarise( SE_avg = mean( SE ),
+             SE_var = sqrt( mean( SE^2 ) ) )
+```
+We then look at the ratio of one approach vs the other:
+```{r}
+summary( agg_perf$SE_var /agg_perf$SE_avg )
+```
+
+Our variance-average approach gives averages around 17% higher, on average, across the differently aggregated values.
+
+The difference between the average of the SEs and the root mean square of the SEs (the variance-average) is driven by how much variation there is in the true SEs across the scenarios.
+In particular, roughly speaking we have
+$$ \frac{ \sqrt{\overline{Var}} - \overline{SE}}{ \overline{SE} } \lesssim \frac{1}{2} \left( \frac{ sd( SE_s ) }{ \overline{SE} }\right)^2 ,$$
+where the $sd(SE_s)/\overline{SE}$ term is the coefficient of variation of the SEs across scenarios.
+In the above example, we are marginalizing over `n_bar` and `J`, so we would expect that variation to be high.
+In other cases, if we are averaging over similar contexts, the two measures will be very close.
+
+
+The MCSE can also sometimes distort an aggregation of a performance measure in other ways.
+For example, if you are looking at the magnitude of bias ($|bias|$), then you can run into issues when the biases are close to zero, if they are measured noisily.
+In particular, imagine you have two simulation scenarios with true bias of 0.0, but your MCSE for those scenarios is 0.02.
+In one scenario, you estimate a bias of 0.017, and in the other -0.023.
+If you average the estimated biases, you get -0.003, which suggests a small bias as we would wish.
+Averaging the absolute biases, on the other hand, gives you 0.02, which could be deceptive.
+With high MCSE and small magnitudes of bias, looking at average bias, not average $|bias|$, is safer.
+
+Alternatively, you can use the formula $RMSE^2 = Bias^2 + SE^2$ to back out the average absolute bias from the RMSE and SE.
+In this approach, first aggregate to get overall average $RMSE^2$ and $SE^2$, and then calculate $Bias^2$ as $RMSE^2 - SE^2$.
+
+We close with a brief discussion of a related measure which is performance measures for the _estimated_ standard error of the method being evaluated.
+Many common statistical tools, e.g., the two-sample $t$-test or linear regression, provide unbiased _variance_ estimators, and these, for the same reasons as above, result in biased _standard error_ estimators.
+Here we advocate for working with the variances, and taking a final square root for interpretability: the bias is a function of the estimator and scenario considered, _not_ the number of simulation trials.
+This is about measuring actual performance, not handling Monte Carlo error.
+
 
 
 ## Using regression to analyze simulation results
 
-@sec-presentation-of-results provided some examples of using regression and ANOVA on a set of simulation results to summarize overall patterns across scenarios.
+A regression model tying a performance measure (our outcome) to the factors of a simulation is called a "meta-model" [@chipman2022, @skrondal2000DesignAnalysisMonte].
+@sec-presentation-of-results provided some examples of using regression and ANOVA on a set of simulation results to summarize overall patterns.
 In this chapter we will provide some further in-depth examples along with the R code for doing this sort of thing.
 
 ### Example 1: Biserial, revisited
 \index{example!Biserial correlation}
 
-As our first in depth example, we walk through the analysis that produces the final ANOVA summary table for the biserial correlation example in @sec-presentation-of-results.
+As our first in-depth example, we walk through the analysis that produces the final ANOVA summary table for the biserial correlation example in @sec-presentation-of-results.
 In the visualization there, we saw that several factors impacted bias.
 The eta table presented later in that same chapter then decomposed the variance in performance across several factors so we could see which simulation factors mattered most for bias.
 
@@ -97,7 +242,7 @@ We could instead use splines or some local linear regression if we were worried 
 The main effects are summaries of trends across contexts.
 For example, averaged across the other contexts, the "sample cutoff" condition is around 0.004 lower than the population (the baseline condition).
 
-As shown in @sec-presentation-of-results, we use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
+As shown in @sec-presentation-of-results, we then use ANOVA to get a sense of the major sources of variation in the simulation results (e.g., identifying which factors have negligible/minor influence on the bias of an estimator).
 To do this, we use `aov()` to fit an analysis of variance model:
 
 ```{r anova_example, warning=FALSE}
@@ -106,11 +251,12 @@ knitr::kable( summary(anova_table)[[1]],
               digits = c(0,4,4,1,5) )
 ```
 
+The question behind this is which factor or factor combinations are explaining the variation in performance across scenarios.
 The advantage here is the multiple levels of our categorical factors get bundled together in our table of results, making a tidier display.
 Note we are now including interactions between our simulation factors.
-The prior linear regression model was just estimating main effects of the factors, and not estimating these more complex relationships. 
+The prior linear regression model was just estimating main effects of the factors, and not estimating these more complex relationships; if we had included them in the prior table, it would have been overwhelmingly long.
 
-The eta table in @sec-presentation-of-results is a summary of this anova table, which we generate as follows:
+Finally, the eta table in @sec-presentation-of-results is a summary of this anova table, which we generate as follows:
 
 ```{r, warning=FALSE, eval=FALSE}
 library(lsr)
@@ -126,6 +272,10 @@ etaSquared(anova_table) |>
 We group the results by the order of the interaction, so that we can see the main effects first, then two-way interactions, and so on.
 We then sort within each group to put the high importance factors first.
 The resulting variance decomposition table shows the amount of variation explained by each combination of factors.
+<!--Things that explain a lot of variation are important.
+Things that do not, are less so.
+<!-- LWM: I had liked the above lines. I think you cut them?  But I am merging and things are weird so I am flagging for review-->
+
 
 ### Biserial correlations, revisited
 
@@ -446,12 +596,16 @@ We also see some interesting trends, such as the impact of n_bar declines when I
 
 
 ## Using regression trees to find important factors
+\index{regression trees}
 
 With more complex experiments, where the various factors are interacting with each other in strange ways, it can be a bit tricky to decipher which factors are important and what patterns are stable.
-Another exploration approach we can use are regression trees.
+Another exploration approach we can use are regression trees [@gonzalez2018, @collier2022].
+Regression trees are decision trees, where at each node you go left or right depending on the level of an identified factor.
+At the bottom of the tree are different "leaves" that report out the average performance of all scenarios that meet the given requirements identified by the branching decisions.
+(See @gonzalez2018 for an overview of trees in the context of reporting on simulation results.)
 
-We wrote a utility method, a wrapper to the `rpart` package, to do this ([script here](code/create_analysis_tree.R)).
-Fitting a tree that regresses our performance onto the factors will show us which factors are most related to performance.
+A tree fitting algorithm selects features that most successfully divide the observations into group that have outcomes as homogeneous as possible.
+In our case, with the features being simulation factors and the outcome being performance, the fitting procedure will tend to select those simulation factors that are most related to performance.
 Here, for example, we see what predicts larger bias amounts in our cluster RCT running example:\index{example!cluster randomized trial}
 
 ```{r, include=FALSE}
@@ -471,9 +625,11 @@ create_analysis_tree( sres_f,
                       max_leaves = 5 )
 ```
 
-This tree gives a very straightforward story: if `size_coef` is not 0 and we are using LR, then alpha drives bias.
+Our fit tree gives a very straightforward story: if `size_coef` is not 0 and we are using LR, then alpha drives bias.
+The `create_analysis_tree()` function is a wrapper to the `rpart` tree-fitting package ([script here](code/create_analysis_tree.R)).\index{rpart}
 
-Note that the default pruning for a tree is based on a cross-fitting evaluation, but as our sample size is not too terribly high (just the number of simulation scenarios fit), cross-fitting is quite unstable.
+Generally a tree is fit with many, many leaves (potentially even one leaf per observation) and then "pruned" to get it to a size appropriate for the dataset being analyzed.
+The default pruning is based on a cross-fitting evaluation, but as our sample size is not too terribly high (just the number of simulation scenarios fit), cross-fitting is quite unstable.
 Rerunning the code with a different seed will generally give a different tree.
 To control stability, we find that it is often worth forcibly controlling the size of the tree.
 As trees are built greedily, forcibly trimming often leaves you only with the big things.
@@ -498,7 +654,109 @@ Here we force more leaves to get at some more nuance.
 We again immediately see, for the LR method, that bias is large when we have non-zero size coefficient _and_ a large alpha value.
 We also see that $J$ may have some additional effect.
 
-Generally we would not use trees like this for a final reporting of results, but they can be important tools for _understanding_ your results, which leads to how to make and select more conventional figures for an outward facing document.
+Generally we would not use trees like this for a final reporting of results, but they can be important tools for _understanding_ results, which can guide thinking on how to create more conventional figures for an outward facing document.
+
+
+## Using theory to directly model the simulation results
+
+Again revisiting the biserial correlation example described in @sec-biserial-correlation-visualization, we saw that bias can change notably across scenarios considered, and that several factors appear to be driving these changes.
+These factors also seem to have complex interactions: note how when p1 = 0.5, we get larger dips than when p1 = 1/8.
+@fig-biserial-correlation gives a sense of the complex combination of factors that influence bias and also suggests some possibilities for further analysis.
+In particular, the figure suggests that the bias grows smaller as the sample size increases. 
+Developing a model might let us draw more specific conclusions about how bias relates to sample size. 
+
+```{r fig-biserial-N2, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "Bias of the biserial correlation estimate in an extreme groups design as a function of inverse sample size, cut-off thresholds, and cut-off types, for selected values of $\\rho$."}
+
+r_F %>%
+  filter(rho %in% c(0.0, 0.2, 0.4, 0.6, 0.8)) %>%
+  mutate(
+    rho_f = factor(rho)
+  ) %>%
+  ggplot() + 
+  aes(1 / n, bias, linetype = rho_f, color = rho_f) + 
+  scale_x_continuous(transform = "reverse", breaks = c(0.05, 0.025)) + 
+  geom_point() + geom_line() + 
+  facet_grid(fixed ~ p1) + 
+  theme_bw() +
+  labs(
+    x = "1 / n", 
+    y = expression(Bias(r[eg])),
+    color = expression(rho),
+    linetype = expression(rho)
+  ) + 
+  theme(legend.position = "top")
+```
+<!-- JEP: We could cut the figure above and just gloss it by saying that we posit the model "Based on some exploratory analysis...". Or we could make creating the above figure an exercise? Could also make an exercise to test whether the posited model fits well. -->
+
+To get an initial sense of how bias relates to sample size, we created @fig-biserial-N, which follows a similar layout to @fig-biserial-correlation but shows the inverse sample size on the horizontal axis of each plot, with different values of the correlation parameter corresponding to different colors and line types.
+For clarity, the plot shows only a small subset of the correlation levels in the full design.
+@fig-biserial-N strongly suggests that the bias is inverse proportional to the sample size. If we let $B_{pqrs}$ be the estimated bias for cut-off level $p$, cut-off type $q$, true correlation level $r$, and sample size level $s$ and let $N_s$ be the actual value of sample size level $s$, we posit that
+$$
+B_{pqrs} = \beta_{pqr} \times \frac{1}{N_s} + e_{pqrs},
+$$
+where $e_{pqrs}$ is an error capturing the Monte Carlo uncertainty in the bias estimate. 
+If this model is correct, it would allow us to simplify further analysis of the simulation results because it reduces the dimension of the design. 
+Rather than dealing with the `r nlevels(r_F$n_f)` distinct levels of the sample size factor, we can reduce it to a single-parameter relationship and focus the remaining analysis on how $\beta_{pqr}$ varies across the remaining three factors in the design.
+Furthermore, thinking in terms of a formal model also allows us to test whether the posited relationship provides an adequate fit to the data.
+
+```{r fig-biserial-beta2, echo=FALSE, message=FALSE, fig.width = 10, fig.height = 5, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+
+r_F_bias_factor <- 
+  r_F %>%
+  summarize(
+    beta = sum(bias / (bias_mcse^2 * n)) / sum(1 / (bias_mcse^2 * n^2)),
+    .by = c(fixed, p1, rho)
+  )
+
+r_F %>%
+  mutate(
+    n_bias = n * bias
+  ) %>%
+  ggplot() + 
+  aes(rho, n_bias, color = n_f) + 
+  geom_point() + 
+  geom_line(
+    data = r_F_bias_factor, 
+    aes(y = beta, linetype = NULL, color = NULL), 
+    color = "red",
+    linewidth = 1.5
+  ) + 
+  facet_grid(fixed ~ p1) + 
+  theme_bw() +
+  labs(
+    x = expression(rho), 
+    y = expression(n %*% Bias(r[eg])),
+    color = "n"
+  ) + 
+  theme(legend.position = "top")
+```
+
+Under the assumptions of the model, we can estimate $\beta_{pqr}$ simply by calculating $N_s \times B_{pqrs}$ and averaging across values of $N_s$. 
+@fig-biserial-beta plots $N_s \times B_{pqrs}$, following the same layout as our original @fig-biserial-correlation.
+Individual points correspond to $N_s \times B_{pqrs}$ for each unique scenario in the simulation; the yellow points are for $N_s = 1000$, for which the Monte Carlo error is much larger than the other sample sizes. 
+The red lines correspond to the estimated bias coefficients $\beta_{pqr}$, calculated by taking weighted averages across sample sizes.
+It is apparent that the red lines capture the form of the bias quite well, which suggests that we can use our model coefficients for further analysis.
+For example, we could use ANOVA to understand the influence of the remaining factors on $\beta_{pqr}$.
+We could also create a more succinct summary of the bias relationships by plotting $\beta_{pqr}$ for varying cut-off values, cut-off types, and correlation parameters, as in @fig-biserial-beta-summary-2.
+
+```{r fig-biserial-beta-summary-22, echo=FALSE, message=FALSE, fig.width = 7, fig.height = 3, out.width="100%", fig.cap = "$N$ times the bias of the biserial correlation estimate in an extreme groups design as a function of $\\rho$, cut-off thresholds, and cut-off types."}
+
+ggplot(r_F_bias_factor) + 
+  aes(rho, beta, color = p1, linetype = p1) + 
+  geom_point() + geom_smooth(method = "loess", se = FALSE) + 
+  facet_wrap( ~ fixed ) + 
+  theme_bw() +
+  labs(
+    x = expression(rho), 
+    y = expression(n %*% Bias(r[eg])),
+    color = "",
+    linetype = ""
+  ) + 
+  theme(legend.position = "right")
+```
+
+
+
 
 
 ## Analyzing results with few iterations per scenario {#sec-few-iterations}
@@ -782,58 +1040,6 @@ This implies that there is a lot of variation due to interactions between the si
 <!-- LWM: This is not working cleanly, and we are not seeing a major reduction in unexplained simulation variation at all ---- cut, update, do what? --->
 
 
-
-
-
-## What to do with warnings in simulations
-\index{errors and warnings}
-
-Sometimes our analytic strategy might give some sort of warning (or fail altogether).
-In @sec-error-handling we saw how to trap such warnings or errors.
-In particular, in @sec-capturing-errors-and-warnings we illustrated error trapping on the multilevel model for the cluster RCT experiment by revising our `analysis_MLM()` method to an `analysis_MLM_safe()` method, which gave output from the MLM method that looked like this:
-
-```{r, include=FALSE}
-source( "case_study_code/clustered_data_simulation.R" )
-```
-
-```{r}
-set.seed(101012)  # (I picked this to show an issue.)
-dat <- gen_cluster_RCT( J = 50, n_bar = 100, sigma2_u = 0 )
-analysis_MLM_safe( dat )
-```
-
-For this dataset, a convergence issue that gave rise to the indicated message and warning.
-
-Once the full simulation is run, we can examine the patterns of these warnings and errors to see if they are a serious or minor problem.
-We first do this by calculating the rate of errors or warning messages as a performance measure in its own right.
-Especially if we plan on possibly dropping some trials, it is important to see how often our estimators are acting peculiarly.
-
-For example, in our cluster RCT running example, we know that ICC is an important driver of when convergence issues might occur, so we can explore how often we get a convergence message by ICC level by calculating percent change of a message, warning, or error:
-
-```{r examine_convergence_rates}
-res |> 
-  dplyr::filter( method == "MLM" ) |>
-  group_by( method, ICC ) |>
-  summarise( message = 100*mean( message ),
-             warning = 100*mean( warning ),
-             error = 100*mean( error ) ) |>
-  pivot_wider( names_from = method,
-               values_from=c( "message", "warning", "error" ) )
-```
-
-We see that when the ICC is 0 we get a lot of convergence issues (nearly half of our runs have a message), but as soon as we pull away from 0 it drops off considerably.
-Thankfully, we never saw actual errors and our warnings were very rare.
-
-At this point we have to decide whether to drop the problematic runs or keep them.
-Ideally, failure would not be too common, meaning we could drop or keep the problematic iterations without really impacting our overall results.
-
-In our case, for example, it should not matter much, except possibly when ICC = 0, and we know the convergence issues are driven by trying to estimate a 0 variance, and thus is in some sense expected.
-Furthermore, we know people using these methods would likely ignore these messages, and thus we are faithfully capturing how these methods would be used in practice.
-We might eventually, however, want to do a separate analysis of the ICC = 0 context to see if the MLM approach is actually falling apart, or if it is just throwing warnings.
-
-Importantly, if the decision is to drop, then the entire simulation iteration, including the other estimators, should be dropped even if the other estimators worked fine!
-If there is something particularly unusual about the dataset that caused the concern, then dropping for one estimator and keeping for the others would be unfair: in the final performance measures the estimators that did not give a warning could be being held to a higher standard, making the comparisons between estimators biased.
-Consider, for example, if the dropped datasets were fundamentally harder to evaluate.
 
 
 ## Concluding thoughts

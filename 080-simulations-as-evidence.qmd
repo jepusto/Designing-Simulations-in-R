@@ -30,7 +30,7 @@ Such extreme simulations might be considered overly _clean_ tests.
 
 Extreme and clean simulations are also usually easier to write, manipulate, and understand.
 Such simulations can help us learn about the estimators themselves.
-For example, we can use simulation to uncover how different aspects of a data generating process\index{data-generating process} affect the performance of an estimator.
+For example, we can use simulation to uncover how different aspects of a data generating process affect the performance of an estimator.
 To discover this, we would need a data generation process with clear levers controlling those aspects.
 Simple simulations can be used to push theory further---we can experiment to gain an inclination of whether a novel approach to something is a good idea at all, or to verify we are right about an intuition or derivation about how well an estimator can work.
 
@@ -104,13 +104,17 @@ We might then then simulate study sizes using a Poisson with mean parameters of 
 
 
 ### Resample real data directly to get authentic distributions
+\index{extand simulations}
 
 You can use real data directly in your simulation.
 For example, say you need a population distribution for a slew of covariates.
 Rather than using something artificial (such as a multivariate normal), you can pull population data on a collection of covariates from some administrative data and then use those data as a population distribution.
 You then sample (probably with replacement) rows from your reference population to generate your simulation sample.
 
-The appeal here is that your covariates will then have distributions that are much more authentic than some multivariate normal--they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.
+An _extant simulation_ [@jaccard2021] is when this is done to generate complete datasets---in this case, the population parameters are the estimates on the full data, and each iteration samples (with replacement) from the full set.
+See @jaccard2021 for a full treatment of running simulations in this way, along with some ideas of how to modify or tweak the resulting data to achieve different ends such as inducing null effects on some variables when needed.
+
+The appeal of resampling is that whatever you resample will have distributions that are much more authentic than when generated via some parameteric model--they will include both continuous and categorical variables, they will tend to be skewed, and they will be correlated in different ways that are more interesting than anything someone could make up.
 
 @longUsingHeteroscedasticityConsistent2000 used an approach like this in their study of heteroscedasticity-robust standard errors.
 They wanted to explore how well these standard errors worked in practice, with a focus on how high leverage points could undermine their effectiveness.
@@ -143,7 +147,6 @@ We can thus still build more general evidence, but the evidence will always be a
 
 We usually would build a calibrated simulation out of existing data.
 As discussed in the prior section, we might start with sampling from the covariate distribution of an actual dataset so that the distribution of covariates is authentic in how the covariates are distributed and, more importantly, how they co-relate.
-
 
 Just putting a model on top of a real dataset does not necessarily achieve true calibration.
 The relationship between our covariates and outcome would need to, even if it is model dependent, be realistic in order to truly assess how well the estimators work in practice.
@@ -499,8 +502,22 @@ We may still end up with relationships between a dropped $X$ and $Y$ due to the 
 
 
 
+## Using simulation to reflect and understand
+
+@white2023HowCheckSimulation gives a variety of high-level advice regarding what to do when one's simulation results are confusing (e.g., check if you have correctly implemented one versus two sided tests if rejection rates or power is surprising).
+Confusing results will happen a lot, and when you get them, it will often be hard to tell if that is because you are learning something about your methods, or you are learning something about errors in your code.
+
+Iteratively exploring confusing results, and then repairing your simulation, is generally good practice, but it also can lead to fishing.
+As discussed in @sec-neutrality and @experimental-design-conclusion, other researchers (e.g., @pawel2023 and @siepe2024SimulationStudiesMethodological) raise valid concerns about "simulations being doomed to succeed," which is a function of tinkering with a simulation until it behaves as you believe it should.
+There is a real tension between getting it rigth, and deceiving oneself.
+
+One simple practice is to keep a log of the overall process, and before running any large simulation, writing a small memo predicting what you expect to see.
+White et al. provide further advice, such as checking the Monte Carlo error – sometimes a surprising result is actually just due to random chance! This is always the first step one should take.
+
+
 ## Simulation sections in methods papers
 
+<!-- LWM: I think the Navigating, Neutrality, and Principles sections could be stand-alone, and not under this overall umbrella?  but then this section would need to be reworked. -->
 Simulations, as we have argued, have many uses, and appear in many places.
 One of the most prevalent is the simulation section of a statistical methods paper.
 In this section, we make a case for what kinds of simulation evidence a methods paper should have, and outline several principles to consider if you are writing up, or reviewing, such a section.
@@ -684,17 +701,44 @@ If your simulation runs quickly, you can add more factors in addition to scaling
 
 
 
+### Neutrality
+
+As discussed in @kelter2023, in statistical methodology, the famous "publish or perish" adage could be reframed as "publish new methods or perish" [@boulesteix2017necessity].
+This pressure in turn arguably creates strong incentives for researchers to find simulations that make their contributions appear meaningful.
+It also means those wishing to _use_ a method for actual analysis face a daunting number of choices as to what method might be best.
+One solution are carefully done comparative simulations that lay out when a method is better than another, to help guide practice.
+In other words, such simulations (if well done) are important and we need more of them!
+
+The Boulesteix letter builds on the authors prior work [@boulesteix2013Plea] that proposes a framework for "neutrality" in comparative simulation evaluations.
+After a systematic review establishing that, indeed, articles where authors are developing a method tend to find that method is superior, while articles that are more comparison focused tend to find more mixed results, they build a framework for what might constitute neutrality:
+
+A. The main focus of the article is the comparison itself (and _not_ the development of a novel method).
+B. The authors themselves are reasonably neutral. As put in their paper, "an author who has published an article on a new method six months before is likely to be less neutral than an author who has often used several of the considered methods for statistical consulting."
+C. The simulation design (evaluation criteria, methods, data sets used) should be well motivated. (In their paper, Section 4 unpacks how this might be done.)
+
+These concerns are quite real.
+@pawel2023 provide a taxonomy of "QRPs," or Questionable Research Practices, that can result in simulations that seem to find things that are not true.
+These QRPs (including not justifying number of simulations, not reporting MCSEs, dropping comparison methods or scenarios from reporting, or chosing performance metrics strategically) can appear in the design, execution, and reporting of a simulation.
+To prove their point, in their paper they demonstrate generating "evidence" for the superiority of a novel prediction method that has no actual benefit, using their QRPs.\index{Questionable Research Practices}
+
+
+The three principles of Boulesteix and colleagues should be kept in mind regardless of ones purpose for simulation.
+In particular, even if developing a method, finding the edges where the method fails is a service to the field, and strengthens the plausibility of claims regarding when the method is more successful.
+@siepe2024SimulationStudiesMethodological argue for pre-analysis plans, which could help keep researcher bias in check; while true, we find this to be difficult to implement in practice, although @pawel2023 does offer some suggestions on how to be more flexible, yet clear, with such an approach.\index{pre-analysis plans}
+See our discussion in @experimental-design-conclusion.
+
+
 ### Principles of design and presentation
 
-We next dive into some suggested principles.
+We next dive into a few principles for creating and presenting excellent simulations.
 
 
-#### Don't make your DGP stupid
+#### Do not make a stupid DGP
 
 All too often, the simulation section of a methods paper uses a DGP that is so extreme it is hard to image how it can be useful for anything other than a quick check of theory.
 In reading papers, watch for exponential functions, extremely small amounts of noise relative to the variation of the covariates, or other features that make the DGP unrealistic.
 
-Do not do this, if you do not have good reason.
+Do not do this, if you do not have good reason to do so.
 
 #### Figures, not tables
 
@@ -709,7 +753,7 @@ You might also have the raw values in a supplement, if you think people may be i
   
 #### Avoid selective reporting
 
-Simulations are particularly susceptible to selective reporting.
+Simulations are particularly susceptible to selective reporting, one of the sins identified by @pawel2023.
 The combination of degrees of freedom available to the researcher and the pressure
 to present results favorably creates a real risk of findings that do not paint an accurate picture.
 
@@ -803,11 +847,24 @@ possible.
 
 #### Report MCSEs, but do it concisely
 
-Including error bars from MCSEs on your plots can increase clutter substantially.
+All too often, researchers neglect to report MCSEs, making it hard to ascertain if their results are real, or noise.
+@koehler2009AssessmentMonteCarlo conducted a systematic review and found chronic under-reporting of any sense of simulation uncertainty.
+
+Including this uncertainty can be tricky: including error bars from MCSEs on your plots, for example, can increase clutter substantially.
 Instead consider putting the range of MCSEs in the caption of your plot.
 
-In your text, do not report differences between methods that are smaller than the MCSEs you are calculating.
-If arguing equivalence, say that your simulations show the methods are about the same, but could differ by about twice your MCSE (getting a true MCSE on the difference can be surprisingly tricky as the estimated performance measures of different methods will be correlated; see @sec-multilevel-meta-regression for further discussion).
+Use the MCSEs as a guide for what findings are worth discussing.
+Avoid reporting differences between methods that are smaller than the MCSEs you are calculating.
+If arguing equivalence, say that your simulations show the methods are about the same, but could differ by about twice your MCSE (getting a true MCSE on the difference can be surprisingly tricky, as the estimated performance measures of different methods will be correlated).
+Alternatively, use modeling on your experimental results to directly estimate differences.
+See @sec-multilevel-meta-regression for further discussion.
+
+#### Report on error rates and convergence failures
+
+@pawel2025's systematic review of nearly 500 studies found a chronic lack of reporting of when evaluated methods failed to provide a valid output due to failure to converge or having had an error.
+Even fewer studies they reviewed discussed how such failures were handled.
+At minimum, follow their core recommendation: always quantify and report missingness, even if none was observed.
+See @sec-warnings-and-errors for a bit more discussion of how to explore and report these concerns.
 
 
 ## Concluding thoughts
