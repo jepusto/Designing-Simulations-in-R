@@ -1,5 +1,3 @@
-
-
 # demo testing file
 
 my_DGP <- function( N, mu, beta ) {
