@@ -210,7 +210,7 @@ rps <- simhelpers::repeat_and_stack( 1000, {
   tibble( ATE_hat = coef(mod)[["Z"]],
           SE_hat = arm::se.coef(mod)[["Z"]] )
   }) 
-rps %>% 
+rps |> 
   summarise( EATE_hat = mean( ATE_hat ),
              bias = EATE_hat - tauS,
                    SE = sd( ATE_hat ),
@@ -234,7 +234,7 @@ rps_sup <- simhelpers::repeat_and_stack( 1000, {
           SE_hat = arm::se.coef(mod)[["Z"]] )
   }) 
 
-rps_sup %>% summarise( EATE_hat = mean( ATE_hat ),
+rps_sup |> summarise( EATE_hat = mean( ATE_hat ),
                        bias = EATE_hat - 1,
                    SE = sd( ATE_hat ),
                    ESE_hat = sqrt( mean( SE_hat^2 ) ) )
@@ -285,7 +285,7 @@ one_finite_run <- function( R0 = 3, n = 100, ... ) {
         mod = lm( Yobs ~ Z, data=dat )
         tibble( ATE_hat = coef(mod)[["Z"]],
                 SE_hat = arm::se.coef(mod)[["Z"]] )
-    }) %>%
+    }) |>
     bind_rows()
   rps$ATE = mean( dat$Y1 - dat$Y0 )
   rps
@@ -310,8 +310,8 @@ Each finite run is a very noisy simulation for a fixed dataset.
 This means when we calculate performance measures we have to be careful to avoid bias in the finite-level calculations; in particular, we need to focus on estimating $SE^2$ across the finite runs, not $SE$, to avoid the bias caused by having a few replicates within each finite sample run:
 
 ```{r anayze_runs}
-fruns <- runs %>% 
-  group_by( runID ) %>%
+fruns <- runs |> 
+  group_by( runID ) |>
   summarise( EATE_hat = mean( ATE_hat ),
              SE2 = var( ATE_hat ),
              ESE_hat = mean( SE_hat ),
@@ -320,10 +320,10 @@ fruns <- runs %>%
 
 And then we aggregate our finite sample runs:
 ```{r agg_anal_runs}
-res <- fruns %>%
+res <- fruns |>
   summarise( EEATE_hat = mean( EATE_hat ),
              EESE_hat = sqrt( mean( ESE_hat^2 ) ),
-             ESE = sqrt( mean( SE2 ) ) ) %>%
+             ESE = sqrt( mean( SE2 ) ) ) |>
   mutate( calib = 100 * EESE_hat / ESE )
 
 res
@@ -341,15 +341,15 @@ The only concern is our estimates of MCSE will be off due to the clustering in o
 Here we calculate superpopulation performance measures (both with the squared SE and without; we prefer the squared version for assessing calibration):
 
 ```{r make_inflation_calc}
-runs %>%
+runs |>
   summarise( EATE_hat = mean( ATE_hat ),
              SE_true = sd( ATE_hat ),
              SE_hat = mean( SE_hat ),
              SE2_true = var( ATE_hat ),
-             SE2_hat = mean( SE_hat^2 ) ) %>%
+             SE2_hat = mean( SE_hat^2 ) ) |>
   pivot_longer( cols = c(SE_true:SE2_hat ),
                 names_to = c( "estimand", ".value" ),
-                names_sep ="_" ) %>%
+                names_sep ="_" ) |>
   mutate( inflate = 100 * hat / true )
 ```
 

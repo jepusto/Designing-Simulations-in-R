@@ -1,3 +1,4 @@
+
 r_and_z <- function(data) {
   
   r <- cor(data$C1, data$C2)

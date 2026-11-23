@@ -1,7 +1,5 @@
-
 library( rpart.plot )
 library( rpart )
-
 
 #' Make a regression tree with the simulation results 
 #' 
@@ -23,7 +21,7 @@ create_analysis_tree <- function( data,
   tree <- rpart(form, data = data, cp = initial_cp)
   
   # CP table analysis
-  cp_table <- tree$cptable %>% 
+  cp_table <- tree$cptable |>
     as_tibble()
   
   # Find optimal CP using 1-SE rule

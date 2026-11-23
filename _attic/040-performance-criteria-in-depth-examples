@@ -79,20 +79,20 @@ Now let's run our simulation for a series of weaker instrument values:
 ```{r}
 pis = c( 0.01, 0.025, 0.05, 0.075, 0.1, 0.2, 0.3 )
 results <- map_dfr(pis, \(pi) {
-  sim_iv(n = 1000, pi = pi, reps = 1000) %>%
+  sim_iv(n = 1000, pi = pi, reps = 1000) |>
     mutate(pi = pi)
 } )
 ```
 
 We compute some performance metrics, and look at the bias and standard error of our estimates.
 ```{r}
-sres <- results %>%
-  group_by( pi, method ) %>%
+sres <- results |>
+  group_by( pi, method ) |>
   summarise( 
     bias = mean(pe) - 1,
     SE = sd(pe), .groups = "drop" )
 
-sresL <- sres %>%
+sresL <- sres |>
   pivot_longer(
     cols = c(bias, SE ),
     names_to="metric",
@@ -123,11 +123,11 @@ Sometimes we have to tweak our performance metrics to account for this kind of i
 One approach is to look at median, rather than mean, performance:
 
 ```{r}
-sresL <- results %>%
-  group_by( pi, method ) %>%
+sresL <- results |>
+  group_by( pi, method ) |>
   summarise( 
     bias = median(pe) - 1,
-    MAD = median(abs(pe - median(pe))), .groups = "drop" ) %>%
+    MAD = median(abs(pe - median(pe))), .groups = "drop" ) |>
   pivot_longer(
     cols = c(bias, MAD ),
     names_to="metric",
@@ -151,7 +151,7 @@ If we do this to our raw estimates, we can get more stable estimates of performa
 We can top-code at a large value that we would consider an outlier, so that estimators that have extreme estimates do get penalized, but just do not get penalized so much it distorts our picture.
 
 ```{r}
-results <- results %>%
+results <- results |>
   mutate( pe_wind = pmax( -20, pmin(pe, 20) ) )
 ```
 
@@ -168,25 +168,25 @@ We can see the inner distribution much better now.
 We can also assess how much Windorization there is:
 
 ```{r}
-sres <- results %>%
-  group_by( pi, method ) %>%
+sres <- results |>
+  group_by( pi, method ) |>
   summarise( 
     wind = mean(pe_wind != pe), .groups = "drop"
-  ) %>%
+  ) |>
   pivot_wider( names_from = "method",
                values_from="wind" )
-sres %>%
+sres |>
   knitr::kable( digits = 2 )
 ```
 We could even decide 8% is too much data to windorize, and we could use this to inform our choice of threshold.
 
 We then use our windorized values to calculate our final performance:
 ```{r}
-sresL <- results %>%
-  group_by( pi, method ) %>%
+sresL <- results |>
+  group_by( pi, method ) |>
   summarise( 
     bias = mean(pe_wind) - 1,
-    SE = sd(pe_wind), .groups = "drop" ) %>%
+    SE = sd(pe_wind), .groups = "drop" ) |>
   pivot_longer(
     cols = c(bias, SE ),
     names_to="metric",
@@ -221,26 +221,26 @@ tt$theta = tt$theta * 10
 tt$pred_LASSO = tt$pred_LASSO * 10
 tt$pred_BART = tt$pred_BART * 10
 
-ttL <- tt %>%
+ttL <- tt |>
   pivot_longer( cols = c(pred_LASSO, pred_BART),
                 names_to = "method",
                 names_prefix="pred_",
-                values_to = "pred" ) %>%
+                values_to = "pred" ) |>
   relocate( method )
 ttL
 ```
 
 If we calculate average RMSE performances for this single simulation run we would have:
 ```{r}
-ttL %>%
-  group_by( method ) %>%
+ttL |>
+  group_by( method ) |>
   summarise( RMSE = sqrt( mean( (theta - pred)^2 ) ) )
 ```
 
 But if you calculated how correlated the predictions were, you would get
 ```{r}
-ttL %>%
-  group_by( method ) %>%
+ttL |>
+  group_by( method ) |>
   summarise( cor = cor( theta, pred ),
              spear = cor( theta, pred, method = "spearman" ) )
 ```
