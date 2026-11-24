@@ -73,6 +73,8 @@ Of course, boundary-pushing needs to be tempered by considering the plausibility
 
 <!-- JEP: Should our principles also separately highlight plausibility or relevance to real data analysis? -->
 
+
+
 ### Deciding on the factors
 
 A good way to begin designing a simulation experiment is to write down all the factors you can think of, and then sort through them to identify which are the most important.
@@ -97,6 +99,10 @@ If possible, write the data generation code with all the factors as arguments to
 That said, it is also helpful to specify default values for factors, so you can ignore them if you decide they are not important enough to vary.
 
 Following the above principles will, almost certainly, result in too many factors to vary, so you will then need to select a subset of them to include in your simulation design.
+To get a sense of what is possible, start with a few varying factors, run $R=10$ or so iterations, and time your code to see how long your simulation runs (see @sec-profiling-code for how).
+If your simulation runs quickly, you can add more factors in addition to scaling up the number of replications.
+If not, then you have some tough decisions ahead.
+
 The entire simulation process is iterative: pick the factors you are most confident about, and know as you accumulate simulation evidence and thus learn more about what is going on, you will likely be adjusting your set of factors or running other simulations to verify your developing understanding.
 
 
@@ -409,6 +415,12 @@ We close with a few more principles of good design that are worth keeping in min
 
 ### Selecting the number of replications
 
+
+Too few replications and your simulation results will be noisy---a reviewer may
+reasonably wonder whether your conclusions hold up, or whether you got lucky.
+Too many and you waste computational resources that could have been spent on more
+scenarios or factors.
+
 The number of replications per scenario $R$ is a key design choice.
 For some performance measures, there are good initial rules of thumb [see also @morris2019UsingSimulationStudies; @Burton2006design].
 
@@ -448,6 +460,21 @@ Using a constant $R$ for every scenario will mean that the MCSEs will be smaller
 If one really wanted to be fancy, they could set $R = R_0 / N$, where $R_0$ is some base factor, so that the MCSE of bias will be roughly constant across scenarios with different sample sizes.
 The simulations reported in @pustejovsky2014converting used this strategy, setting $R = 10^7 / N$ for simulations that examined sample sizes of $N = 20, 40, 80$, and $160$.
 The nice thing here is you get a double win: fewer trials for the larger sample sizes (which tend to be slow) while maintaining comparable levels of precision across all scenarios!
+
+
+You can even use the MCSE\index{Monte Carlo standard error} formula to calculate target iterations.
+For example, the Monte Carlo\index{Monte Carlo simulation} standard error for an estimated coverage probability $\hat{p}$
+based on $B$ replications is approximately $\sqrt{\hat{p}(1 - \hat{p}) / B}$.
+For a nominal 95% confidence interval, this means at $B = 1000$ replications, the
+Monte Carlo SE is about 0.7 percentage points---precise enough to distinguish
+coverage of 93% from 95% but not to distinguish 94% from 95%.
+If that level of precision is important for your argument, you need more
+replications.
+Reporting these Monte Carlo SEs, or at minimum thinking carefully about them when
+choosing $B$, signals methodological care to readers.
+
+All of this said, as a rule of thumb, $B = 1000$ is often good enough.
+
 
 
 
@@ -507,6 +534,13 @@ See @Boos01062000 for further discussion.
 <!-- LWM: This subsection feels like a stub.  I wrote it just to cite the above paper. But perhaps we should cut this entirely?  Or maybe move it elsewhere?  I do think saying something about expensive simulations could be important? -->
 
 
+
+
+
+
+
+
+
 ## Reporting on the simulation design
 
 It is impossible to evaluate a simulation if you do not understand what was simulated.
@@ -536,20 +570,6 @@ The goal is to make these choices transparent, but not front-and-center as they 
 Bayesian simulations, in particular, have specific information regarding convergence and mixing that might be key elements to report.
 See @kelter2023 for further discussion of simulation design and presentation when working in a Bayesian framework.
 
-## Neutrality {#sec-neutrality}
-
-As discussed in @kelter2023, in statistical methodology, the famous "publish or perish" adage could be reframed as "publish new methods or perish" [@boulesteix2017necessity].
-This letter builds on the authors prior work proposing a framework for "neutrality" in simulation evaluations where the goal is to compare different method [@boulesteix2013Plea].
-After a systematic review establishing that, indeed, articles where authors are developing a method tend to find that method is superior, while articles that are more comparison focused tend to find more mixed results, they build a framework for what might constitute neutrality:
-
-A. The main focus of the article is the comparison itself (and _not_ the development of a novel method).
-B. The authors themselves are reasonably neutral. As put in their paper, "an author who has published an article on a new method six months before is likely to be less neutral than an author who has often used several of the considered methods for statistical consulting."
-C. The simulation design (evaluation criteria, methods, data sets used) should be well motivated. (In their paper, Section 4 unpacks how this might be done.)
-
-These principles should be kept in mind regardless of ones purpose for simulation.
-In particular, even if developing a method, finding the edges where the method fails is a service to the field, and strengthens the plausibility of claims regarding when the method is more successful.
-
-
 
 
 ## Concluding thoughts {#experimental-design-conclusion}
@@ -558,12 +578,6 @@ In this chapter, we moved from isolated simulation scenarios to a fully specifie
 Full factorial designs involve systematically varying multiple features of a data-generating process, thereby allowing for exploration of how the performance of an estimator depends on the context in which it is used.
 By thinking of simulations as designed experiments, we gain a principled framework for choosing parameters and curating a set of scenarios to explore.
 The result is a rich collection of simulation output that can capture bias, variability, uncertainty estimation, or hypothesis testing behavior across a wide range of plausible conditions.
-
-As we noted at the outset, the primary limitation of a simulation study is generalizability.
-Multifactor simulations are often designed to address this core concern.
-Of course, no simulation is entirely generalizable---even an extensive full factorial design will entail many stylized assumptions and artificial constraints.
-To withstand critiques about generalizability, simulations should be designed by aiming for comprehensiveness, including conditions that are relevant to real-life applications, and including conditions that allow for comparison to previous methodological work.
-Although the result will surely fall short of perfect generalizability, we can still design simulations thoughtfully and, as best we can,  avoid blatant limitations that a critic might identify as a basis for dismissing our findings.
 
 In our experience, it is quite rare to nail the choice of parameters on the first pass.
 Expect to add and subtract from an identified set of simulation factors with each round of results.
